@@ -163,6 +163,110 @@ pub fn generate_token() -> String {
     token
 }
 
+/// Session manager for handling user sessions
+#[derive(Debug, Clone)]
+pub struct SessionManager {
+    store: SessionStore,
+    config: SessionConfig,
+}
+
+impl SessionManager {
+    /// Create a new session manager
+    pub fn new(config: SessionConfig) -> Self {
+        Self {
+            store: SessionStore::new(),
+            config,
+        }
+    }
+
+    /// Create a new session for a user
+    pub async fn create_session(&self, user: AuthUser) -> anyhow::Result<String> {
+        let token = generate_token();
+        let session = Session::new(
+            token.clone(),
+            user.id,
+            user.username,
+            user.roles,
+            self.config.timeout_minutes,
+        );
+
+        self.store.insert(session).await;
+
+        tracing::info!(
+            token = %token,
+            timeout_minutes = self.config.timeout_minutes,
+            "Session created"
+        );
+
+        Ok(token)
+    }
+
+    /// Validate a session token and return the session if valid
+    pub async fn validate_session(&self, token: &str) -> anyhow::Result<Option<Session>> {
+        let session = self.store.get(token).await;
+
+        match session {
+            Some(mut session) => {
+                if session.is_expired() {
+                    // Remove expired session
+                    self.store.remove(token).await;
+                    tracing::debug!(token = %token, "Session expired and removed");
+                    Ok(None)
+                } else {
+                    // Renew session on activity
+                    session.renew(self.config.timeout_minutes);
+                    self.store.insert(session.clone()).await;
+                    tracing::debug!(token = %token, "Session validated and renewed");
+                    Ok(Some(session))
+                }
+            }
+            None => {
+                tracing::debug!(token = %token, "Session not found");
+                Ok(None)
+            }
+        }
+    }
+
+    /// Invalidate a session (logout)
+    pub async fn invalidate_session(&self, token: &str) -> anyhow::Result<()> {
+        if let Some(session) = self.store.remove(token).await {
+            tracing::info!(
+                token = %token,
+                username = %session.username,
+                "Session invalidated"
+            );
+        } else {
+            tracing::debug!(token = %token, "Session not found for invalidation");
+        }
+        Ok(())
+    }
+
+    /// Clean up expired sessions
+    pub async fn cleanup_expired(&self) -> usize {
+        let removed_count = self.store.cleanup_expired().await;
+        if removed_count > 0 {
+            tracing::info!(removed_count = removed_count, "Cleaned up expired sessions");
+        }
+        removed_count
+    }
+
+    /// Get the number of active sessions
+    pub async fn active_session_count(&self) -> usize {
+        self.store.count().await
+    }
+
+    /// Start a background task to periodically clean up expired sessions
+    pub fn start_cleanup_task(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+            loop {
+                interval.tick().await;
+                self.cleanup_expired().await;
+            }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,5 +430,144 @@ mod tests {
         assert_eq!(user.id, "user123");
         assert_eq!(user.username, "testuser");
         assert_eq!(user.roles.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_create_session() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new(
+            "user123".to_string(),
+            "testuser".to_string(),
+            vec!["admin".to_string()],
+        );
+
+        let token = manager.create_session(user).await.unwrap();
+        assert!(!token.is_empty());
+        assert_eq!(token.len(), 32);
+
+        // Verify session was created
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_some());
+        assert_eq!(session.unwrap().username, "testuser");
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_validate_session() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new(
+            "user123".to_string(),
+            "testuser".to_string(),
+            vec!["admin".to_string()],
+        );
+
+        let token = manager.create_session(user).await.unwrap();
+
+        // Valid session should be returned
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_some());
+
+        // Invalid token should return None
+        let session = manager.validate_session("invalid_token").await.unwrap();
+        assert!(session.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_validate_expired_session() {
+        let config = SessionConfig::new(0); // Expires immediately
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
+
+        let token = manager.create_session(user).await.unwrap();
+
+        // Session should be expired and removed
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_none());
+
+        // Session should no longer exist in store
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_invalidate_session() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
+
+        let token = manager.create_session(user).await.unwrap();
+
+        // Session should exist
+        assert!(manager.validate_session(&token).await.unwrap().is_some());
+
+        // Invalidate session
+        manager.invalidate_session(&token).await.unwrap();
+
+        // Session should no longer exist
+        assert!(manager.validate_session(&token).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_cleanup_expired() {
+        let config = SessionConfig::new(0); // Expires immediately
+        let manager = SessionManager::new(config);
+
+        // Create multiple expired sessions
+        for i in 0..5 {
+            let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
+            manager.create_session(user).await.unwrap();
+        }
+
+        assert_eq!(manager.active_session_count().await, 5);
+
+        // Cleanup expired sessions
+        let removed = manager.cleanup_expired().await;
+        assert_eq!(removed, 5);
+        assert_eq!(manager.active_session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_session_renewal() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
+
+        let token = manager.create_session(user).await.unwrap();
+
+        // Get initial session
+        let session1 = manager.validate_session(&token).await.unwrap().unwrap();
+        let expires_at1 = session1.expires_at;
+
+        // Wait a bit
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+        // Validate again (should renew)
+        let session2 = manager.validate_session(&token).await.unwrap().unwrap();
+        let expires_at2 = session2.expires_at;
+
+        // Expiration should be extended
+        assert!(expires_at2 > expires_at1);
+    }
+
+    #[tokio::test]
+    async fn test_session_manager_active_session_count() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        assert_eq!(manager.active_session_count().await, 0);
+
+        // Create sessions
+        for i in 0..3 {
+            let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
+            manager.create_session(user).await.unwrap();
+        }
+
+        assert_eq!(manager.active_session_count().await, 3);
     }
 }
