@@ -296,15 +296,21 @@ mod tests {
 
     #[test]
     fn test_session_expiration() {
-        let session = Session::new(
+        let now = Utc::now();
+        let past_time = now - Duration::minutes(10);
+        
+        let mut session = Session::new(
             "token".to_string(),
             "user".to_string(),
             "username".to_string(),
             vec![],
-            0, // Expires immediately
+            60,
         );
+        
+        // Manually set expiration to the past
+        session.expires_at = past_time;
 
-        // Session should be expired since timeout is 0
+        // Session should be expired
         assert!(session.is_expired());
     }
 
