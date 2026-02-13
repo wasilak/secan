@@ -1,0 +1,95 @@
+# Cerebro Configuration Example
+# Copy this file to config.yaml and customize for your environment
+
+server:
+  host: "0.0.0.0"
+  port: 9000
+  # Optional TLS configuration
+  # tls:
+  #   cert_file: "/path/to/cert.pem"
+  #   key_file: "/path/to/key.pem"
+
+auth:
+  # Authentication mode: "open", "local_users", or "oidc"
+  mode: "open"
+  session_timeout_minutes: 60
+  
+  # Local users configuration (when mode is "local_users")
+  # local_users:
+  #   - username: "admin"
+  #     password_hash: "$2b$12$..."  # Use bcrypt or argon2
+  #     roles: ["admin"]
+  #   - username: "developer"
+  #     password_hash: "$2b$12$..."
+  #     roles: ["developer"]
+  
+  # OIDC configuration (when mode is "oidc")
+  # oidc:
+  #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+  #   client_id: "cerebro"
+  #   client_secret: "your-client-secret"
+  #   redirect_uri: "https://cerebro.example.com/api/auth/oidc/redirect"
+  
+  # Role-based access control
+  # roles:
+  #   - name: "admin"
+  #     cluster_patterns: ["*"]
+  #   - name: "developer"
+  #     cluster_patterns: ["dev-*", "staging-*"]
+
+clusters:
+  # Example: Local Elasticsearch cluster
+  - id: "local"
+    name: "Local Development"
+    nodes:
+      - "http://localhost:9200"
+    auth:
+      type: "none"
+    tls:
+      verify: false
+    client_type: "http"
+    version_hint: "8"
+  
+  # Example: Production cluster with authentication
+  # - id: "prod-main"
+  #   name: "Production Main"
+  #   nodes:
+  #     - "https://es-node1.example.com:9200"
+  #     - "https://es-node2.example.com:9200"
+  #     - "https://es-node3.example.com:9200"
+  #   auth:
+  #     type: "basic"
+  #     username: "cerebro"
+  #     password: "your-password"
+  #   tls:
+  #     verify: true
+  #     ca_cert_file: "/path/to/ca.pem"
+  #   client_type: "sdk"
+  #   version_hint: "8"
+  
+  # Example: OpenSearch cluster
+  # - id: "opensearch-prod"
+  #   name: "OpenSearch Production"
+  #   nodes:
+  #     - "https://opensearch.example.com:9200"
+  #   auth:
+  #     type: "api_key"
+  #     key: "base64encodedkey"
+  #   tls:
+  #     verify: true
+  #   client_type: "http"
+  #   version_hint: "opensearch"
+  
+  # Example: Development cluster with self-signed certificate
+  # - id: "dev-local"
+  #   name: "Development Local"
+  #   nodes:
+  #     - "https://localhost:9200"
+  #   auth:
+  #     type: "basic"
+  #     username: "elastic"
+  #     password: "changeme"
+  #   tls:
+  #     verify: false  # WARNING: Only use in development!
+  #   client_type: "http"
+  #   version_hint: "8"
