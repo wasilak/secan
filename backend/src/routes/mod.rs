@@ -1,2 +1,4 @@
-// API routes module placeholder
-// Will be implemented in Task 13
+// API routes module
+pub mod auth;
+
+pub use auth::{AuthState, ErrorResponse, LoginRequest, LoginResponse, OidcCallbackQuery};
