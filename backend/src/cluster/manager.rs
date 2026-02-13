@@ -1,3 +1,4 @@
+use crate::auth::{AuthUser, RbacManager};
 use crate::cluster::client::{Client, ElasticsearchClient};
 use crate::config::{ClusterAuth, ClusterConfig};
 use anyhow::{Context, Result};
@@ -271,6 +272,8 @@ mod tests {
 pub struct Manager {
     /// Map of cluster ID to cluster connection
     clusters: Arc<RwLock<HashMap<String, Arc<ClusterConnection>>>>,
+    /// RBAC manager for access control
+    rbac: Option<Arc<RbacManager>>,
 }
 
 impl Manager {
@@ -308,7 +311,31 @@ impl Manager {
 
         Ok(Self {
             clusters: Arc::new(RwLock::new(clusters)),
+            rbac: None,
         })
+    }
+
+    /// Create a new cluster manager with RBAC enabled
+    ///
+    /// # Arguments
+    ///
+    /// * `cluster_configs` - Vector of cluster configurations
+    /// * `rbac_manager` - RBAC manager for access control
+    ///
+    /// # Returns
+    ///
+    /// A new Manager instance with RBAC enabled
+    ///
+    /// # Requirements
+    ///
+    /// Validates: Requirements 2.1, 2.14, 2.17, 23.1
+    pub async fn new_with_rbac(
+        cluster_configs: Vec<ClusterConfig>,
+        rbac_manager: RbacManager,
+    ) -> Result<Self> {
+        let mut manager = Self::new(cluster_configs).await?;
+        manager.rbac = Some(Arc::new(rbac_manager));
+        Ok(manager)
     }
 
     /// Get a cluster connection by ID
@@ -354,6 +381,93 @@ impl Manager {
                 accessible: true, // Will be determined by health checks
             })
             .collect()
+    }
+
+    /// List clusters accessible to a specific user based on RBAC
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - The authenticated user
+    ///
+    /// # Returns
+    ///
+    /// A vector of ClusterInfo for clusters the user can access
+    ///
+    /// # Requirements
+    ///
+    /// Validates: Requirements 23.3, 23.5
+    pub async fn list_accessible_clusters(&self, user: &AuthUser) -> Vec<ClusterInfo> {
+        let all_clusters = self.list_clusters().await;
+
+        // If no RBAC is configured, return all clusters
+        let Some(rbac) = &self.rbac else {
+            return all_clusters;
+        };
+
+        // Filter clusters based on user's roles
+        let cluster_ids: Vec<String> = all_clusters.iter().map(|c| c.id.clone()).collect();
+        let accessible_ids = rbac.get_accessible_clusters(user, &cluster_ids);
+
+        all_clusters
+            .into_iter()
+            .filter(|c| accessible_ids.contains(&c.id))
+            .collect()
+    }
+
+    /// Check if a user can access a specific cluster
+    ///
+    /// # Arguments
+    ///
+    /// * `user` - The authenticated user
+    /// * `cluster_id` - The cluster identifier
+    ///
+    /// # Returns
+    ///
+    /// true if the user can access the cluster, false otherwise
+    ///
+    /// # Requirements
+    ///
+    /// Validates: Requirements 23.3, 23.4
+    pub fn can_access_cluster(&self, user: &AuthUser, cluster_id: &str) -> bool {
+        // If no RBAC is configured, allow access to all clusters
+        let Some(rbac) = &self.rbac else {
+            return true;
+        };
+
+        rbac.can_access_cluster(user, cluster_id)
+    }
+
+    /// Get a cluster connection by ID with RBAC check
+    ///
+    /// # Arguments
+    ///
+    /// * `cluster_id` - The cluster identifier
+    /// * `user` - Optional authenticated user for RBAC check
+    ///
+    /// # Returns
+    ///
+    /// An Arc reference to the cluster connection or an error if not found or unauthorized
+    ///
+    /// # Requirements
+    ///
+    /// Validates: Requirements 2.15, 2.16, 23.3, 23.4
+    pub async fn get_cluster_with_auth(
+        &self,
+        cluster_id: &str,
+        user: Option<&AuthUser>,
+    ) -> Result<Arc<ClusterConnection>> {
+        // Check RBAC if user is provided and RBAC is configured
+        if let Some(user) = user {
+            if !self.can_access_cluster(user, cluster_id) {
+                anyhow::bail!(
+                    "User '{}' is not authorized to access cluster '{}'",
+                    user.username,
+                    cluster_id
+                );
+            }
+        }
+
+        self.get_cluster(cluster_id).await
     }
 
     /// Proxy a request to a specific cluster
@@ -664,5 +778,244 @@ mod manager_tests {
 
         let mgr = manager.unwrap();
         assert_eq!(mgr.cluster_count().await, 3);
+    }
+
+    #[tokio::test]
+    async fn test_manager_with_rbac() {
+        use crate::auth::{AuthUser, RbacManager};
+        use crate::config::RoleConfig;
+
+        let configs = vec![
+            ClusterConfig {
+                id: "prod-cluster-1".to_string(),
+                name: "Production 1".to_string(),
+                nodes: vec!["http://localhost:9200".to_string()],
+                auth: None,
+                tls: TlsConfig::default(),
+                client_type: ClientType::Http,
+                version_hint: None,
+            },
+            ClusterConfig {
+                id: "dev-cluster-1".to_string(),
+                name: "Development 1".to_string(),
+                nodes: vec!["http://localhost:9201".to_string()],
+                auth: None,
+                tls: TlsConfig::default(),
+                client_type: ClientType::Http,
+                version_hint: None,
+            },
+        ];
+
+        let role_configs = vec![
+            RoleConfig {
+                name: "prod-admin".to_string(),
+                cluster_patterns: vec!["prod-*".to_string()],
+            },
+            RoleConfig {
+                name: "dev-admin".to_string(),
+                cluster_patterns: vec!["dev-*".to_string()],
+            },
+        ];
+
+        let rbac = RbacManager::new(role_configs);
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
+
+        // Test with prod-admin user
+        let prod_user = AuthUser::new(
+            "prod1".to_string(),
+            "prodadmin".to_string(),
+            vec!["prod-admin".to_string()],
+        );
+
+        assert!(manager.can_access_cluster(&prod_user, "prod-cluster-1"));
+        assert!(!manager.can_access_cluster(&prod_user, "dev-cluster-1"));
+
+        // Test with dev-admin user
+        let dev_user = AuthUser::new(
+            "dev1".to_string(),
+            "devadmin".to_string(),
+            vec!["dev-admin".to_string()],
+        );
+
+        assert!(!manager.can_access_cluster(&dev_user, "prod-cluster-1"));
+        assert!(manager.can_access_cluster(&dev_user, "dev-cluster-1"));
+    }
+
+    #[tokio::test]
+    async fn test_list_accessible_clusters() {
+        use crate::auth::{AuthUser, RbacManager};
+        use crate::config::RoleConfig;
+
+        let configs = vec![
+            ClusterConfig {
+                id: "prod-cluster-1".to_string(),
+                name: "Production 1".to_string(),
+                nodes: vec!["http://localhost:9200".to_string()],
+                auth: None,
+                tls: TlsConfig::default(),
+                client_type: ClientType::Http,
+                version_hint: None,
+            },
+            ClusterConfig {
+                id: "prod-cluster-2".to_string(),
+                name: "Production 2".to_string(),
+                nodes: vec!["http://localhost:9201".to_string()],
+                auth: None,
+                tls: TlsConfig::default(),
+                client_type: ClientType::Http,
+                version_hint: None,
+            },
+            ClusterConfig {
+                id: "dev-cluster-1".to_string(),
+                name: "Development 1".to_string(),
+                nodes: vec!["http://localhost:9202".to_string()],
+                auth: None,
+                tls: TlsConfig::default(),
+                client_type: ClientType::Http,
+                version_hint: None,
+            },
+        ];
+
+        let role_configs = vec![RoleConfig {
+            name: "prod-viewer".to_string(),
+            cluster_patterns: vec!["prod-*".to_string()],
+        }];
+
+        let rbac = RbacManager::new(role_configs);
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
+
+        let user = AuthUser::new(
+            "user1".to_string(),
+            "viewer".to_string(),
+            vec!["prod-viewer".to_string()],
+        );
+
+        let accessible = manager.list_accessible_clusters(&user).await;
+        assert_eq!(accessible.len(), 2);
+        assert!(accessible.iter().any(|c| c.id == "prod-cluster-1"));
+        assert!(accessible.iter().any(|c| c.id == "prod-cluster-2"));
+        assert!(!accessible.iter().any(|c| c.id == "dev-cluster-1"));
+    }
+
+    #[tokio::test]
+    async fn test_get_cluster_with_auth_authorized() {
+        use crate::auth::{AuthUser, RbacManager};
+        use crate::config::RoleConfig;
+
+        let configs = vec![ClusterConfig {
+            id: "prod-cluster-1".to_string(),
+            name: "Production 1".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            client_type: ClientType::Http,
+            version_hint: None,
+        }];
+
+        let role_configs = vec![RoleConfig {
+            name: "admin".to_string(),
+            cluster_patterns: vec!["*".to_string()],
+        }];
+
+        let rbac = RbacManager::new(role_configs);
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
+
+        let user = AuthUser::new(
+            "admin1".to_string(),
+            "admin".to_string(),
+            vec!["admin".to_string()],
+        );
+
+        let cluster = manager
+            .get_cluster_with_auth("prod-cluster-1", Some(&user))
+            .await;
+        assert!(cluster.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_cluster_with_auth_unauthorized() {
+        use crate::auth::{AuthUser, RbacManager};
+        use crate::config::RoleConfig;
+
+        let configs = vec![ClusterConfig {
+            id: "prod-cluster-1".to_string(),
+            name: "Production 1".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            client_type: ClientType::Http,
+            version_hint: None,
+        }];
+
+        let role_configs = vec![RoleConfig {
+            name: "dev-viewer".to_string(),
+            cluster_patterns: vec!["dev-*".to_string()],
+        }];
+
+        let rbac = RbacManager::new(role_configs);
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
+
+        let user = AuthUser::new(
+            "user1".to_string(),
+            "viewer".to_string(),
+            vec!["dev-viewer".to_string()],
+        );
+
+        let cluster = manager
+            .get_cluster_with_auth("prod-cluster-1", Some(&user))
+            .await;
+        assert!(cluster.is_err());
+        assert!(cluster
+            .unwrap_err()
+            .to_string()
+            .contains("not authorized to access"));
+    }
+
+    #[tokio::test]
+    async fn test_get_cluster_with_auth_no_user() {
+        let configs = vec![ClusterConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            client_type: ClientType::Http,
+            version_hint: None,
+        }];
+
+        let manager = Manager::new(configs).await.unwrap();
+
+        // Without user, should allow access
+        let cluster = manager.get_cluster_with_auth("test", None).await;
+        assert!(cluster.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_manager_without_rbac_allows_all() {
+        use crate::auth::AuthUser;
+
+        let configs = vec![ClusterConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            client_type: ClientType::Http,
+            version_hint: None,
+        }];
+
+        let manager = Manager::new(configs).await.unwrap();
+
+        let user = AuthUser::new(
+            "user1".to_string(),
+            "user".to_string(),
+            vec!["unknown-role".to_string()],
+        );
+
+        // Without RBAC, should allow access to all clusters
+        assert!(manager.can_access_cluster(&user, "test"));
+
+        let accessible = manager.list_accessible_clusters(&user).await;
+        assert_eq!(accessible.len(), 1);
     }
 }
