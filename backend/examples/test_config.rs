@@ -18,14 +18,26 @@ fn main() -> anyhow::Result<()> {
     println!("  Auth mode: {:?}", config.auth.mode);
     println!("  Clusters: {}", config.clusters.len());
     if !config.clusters.is_empty() {
-        println!("  First cluster: {} ({})", config.clusters[0].name, config.clusters[0].id);
+        println!(
+            "  First cluster: {} ({})",
+            config.clusters[0].name, config.clusters[0].id
+        );
     }
 
     println!("\n✅ Configuration loaded successfully!");
     println!("\nEnvironment variables checked:");
-    println!("  CEREBRO_CONFIG_FILE: {:?}", std::env::var("CEREBRO_CONFIG_FILE").ok());
-    println!("  CEREBRO_SERVER__PORT: {:?}", std::env::var("CEREBRO_SERVER__PORT").ok());
-    println!("  CEREBRO_SERVER__HOST: {:?}", std::env::var("CEREBRO_SERVER__HOST").ok());
+    println!(
+        "  CEREBRO_CONFIG_FILE: {:?}",
+        std::env::var("CEREBRO_CONFIG_FILE").ok()
+    );
+    println!(
+        "  CEREBRO_SERVER__PORT: {:?}",
+        std::env::var("CEREBRO_SERVER__PORT").ok()
+    );
+    println!(
+        "  CEREBRO_SERVER__HOST: {:?}",
+        std::env::var("CEREBRO_SERVER__HOST").ok()
+    );
 
     Ok(())
 }

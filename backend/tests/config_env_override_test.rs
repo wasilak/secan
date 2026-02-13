@@ -30,13 +30,22 @@ clusters:
     env::set_var("CEREBRO_SERVER__HOST", "0.0.0.0");
 
     let config = Config::from_file(config_path.to_str().unwrap()).unwrap();
-    
+
     // Debug output
-    eprintln!("Loaded config - host: {}, port: {}", config.server.host, config.server.port);
+    eprintln!(
+        "Loaded config - host: {}, port: {}",
+        config.server.host, config.server.port
+    );
 
     // Environment variables should override file values
-    assert_eq!(config.server.host, "0.0.0.0", "Host should be overridden by env var");
-    assert_eq!(config.server.port, 9999, "Port should be overridden by env var");
+    assert_eq!(
+        config.server.host, "0.0.0.0",
+        "Host should be overridden by env var"
+    );
+    assert_eq!(
+        config.server.port, 9999,
+        "Port should be overridden by env var"
+    );
 
     // Clean up
     env::remove_var("CEREBRO_SERVER__PORT");
@@ -53,7 +62,10 @@ fn test_missing_config_file_uses_defaults() {
     let result = Config::from_file("nonexistent.yaml");
 
     // Should fail because required fields are missing when no config file exists
-    assert!(result.is_err(), "Should fail when config file is missing and no env vars are set");
+    assert!(
+        result.is_err(),
+        "Should fail when config file is missing and no env vars are set"
+    );
 }
 
 #[test]
@@ -79,7 +91,10 @@ clusters: []
 
     // Should fail validation
     assert!(result.is_err(), "Should fail validation with no clusters");
-    assert!(result.unwrap_err().to_string().contains("At least one cluster"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("At least one cluster"));
 }
 
 #[test]
@@ -108,6 +123,12 @@ clusters:
     let result = Config::from_file(config_path.to_str().unwrap());
 
     // Should fail validation
-    assert!(result.is_err(), "Should fail validation without local users");
-    assert!(result.unwrap_err().to_string().contains("at least one user"));
+    assert!(
+        result.is_err(),
+        "Should fail validation without local users"
+    );
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("at least one user"));
 }
