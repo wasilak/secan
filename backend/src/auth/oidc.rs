@@ -373,9 +373,7 @@ mod tests {
         let jwks = Jwks { keys: vec![] };
 
         let http_client = reqwest::Client::new();
-        let session_manager = Arc::new(SessionManager::new(
-            crate::auth::SessionConfig::new(60),
-        ));
+        let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
 
         let provider = OidcAuthProvider {
             config,
@@ -414,9 +412,7 @@ mod tests {
 
         let jwks = Jwks { keys: vec![] };
         let http_client = reqwest::Client::new();
-        let session_manager = Arc::new(SessionManager::new(
-            crate::auth::SessionConfig::new(60),
-        ));
+        let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
 
         let provider = OidcAuthProvider {
             config,
