@@ -1,0 +1,19 @@
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+auth:
+  mode: "open"
+  session_timeout_minutes: 30
+
+clusters:
+  - id: "local"
+    name: "Local Development"
+    nodes:
+      - "http://localhost:9200"
+    auth:
+      type: "none"
+    tls:
+      verify: false
+    client_type: "http"
+    version_hint: "8"
