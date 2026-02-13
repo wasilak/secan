@@ -431,7 +431,8 @@ impl Config {
         let builder = builder.add_source(
             Environment::with_prefix("CEREBRO")
                 .separator("__")
-                .try_parsing(true),
+                .try_parsing(true)
+                .prefix_separator("_"),
         );
 
         let config = builder.build()?;

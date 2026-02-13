@@ -17,7 +17,10 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = Config::load()?;
     info!("Configuration loaded successfully");
-    info!("Server will listen on {}:{}", config.server.host, config.server.port);
+    info!(
+        "Server will listen on {}:{}",
+        config.server.host, config.server.port
+    );
     info!("Authentication mode: {:?}", config.auth.mode);
     info!("Configured clusters: {}", config.clusters.len());
 
