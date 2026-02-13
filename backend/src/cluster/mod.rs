@@ -1,2 +1,3 @@
-// Cluster management module placeholder
-// Will be implemented in Tasks 4-6
+pub mod client;
+
+pub use client::{Client, ElasticsearchClient, HttpClient, SdkClient};
