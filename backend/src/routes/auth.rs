@@ -130,6 +130,26 @@ pub async fn oidc_callback(
     Ok(Redirect::to("/"))
 }
 
+/// Login endpoint for local users
+///
+/// Authenticates a user with username and password
+pub async fn login(
+    State(_state): State<AuthState>,
+    Json(_payload): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, ErrorResponse> {
+    // TODO: Implement local user authentication
+    // TODO: Validate credentials
+    // TODO: Create session
+    // TODO: Set session cookie
+
+    tracing::info!("Login attempt");
+
+    Err(ErrorResponse {
+        error: "not_implemented".to_string(),
+        message: "Local user authentication not yet implemented".to_string(),
+    })
+}
+
 /// Logout endpoint
 ///
 /// Invalidates the user's session
