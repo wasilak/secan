@@ -55,6 +55,9 @@ chrono = { version = "0.4", features = ["serde"] }
 # UUID generation
 uuid = { version = "1", features = ["v4", "serde"] }
 
+# Random number generation for secure tokens
+rand = "0.8"
+
 [dev-dependencies]
 proptest = "1"
 wiremock = "0.6"
