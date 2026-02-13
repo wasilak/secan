@@ -1,0 +1,68 @@
+[package]
+name = "cerebro-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cerebro Contributors"]
+description = "Elasticsearch web administration tool - Backend"
+license = "MIT"
+
+[dependencies]
+# Web framework
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors", "compression-gzip"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Configuration
+config = "0.14"
+clap = { version = "4", features = ["derive", "env"] }
+
+# HTTP client for Elasticsearch communication
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Embedded assets
+rust-embed = { version = "8", features = ["compression"] }
+mime_guess = "2"
+
+# Authentication
+bcrypt = "0.15"
+argon2 = "0.5"
+jsonwebtoken = "9"
+
+# Error handling
+thiserror = "1"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# TLS
+rustls = "0.22"
+rustls-pemfile = "2"
+
+# Async traits
+async-trait = "0.1"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+proptest = "1"
+wiremock = "0.6"
+tokio-test = "0.4"
+tempfile = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
