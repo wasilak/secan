@@ -298,7 +298,7 @@ mod tests {
     fn test_session_expiration() {
         let now = Utc::now();
         let past_time = now - Duration::minutes(10);
-        
+
         let mut session = Session::new(
             "token".to_string(),
             "user".to_string(),
@@ -306,7 +306,7 @@ mod tests {
             vec![],
             60,
         );
-        
+
         // Manually set expiration to the past
         session.expires_at = past_time;
 

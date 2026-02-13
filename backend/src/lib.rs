@@ -5,7 +5,9 @@ pub mod auth;
 pub mod cluster;
 pub mod config;
 pub mod routes;
+pub mod server;
 pub mod tls;
 
 // Re-export commonly used types
 pub use config::Config;
+pub use server::Server;
