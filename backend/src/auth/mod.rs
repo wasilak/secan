@@ -1,2 +1,4 @@
-// Authentication module placeholder
-// Will be implemented in Tasks 7-11
+// Authentication module
+pub mod session;
+
+pub use session::{generate_token, AuthUser, Session, SessionConfig, SessionStore};
