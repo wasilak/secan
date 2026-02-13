@@ -1,3 +1,4 @@
+use cerebro_backend::config::Config;
 use tracing::info;
 
 #[tokio::main]
@@ -13,7 +14,13 @@ async fn main() -> anyhow::Result<()> {
     info!("Cerebro - Elasticsearch Web Administration Tool");
     info!("Starting backend server...");
 
-    // TODO: Load configuration
+    // Load configuration
+    let config = Config::load()?;
+    info!("Configuration loaded successfully");
+    info!("Server will listen on {}:{}", config.server.host, config.server.port);
+    info!("Authentication mode: {:?}", config.auth.mode);
+    info!("Configured clusters: {}", config.clusters.len());
+
     // TODO: Initialize server
     // TODO: Start server
 
