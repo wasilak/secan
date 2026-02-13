@@ -58,6 +58,12 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Random number generation for secure tokens
 rand = "0.8"
 
+# URL encoding for OIDC
+urlencoding = "2"
+
+# Base64 encoding/decoding
+base64 = "0.22"
+
 [dev-dependencies]
 proptest = "1"
 wiremock = "0.6"
