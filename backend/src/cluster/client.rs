@@ -131,7 +131,7 @@ impl Client {
             .await
             .context("Failed to read response body")?;
 
-        // Build http response
+        // Build reqwest response using reqwest's builder
         let mut response_builder = http::Response::builder().status(status.as_u16());
 
         // Copy headers
@@ -143,8 +143,9 @@ impl Client {
             .body(body_bytes.to_vec())
             .context("Failed to build HTTP response")?;
 
-        // Convert http::Response to reqwest::Response
-        Ok(Response::from(http_response))
+        // Convert http::Response to reqwest::Response using try_from
+        reqwest::Response::try_from(http_response)
+            .context("Failed to convert HTTP response to reqwest Response")
     }
 }
 
