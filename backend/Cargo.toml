@@ -45,6 +45,7 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 # TLS
 rustls = "0.22"
 rustls-pemfile = "2"
+tokio-rustls = "0.25"
 
 # Async traits
 async-trait = "0.1"

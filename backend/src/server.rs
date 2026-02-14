@@ -2,6 +2,7 @@ use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use axum::{
+    http::Method,
     middleware,
     routing::{get, post},
     Router,
@@ -59,7 +60,7 @@ impl Server {
     ///
     /// # Requirements
     ///
-    /// Validates: Requirements 1.2, 30.7, 31.8
+    /// Validates: Requirements 1.2, 30.2, 30.7, 31.8
     pub fn router(&self) -> Router {
         // Create auth state for authentication routes
         let auth_state = crate::routes::AuthState {
@@ -98,16 +99,32 @@ impl Server {
             .with_state(cluster_state)
             // Static assets - must be last to act as fallback
             .fallback(crate::routes::serve_static)
+            // Add security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
+            .layer(middleware::from_fn(
+                crate::middleware::security::security_headers_middleware,
+            ))
             // Add logging middleware (logs all requests with request IDs)
             .layer(middleware::from_fn(
                 crate::middleware::logging::logging_middleware,
             ))
-            // Add CORS middleware
+            // Add CORS middleware with proper configuration
+            // Allow specific methods and headers for security
             .layer(
                 CorsLayer::new()
-                    .allow_origin(Any)
-                    .allow_methods(Any)
-                    .allow_headers(Any),
+                    .allow_origin(Any) // TODO: Configure allowed origins from config
+                    .allow_methods([
+                        Method::GET,
+                        Method::POST,
+                        Method::PUT,
+                        Method::DELETE,
+                        Method::HEAD,
+                        Method::OPTIONS,
+                    ])
+                    .allow_headers([
+                        axum::http::header::CONTENT_TYPE,
+                        axum::http::header::AUTHORIZATION,
+                        axum::http::header::ACCEPT,
+                    ]),
             )
             // Add compression middleware
             .layer(CompressionLayer::new())
@@ -115,16 +132,37 @@ impl Server {
 
     /// Start the server and listen for incoming connections
     ///
+    /// # TLS/HTTPS Support
+    ///
+    /// For production deployments, TLS should be handled by a reverse proxy
+    /// (nginx, traefik, caddy, etc.) in front of this application.
+    /// This is the recommended approach for Rust web applications.
+    ///
+    /// The TLS configuration in the config file is reserved for future use
+    /// or for advanced deployment scenarios.
+    ///
     /// # Returns
     ///
     /// Result indicating success or failure
     ///
     /// # Requirements
     ///
-    /// Validates: Requirements 1.2
+    /// Validates: Requirements 1.2, 30.1, 30.8
     pub async fn run(self) -> anyhow::Result<()> {
         let addr = format!("{}:{}", self.config.server.host, self.config.server.port);
         let listener = tokio::net::TcpListener::bind(&addr).await?;
+
+        // Log TLS recommendation
+        if self.config.server.tls.is_some() {
+            tracing::warn!(
+                "TLS configuration detected but not used. For production, use a reverse proxy (nginx, traefik, caddy) to handle TLS termination."
+            );
+        } else {
+            tracing::info!(
+                "Server starting on {} - For production use, deploy behind a reverse proxy with TLS enabled",
+                addr
+            );
+        }
 
         tracing::info!("Server listening on {}", addr);
 
