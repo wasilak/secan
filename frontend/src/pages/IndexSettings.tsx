@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -271,16 +271,6 @@ export function IndexSettings() {
       </Group>
 
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} color="blue" title="Settings Information">
-          <Text size="sm">
-            <strong>Dynamic settings</strong> can be updated on an open index (e.g., number_of_replicas, refresh_interval).
-            <br />
-            <strong>Static settings</strong> can only be set at index creation or on a closed index (e.g., number_of_shards, codec).
-            <br />
-            To update static settings, you must first close the index, update the settings, then reopen it.
-          </Text>
-        </Alert>
-
         <Card shadow="sm" padding="lg">
           <Stack gap="md">
             <div>
