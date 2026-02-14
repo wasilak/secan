@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './components/AppShell';
 import { Dashboard } from './pages/Dashboard';
 import { ClusterView } from './pages/ClusterView';
@@ -39,10 +40,21 @@ const renderWithRouter = (initialEntries: string[]) => {
     initialEntries,
   });
 
+  // Create a new QueryClient for each test to avoid state leakage
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
   return render(
-    <MantineProvider>
-      <RouterProvider router={router} />
-    </MantineProvider>
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider>
+        <RouterProvider router={router} />
+      </MantineProvider>
+    </QueryClientProvider>
   );
 };
 
