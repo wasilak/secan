@@ -325,6 +325,84 @@ export class ApiClient {
       return response.data;
     });
   }
+
+  /**
+   * Open a closed index
+   * 
+   * Requirements: 5.1
+   */
+  async openIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_open`);
+    });
+  }
+
+  /**
+   * Close an open index
+   * 
+   * Requirements: 5.2
+   */
+  async closeIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_close`);
+    });
+  }
+
+  /**
+   * Delete an index
+   * 
+   * Requirements: 5.3
+   */
+  async deleteIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/${indexName}`);
+    });
+  }
+
+  /**
+   * Force merge an index
+   * 
+   * Requirements: 5.4
+   */
+  async forceMergeIndex(clusterId: string, indexName: string, maxNumSegments?: number): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const params = maxNumSegments ? `?max_num_segments=${maxNumSegments}` : '';
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_forcemerge${params}`);
+    });
+  }
+
+  /**
+   * Clear cache for an index
+   * 
+   * Requirements: 5.5
+   */
+  async clearCacheIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_cache/clear`);
+    });
+  }
+
+  /**
+   * Refresh an index
+   * 
+   * Requirements: 5.6
+   */
+  async refreshIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_refresh`);
+    });
+  }
+
+  /**
+   * Flush an index
+   * 
+   * Requirements: 5.7
+   */
+  async flushIndex(clusterId: string, indexName: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/${indexName}/_flush`);
+    });
+  }
 }
 
 /**
