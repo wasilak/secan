@@ -409,13 +409,16 @@ pub async fn proxy_request(
         }
     })?;
 
-    // Log Elasticsearch API errors (4xx and 5xx responses)
+    // Log Elasticsearch API errors (4xx and 5xx responses) with response body
     if status.is_client_error() || status.is_server_error() {
+        // Try to parse the error response body for better logging
+        let error_body = String::from_utf8_lossy(&body_bytes);
         tracing::warn!(
             cluster_id = %cluster_id,
             method = %method,
             path = %full_path,
             status = status.as_u16(),
+            response_body = %error_body,
             "Elasticsearch API returned error status"
         );
     } else {
