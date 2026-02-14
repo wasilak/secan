@@ -1,0 +1,356 @@
+/**
+ * Responsive Design Utilities for Cerebro
+ * 
+ * Provides global responsive styles and utilities to ensure:
+ * - Desktop layout (1920x1080+)
+ * - Laptop layout (1366x768+)
+ * - Tablet layout (768x1024+)
+ * - Mobile-friendly navigation
+ * - Responsive typography
+ * - Touch targets 44x44px minimum
+ * 
+ * Requirements: 33.1, 33.2, 33.3, 33.4, 33.5, 33.6
+ */
+
+/* Ensure minimum touch target size on all interactive elements */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Responsive typography - scale based on viewport */
+html {
+  font-size: 16px; /* Base font size */
+}
+
+/* Mobile devices (< 768px) */
+@media (max-width: 767px) {
+  html {
+    font-size: 14px;
+  }
+  
+  /* Ensure tables are scrollable on mobile */
+  .mantine-Table-root {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Stack form elements vertically on mobile */
+  .mantine-Group-root {
+    flex-wrap: wrap;
+  }
+  
+  /* Full width buttons on mobile */
+  .mantine-Button-root {
+    width: 100%;
+  }
+  
+  /* Reduce padding on mobile */
+  .mantine-Container-root {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Tablet devices (768px - 991px) */
+@media (min-width: 768px) and (max-width: 991px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* Laptop devices (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Desktop devices (1200px - 1407px) */
+@media (min-width: 1200px) and (max-width: 1407px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Large desktop devices (1408px+) */
+@media (min-width: 1408px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+/* Responsive container widths */
+.responsive-container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 768px) {
+  .responsive-container {
+    max-width: 720px;
+  }
+}
+
+@media (min-width: 992px) {
+  .responsive-container {
+    max-width: 960px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .responsive-container {
+    max-width: 1140px;
+  }
+}
+
+@media (min-width: 1408px) {
+  .responsive-container {
+    max-width: 1320px;
+  }
+}
+
+/* Responsive grid utilities */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Responsive text utilities */
+.text-responsive-sm {
+  font-size: 0.875rem;
+}
+
+.text-responsive-md {
+  font-size: 1rem;
+}
+
+.text-responsive-lg {
+  font-size: 1.125rem;
+}
+
+.text-responsive-xl {
+  font-size: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .text-responsive-sm {
+    font-size: 0.875rem;
+  }
+  
+  .text-responsive-md {
+    font-size: 1rem;
+  }
+  
+  .text-responsive-lg {
+    font-size: 1.25rem;
+  }
+  
+  .text-responsive-xl {
+    font-size: 1.5rem;
+  }
+}
+
+/* Responsive spacing utilities */
+.spacing-responsive-xs {
+  padding: 0.5rem;
+}
+
+.spacing-responsive-sm {
+  padding: 0.75rem;
+}
+
+.spacing-responsive-md {
+  padding: 1rem;
+}
+
+.spacing-responsive-lg {
+  padding: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .spacing-responsive-xs {
+    padding: 0.625rem;
+  }
+  
+  .spacing-responsive-sm {
+    padding: 0.875rem;
+  }
+  
+  .spacing-responsive-md {
+    padding: 1.25rem;
+  }
+  
+  .spacing-responsive-lg {
+    padding: 1.5rem;
+  }
+}
+
+/* Hide elements on specific breakpoints */
+.hide-mobile {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .hide-mobile {
+    display: block;
+  }
+}
+
+.hide-tablet {
+  display: block;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .hide-tablet {
+    display: none;
+  }
+}
+
+.hide-desktop {
+  display: block;
+}
+
+@media (min-width: 992px) {
+  .hide-desktop {
+    display: none;
+  }
+}
+
+/* Show elements only on specific breakpoints */
+.show-mobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .show-mobile {
+    display: none;
+  }
+}
+
+.show-tablet {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  .show-tablet {
+    display: block;
+  }
+}
+
+.show-desktop {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .show-desktop {
+    display: block;
+  }
+}
+
+/* Responsive flex utilities */
+.flex-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .flex-responsive {
+    flex-direction: row;
+  }
+}
+
+/* Ensure images are responsive */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive table wrapper */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .table-responsive {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+}
+
+/* Touch-friendly spacing for mobile */
+@media (max-width: 767px) {
+  .mantine-NavLink-root {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  .mantine-Menu-item {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+/* Ensure modals are responsive */
+.mantine-Modal-content {
+  max-width: 95vw;
+}
+
+@media (min-width: 768px) {
+  .mantine-Modal-content {
+    max-width: 90vw;
+  }
+}
+
+@media (min-width: 992px) {
+  .mantine-Modal-content {
+    max-width: 80vw;
+  }
+}
+
+/* Responsive code editor height */
+.monaco-editor-responsive {
+  height: 300px;
+}
+
+@media (min-width: 768px) {
+  .monaco-editor-responsive {
+    height: 400px;
+  }
+}
+
+@media (min-width: 992px) {
+  .monaco-editor-responsive {
+    height: 500px;
+  }
+}
