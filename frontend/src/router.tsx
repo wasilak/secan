@@ -17,6 +17,7 @@ import { Repositories } from './pages/Repositories';
 import { Snapshots } from './pages/Snapshots';
 import { CatApiPage } from './pages/CatApi';
 import { NodeDetail } from './pages/NodeDetail';
+import { IndexStatistics } from './pages/IndexStatistics';
 
 /**
  * Main application router configuration
@@ -31,6 +32,7 @@ import { NodeDetail } from './pages/NodeDetail';
  * - /cluster/:id/indices/:indexName/settings - View/edit index settings
  * - /cluster/:id/indices/:indexName/mappings - View/edit index mappings
  * - /cluster/:id/indices/:indexName/analyzers - View index analyzers and fields
+ * - /cluster/:id/indices/:indexName/stats - View index statistics
  * - /cluster/:id/aliases - Manage index aliases
  * - /cluster/:id/templates - Manage index templates
  * - /cluster/:id/settings - Manage cluster settings
@@ -78,6 +80,10 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/indices/:indexName/mappings',
         element: <IndexMappings />,
+      },
+      {
+        path: 'cluster/:id/indices/:indexName/stats',
+        element: <IndexStatistics />,
       },
       {
         path: 'cluster/:id/aliases',
