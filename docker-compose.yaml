@@ -1,0 +1,93 @@
+version: "3.8"
+
+# Docker Compose configuration for Cerebro development and testing
+# This setup provides:
+# - Elasticsearch single-node cluster (no authentication for easy testing)
+# - Optional Kibana for additional cluster management
+#
+# Usage:
+#   docker-compose up -d              # Start Elasticsearch in background
+#   docker-compose down               # Stop and remove containers
+#   docker-compose down -v            # Stop and remove containers + volumes
+#   docker-compose logs -f es01       # View Elasticsearch logs
+#   docker-compose ps                 # Check container status
+#
+# Access:
+#   Elasticsearch: http://localhost:9200
+#   Kibana:        http://localhost:5601 (if enabled)
+#   Cerebro:       http://localhost:9000 (run backend separately: cargo run)
+#
+# Note: Run Cerebro backend separately with `cargo run` in the backend/ directory.
+#       The backend is configured to connect to http://localhost:9200 by default.
+
+volumes:
+  esdata01:
+    driver: local
+  kibanadata:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge
+
+services:
+  # Elasticsearch single-node cluster
+  # Configured without security for easy testing
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=cerebro-test-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # Disable security for testing
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Kibana (optional, for additional cluster management)
+  # Uncomment if you want to use Kibana alongside Cerebro
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.11.0
+  #   container_name: kibana
+  #   depends_on:
+  #     es01:
+  #       condition: service_healthy
+  #   environment:
+  #     - SERVERNAME=kibana
+  #     - ELASTICSEARCH_HOSTS=http://es01:9200
+  #   volumes:
+  #     - kibanadata:/usr/share/kibana/data
+  #   ports:
+  #     - "5601:5601"
+  #   networks:
+  #     - elastic
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 30
+  #     start_period: 30s
