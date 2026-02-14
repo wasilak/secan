@@ -105,7 +105,7 @@ impl HttpClient {
             .pool_max_idle_per_host(10)
             .pool_idle_timeout(Duration::from_secs(90));
 
-        // Configure TLS
+        // Configure TLS certificate verification
         if !tls_config.verify {
             tracing::warn!("TLS certificate verification is disabled - this is insecure!");
             builder = builder.danger_accept_invalid_certs(true);
@@ -113,6 +113,7 @@ impl HttpClient {
 
         // Add custom CA certificates if provided
         if let Some(ca_cert_file) = &tls_config.ca_cert_file {
+            tracing::debug!("Loading CA certificate from file: {:?}", ca_cert_file);
             let cert_pem =
                 std::fs::read(ca_cert_file).context("Failed to read CA certificate file")?;
             let cert = reqwest::Certificate::from_pem(&cert_pem)
@@ -122,18 +123,41 @@ impl HttpClient {
 
         // Load certificates from directory if provided
         if let Some(ca_cert_dir) = &tls_config.ca_cert_dir {
-            for entry in
-                std::fs::read_dir(ca_cert_dir).context("Failed to read CA certificate directory")?
-            {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_file() && path.extension().is_some_and(|ext| ext == "pem") {
-                    let cert_pem = std::fs::read(&path)
-                        .with_context(|| format!("Failed to read certificate: {:?}", path))?;
-                    if let Ok(cert) = reqwest::Certificate::from_pem(&cert_pem) {
-                        builder = builder.add_root_certificate(cert);
+            if ca_cert_dir.exists() && ca_cert_dir.is_dir() {
+                tracing::debug!("Loading CA certificates from directory: {:?}", ca_cert_dir);
+                for entry in std::fs::read_dir(ca_cert_dir)
+                    .context("Failed to read CA certificate directory")?
+                {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(ext) = path.extension() {
+                            if ext == "pem" || ext == "crt" {
+                                tracing::debug!("Loading certificate: {:?}", path);
+                                let cert_pem = std::fs::read(&path).with_context(|| {
+                                    format!("Failed to read certificate: {:?}", path)
+                                })?;
+                                match reqwest::Certificate::from_pem(&cert_pem) {
+                                    Ok(cert) => {
+                                        builder = builder.add_root_certificate(cert);
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Failed to parse certificate {:?}: {}",
+                                            path,
+                                            e
+                                        );
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            } else {
+                tracing::warn!(
+                    "CA certificate directory does not exist or is not a directory: {:?}",
+                    ca_cert_dir
+                );
             }
         }
 
@@ -196,7 +220,12 @@ impl HttpClient {
         // Try each node once
         for _ in 0..self.nodes.len() {
             let node = self.get_next_node();
-            let url = format!("{}{}", node.trim_end_matches('/'), path);
+            let path_with_slash = if path.starts_with('/') {
+                path.to_string()
+            } else {
+                format!("/{}", path)
+            };
+            let url = format!("{}{}", node.trim_end_matches('/'), path_with_slash);
 
             tracing::debug!("Executing {} {} against {}", method, path, node);
 
@@ -212,6 +241,10 @@ impl HttpClient {
                 }
                 Err(err) => {
                     tracing::warn!("Request to {} failed: {}", node, err);
+                    tracing::debug!("Error details: {:?}", err);
+                    if err.is_builder() {
+                        tracing::error!("Builder error details - this usually means invalid URL or request configuration");
+                    }
                     last_error = Some(err);
                     // Continue to next node
                 }

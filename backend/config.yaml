@@ -11,9 +11,5 @@ clusters:
     name: "Local Development"
     nodes:
       - "http://localhost:9200"
-    auth:
-      type: "none"
-    tls:
-      verify: false
     client_type: "http"
     version_hint: "8"
