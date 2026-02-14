@@ -28,6 +28,7 @@ import {
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
   IndexStats,
+  HealthStatus,
 } from '../types/api';
 
 /**
@@ -302,10 +303,52 @@ export class ApiClient {
    */
   async getClusterStats(clusterId: string): Promise<ClusterStats> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ClusterStats>(
-        `/clusters/${clusterId}/_cluster/stats`
-      );
-      return response.data;
+      // Fetch both stats and health for complete information
+      const [statsResponse, healthResponse] = await Promise.all([
+        this.client.get<{
+          cluster_name: string;
+          status: string;
+          indices: {
+            count: number;
+            docs: { count: number };
+          };
+          nodes: {
+            count: {
+              total: number;
+              data: number;
+            };
+          };
+        }>(`/clusters/${clusterId}/_cluster/stats`),
+        this.client.get<{
+          cluster_name: string;
+          status: string;
+          number_of_nodes: number;
+          number_of_data_nodes: number;
+          active_primary_shards: number;
+          active_shards: number;
+          relocating_shards: number;
+          initializing_shards: number;
+          unassigned_shards: number;
+        }>(`/clusters/${clusterId}/_cluster/health`),
+      ]);
+
+      const stats = statsResponse.data;
+      const health = healthResponse.data;
+
+      // Transform Elasticsearch responses to ClusterStats format
+      return {
+        health: (health.status as HealthStatus) || 'red',
+        clusterName: stats.cluster_name || health.cluster_name || clusterId,
+        numberOfNodes: health.number_of_nodes || stats.nodes?.count?.total || 0,
+        numberOfDataNodes: health.number_of_data_nodes || stats.nodes?.count?.data || 0,
+        numberOfIndices: stats.indices?.count || 0,
+        numberOfDocuments: stats.indices?.docs?.count || 0,
+        activePrimaryShards: health.active_primary_shards || 0,
+        activeShards: health.active_shards || 0,
+        relocatingShards: health.relocating_shards || 0,
+        initializingShards: health.initializing_shards || 0,
+        unassignedShards: health.unassigned_shards || 0,
+      };
     });
   }
 
