@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { usePreferences } from '../hooks/usePreferences';
+import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 
 /**
@@ -403,7 +404,7 @@ function NodesList({
 
 /**
  * IndicesList component displays the list of indices
- * Requirements: 4.7
+ * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
  */
 function IndicesList({
   indices,
@@ -414,6 +415,8 @@ function IndicesList({
   loading: boolean;
   error: Error | null;
 }) {
+  const { id } = useParams<{ id: string }>();
+
   if (loading) {
     return (
       <Group justify="center" py="xl">
@@ -445,6 +448,7 @@ function IndicesList({
             <Table.Th>Documents</Table.Th>
             <Table.Th>Size</Table.Th>
             <Table.Th>Shards</Table.Th>
+            <Table.Th>Actions</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -473,6 +477,9 @@ function IndicesList({
                 <Text size="sm">
                   {index.primaryShards}p / {index.replicaShards}r
                 </Text>
+              </Table.Td>
+              <Table.Td>
+                {id && <IndexOperations clusterId={id} index={index} />}
               </Table.Td>
             </Table.Tr>
           ))}
