@@ -408,3 +408,68 @@ export interface CatApiResponse {
   columns: string[];
   rows: Array<Record<string, string | number>>;
 }
+
+/**
+ * Index statistics
+ */
+export interface IndexStats {
+  indexName: string;
+  uuid: string;
+  primaries: IndexShardStats;
+  total: IndexShardStats;
+}
+
+/**
+ * Index shard statistics
+ */
+export interface IndexShardStats {
+  docs: {
+    count: number;
+    deleted: number;
+  };
+  store: {
+    sizeInBytes: number;
+  };
+  indexing: {
+    indexTotal: number;
+    indexTimeInMillis: number;
+    indexCurrent: number;
+    indexFailed: number;
+    deleteTotal: number;
+    deleteTimeInMillis: number;
+    deleteCurrent: number;
+    throttleTimeInMillis: number;
+  };
+  search: {
+    queryTotal: number;
+    queryTimeInMillis: number;
+    queryCurrent: number;
+    fetchTotal: number;
+    fetchTimeInMillis: number;
+    fetchCurrent: number;
+    scrollTotal: number;
+    scrollTimeInMillis: number;
+    scrollCurrent: number;
+  };
+  merges: {
+    current: number;
+    currentDocs: number;
+    currentSizeInBytes: number;
+    total: number;
+    totalTimeInMillis: number;
+    totalDocs: number;
+    totalSizeInBytes: number;
+  };
+  refresh: {
+    total: number;
+    totalTimeInMillis: number;
+  };
+  flush: {
+    total: number;
+    totalTimeInMillis: number;
+  };
+  segments: {
+    count: number;
+    memoryInBytes: number;
+  };
+}

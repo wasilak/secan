@@ -27,6 +27,7 @@ import {
   SnapshotInfo,
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
+  IndexStats,
 } from '../types/api';
 
 /**
@@ -1022,6 +1023,28 @@ export class ApiClient {
       );
 
       return response.data;
+    });
+  }
+
+  /**
+   * Get index statistics
+   * 
+   * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
+   */
+  async getIndexStats(clusterId: string, indexName: string): Promise<IndexStats> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<{ indices: Record<string, IndexStats> }>(
+        `/clusters/${clusterId}/${indexName}/_stats`
+      );
+
+      // The response is an object with indices as keys
+      const indexData = response.data.indices?.[indexName];
+      
+      if (!indexData) {
+        throw new Error(`Statistics not found for index: ${indexName}`);
+      }
+
+      return indexData;
     });
   }
 }
