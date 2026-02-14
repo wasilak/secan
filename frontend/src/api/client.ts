@@ -2,6 +2,10 @@ import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import {
   ClusterInfo,
   ClusterHealth,
+  ClusterStats,
+  NodeInfo,
+  IndexInfo,
+  ShardInfo,
   LoginRequest,
   ApiError,
   ApiClientError,
@@ -262,6 +266,62 @@ export class ApiClient {
         data: body,
       });
 
+      return response.data;
+    });
+  }
+
+  /**
+   * Get cluster statistics for overview display
+   * 
+   * Requirements: 4.1, 4.2, 4.3
+   */
+  async getClusterStats(clusterId: string): Promise<ClusterStats> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<ClusterStats>(
+        `/clusters/${clusterId}/_cluster/stats`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Get list of nodes in a cluster
+   * 
+   * Requirements: 4.6, 14.1, 14.2
+   */
+  async getNodes(clusterId: string): Promise<NodeInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<NodeInfo[]>(
+        `/clusters/${clusterId}/_cat/nodes?format=json`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Get list of indices in a cluster
+   * 
+   * Requirements: 4.7
+   */
+  async getIndices(clusterId: string): Promise<IndexInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<IndexInfo[]>(
+        `/clusters/${clusterId}/_cat/indices?format=json`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Get shard allocation information
+   * 
+   * Requirements: 4.8
+   */
+  async getShards(clusterId: string): Promise<ShardInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<ShardInfo[]>(
+        `/clusters/${clusterId}/_cat/shards?format=json`
+      );
       return response.data;
     });
   }
