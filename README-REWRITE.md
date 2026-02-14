@@ -1,23 +1,108 @@
 # Cerebro Rewrite
 
-Modern rewrite of Cerebro, an Elasticsearch web administration tool, using Rust (backend) and TypeScript/React (frontend).
+Modern Elasticsearch web administration tool built with Rust and TypeScript/React.
 
-## Overview
+## Quick Start
 
-This is a complete rewrite of Cerebro from Scala/Play Framework/AngularJS to a modern stack:
+### Run the Application (Single Binary)
 
-- **Backend**: Rust with Axum web framework
-- **Frontend**: TypeScript, React 18, Mantine UI
-- **Distribution**: Single binary with embedded frontend assets
-- **Architecture**: Database-less, configuration-based
+```bash
+# Build frontend assets (first time only)
+cd frontend
+npm install
+npm run build
+
+# Run the backend (serves both API and UI)
+cd ../backend
+cargo run
+```
+
+Open `http://localhost:8080` in your browser.
+
+### Configuration
+
+The app is pre-configured for testing with **no authentication required**:
+
+```yaml
+# backend/config.yaml
+auth:
+  mode: "open"  # No login needed!
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for all authentication modes and options.
+
+### Troubleshooting
+
+If you see errors, check [TEST_API.md](TEST_API.md) for diagnostic steps.
 
 ## Features
 
-- Multi-cluster management for Elasticsearch (7, 8, 9) and OpenSearch
-- Modern authentication (Local Users, OIDC, Open mode)
-- Role-based access control (RBAC)
-- Cluster health monitoring and dashboard
-- Index management (create, settings, mappings, operations)
+✅ Single binary distribution (embedded frontend)  
+✅ Multi-cluster management  
+✅ Three authentication modes (Open, Local Users, OIDC)  
+✅ Role-based access control (RBAC)  
+✅ Index management (create, settings, mappings, operations)  
+✅ REST console with history  
+✅ Snapshot management  
+✅ Text analysis tools  
+✅ Cat API access  
+✅ Dark/light theme  
+✅ Keyboard navigation (Cmd/Ctrl+K)  
+✅ Responsive design  
+
+## Documentation
+
+- [CONFIGURATION.md](CONFIGURATION.md) - Complete configuration guide
+- [TEST_API.md](TEST_API.md) - API testing and troubleshooting
+- [RUNNING.md](RUNNING.md) - Running and deployment guide
+
+## Architecture
+
+- **Backend**: Rust + Axum (embedded frontend assets via rust-embed)
+- **Frontend**: TypeScript + React + Mantine UI
+- **Distribution**: Single binary with embedded assets
+- **Database**: None (configuration file + browser storage)
+
+## Development
+
+### Backend Development
+```bash
+cd backend
+cargo run
+```
+
+### Frontend Development (with hot reload)
+```bash
+# Terminal 1: Backend
+cd backend
+cargo run
+
+# Terminal 2: Frontend
+cd frontend
+npm run dev
+```
+
+Frontend dev server proxies API requests to the backend.
+
+## Building for Production
+
+```bash
+# Build frontend
+cd frontend
+npm run build
+
+# Build backend (includes embedded frontend)
+cd ../backend
+cargo build --release
+
+# Binary is at: backend/target/release/cerebro_backend
+```
+
+## Requirements
+
+- Rust 1.70+
+- Node.js 18+
+- Elasticsearch 7/8/9 or OpenSearch (for cluster connections)
 - REST console with request history
 - Snapshot and repository management
 - Analysis tools for text and analyzers
