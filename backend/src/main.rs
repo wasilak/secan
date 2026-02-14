@@ -7,12 +7,17 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
+    // Initialize tracing with JSON formatting for structured logging
+    // Supports configurable log levels via RUST_LOG environment variable
     tracing_subscriber::fmt()
+        .json()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_line_number(true)
         .init();
 
     info!("Cerebro - Elasticsearch Web Administration Tool");
@@ -21,12 +26,29 @@ async fn main() -> anyhow::Result<()> {
     // Load configuration
     let config = Config::load()?;
     info!("Configuration loaded successfully");
+
+    // Log startup configuration (sanitized - no sensitive data)
     info!(
-        "Server will listen on {}:{}",
-        config.server.host, config.server.port
+        server_host = %config.server.host,
+        server_port = config.server.port,
+        auth_mode = ?config.auth.mode,
+        cluster_count = config.clusters.len(),
+        session_timeout_minutes = config.auth.session_timeout_minutes,
+        "Startup configuration"
     );
-    info!("Authentication mode: {:?}", config.auth.mode);
-    info!("Configured clusters: {}", config.clusters.len());
+
+    // Log cluster configurations (sanitized)
+    for cluster in &config.clusters {
+        info!(
+            cluster_id = %cluster.id,
+            cluster_name = %cluster.name,
+            node_count = cluster.nodes.len(),
+            has_auth = cluster.auth.is_some(),
+            tls_verify = cluster.tls.verify,
+            client_type = ?cluster.client_type,
+            "Configured cluster"
+        );
+    }
 
     // Initialize cluster manager
     info!("Initializing cluster manager...");

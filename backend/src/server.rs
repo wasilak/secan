@@ -2,6 +2,7 @@ use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -97,6 +98,10 @@ impl Server {
             .with_state(cluster_state)
             // Static assets - must be last to act as fallback
             .fallback(crate::routes::serve_static)
+            // Add logging middleware (logs all requests with request IDs)
+            .layer(middleware::from_fn(
+                crate::middleware::logging::logging_middleware,
+            ))
             // Add CORS middleware
             .layer(
                 CorsLayer::new()

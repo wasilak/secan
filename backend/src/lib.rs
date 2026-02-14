@@ -5,6 +5,7 @@ pub mod assets;
 pub mod auth;
 pub mod cluster;
 pub mod config;
+pub mod middleware;
 pub mod routes;
 pub mod server;
 pub mod tls;
