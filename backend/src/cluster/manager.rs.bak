@@ -295,10 +295,7 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.1, 2.14, 2.17, 31.2
-    pub async fn new(
-        cluster_configs: Vec<ClusterConfig>,
-        cache_duration: Duration,
-    ) -> Result<Self> {
+    pub async fn new(cluster_configs: Vec<ClusterConfig>, cache_duration: Duration) -> Result<Self> {
         let mut clusters = HashMap::new();
 
         for config in cluster_configs {
@@ -538,10 +535,7 @@ impl Manager {
         }
 
         // Cache miss - fetch fresh data
-        tracing::debug!(
-            "Cache miss - fetching fresh health for cluster '{}'",
-            cluster_id
-        );
+        tracing::debug!("Cache miss - fetching fresh health for cluster '{}'", cluster_id);
         let cluster = self.get_cluster(cluster_id).await?;
 
         let health = cluster
@@ -550,9 +544,7 @@ impl Manager {
             .with_context(|| format!("Failed to check health for cluster '{}'", cluster_id))?;
 
         // Cache the result
-        self.health_cache
-            .insert(cluster_id.to_string(), health.clone())
-            .await;
+        self.health_cache.insert(cluster_id.to_string(), health.clone()).await;
 
         Ok(health)
     }
@@ -661,9 +653,7 @@ mod manager_tests {
             version_hint: None,
         }];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
 
         let cluster = manager.get_cluster("test").await;
         assert!(cluster.is_ok());
@@ -684,9 +674,7 @@ mod manager_tests {
             version_hint: None,
         }];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
 
         let cluster = manager.get_cluster("nonexistent").await;
         assert!(cluster.is_err());
@@ -719,9 +707,7 @@ mod manager_tests {
             },
         ];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
         let clusters = manager.list_clusters().await;
 
         assert_eq!(clusters.len(), 2);
@@ -741,9 +727,7 @@ mod manager_tests {
             version_hint: None,
         }];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
 
         assert!(manager.has_cluster("test").await);
         assert!(!manager.has_cluster("nonexistent").await);
@@ -772,9 +756,7 @@ mod manager_tests {
             },
         ];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
         assert_eq!(manager.cluster_count().await, 2);
     }
 
@@ -860,9 +842,7 @@ mod manager_tests {
         ];
 
         let rbac = RbacManager::new(role_configs);
-        let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
 
         // Test with prod-admin user
         let prod_user = AuthUser::new(
@@ -926,9 +906,7 @@ mod manager_tests {
         }];
 
         let rbac = RbacManager::new(role_configs);
-        let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
 
         let user = AuthUser::new(
             "user1".to_string(),
@@ -964,9 +942,7 @@ mod manager_tests {
         }];
 
         let rbac = RbacManager::new(role_configs);
-        let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
 
         let user = AuthUser::new(
             "admin1".to_string(),
@@ -1001,9 +977,7 @@ mod manager_tests {
         }];
 
         let rbac = RbacManager::new(role_configs);
-        let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new_with_rbac(configs, rbac).await.unwrap();
 
         let user = AuthUser::new(
             "user1".to_string(),
@@ -1033,9 +1007,7 @@ mod manager_tests {
             version_hint: None,
         }];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
 
         // Without user, should allow access
         let cluster = manager.get_cluster_with_auth("test", None).await;
@@ -1056,9 +1028,7 @@ mod manager_tests {
             version_hint: None,
         }];
 
-        let manager = Manager::new(configs, Duration::from_secs(30))
-            .await
-            .unwrap();
+        let manager = Manager::new(configs, Duration::from_secs(30)).await.unwrap();
 
         let user = AuthUser::new(
             "user1".to_string(),

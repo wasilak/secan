@@ -3,6 +3,7 @@
 
 pub mod assets;
 pub mod auth;
+pub mod cache;
 pub mod cluster;
 pub mod config;
 pub mod middleware;
