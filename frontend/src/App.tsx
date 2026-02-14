@@ -1,16 +1,22 @@
-import { Container, Title, Text } from '@mantine/core';
+import { Container, Title, Text, Group } from '@mantine/core';
 import { Outlet } from 'react-router-dom';
+import { ThemeSelector } from './components/ThemeSelector';
 
 function App() {
   return (
     <Container size="md" py="xl">
-      <Title order={1}>Cerebro</Title>
-      <Text size="lg" mt="md">
-        Elasticsearch Web Administration Tool
-      </Text>
-      <Text size="sm" c="dimmed" mt="xs">
-        Frontend initialization complete. Backend integration coming soon.
-      </Text>
+      <Group justify="space-between" mb="xl">
+        <div>
+          <Title order={1}>Cerebro</Title>
+          <Text size="lg" mt="md">
+            Elasticsearch Web Administration Tool
+          </Text>
+          <Text size="sm" c="dimmed" mt="xs">
+            Frontend initialization complete. Backend integration coming soon.
+          </Text>
+        </div>
+        <ThemeSelector />
+      </Group>
       
       {/* Router outlet for nested routes */}
       <Outlet />
