@@ -689,16 +689,33 @@ function ShardAllocationGrid({
   });
 
   // Group shards by node and index
+  // Build a map of node identifiers (id, name, ip) to node name for matching
+  const nodeIdentifierMap = new Map<string, string>();
+  nodes.forEach(node => {
+    nodeIdentifierMap.set(node.id, node.name);
+    nodeIdentifierMap.set(node.name, node.name);
+    if (node.ip) {
+      nodeIdentifierMap.set(node.ip, node.name);
+    }
+  });
+  
   const shardsByNodeAndIndex = new Map<string, Map<string, ShardInfo[]>>();
   
   shards.forEach((shard) => {
     if (!shard.node) return; // Skip unassigned shards for grid view
     
-    if (!shardsByNodeAndIndex.has(shard.node)) {
-      shardsByNodeAndIndex.set(shard.node, new Map());
+    // Try to find the node name using the identifier map
+    const nodeName = nodeIdentifierMap.get(shard.node);
+    if (!nodeName) {
+      // If we can't find a match, skip this shard
+      return;
     }
     
-    const nodeShards = shardsByNodeAndIndex.get(shard.node)!;
+    if (!shardsByNodeAndIndex.has(nodeName)) {
+      shardsByNodeAndIndex.set(nodeName, new Map());
+    }
+    
+    const nodeShards = shardsByNodeAndIndex.get(nodeName)!;
     if (!nodeShards.has(shard.index)) {
       nodeShards.set(shard.index, []);
     }
