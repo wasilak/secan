@@ -357,3 +357,20 @@ export interface RestoreSnapshotRequest {
   includeAliases?: boolean;
   partial?: boolean;
 }
+
+/**
+ * Cat API endpoint information
+ */
+export interface CatEndpoint {
+  endpoint: string;
+  description: string;
+  help?: string;
+}
+
+/**
+ * Cat API response (generic table data)
+ */
+export interface CatApiResponse {
+  columns: string[];
+  rows: Array<Record<string, string | number>>;
+}

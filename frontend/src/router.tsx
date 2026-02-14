@@ -15,6 +15,7 @@ import { TextAnalysisPage } from './pages/TextAnalysis';
 import { IndexAnalyzersPage } from './pages/IndexAnalyzers';
 import { Repositories } from './pages/Repositories';
 import { Snapshots } from './pages/Snapshots';
+import { CatApiPage } from './pages/CatApi';
 
 /**
  * Main application router configuration
@@ -35,6 +36,7 @@ import { Snapshots } from './pages/Snapshots';
  * - /cluster/:id/analysis - Text analysis tools
  * - /cluster/:id/repositories - Manage snapshot repositories
  * - /cluster/:id/snapshots/:repository - Manage snapshots in a repository
+ * - /cluster/:id/cat - Cat API access
  * 
  * Authentication redirects will be implemented when auth is integrated.
  */
@@ -102,6 +104,10 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/snapshots/:repository',
         element: <Snapshots />,
+      },
+      {
+        path: 'cluster/:id/cat',
+        element: <CatApiPage />,
       },
     ],
   },
