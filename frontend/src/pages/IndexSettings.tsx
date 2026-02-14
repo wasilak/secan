@@ -202,7 +202,7 @@ export function IndexSettings() {
         </div>
         <Button
           variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}/indices`)}
+          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
         >
           Back to Indices
         </Button>
