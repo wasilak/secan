@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { HealthStatus } from '../types/api';
 import { usePreferences } from '../hooks/usePreferences';
+import { useScreenReader } from '../lib/accessibility';
 
 /**
  * Cluster summary combining cluster info and health data
@@ -147,6 +148,9 @@ function SortableHeader({
   children,
 }: SortableHeaderProps) {
   const isActive = currentColumn === column;
+  const sortLabel = isActive
+    ? `Sorted ${direction === 'asc' ? 'ascending' : 'descending'}`
+    : 'Not sorted';
 
   return (
     <Table.Th>
@@ -158,11 +162,12 @@ function SortableHeader({
           gap: '4px',
           width: '100%',
         }}
+        aria-label={`Sort by ${children}, ${sortLabel}`}
       >
         <Text fw={500}>{children}</Text>
-        {isActive && direction === 'asc' && <IconChevronUp size={14} />}
-        {isActive && direction === 'desc' && <IconChevronDown size={14} />}
-        {!isActive && <IconSelector size={14} opacity={0.5} />}
+        {isActive && direction === 'asc' && <IconChevronUp size={14} aria-hidden="true" />}
+        {isActive && direction === 'desc' && <IconChevronDown size={14} aria-hidden="true" />}
+        {!isActive && <IconSelector size={14} opacity={0.5} aria-hidden="true" />}
       </UnstyledButton>
     </Table.Th>
   );
@@ -184,6 +189,7 @@ function SortableHeader({
 export function Dashboard() {
   const navigate = useNavigate();
   const { preferences } = usePreferences();
+  const { announce, announceError } = useScreenReader();
   const [clusterSummaries, setClusterSummaries] = useState<ClusterSummary[]>([]);
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -198,6 +204,17 @@ export function Dashboard() {
     queryFn: () => apiClient.getClusters(),
     refetchInterval: preferences.refreshInterval,
   });
+
+  // Announce loading and error states to screen readers
+  useEffect(() => {
+    if (clustersLoading) {
+      announce('Loading clusters');
+    } else if (clustersError) {
+      announceError('Failed to load cluster list');
+    } else if (clusters) {
+      announce(`Loaded ${clusters.length} cluster${clusters.length !== 1 ? 's' : ''}`);
+    }
+  }, [clustersLoading, clustersError, clusters, announce, announceError]);
 
   // Fetch health for all clusters
   useEffect(() => {
@@ -258,13 +275,16 @@ export function Dashboard() {
       // Cycle through: asc -> desc -> null
       if (sortDirection === 'asc') {
         setSortDirection('desc');
+        announce(`Sorted by ${column} descending`);
       } else if (sortDirection === 'desc') {
         setSortDirection(null);
         setSortColumn(null);
+        announce(`Sort removed`);
       }
     } else {
       setSortColumn(column);
       setSortDirection('asc');
+      announce(`Sorted by ${column} ascending`);
     }
   };
 
@@ -337,14 +357,14 @@ export function Dashboard() {
       <Group justify="space-between" mb="md">
         <Title order={1}>Dashboard</Title>
         <Group gap="xs">
-          <IconRefresh size={16} />
-          <Text size="sm" c="dimmed">
+          <IconRefresh size={16} aria-hidden="true" />
+          <Text size="sm" c="dimmed" aria-live="polite">
             Auto-refresh: {preferences.refreshInterval / 1000}s
           </Text>
         </Group>
       </Group>
 
-      <Table highlightOnHover striped>
+      <Table highlightOnHover striped role="table" aria-label="Cluster overview table">
         <Table.Thead>
           <Table.Tr>
             <SortableHeader
@@ -403,17 +423,26 @@ export function Dashboard() {
               key={cluster.id}
               onClick={() => handleClusterClick(cluster.id)}
               style={{ cursor: 'pointer' }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleClusterClick(cluster.id);
+                }
+              }}
+              aria-label={`View details for cluster ${cluster.name}`}
             >
               <Table.Td>
                 <Text fw={500}>{cluster.name}</Text>
                 {cluster.error && (
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" c="dimmed" role="alert">
                     {cluster.error}
                   </Text>
                 )}
               </Table.Td>
               <Table.Td>
-                <Badge color={getHealthColor(cluster.health)} variant="filled">
+                <Badge color={getHealthColor(cluster.health)} variant="filled" aria-label={`Health status: ${cluster.health}`}>
                   {cluster.health}
                 </Badge>
               </Table.Td>

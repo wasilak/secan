@@ -1,14 +1,16 @@
 import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useHotkeys } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
   IconDashboard, 
   IconServer, 
   IconLogout, 
   IconUser,
-  IconChevronDown 
+  IconChevronDown,
+  IconKeyboard,
 } from '@tabler/icons-react';
 import { ThemeSelector } from './ThemeSelector';
+import { KeyboardShortcuts } from './KeyboardShortcuts';
 
 /**
  * AppShell component provides the main layout structure for the application.
@@ -20,11 +22,19 @@ import { ThemeSelector } from './ThemeSelector';
  * - Logout button
  * - Theme selector integration
  * - Responsive design with mobile support
+ * - Keyboard shortcuts support
  */
 export function AppShell() {
   const [opened, { toggle }] = useDisclosure();
+  const [shortcutsOpened, { open: openShortcuts, close: closeShortcuts }] = useDisclosure(false);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Keyboard shortcut to open help
+  useHotkeys([
+    ['?', openShortcuts],
+    ['shift+/', openShortcuts],
+  ]);
 
   // TODO: Replace with actual user data from auth context
   const user = {
@@ -54,21 +64,33 @@ export function AppShell() {
     >
       {/* Header */}
       <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between">
+        <Group h="100%" px="md" justify="space-between" component="header" role="banner">
           <Group>
             <Burger
               opened={opened}
               onClick={toggle}
               hiddenFrom="sm"
               size="sm"
+              aria-label={opened ? 'Close navigation menu' : 'Open navigation menu'}
             />
-            <Text size="xl" fw={700}>
+            <Text size="xl" fw={700} component="h1">
               Cerebro
             </Text>
           </Group>
 
           <Group gap="sm">
             <ThemeSelector />
+            
+            {/* Keyboard shortcuts button */}
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={openShortcuts}
+              aria-label="View keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              <IconKeyboard size={20} />
+            </ActionIcon>
             
             {/* User menu */}
             <Menu shadow="md" width={200}>
@@ -79,10 +101,10 @@ export function AppShell() {
                   aria-label="User menu"
                 >
                   <Group gap="xs">
-                    <Avatar size="sm" radius="xl" color="blue">
+                    <Avatar size="sm" radius="xl" color="blue" aria-hidden="true">
                       {user.username.charAt(0).toUpperCase()}
                     </Avatar>
-                    <IconChevronDown size={16} />
+                    <IconChevronDown size={16} aria-hidden="true" />
                   </Group>
                 </ActionIcon>
               </Menu.Target>
@@ -90,7 +112,7 @@ export function AppShell() {
               <Menu.Dropdown>
                 <Menu.Label>
                   <Group gap="xs">
-                    <IconUser size={16} />
+                    <IconUser size={16} aria-hidden="true" />
                     {user.username}
                   </Group>
                 </Menu.Label>
@@ -102,7 +124,16 @@ export function AppShell() {
                 <Menu.Divider />
 
                 <Menu.Item
-                  leftSection={<IconLogout size={16} />}
+                  leftSection={<IconKeyboard size={16} aria-hidden="true" />}
+                  onClick={openShortcuts}
+                >
+                  Keyboard Shortcuts
+                </Menu.Item>
+
+                <Menu.Divider />
+
+                <Menu.Item
+                  leftSection={<IconLogout size={16} aria-hidden="true" />}
                   onClick={handleLogout}
                   color="red"
                 >
@@ -115,24 +146,25 @@ export function AppShell() {
       </MantineAppShell.Header>
 
       {/* Sidebar Navigation */}
-      <MantineAppShell.Navbar p="md">
+      <MantineAppShell.Navbar p="md" component="nav" role="navigation" aria-label="Main navigation">
         <MantineAppShell.Section grow>
           <NavLink
             href="/"
             label="Dashboard"
-            leftSection={<IconDashboard size={20} />}
+            leftSection={<IconDashboard size={20} aria-hidden="true" />}
             active={isActive('/')}
             onClick={(e) => {
               e.preventDefault();
               navigate('/');
               if (opened) toggle();
             }}
+            aria-current={isActive('/') ? 'page' : undefined}
           />
 
           {/* Cluster navigation will be populated dynamically */}
           <NavLink
             label="Clusters"
-            leftSection={<IconServer size={20} />}
+            leftSection={<IconServer size={20} aria-hidden="true" />}
             childrenOffset={28}
             defaultOpened={location.pathname.startsWith('/cluster')}
           >
@@ -144,16 +176,19 @@ export function AppShell() {
         </MantineAppShell.Section>
 
         <MantineAppShell.Section>
-          <Text size="xs" c="dimmed" ta="center">
+          <Text size="xs" c="dimmed" ta="center" role="contentinfo">
             Cerebro v0.1.0
           </Text>
         </MantineAppShell.Section>
       </MantineAppShell.Navbar>
 
       {/* Main Content */}
-      <MantineAppShell.Main>
+      <MantineAppShell.Main component="main" role="main">
         <Outlet />
       </MantineAppShell.Main>
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts opened={shortcutsOpened} onClose={closeShortcuts} />
     </MantineAppShell>
   );
 }

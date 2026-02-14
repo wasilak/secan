@@ -25,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { useScreenReader } from '../lib/accessibility';
 import type { IndexInfo } from '../types/api';
 
 interface IndexOperationsProps {
@@ -49,6 +50,7 @@ interface IndexOperationsProps {
  */
 export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
   const queryClient = useQueryClient();
+  const { announceSuccess, announceError } = useScreenReader();
   const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
   const [forceMergeModalOpened, { open: openForceMergeModal, close: closeForceMergeModal }] = useDisclosure(false);
   const [confirmText, setConfirmText] = useState('');
@@ -75,6 +77,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
         loading: false,
         autoClose: 3000,
       });
+      announceSuccess(`Index ${index.name} opened successfully`);
       queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'indices'] });
     },
     onError: (error: Error) => {
@@ -86,6 +89,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
         loading: false,
         autoClose: 5000,
       });
+      announceError(`Failed to open index: ${error.message}`);
     },
   });
 
@@ -317,8 +321,8 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
       <Menu shadow="md" width={200}>
         <Menu.Target>
           <Tooltip label="Index operations">
-            <ActionIcon variant="subtle" color="gray">
-              <IconDots size={16} />
+            <ActionIcon variant="subtle" color="gray" aria-label={`Operations for index ${index.name}`}>
+              <IconDots size={16} aria-hidden="true" />
             </ActionIcon>
           </Tooltip>
         </Menu.Target>
@@ -328,7 +332,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           
           {index.status === 'close' ? (
             <Menu.Item
-              leftSection={<IconFolderOpen size={14} />}
+              leftSection={<IconFolderOpen size={14} aria-hidden="true" />}
               onClick={() => openIndexMutation.mutate()}
               disabled={openIndexMutation.isPending}
             >
@@ -336,7 +340,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
             </Menu.Item>
           ) : (
             <Menu.Item
-              leftSection={<IconFolderOff size={14} />}
+              leftSection={<IconFolderOff size={14} aria-hidden="true" />}
               onClick={() => closeIndexMutation.mutate()}
               disabled={closeIndexMutation.isPending}
             >
@@ -345,7 +349,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           )}
 
           <Menu.Item
-            leftSection={<IconRefresh size={14} />}
+            leftSection={<IconRefresh size={14} aria-hidden="true" />}
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
           >
@@ -353,7 +357,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           </Menu.Item>
 
           <Menu.Item
-            leftSection={<IconDeviceFloppy size={14} />}
+            leftSection={<IconDeviceFloppy size={14} aria-hidden="true" />}
             onClick={() => flushMutation.mutate()}
             disabled={flushMutation.isPending}
           >
@@ -361,7 +365,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           </Menu.Item>
 
           <Menu.Item
-            leftSection={<IconEraser size={14} />}
+            leftSection={<IconEraser size={14} aria-hidden="true" />}
             onClick={() => clearCacheMutation.mutate()}
             disabled={clearCacheMutation.isPending}
           >
@@ -369,7 +373,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           </Menu.Item>
 
           <Menu.Item
-            leftSection={<IconBolt size={14} />}
+            leftSection={<IconBolt size={14} aria-hidden="true" />}
             onClick={openForceMergeModal}
           >
             Force Merge
@@ -378,7 +382,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
           <Menu.Divider />
 
           <Menu.Item
-            leftSection={<IconTrash size={14} />}
+            leftSection={<IconTrash size={14} aria-hidden="true" />}
             color="red"
             onClick={openDeleteModal}
           >
@@ -396,9 +400,11 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
         }}
         title="Delete Index"
         centered
+        aria-labelledby="delete-modal-title"
+        aria-describedby="delete-modal-description"
       >
         <Stack gap="md">
-          <Text size="sm">
+          <Text size="sm" id="delete-modal-description">
             Are you sure you want to delete index <Text span fw={700}>{index.name}</Text>?
             This action cannot be undone.
           </Text>
@@ -410,6 +416,8 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
             value={confirmText}
             onChange={(e) => setConfirmText(e.currentTarget.value)}
             data-autofocus
+            aria-label="Confirm index name"
+            aria-required="true"
           />
           <Group justify="flex-end">
             <Button
@@ -426,6 +434,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
               onClick={handleDelete}
               disabled={confirmText !== index.name || deleteIndexMutation.isPending}
               loading={deleteIndexMutation.isPending}
+              aria-label={`Delete index ${index.name}`}
             >
               Delete
             </Button>
@@ -442,9 +451,11 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
         }}
         title="Force Merge Index"
         centered
+        aria-labelledby="forcemerge-modal-title"
+        aria-describedby="forcemerge-modal-description"
       >
         <Stack gap="md">
-          <Text size="sm">
+          <Text size="sm" id="forcemerge-modal-description">
             Force merge index <Text span fw={700}>{index.name}</Text> to reduce the number of segments.
           </Text>
           <NumberInput
@@ -455,6 +466,8 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
             onChange={setMaxSegments}
             min={1}
             max={100}
+            aria-label="Maximum number of segments"
+            aria-required="true"
           />
           <Group justify="flex-end">
             <Button
@@ -470,6 +483,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
               onClick={handleForceMerge}
               disabled={forceMergeMutation.isPending}
               loading={forceMergeMutation.isPending}
+              aria-label={`Force merge index ${index.name}`}
             >
               Force Merge
             </Button>
