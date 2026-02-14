@@ -890,15 +890,15 @@ The implementation is organized into phases:
     - Test debouncing
     - _Requirements: 31.2, 31.7_
 
-- [ ] 39. Create Docker deployment
-  - [ ] 39.1 Create Dockerfile
+- [x] 39. Create Docker deployment
+  - [x] 39.1 Create Dockerfile
     - Multi-stage build (Rust builder + minimal runtime)
     - Run as non-root user
     - Expose port 9000
     - Add health check
     - _Requirements: 27.1, 27.4, 27.5, 27.6, 27.7_
   
-  - [ ] 39.2 Create docker-compose.yml
+  - [x] 39.2 Create docker-compose.yml
     - Include Cerebro service
     - Support environment variable configuration
     - Support volume mounts for config
@@ -911,8 +911,8 @@ The implementation is organized into phases:
     - Test with environment variables
     - _Requirements: 27.1, 27.7_
 
-- [ ] 40. Set up cross-platform builds
-  - [ ] 40.1 Create GitHub Actions workflow
+- [x] 40. Set up cross-platform builds
+  - [x] 40.1 Create GitHub Actions workflow
     - Build for Linux x86_64 and ARM64
     - Build for macOS x86_64 and ARM64
     - Build for Windows x86_64
@@ -920,7 +920,7 @@ The implementation is organized into phases:
     - Create release artifacts
     - _Requirements: 29.1, 29.2, 29.3, 29.4, 29.5, 29.6, 29.7, 29.8_
   
-  - [ ] 40.2 Configure release process
+  - [x] 40.2 Configure release process
     - Tag releases with version numbers
     - Upload binaries as release assets
     - Generate release notes
