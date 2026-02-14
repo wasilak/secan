@@ -316,10 +316,14 @@ export class ApiClient {
    */
   async getNodes(clusterId: string): Promise<NodeInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<NodeInfo[]>(
+      const response = await this.client.get<NodeInfo[] | string>(
         `/clusters/${clusterId}/_cat/nodes?format=json`
       );
-      return response.data;
+      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
+      if (typeof response.data === 'string' && response.data.trim() === '') {
+        return [];
+      }
+      return Array.isArray(response.data) ? response.data : [];
     });
   }
 
@@ -343,10 +347,14 @@ export class ApiClient {
    */
   async getIndices(clusterId: string): Promise<IndexInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<IndexInfo[]>(
+      const response = await this.client.get<IndexInfo[] | string>(
         `/clusters/${clusterId}/_cat/indices?format=json`
       );
-      return response.data;
+      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
+      if (typeof response.data === 'string' && response.data.trim() === '') {
+        return [];
+      }
+      return Array.isArray(response.data) ? response.data : [];
     });
   }
 
@@ -357,10 +365,14 @@ export class ApiClient {
    */
   async getShards(clusterId: string): Promise<ShardInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ShardInfo[]>(
+      const response = await this.client.get<ShardInfo[] | string>(
         `/clusters/${clusterId}/_cat/shards?format=json`
       );
-      return response.data;
+      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
+      if (typeof response.data === 'string' && response.data.trim() === '') {
+        return [];
+      }
+      return Array.isArray(response.data) ? response.data : [];
     });
   }
 
