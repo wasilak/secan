@@ -336,10 +336,17 @@ pub async fn proxy_request(
     body: Option<Json<serde_json::Value>>,
 ) -> Result<Response, ClusterErrorResponse> {
     // Construct full path with query string if present
-    let full_path = if let Some(q) = query {
-        format!("{}?{}", path, q)
-    } else {
+    // Ensure path starts with / for Elasticsearch API
+    let normalized_path = if path.starts_with('/') {
         path.clone()
+    } else {
+        format!("/{}", path)
+    };
+    
+    let full_path = if let Some(q) = query {
+        format!("{}?{}", normalized_path, q)
+    } else {
+        normalized_path
     };
 
     tracing::debug!(
