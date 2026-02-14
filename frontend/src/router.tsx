@@ -16,6 +16,7 @@ import { IndexAnalyzersPage } from './pages/IndexAnalyzers';
 import { Repositories } from './pages/Repositories';
 import { Snapshots } from './pages/Snapshots';
 import { CatApiPage } from './pages/CatApi';
+import { NodeDetail } from './pages/NodeDetail';
 
 /**
  * Main application router configuration
@@ -24,6 +25,7 @@ import { CatApiPage } from './pages/CatApi';
  * - / - Dashboard (multi-cluster overview)
  * - /login - Login page
  * - /cluster/:id - Cluster detail view
+ * - /cluster/:id/nodes/:nodeId - Node detail view with statistics
  * - /cluster/:id/rest - REST console
  * - /cluster/:id/indices/create - Create new index
  * - /cluster/:id/indices/:indexName/settings - View/edit index settings
@@ -56,6 +58,10 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id',
         element: <ClusterView />,
+      },
+      {
+        path: 'cluster/:id/nodes/:nodeId',
+        element: <NodeDetail />,
       },
       {
         path: 'cluster/:id/rest',

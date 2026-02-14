@@ -107,6 +107,40 @@ export interface NodeInfo {
 }
 
 /**
+ * Thread pool statistics
+ */
+export interface ThreadPoolStats {
+  threads: number;
+  queue: number;
+  active: number;
+  rejected: number;
+  largest: number;
+  completed: number;
+}
+
+/**
+ * Detailed node statistics
+ */
+export interface NodeDetailStats {
+  id: string;
+  name: string;
+  roles: NodeRole[];
+  ip?: string;
+  version: string;
+  jvmVersion: string;
+  heapUsed: number;
+  heapMax: number;
+  heapPercent: number;
+  diskUsed: number;
+  diskTotal: number;
+  diskPercent: number;
+  cpuPercent?: number;
+  loadAverage?: number[];
+  threadPools: Record<string, ThreadPoolStats>;
+  uptime?: string;
+}
+
+/**
  * Index status
  */
 export type IndexStatus = 'open' | 'close';
