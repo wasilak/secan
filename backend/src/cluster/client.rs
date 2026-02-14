@@ -1,12 +1,10 @@
 use crate::config::{ClusterAuth, ClusterConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use base64::Engine;
 use elasticsearch::{
     auth::Credentials,
-    http::{
-        response::Response as EsResponse,
-        transport::{SingleNodeConnectionPool, TransportBuilder},
-    },
+    http::transport::{SingleNodeConnectionPool, TransportBuilder},
     Elasticsearch,
 };
 use reqwest::{Method, Response};
@@ -14,11 +12,20 @@ use serde_json::Value;
 use std::time::Duration;
 use url::Url;
 
+#[derive(Debug, Clone)]
+enum ElasticsearchAuth {
+    Basic { username: String, password: String },
+    ApiKey { id: String, api_key: String },
+}
+
 /// Elasticsearch client using official elasticsearch crate
 #[derive(Debug, Clone)]
 pub struct Client {
     client: Elasticsearch,
     es_version: u8,
+    http_client: reqwest::Client,
+    base_url: String,
+    auth: Option<ElasticsearchAuth>,
 }
 
 /// Trait for Elasticsearch client operations
@@ -62,8 +69,18 @@ impl Client {
             .context("At least one node URL is required")?;
         let url = Url::parse(node_url).context("Invalid node URL")?;
 
+        // Store base URL for direct HTTP requests
+        let base_url = format!(
+            "{}://{}{}",
+            url.scheme(),
+            url.host_str().unwrap_or("localhost"),
+            url.port()
+                .map(|p| format!(":{}", p))
+                .unwrap_or_default()
+        );
+
         // Create connection pool
-        let conn_pool = SingleNodeConnectionPool::new(url);
+        let conn_pool = SingleNodeConnectionPool::new(url.clone());
 
         // Build transport with authentication and TLS settings
         let mut transport_builder = TransportBuilder::new(conn_pool);
@@ -71,12 +88,16 @@ impl Client {
         // Configure timeout
         transport_builder = transport_builder.timeout(Duration::from_secs(30));
 
-        // Configure authentication
-        if let Some(auth) = &config.auth {
+        // Store authentication info for direct HTTP requests
+        let auth_info = if let Some(auth) = &config.auth {
             match auth {
                 ClusterAuth::Basic { username, password } => {
                     let credentials = Credentials::Basic(username.clone(), password.clone());
                     transport_builder = transport_builder.auth(credentials);
+                    Some(ElasticsearchAuth::Basic {
+                        username: username.clone(),
+                        password: password.clone(),
+                    })
                 }
                 ClusterAuth::ApiKey { key } => {
                     // ApiKey requires both id and api_key
@@ -87,20 +108,25 @@ impl Client {
                     } else {
                         (String::new(), key.clone())
                     };
-                    let credentials = Credentials::ApiKey(id, api_key);
+                    let credentials = Credentials::ApiKey(id.clone(), api_key.clone());
                     transport_builder = transport_builder.auth(credentials);
+                    Some(ElasticsearchAuth::ApiKey { id, api_key })
                 }
-                ClusterAuth::None => {
-                    // No credentials needed
-                }
-            };
-        }
+                ClusterAuth::None => None,
+            }
+        } else {
+            None
+        };
 
         // Configure TLS certificate verification
+        let mut http_client_builder = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30));
+        
         if !config.tls.verify {
             tracing::warn!("TLS certificate verification is disabled - this is insecure!");
             transport_builder =
                 transport_builder.cert_validation(elasticsearch::cert::CertificateValidation::None);
+            http_client_builder = http_client_builder.danger_accept_invalid_certs(true);
         }
 
         // Build transport
@@ -108,12 +134,18 @@ impl Client {
             .build()
             .context("Failed to build Elasticsearch transport")?;
 
-        // Create client
+        // Create clients
         let client = Elasticsearch::new(transport);
+        let http_client = http_client_builder
+            .build()
+            .context("Failed to build HTTP client")?;
 
         Ok(Self {
             client,
             es_version: config.es_version,
+            http_client,
+            base_url,
+            auth: auth_info,
         })
     }
 
@@ -121,82 +153,50 @@ impl Client {
     pub fn es_version(&self) -> u8 {
         self.es_version
     }
-
-    /// Convert Elasticsearch SDK response to reqwest Response for compatibility
-    async fn convert_response(&self, es_response: EsResponse) -> Result<Response> {
-        let status = es_response.status_code();
-        let headers = es_response.headers().clone();
-        let body_bytes = es_response
-            .bytes()
-            .await
-            .context("Failed to read response body")?;
-
-        // Build reqwest response using reqwest's builder
-        let mut response_builder = http::Response::builder().status(status.as_u16());
-
-        // Copy headers
-        for (key, value) in headers.iter() {
-            response_builder = response_builder.header(key.as_str(), value.as_bytes());
-        }
-
-        let http_response = response_builder
-            .body(body_bytes.to_vec())
-            .context("Failed to build HTTP response")?;
-
-        // Convert http::Response to reqwest::Response using try_from
-        reqwest::Response::try_from(http_response)
-            .context("Failed to convert HTTP response to reqwest Response")
-    }
 }
 
 #[async_trait]
 impl ElasticsearchClient for Client {
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
-        // Use the generic send method for arbitrary requests
-        let es_method = match method {
-            Method::GET => elasticsearch::http::Method::Get,
-            Method::POST => elasticsearch::http::Method::Post,
-            Method::PUT => elasticsearch::http::Method::Put,
-            Method::DELETE => elasticsearch::http::Method::Delete,
-            Method::HEAD => elasticsearch::http::Method::Head,
+        // For arbitrary requests, we need to use reqwest directly since the ES SDK
+        // doesn't provide a generic request builder for all paths
+        let url = format!("{}{}", self.base_url, path);
+        
+        let mut req = match method {
+            Method::GET => self.http_client.get(&url),
+            Method::POST => self.http_client.post(&url),
+            Method::PUT => self.http_client.put(&url),
+            Method::DELETE => self.http_client.delete(&url),
+            Method::HEAD => self.http_client.head(&url),
             _ => anyhow::bail!("Unsupported HTTP method: {}", method),
         };
 
-        // Convert body to bytes if present
-        let body_bytes = if let Some(ref b) = body {
-            Some(serde_json::to_vec(b).context("Failed to serialize request body")?)
-        } else {
-            None
-        };
-
-        // Send the request - the SDK will return an error for non-2xx responses
-        // but we want to pass those through to the frontend
-        let es_response = match self
-            .client
-            .send(
-                es_method,
-                path,
-                elasticsearch::http::headers::HeaderMap::new(),
-                body_bytes.as_deref(),
-                None::<String>,
-                None,
-            )
-            .await
-        {
-            Ok(response) => response,
-            Err(e) => {
-                // Log the error but try to extract response if available
-                tracing::error!(
-                    method = %method,
-                    path = %path,
-                    error = %e,
-                    "Elasticsearch SDK returned error"
-                );
-                return Err(anyhow::anyhow!("Elasticsearch request failed: {}", e));
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
             }
-        };
+        }
 
-        self.convert_response(es_response).await
+        // Add body if present
+        if let Some(b) = body {
+            req = req.json(&b);
+        }
+
+        // Send the request
+        let response = req
+            .send()
+            .await
+            .context("Failed to send request to Elasticsearch")?;
+
+        Ok(response)
     }
 
     async fn health(&self) -> Result<Value> {
