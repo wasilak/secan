@@ -204,9 +204,26 @@ export class ApiClient {
         );
       }
 
+      // Try to parse Elasticsearch error from response body
+      // The backend passes through ES responses as-is for proxy requests
+      let elasticsearchError: ApiError | null = null;
+      if (data && typeof data === 'object') {
+        // Check if this is an Elasticsearch error response
+        const responseData = data as unknown as Record<string, unknown>;
+        if (responseData.error && typeof responseData.error === 'object') {
+          elasticsearchError = responseData as unknown as ApiError;
+        }
+      }
+
       // Handle other HTTP errors
       const message = data?.message || error.message || 'An error occurred';
-      return Promise.reject(new ApiClientError(message, status, data));
+      return Promise.reject(
+        new ApiClientError(
+          message,
+          status,
+          elasticsearchError || data || { error: 'unknown', message }
+        )
+      );
     }
 
     // Handle network errors
