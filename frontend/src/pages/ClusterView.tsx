@@ -856,7 +856,9 @@ function ShardAllocationGrid({
                                     fontSize: '10px',
                                     fontWeight: 600,
                                     borderRadius: '2px',
-                                    border: shard.primary ? '1px solid var(--mantine-color-green-9)' : 'none',
+                                    border: shard.primary 
+                                      ? '2px solid var(--mantine-color-green-9)' 
+                                      : '2px dashed var(--mantine-color-green-9)',
                                   }}
                                   title={`Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) - ${shard.state}`}
                                 >
