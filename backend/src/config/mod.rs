@@ -10,6 +10,8 @@ pub struct Config {
     pub auth: AuthConfig,
     #[serde(default)]
     pub clusters: Vec<ClusterConfig>,
+    #[serde(default)]
+    pub cache: CacheConfig,
 }
 
 /// Server configuration
@@ -28,6 +30,26 @@ fn default_host() -> String {
 
 fn default_port() -> u16 {
     9000
+}
+
+/// Cache configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheConfig {
+    /// Duration in seconds to cache cluster metadata
+    #[serde(default = "default_cache_duration")]
+    pub metadata_duration_seconds: u64,
+}
+
+fn default_cache_duration() -> u64 {
+    30 // 30 seconds default
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            metadata_duration_seconds: 30,
+        }
+    }
 }
 
 /// TLS configuration for the server
@@ -502,6 +524,7 @@ mod tests {
             server: ServerConfig::default(),
             auth: AuthConfig::default(),
             clusters: Vec::new(),
+            cache: CacheConfig::default(),
         };
 
         assert!(config.validate().is_err());

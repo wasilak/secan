@@ -195,7 +195,6 @@ mod tests {
                 roles: vec![],
             },
             clusters: vec![],
-            cache: crate::config::CacheConfig::default(),
         }
     }
 
@@ -216,10 +215,7 @@ mod tests {
             version_hint: None,
         };
 
-        let cluster_manager =
-            ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
-                .await
-                .unwrap();
+        let cluster_manager = ClusterManager::new(vec![cluster_config]).await.unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
         let server = Server::new(config, cluster_manager, session_manager);
@@ -243,10 +239,7 @@ mod tests {
         // Use tokio runtime for async operations
         let rt = tokio::runtime::Runtime::new().unwrap();
         let cluster_manager = rt
-            .block_on(ClusterManager::new(
-                vec![cluster_config],
-                std::time::Duration::from_secs(30),
-            ))
+            .block_on(ClusterManager::new(vec![cluster_config]))
             .unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 

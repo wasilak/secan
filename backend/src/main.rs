@@ -52,7 +52,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize cluster manager
     info!("Initializing cluster manager...");
-    let cluster_manager = ClusterManager::new(config.clusters.clone()).await?;
+    let cache_duration = std::time::Duration::from_secs(config.cache.metadata_duration_seconds);
+    let cluster_manager = ClusterManager::new(config.clusters.clone(), cache_duration).await?;
     info!("Cluster manager initialized successfully");
 
     // Initialize session manager
