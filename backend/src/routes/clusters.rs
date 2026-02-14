@@ -60,12 +60,20 @@ pub async fn proxy_request(
     State(state): State<ClusterState>,
     Path((cluster_id, path)): Path<(String, String)>,
     method: Method,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
     body: Option<Json<serde_json::Value>>,
 ) -> Result<Response, ClusterErrorResponse> {
+    // Construct full path with query string if present
+    let full_path = if let Some(q) = query {
+        format!("{}?{}", path, q)
+    } else {
+        path.clone()
+    };
+
     tracing::debug!(
         cluster_id = %cluster_id,
         method = %method,
-        path = %path,
+        path = %full_path,
         "Proxying request to Elasticsearch"
     );
 
@@ -91,13 +99,13 @@ pub async fn proxy_request(
 
     // Proxy the request
     let response = cluster
-        .request(method.clone(), &path, body.map(|j| j.0))
+        .request(method.clone(), &full_path, body.map(|j| j.0))
         .await
         .map_err(|e| {
             tracing::error!(
                 cluster_id = %cluster_id,
                 method = %method,
-                path = %path,
+                path = %full_path,
                 error = %e,
                 "Elasticsearch API request failed"
             );
@@ -127,7 +135,7 @@ pub async fn proxy_request(
         tracing::warn!(
             cluster_id = %cluster_id,
             method = %method,
-            path = %path,
+            path = %full_path,
             status = status.as_u16(),
             "Elasticsearch API returned error status"
         );
@@ -135,7 +143,7 @@ pub async fn proxy_request(
         tracing::debug!(
             cluster_id = %cluster_id,
             method = %method,
-            path = %path,
+            path = %full_path,
             status = status.as_u16(),
             "Elasticsearch API request successful"
         );
