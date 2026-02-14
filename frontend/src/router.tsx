@@ -1,24 +1,46 @@
-import { createBrowserRouter } from 'react-router-dom';
-import App from './App';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { AppShell } from './components/AppShell';
+import { Dashboard } from './pages/Dashboard';
+import { ClusterView } from './pages/ClusterView';
+import { RestConsole } from './pages/RestConsole';
+import { Login } from './pages/Login';
 
 /**
  * Main application router configuration
  * 
- * Routes will be added as features are implemented:
+ * Routes:
  * - / - Dashboard (multi-cluster overview)
  * - /login - Login page
  * - /cluster/:id - Cluster detail view
  * - /cluster/:id/rest - REST console
+ * 
+ * Authentication redirects will be implemented when auth is integrated.
  */
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
     path: '/',
-    element: <App />,
+    element: <AppShell />,
     children: [
       {
         index: true,
-        element: <div>Dashboard placeholder</div>,
+        element: <Dashboard />,
+      },
+      {
+        path: 'cluster/:id',
+        element: <ClusterView />,
+      },
+      {
+        path: 'cluster/:id/rest',
+        element: <RestConsole />,
       },
     ],
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />,
   },
 ]);
