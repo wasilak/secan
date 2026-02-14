@@ -9,6 +9,12 @@ import {
   LoginRequest,
   ApiError,
   ApiClientError,
+  AliasInfo,
+  CreateAliasRequest,
+  TemplateInfo,
+  CreateTemplateRequest,
+  ClusterSettings,
+  UpdateClusterSettingsRequest,
 } from '../types/api';
 
 /**
@@ -401,6 +407,267 @@ export class ApiClient {
   async flushIndex(clusterId: string, indexName: string): Promise<void> {
     return this.executeWithRetry(async () => {
       await this.client.post(`/clusters/${clusterId}/${indexName}/_flush`);
+    });
+  }
+
+  /**
+   * Get all aliases in a cluster
+   * 
+   * Requirements: 11.1
+   */
+  async getAliases(clusterId: string): Promise<AliasInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, { aliases: Record<string, unknown> }>>(
+        `/clusters/${clusterId}/_alias`
+      );
+      
+      // Transform the response into a flat array of alias info
+      const aliases: AliasInfo[] = [];
+      for (const [index, data] of Object.entries(response.data)) {
+        for (const [alias, config] of Object.entries(data.aliases)) {
+          const aliasConfig = config as Record<string, unknown>;
+          aliases.push({
+            alias,
+            index,
+            filter: aliasConfig.filter ? JSON.stringify(aliasConfig.filter) : undefined,
+            routing: aliasConfig.routing as string | undefined,
+            indexRouting: aliasConfig.index_routing as string | undefined,
+            searchRouting: aliasConfig.search_routing as string | undefined,
+            isWriteIndex: aliasConfig.is_write_index as boolean | undefined,
+          });
+        }
+      }
+      return aliases;
+    });
+  }
+
+  /**
+   * Create or update an alias
+   * 
+   * Requirements: 11.2, 11.3, 11.4, 11.5, 11.6
+   */
+  async createAlias(clusterId: string, request: CreateAliasRequest): Promise<void> {
+    return this.executeWithRetry(async () => {
+      // Build the actions array for atomic alias operations
+      const actions = request.indices.map(index => {
+        const action: Record<string, unknown> = {
+          add: {
+            index,
+            alias: request.alias,
+          },
+        };
+
+        const addConfig = action.add as Record<string, unknown>;
+        if (request.filter) {
+          addConfig.filter = request.filter;
+        }
+        if (request.routing) {
+          addConfig.routing = request.routing;
+        }
+        if (request.indexRouting) {
+          addConfig.index_routing = request.indexRouting;
+        }
+        if (request.searchRouting) {
+          addConfig.search_routing = request.searchRouting;
+        }
+        if (request.isWriteIndex !== undefined) {
+          addConfig.is_write_index = request.isWriteIndex;
+        }
+
+        return action;
+      });
+
+      await this.client.post(`/clusters/${clusterId}/_aliases`, { actions });
+    });
+  }
+
+  /**
+   * Delete an alias
+   * 
+   * Requirements: 11.7
+   */
+  async deleteAlias(clusterId: string, index: string, alias: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/${index}/_alias/${alias}`);
+    });
+  }
+
+  /**
+   * Perform bulk alias operations atomically
+   * 
+   * Requirements: 11.8
+   */
+  async bulkAliasOperations(
+    clusterId: string,
+    actions: Array<{ add?: unknown; remove?: unknown }>
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.post(`/clusters/${clusterId}/_aliases`, { actions });
+    });
+  }
+
+  /**
+   * Get all index templates in a cluster
+   * 
+   * Requirements: 12.1
+   */
+  async getTemplates(clusterId: string): Promise<TemplateInfo[]> {
+    return this.executeWithRetry(async () => {
+      // Try to get composable templates first (ES 7.8+)
+      try {
+        const response = await this.client.get<Record<string, unknown>>(
+          `/clusters/${clusterId}/_index_template`
+        );
+        
+        const templates: TemplateInfo[] = [];
+        const data = response.data as { index_templates?: Array<{ name: string; index_template: unknown }> };
+        
+        if (data.index_templates) {
+          for (const item of data.index_templates) {
+            const template = item.index_template as Record<string, unknown>;
+            templates.push({
+              name: item.name,
+              indexPatterns: template.index_patterns as string[],
+              priority: template.priority as number | undefined,
+              version: template.version as number | undefined,
+              settings: template.template ? (template.template as Record<string, unknown>).settings as Record<string, unknown> : undefined,
+              mappings: template.template ? (template.template as Record<string, unknown>).mappings as Record<string, unknown> : undefined,
+              aliases: template.template ? (template.template as Record<string, unknown>).aliases as Record<string, unknown> : undefined,
+              composable: true,
+            });
+          }
+        }
+        
+        return templates;
+      } catch {
+        // Fall back to legacy templates
+        const response = await this.client.get<Record<string, unknown>>(
+          `/clusters/${clusterId}/_template`
+        );
+        
+        const templates: TemplateInfo[] = [];
+        for (const [name, config] of Object.entries(response.data)) {
+          const template = config as Record<string, unknown>;
+          templates.push({
+            name,
+            indexPatterns: template.index_patterns as string[] || template.template as string[] || [],
+            order: template.order as number | undefined,
+            settings: template.settings as Record<string, unknown> | undefined,
+            mappings: template.mappings as Record<string, unknown> | undefined,
+            aliases: template.aliases as Record<string, unknown> | undefined,
+            composable: false,
+          });
+        }
+        
+        return templates;
+      }
+    });
+  }
+
+  /**
+   * Create or update an index template
+   * 
+   * Requirements: 12.2, 12.3, 12.4, 12.5
+   */
+  async createTemplate(clusterId: string, request: CreateTemplateRequest): Promise<void> {
+    return this.executeWithRetry(async () => {
+      if (request.composable) {
+        // Create composable template (ES 7.8+)
+        const body: Record<string, unknown> = {
+          index_patterns: request.indexPatterns,
+        };
+
+        if (request.priority !== undefined) {
+          body.priority = request.priority;
+        }
+        if (request.version !== undefined) {
+          body.version = request.version;
+        }
+
+        const template: Record<string, unknown> = {};
+        if (request.settings) {
+          template.settings = request.settings;
+        }
+        if (request.mappings) {
+          template.mappings = request.mappings;
+        }
+        if (request.aliases) {
+          template.aliases = request.aliases;
+        }
+
+        if (Object.keys(template).length > 0) {
+          body.template = template;
+        }
+
+        await this.client.put(`/clusters/${clusterId}/_index_template/${request.name}`, body);
+      } else {
+        // Create legacy template
+        const body: Record<string, unknown> = {
+          index_patterns: request.indexPatterns,
+        };
+
+        if (request.order !== undefined) {
+          body.order = request.order;
+        }
+        if (request.version !== undefined) {
+          body.version = request.version;
+        }
+        if (request.settings) {
+          body.settings = request.settings;
+        }
+        if (request.mappings) {
+          body.mappings = request.mappings;
+        }
+        if (request.aliases) {
+          body.aliases = request.aliases;
+        }
+
+        await this.client.put(`/clusters/${clusterId}/_template/${request.name}`, body);
+      }
+    });
+  }
+
+  /**
+   * Delete an index template
+   * 
+   * Requirements: 12.6
+   */
+  async deleteTemplate(clusterId: string, name: string, composable: boolean): Promise<void> {
+    return this.executeWithRetry(async () => {
+      if (composable) {
+        await this.client.delete(`/clusters/${clusterId}/_index_template/${name}`);
+      } else {
+        await this.client.delete(`/clusters/${clusterId}/_template/${name}`);
+      }
+    });
+  }
+
+  /**
+   * Get cluster settings
+   * 
+   * Requirements: 13.1, 13.2
+   */
+  async getClusterSettings(clusterId: string, includeDefaults: boolean = false): Promise<ClusterSettings> {
+    return this.executeWithRetry(async () => {
+      const params = includeDefaults ? '?include_defaults=true' : '';
+      const response = await this.client.get<ClusterSettings>(
+        `/clusters/${clusterId}/_cluster/settings${params}`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Update cluster settings
+   * 
+   * Requirements: 13.3, 13.4, 13.5
+   */
+  async updateClusterSettings(
+    clusterId: string,
+    request: UpdateClusterSettingsRequest
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.put(`/clusters/${clusterId}/_cluster/settings`, request);
     });
   }
 }

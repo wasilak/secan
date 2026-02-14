@@ -137,3 +137,76 @@ export interface ShardInfo {
   docs?: number;
   store?: number;
 }
+
+/**
+ * Alias information
+ */
+export interface AliasInfo {
+  alias: string;
+  index: string;
+  filter?: string;
+  routing?: string;
+  indexRouting?: string;
+  searchRouting?: string;
+  isWriteIndex?: boolean;
+}
+
+/**
+ * Create alias request
+ */
+export interface CreateAliasRequest {
+  alias: string;
+  indices: string[];
+  filter?: Record<string, unknown>;
+  routing?: string;
+  indexRouting?: string;
+  searchRouting?: string;
+  isWriteIndex?: boolean;
+}
+
+/**
+ * Template information
+ */
+export interface TemplateInfo {
+  name: string;
+  indexPatterns: string[];
+  order?: number;
+  priority?: number;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+  composable?: boolean;
+}
+
+/**
+ * Create template request
+ */
+export interface CreateTemplateRequest {
+  name: string;
+  indexPatterns: string[];
+  order?: number;
+  priority?: number;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+  composable?: boolean;
+}
+
+/**
+ * Cluster settings
+ */
+export interface ClusterSettings {
+  persistent: Record<string, unknown>;
+  transient: Record<string, unknown>;
+  defaults?: Record<string, unknown>;
+}
+
+/**
+ * Update cluster settings request
+ */
+export interface UpdateClusterSettingsRequest {
+  persistent?: Record<string, unknown>;
+  transient?: Record<string, unknown>;
+}
