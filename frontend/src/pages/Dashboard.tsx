@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
   Title,
   Table,
   Badge,
@@ -299,8 +298,8 @@ export function Dashboard() {
   // Loading state
   if (clustersLoading) {
     return (
-      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
-        <Title order={1} mb="md" className="text-responsive-xl">
+      <Stack gap="md" p="md">
+        <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
         <Center h={200}>
@@ -309,15 +308,15 @@ export function Dashboard() {
             <Text c="dimmed">Loading clusters...</Text>
           </Stack>
         </Center>
-      </Container>
+      </Stack>
     );
   }
 
   // Error state
   if (clustersError) {
     return (
-      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
-        <Title order={1} mb="md" className="text-responsive-xl">
+      <Stack gap="md" p="md">
+        <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
         <Alert
@@ -329,15 +328,15 @@ export function Dashboard() {
             ? clustersError.message
             : 'Failed to load cluster list'}
         </Alert>
-      </Container>
+      </Stack>
     );
   }
 
   // Empty state
   if (!clusters || clusters.length === 0) {
     return (
-      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
-        <Title order={1} mb="md" className="text-responsive-xl">
+      <Stack gap="md" p="md">
+        <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
         <Alert
@@ -348,13 +347,13 @@ export function Dashboard() {
           No Elasticsearch or OpenSearch clusters are configured. Please check your
           configuration file.
         </Alert>
-      </Container>
+      </Stack>
     );
   }
 
   return (
-    <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
-      <Group justify="space-between" mb="md" wrap="wrap">
+    <Stack gap="md" p="md">
+      <Group justify="space-between" wrap="wrap">
         <Title order={1} className="text-responsive-xl">Dashboard</Title>
         <Group gap="xs">
           <IconRefresh size={16} aria-hidden="true" />
@@ -463,6 +462,6 @@ export function Dashboard() {
           </Table.Tbody>
         </Table>
       </div>
-    </Container>
+    </Stack>
   );
 }

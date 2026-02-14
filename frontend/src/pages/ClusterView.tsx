@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -128,37 +127,37 @@ export function ClusterView() {
 
   if (!id) {
     return (
-      <Container size="xl">
+      <Stack p="md">
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </Stack>
     );
   }
 
   if (statsLoading) {
     return (
-      <Container size="xl">
+      <Stack p="md">
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </Stack>
     );
   }
 
   if (statsError) {
     return (
-      <Container size="xl">
+      <Stack p="md">
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load cluster information: {(statsError as Error).message}
         </Alert>
-      </Container>
+      </Stack>
     );
   }
 
   return (
-    <Container size="xl" py={{ base: 'sm', sm: 'md' }} px={{ base: 'xs', sm: 'md' }}>
-      <Group justify="space-between" mb="md" wrap="wrap">
+    <Stack gap="md" p="md">
+      <Group justify="space-between" wrap="wrap">
         <div>
         <Title order={1} className="text-responsive-xl">
             {stats?.clusterName || id}
@@ -175,7 +174,7 @@ export function ClusterView() {
       </Group>
 
       {/* Cluster Statistics Cards */}
-      <Grid mb="md">
+      <Grid>
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
@@ -229,7 +228,7 @@ export function ClusterView() {
 
       {/* Memory and Disk Usage */}
       {(stats?.memoryTotal || stats?.diskTotal) && (
-        <Grid mb="md">
+        <Grid>
           {stats?.memoryTotal && (
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Card shadow="sm" padding="lg">
@@ -307,7 +306,7 @@ export function ClusterView() {
           </Tabs.Panel>
         </Tabs>
       </Card>
-    </Container>
+    </Stack>
   );
 }
 
