@@ -54,6 +54,10 @@ impl IntoResponse for ErrorResponse {
 /// Initiate OIDC authentication flow
 ///
 /// Redirects the user to the OIDC provider's authorization endpoint
+///
+/// # Requirements
+///
+/// Validates: Requirements 29.2
 pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, ErrorResponse> {
     let oidc_provider = state.oidc_provider.ok_or_else(|| ErrorResponse {
         error: "oidc_not_configured".to_string(),
@@ -68,7 +72,7 @@ pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, Erro
 
     let auth_url = oidc_provider.get_authorization_url(&state_param);
 
-    tracing::info!("Redirecting to OIDC provider for authentication");
+    tracing::info!(auth_method = "oidc", "Initiating OIDC authentication flow");
 
     Ok(Redirect::to(&auth_url))
 }
@@ -76,6 +80,10 @@ pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, Erro
 /// Handle OIDC callback
 ///
 /// Exchanges the authorization code for tokens and creates a session
+///
+/// # Requirements
+///
+/// Validates: Requirements 29.2, 30.4
 pub async fn oidc_callback(
     State(state): State<AuthState>,
     Query(params): Query<OidcCallbackQuery>,
@@ -85,7 +93,7 @@ pub async fn oidc_callback(
         message: "OIDC authentication is not configured".to_string(),
     })?;
 
-    tracing::info!("Handling OIDC callback");
+    tracing::info!(auth_method = "oidc", "Processing OIDC callback");
 
     // TODO: Validate state parameter against stored value for CSRF protection
 
@@ -94,7 +102,11 @@ pub async fn oidc_callback(
         .exchange_code(&params.code)
         .await
         .map_err(|e| {
-            tracing::error!("Failed to exchange authorization code: {}", e);
+            tracing::error!(
+                auth_method = "oidc",
+                error = %e,
+                "Failed to exchange authorization code"
+            );
             ErrorResponse {
                 error: "token_exchange_failed".to_string(),
                 message: format!("Failed to exchange authorization code: {}", e),
@@ -105,7 +117,11 @@ pub async fn oidc_callback(
     let claims = oidc_provider
         .validate_id_token(&token_response.id_token)
         .map_err(|e| {
-            tracing::error!("Failed to validate ID token: {}", e);
+            tracing::error!(
+                auth_method = "oidc",
+                error = %e,
+                "Failed to validate ID token"
+            );
             ErrorResponse {
                 error: "token_validation_failed".to_string(),
                 message: format!("Failed to validate ID token: {}", e),
@@ -114,14 +130,23 @@ pub async fn oidc_callback(
 
     // Create session
     let _session_token = oidc_provider.create_session(&claims).await.map_err(|e| {
-        tracing::error!("Failed to create session: {}", e);
+        tracing::error!(
+            auth_method = "oidc",
+            user_id = %claims.sub,
+            error = %e,
+            "Failed to create session"
+        );
         ErrorResponse {
             error: "session_creation_failed".to_string(),
             message: format!("Failed to create session: {}", e),
         }
     })?;
 
-    tracing::info!("OIDC authentication successful for user: {}", claims.sub);
+    tracing::info!(
+        auth_method = "oidc",
+        user_id = %claims.sub,
+        "Authentication successful"
+    );
 
     // TODO: Set session token as HTTP-only cookie
     // For now, redirect to home page
@@ -133,16 +158,32 @@ pub async fn oidc_callback(
 /// Login endpoint for local users
 ///
 /// Authenticates a user with username and password
+///
+/// # Requirements
+///
+/// Validates: Requirements 29.2, 30.4
 pub async fn login(
     State(_state): State<AuthState>,
-    Json(_payload): Json<LoginRequest>,
+    Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ErrorResponse> {
     // TODO: Implement local user authentication
     // TODO: Validate credentials
     // TODO: Create session
     // TODO: Set session cookie
 
-    tracing::info!("Login attempt");
+    // Log authentication attempt (sanitized - no password)
+    tracing::info!(
+        username = %payload.username,
+        auth_method = "local",
+        "Authentication attempt"
+    );
+
+    tracing::warn!(
+        username = %payload.username,
+        auth_method = "local",
+        reason = "not_implemented",
+        "Authentication failed"
+    );
 
     Err(ErrorResponse {
         error: "not_implemented".to_string(),

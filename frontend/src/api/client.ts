@@ -56,7 +56,13 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
  * Handles authentication, error handling, retry logic with exponential backoff,
  * and provides typed methods for all backend API endpoints.
  * 
- * Requirements: 25.4
+ * Features:
+ * - Automatic retry with exponential backoff for transient errors
+ * - Session management with automatic redirect on 401
+ * - Structured error handling with user-friendly messages
+ * - Console logging for debugging
+ * 
+ * Requirements: 25.4, 29.6, 29.7
  */
 export class ApiClient {
   private client: AxiosInstance;
