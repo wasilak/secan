@@ -210,3 +210,79 @@ export interface UpdateClusterSettingsRequest {
   persistent?: Record<string, unknown>;
   transient?: Record<string, unknown>;
 }
+
+/**
+ * Text analysis token information
+ */
+export interface AnalysisToken {
+  token: string;
+  startOffset: number;
+  endOffset: number;
+  type: string;
+  position: number;
+  positionLength?: number;
+  [key: string]: unknown; // Additional attributes
+}
+
+/**
+ * Text analysis request
+ */
+export interface AnalyzeTextRequest {
+  text: string;
+  analyzer?: string;
+  tokenizer?: string;
+  filter?: string[];
+  charFilter?: string[];
+  field?: string;
+  index?: string;
+}
+
+/**
+ * Text analysis response
+ */
+export interface AnalyzeTextResponse {
+  tokens: AnalysisToken[];
+}
+
+/**
+ * Analyzer information
+ */
+export interface AnalyzerInfo {
+  name: string;
+  type?: string;
+  tokenizer?: string;
+  filter?: string[];
+  charFilter?: string[];
+}
+
+/**
+ * Field information for analyzer inspection
+ */
+export interface FieldInfo {
+  name: string;
+  type: string;
+  analyzer?: string;
+  searchAnalyzer?: string;
+  normalizer?: string;
+  properties?: Record<string, unknown>;
+  searchable?: boolean;
+  aggregatable?: boolean;
+  stored?: boolean;
+}
+
+/**
+ * Index analyzers response
+ */
+export interface IndexAnalyzersResponse {
+  analyzers: Record<string, AnalyzerInfo>;
+  tokenizers: Record<string, unknown>;
+  filters: Record<string, unknown>;
+  charFilters: Record<string, unknown>;
+}
+
+/**
+ * Index fields response
+ */
+export interface IndexFieldsResponse {
+  fields: FieldInfo[];
+}

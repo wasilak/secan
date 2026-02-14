@@ -15,6 +15,11 @@ import {
   CreateTemplateRequest,
   ClusterSettings,
   UpdateClusterSettingsRequest,
+  AnalyzeTextRequest,
+  AnalyzeTextResponse,
+  IndexAnalyzersResponse,
+  IndexFieldsResponse,
+  FieldInfo,
 } from '../types/api';
 
 /**
@@ -668,6 +673,111 @@ export class ApiClient {
   ): Promise<void> {
     return this.executeWithRetry(async () => {
       await this.client.put(`/clusters/${clusterId}/_cluster/settings`, request);
+    });
+  }
+
+  /**
+   * Analyze text with specified analyzer or custom configuration
+   * 
+   * Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6
+   */
+  async analyzeText(clusterId: string, request: AnalyzeTextRequest): Promise<AnalyzeTextResponse> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {
+        text: request.text,
+      };
+
+      if (request.analyzer) {
+        body.analyzer = request.analyzer;
+      }
+      if (request.tokenizer) {
+        body.tokenizer = request.tokenizer;
+      }
+      if (request.filter) {
+        body.filter = request.filter;
+      }
+      if (request.charFilter) {
+        body.char_filter = request.charFilter;
+      }
+      if (request.field && request.index) {
+        body.field = request.field;
+      }
+
+      const endpoint = request.field && request.index
+        ? `/clusters/${clusterId}/${request.index}/_analyze`
+        : `/clusters/${clusterId}/_analyze`;
+
+      const response = await this.client.post<AnalyzeTextResponse>(endpoint, body);
+      return response.data;
+    });
+  }
+
+  /**
+   * Get analyzers configured for an index
+   * 
+   * Requirements: 16.1, 16.2
+   */
+  async getIndexAnalyzers(clusterId: string, indexName: string): Promise<IndexAnalyzersResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, { settings: { index: { analysis: unknown } } }>>(
+        `/clusters/${clusterId}/${indexName}/_settings`
+      );
+
+      const indexData = response.data[indexName];
+      const analysis = indexData?.settings?.index?.analysis as Record<string, Record<string, unknown>> || {};
+
+      return {
+        analyzers: analysis.analyzer || {},
+        tokenizers: analysis.tokenizer || {},
+        filters: analysis.filter || {},
+        charFilters: analysis.char_filter || {},
+      } as IndexAnalyzersResponse;
+    });
+  }
+
+  /**
+   * Get fields configured for an index with their analyzers
+   * 
+   * Requirements: 16.3, 16.4, 16.5, 16.6
+   */
+  async getIndexFields(clusterId: string, indexName: string): Promise<IndexFieldsResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, { mappings: { properties: Record<string, unknown> } }>>(
+        `/clusters/${clusterId}/${indexName}/_mapping`
+      );
+
+      const indexData = response.data[indexName];
+      const properties = indexData?.mappings?.properties || {};
+
+      const fields: FieldInfo[] = [];
+      
+      const extractFields = (props: Record<string, unknown>, prefix = '') => {
+        for (const [name, config] of Object.entries(props)) {
+          const fieldConfig = config as Record<string, unknown>;
+          const fullName = prefix ? `${prefix}.${name}` : name;
+          
+          fields.push({
+            name: fullName,
+            type: fieldConfig.type as string || 'object',
+            analyzer: fieldConfig.analyzer as string | undefined,
+            searchAnalyzer: fieldConfig.search_analyzer as string | undefined,
+            normalizer: fieldConfig.normalizer as string | undefined,
+            properties: fieldConfig.properties as Record<string, unknown> | undefined,
+            searchable: fieldConfig.index !== false,
+            aggregatable: fieldConfig.type !== 'text',
+            stored: fieldConfig.store === true,
+          });
+
+          // Recursively extract nested fields
+          if (fieldConfig.properties) {
+            extractFields(fieldConfig.properties as Record<string, unknown>, fullName);
+          }
+        }
+      };
+
+      extractFields(properties);
+
+      return { fields };
     });
   }
 }
