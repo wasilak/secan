@@ -4,7 +4,6 @@ import {
   ClusterHealth,
   ClusterStats,
   NodeInfo,
-  NodeRole,
   NodeDetailStats,
   IndexInfo,
   ShardInfo,
@@ -29,7 +28,6 @@ import {
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
   IndexStats,
-  HealthStatus,
 } from '../types/api';
 
 /**
