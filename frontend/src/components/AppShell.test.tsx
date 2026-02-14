@@ -2,16 +2,27 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 
 // Helper to render with required providers
 const renderWithProviders = (component: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
   return render(
-    <MantineProvider>
-      <BrowserRouter>
-        {component}
-      </BrowserRouter>
-    </MantineProvider>
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider>
+        <BrowserRouter>
+          {component}
+        </BrowserRouter>
+      </MantineProvider>
+    </QueryClientProvider>
   );
 };
 
@@ -21,10 +32,9 @@ describe('AppShell', () => {
     expect(screen.getByText('Cerebro')).toBeInTheDocument();
   });
 
-  it('renders navigation menu', () => {
+  it('renders burger menu button', () => {
     renderWithProviders(<AppShell />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Clusters')).toBeInTheDocument();
+    expect(screen.getByLabelText('Open navigation menu')).toBeInTheDocument();
   });
 
   it('renders user menu', () => {
@@ -38,8 +48,8 @@ describe('AppShell', () => {
     expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
   });
 
-  it('renders version information', () => {
+  it('renders keyboard shortcuts button', () => {
     renderWithProviders(<AppShell />);
-    expect(screen.getByText(/Cerebro v/)).toBeInTheDocument();
+    expect(screen.getByLabelText('View keyboard shortcuts')).toBeInTheDocument();
   });
 });
