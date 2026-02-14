@@ -162,7 +162,9 @@ impl ElasticsearchClient for Client {
             _ => anyhow::bail!("Unsupported HTTP method: {}", method),
         };
 
-        let es_response = self
+        // Send the request - the SDK will return an error for non-2xx responses
+        // but we want to pass those through to the frontend
+        let es_response = match self
             .client
             .send(
                 es_method,
@@ -173,7 +175,19 @@ impl ElasticsearchClient for Client {
                 None,
             )
             .await
-            .context("Elasticsearch request failed")?;
+        {
+            Ok(response) => response,
+            Err(e) => {
+                // Log the error but try to extract response if available
+                tracing::error!(
+                    method = %method,
+                    path = %path,
+                    error = %e,
+                    "Elasticsearch SDK returned error"
+                );
+                return Err(anyhow::anyhow!("Elasticsearch request failed: {}", e));
+            }
+        };
 
         self.convert_response(es_response).await
     }
