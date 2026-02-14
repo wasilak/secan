@@ -95,6 +95,8 @@ impl Server {
                     .delete(crate::routes::clusters::proxy_request),
             )
             .with_state(cluster_state)
+            // Static assets - must be last to act as fallback
+            .fallback(crate::routes::serve_static)
             // Add CORS middleware
             .layer(
                 CorsLayer::new()
