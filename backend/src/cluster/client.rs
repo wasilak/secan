@@ -162,6 +162,13 @@ impl ElasticsearchClient for Client {
             _ => anyhow::bail!("Unsupported HTTP method: {}", method),
         };
 
+        // Convert body to bytes if present
+        let body_bytes = if let Some(ref b) = body {
+            Some(serde_json::to_vec(b).context("Failed to serialize request body")?)
+        } else {
+            None
+        };
+
         // Send the request - the SDK will return an error for non-2xx responses
         // but we want to pass those through to the frontend
         let es_response = match self
@@ -170,7 +177,7 @@ impl ElasticsearchClient for Client {
                 es_method,
                 path,
                 elasticsearch::http::headers::HeaderMap::new(),
-                body.as_ref(),
+                body_bytes.as_deref(),
                 None::<String>,
                 None,
             )
