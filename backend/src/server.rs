@@ -212,8 +212,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),
-            client_type: crate::config::ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         };
 
         let cluster_manager =
@@ -236,8 +235,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),
-            client_type: crate::config::ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         };
 
         // Use tokio runtime for async operations

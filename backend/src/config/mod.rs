@@ -120,10 +120,10 @@ pub struct ClusterConfig {
     pub auth: Option<ClusterAuth>,
     #[serde(default)]
     pub tls: TlsConfig,
-    #[serde(default)]
-    pub client_type: ClientType,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_hint: Option<String>,
+    /// Elasticsearch major version (7, 8, or 9)
+    /// Used to select the appropriate SDK client version
+    #[serde(default = "default_es_version")]
+    pub es_version: u8,
 }
 
 /// Cluster authentication configuration
@@ -160,13 +160,16 @@ fn default_tls_verify() -> bool {
     true
 }
 
+fn default_es_version() -> u8 {
+    8 // Default to Elasticsearch 8.x
+}
+
 /// Client type for Elasticsearch communication
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientType {
-    Sdk,
     #[default]
-    Http,
+    Sdk,
 }
 
 // Validation implementations
@@ -347,6 +350,15 @@ impl ClusterConfig {
                     node
                 );
             }
+        }
+
+        // Validate Elasticsearch version
+        if self.es_version < 7 || self.es_version > 9 {
+            anyhow::bail!(
+                "Cluster '{}' has invalid Elasticsearch version: {}. Supported versions are 7, 8, or 9",
+                self.id,
+                self.es_version
+            );
         }
 
         self.tls.validate()?;
@@ -596,8 +608,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         };
 
         assert!(cluster.validate().is_ok());
@@ -615,6 +626,15 @@ mod tests {
         // Test invalid node URL
         cluster.nodes = vec!["invalid-url".to_string()];
         assert!(cluster.validate().is_err());
+        cluster.nodes = vec!["http://localhost:9200".to_string()];
+
+        // Test invalid ES version
+        cluster.es_version = 6;
+        assert!(cluster.validate().is_err());
+        cluster.es_version = 10;
+        assert!(cluster.validate().is_err());
+        cluster.es_version = 8;
+        assert!(cluster.validate().is_ok());
     }
 
     #[test]
@@ -667,7 +687,7 @@ clusters:
     name: "Local Elasticsearch"
     nodes:
       - "http://localhost:9200"
-    client_type: http
+    es_version: 8
 "#;
 
         fs::write(&config_path, yaml_content).unwrap();

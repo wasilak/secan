@@ -179,7 +179,7 @@ impl ClusterConnection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{ClientType, TlsConfig};
+    use crate::config::TlsConfig;
 
     #[tokio::test]
     async fn test_cluster_connection_creation() {
@@ -189,8 +189,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         };
 
         let connection = ClusterConnection::new(&config).await;
@@ -213,8 +212,7 @@ mod tests {
                 password: "pass".to_string(),
             }),
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         };
 
         let connection = ClusterConnection::new(&config).await;
@@ -606,7 +604,7 @@ impl Manager {
 #[cfg(test)]
 mod manager_tests {
     use super::*;
-    use crate::config::{ClientType, TlsConfig};
+    use crate::config::TlsConfig;
 
     #[tokio::test]
     async fn test_manager_creation() {
@@ -617,8 +615,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -626,8 +623,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -657,8 +653,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -680,8 +675,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -705,8 +699,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -714,8 +707,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -737,8 +729,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -758,8 +749,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -767,8 +757,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -790,8 +779,7 @@ mod manager_tests {
                     password: "pass".to_string(),
                 }),
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "apikey".to_string(),
@@ -801,8 +789,7 @@ mod manager_tests {
                     key: "key123".to_string(),
                 }),
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "none".to_string(),
@@ -810,8 +797,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -834,8 +820,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -843,8 +828,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -897,8 +881,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "prod-cluster-2".to_string(),
@@ -906,8 +889,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -915,8 +897,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                client_type: ClientType::Http,
-                version_hint: None,
+                es_version: 8,
             },
         ];
 
@@ -954,8 +935,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let role_configs = vec![RoleConfig {
@@ -991,8 +971,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let role_configs = vec![RoleConfig {
@@ -1029,8 +1008,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -1052,8 +1030,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            client_type: ClientType::Http,
-            version_hint: None,
+            es_version: 8,
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
