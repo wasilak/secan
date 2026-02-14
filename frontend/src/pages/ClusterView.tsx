@@ -679,9 +679,13 @@ function IndicesList({
             </Table.Thead>
             <Table.Tbody>
               {filteredIndices?.map((index) => (
-                <Table.Tr key={index.name}>
+                <Table.Tr 
+                  key={index.name}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`)}
+                >
                   <Table.Td>
-                    <Text size="sm" fw={500}>{index.name}</Text>
+                    <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
                   </Table.Td>
                   <Table.Td>
                     <Badge size="sm" color={getHealthColor(index.health)}>
@@ -704,7 +708,7 @@ function IndicesList({
                       {index.primaryShards}p / {index.replicaShards}r
                     </Text>
                   </Table.Td>
-                  <Table.Td>
+                  <Table.Td onClick={(e) => e.stopPropagation()}>
                     <Group gap="xs">
                       {id && <IndexOperations clusterId={id} index={index} />}
                       <Menu shadow="md" width={200}>
@@ -718,13 +722,19 @@ function IndicesList({
                           <Menu.Label>Index Management</Menu.Label>
                           <Menu.Item
                             leftSection={<IconSettings size={14} />}
-                            onClick={() => navigate(`/cluster/${id}/indices/${index.name}/settings`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`);
+                            }}
                           >
                             Settings
                           </Menu.Item>
                           <Menu.Item
                             leftSection={<IconMap size={14} />}
-                            onClick={() => navigate(`/cluster/${id}/indices/${index.name}/mappings`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/mappings`);
+                            }}
                           >
                             Mappings
                           </Menu.Item>
@@ -760,6 +770,8 @@ function ShardAllocationGrid({
   loading: boolean;
   error: Error | null;
 }) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const [showSpecial, setShowSpecial] = useState(false);
@@ -909,7 +921,17 @@ function ShardAllocationGrid({
                 {filteredIndices.map((index) => (
                   <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
                     <Stack gap={4}>
-                      <Text size="xs" fw={500} truncate="end" title={index.name}>
+                      <Text 
+                        size="xs" 
+                        fw={500} 
+                        truncate="end" 
+                        title={index.name}
+                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`);
+                        }}
+                      >
                         {index.name}
                       </Text>
                       <Group gap={4} justify="center">
