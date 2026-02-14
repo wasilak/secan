@@ -741,7 +741,7 @@ function ShardAllocationGrid({
           <Table striped withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ minWidth: '150px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
+                <Table.Th style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
                   Node
                 </Table.Th>
                 {filteredIndices.map((index) => (
@@ -769,12 +769,12 @@ function ShardAllocationGrid({
                 
                 return (
                   <Table.Tr key={node.id}>
-                    <Table.Td style={{ position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
-                      <Stack gap={4}>
-                        <Text size="sm" fw={500} truncate="end" title={node.name}>
+                    <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
+                      <Stack gap={2}>
+                        <Text size="xs" fw={500} truncate="end" title={node.name}>
                           {node.name}
                         </Text>
-                        <Text size="xs" c="dimmed">
+                        <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
                           {node.ip}
                         </Text>
                       </Stack>
@@ -825,46 +825,6 @@ function ShardAllocationGrid({
           </Table>
         </div>
       </ScrollArea>
-
-      {/* Unassigned shards warning */}
-      {unassignedShards.length > 0 && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Unassigned Shards" color="yellow">
-          <Stack gap="xs">
-            <Text size="sm">
-              There are {unassignedShards.length} unassigned shards in this cluster.
-            </Text>
-            <ScrollArea h={200}>
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Index</Table.Th>
-                    <Table.Th>Shard</Table.Th>
-                    <Table.Th>Type</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {unassignedShards.slice(0, 50).map((shard, idx) => (
-                    <Table.Tr key={`unassigned-${idx}`}>
-                      <Table.Td>{shard.index}</Table.Td>
-                      <Table.Td>{shard.shard}</Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" variant="light">
-                          {shard.primary ? 'Primary' : 'Replica'}
-                        </Badge>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-              {unassignedShards.length > 50 && (
-                <Text size="xs" c="dimmed" ta="center" mt="xs">
-                  Showing first 50 of {unassignedShards.length} unassigned shards
-                </Text>
-              )}
-            </ScrollArea>
-          </Stack>
-        </Alert>
-      )}
     </Stack>
   );
 }
