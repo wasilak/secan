@@ -91,6 +91,42 @@ export function IndexSettings() {
     }
   }, [currentSettings]);
 
+  // Filter out read-only settings that cannot be updated
+  const filterReadOnlySettings = (settings: Record<string, unknown>): Record<string, unknown> => {
+    const readOnlyFields = [
+      'index.creation_date',
+      'index.provided_name',
+      'index.uuid',
+      'index.version.created',
+      'index.version.upgraded',
+    ];
+
+    const filtered: Record<string, unknown> = {};
+    
+    for (const [key, value] of Object.entries(settings)) {
+      if (key === 'index') {
+        // Filter nested index settings
+        const indexSettings = value as Record<string, unknown>;
+        const filteredIndex: Record<string, unknown> = {};
+        
+        for (const [indexKey, indexValue] of Object.entries(indexSettings)) {
+          const fullKey = `index.${indexKey}`;
+          if (!readOnlyFields.includes(fullKey)) {
+            filteredIndex[indexKey] = indexValue;
+          }
+        }
+        
+        if (Object.keys(filteredIndex).length > 0) {
+          filtered[key] = filteredIndex;
+        }
+      } else if (!readOnlyFields.includes(key)) {
+        filtered[key] = value;
+      }
+    }
+    
+    return filtered;
+  };
+
   // Update settings mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -106,13 +142,16 @@ export function IndexSettings() {
       }
 
       const parsedSettings = JSON.parse(settings);
+      
+      // Filter out read-only settings
+      const filteredSettings = filterReadOnlySettings(parsedSettings);
 
       // Update settings via API
       await apiClient.proxyRequest(
         clusterId,
         'PUT',
         `/${indexName}/_settings`,
-        parsedSettings
+        filteredSettings
       );
     },
     onSuccess: () => {
