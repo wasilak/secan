@@ -25,6 +25,15 @@ clap = { version = "4", features = ["derive", "env"] }
 # HTTP client for Elasticsearch communication
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 
+# Elasticsearch Rust SDK
+elasticsearch = "8.15.0-alpha.1"
+
+# URL parsing
+url = "2"
+
+# HTTP types
+http = "1"
+
 # Embedded assets
 rust-embed = { version = "8", features = ["compression"] }
 mime_guess = "2"

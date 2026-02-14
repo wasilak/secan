@@ -1,34 +1,44 @@
 use crate::config::{ClusterAuth, ClusterConfig, TlsConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use elasticsearch::{
+    auth::Credentials,
+    http::{
+        response::Response as EsResponse,
+        transport::{SingleNodeConnectionPool, TransportBuilder},
+    },
+    Elasticsearch,
+};
 use reqwest::{header, Method, Response};
 use serde_json::Value;
 use std::time::Duration;
+use url::Url;
 
 /// Elasticsearch client abstraction supporting both SDK and HTTP modes
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Client {
-    /// Direct HTTP client for maximum flexibility
-    Http(HttpClient),
-    /// SDK-based client (placeholder for future elasticsearch-rs integration)
+    /// SDK-based client using official elasticsearch crate
     Sdk(SdkClient),
+    /// Direct HTTP client for maximum flexibility (legacy)
+    Http(HttpClient),
 }
 
 /// HTTP-based Elasticsearch client
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HttpClient {
     client: reqwest::Client,
     nodes: Vec<String>,
     auth: Option<ClusterAuth>,
     version_hint: Option<String>,
-    current_node_index: std::sync::atomic::AtomicUsize,
+    current_node_index: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
-/// SDK-based Elasticsearch client (placeholder)
-#[derive(Debug)]
+/// SDK-based Elasticsearch client using official elasticsearch crate
+#[derive(Debug, Clone)]
 pub struct SdkClient {
-    // Placeholder for future elasticsearch-rs integration
-    _marker: std::marker::PhantomData<()>,
+    client: Elasticsearch,
+    #[allow(dead_code)]
+    version_hint: Option<String>,
 }
 
 /// Trait for Elasticsearch client operations
@@ -48,13 +58,13 @@ impl Client {
     /// Create a new Elasticsearch client from configuration
     pub async fn new(config: &ClusterConfig) -> Result<Self> {
         match config.client_type {
-            crate::config::ClientType::Http => {
-                let http_client = HttpClient::new(config).await?;
-                Ok(Client::Http(http_client))
-            }
             crate::config::ClientType::Sdk => {
                 let sdk_client = SdkClient::new(config).await?;
                 Ok(Client::Sdk(sdk_client))
+            }
+            crate::config::ClientType::Http => {
+                let http_client = HttpClient::new(config).await?;
+                Ok(Client::Http(http_client))
             }
         }
     }
@@ -64,22 +74,22 @@ impl Client {
 impl ElasticsearchClient for Client {
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
         match self {
-            Client::Http(client) => client.request(method, path, body).await,
             Client::Sdk(client) => client.request(method, path, body).await,
+            Client::Http(client) => client.request(method, path, body).await,
         }
     }
 
     async fn health(&self) -> Result<Value> {
         match self {
-            Client::Http(client) => client.health().await,
             Client::Sdk(client) => client.health().await,
+            Client::Http(client) => client.health().await,
         }
     }
 
     async fn info(&self) -> Result<Value> {
         match self {
-            Client::Http(client) => client.info().await,
             Client::Sdk(client) => client.info().await,
+            Client::Http(client) => client.info().await,
         }
     }
 }
@@ -94,7 +104,7 @@ impl HttpClient {
             nodes: config.nodes.clone(),
             auth: config.auth.clone(),
             version_hint: config.version_hint.clone(),
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         })
     }
 
@@ -315,31 +325,174 @@ impl ElasticsearchClient for HttpClient {
 }
 
 impl SdkClient {
-    /// Create a new SDK client (placeholder)
-    pub async fn new(_config: &ClusterConfig) -> Result<Self> {
-        // Placeholder for future elasticsearch-rs integration
-        // For now, this is not implemented
-        anyhow::bail!("SDK client is not yet implemented. Please use HTTP client type instead.");
+    /// Create a new SDK client using the official elasticsearch crate
+    pub async fn new(config: &ClusterConfig) -> Result<Self> {
+        // Parse the first node URL
+        let node_url = config
+            .nodes
+            .first()
+            .context("At least one node URL is required")?;
+        let url = Url::parse(node_url).context("Invalid node URL")?;
+
+        // Create connection pool
+        let conn_pool = SingleNodeConnectionPool::new(url);
+
+        // Build transport with authentication and TLS settings
+        let mut transport_builder = TransportBuilder::new(conn_pool);
+
+        // Configure timeout
+        transport_builder = transport_builder.timeout(Duration::from_secs(30));
+
+        // Configure authentication
+        if let Some(auth) = &config.auth {
+            match auth {
+                ClusterAuth::Basic { username, password } => {
+                    let credentials = Credentials::Basic(username.clone(), password.clone());
+                    transport_builder = transport_builder.auth(credentials);
+                }
+                ClusterAuth::ApiKey { key } => {
+                    // ApiKey requires both id and api_key
+                    // For now, we'll split the key on ':' if present, otherwise use empty id
+                    let parts: Vec<&str> = key.splitn(2, ':').collect();
+                    let (id, api_key) = if parts.len() == 2 {
+                        (parts[0].to_string(), parts[1].to_string())
+                    } else {
+                        (String::new(), key.clone())
+                    };
+                    let credentials = Credentials::ApiKey(id, api_key);
+                    transport_builder = transport_builder.auth(credentials);
+                }
+                ClusterAuth::None => {
+                    // No credentials needed
+                }
+            };
+        }
+
+        // Configure TLS certificate verification
+        if !config.tls.verify {
+            tracing::warn!("TLS certificate verification is disabled - this is insecure!");
+            transport_builder =
+                transport_builder.cert_validation(elasticsearch::cert::CertificateValidation::None);
+        }
+
+        // Build transport
+        let transport = transport_builder
+            .build()
+            .context("Failed to build Elasticsearch transport")?;
+
+        // Create client
+        let client = Elasticsearch::new(transport);
+
+        Ok(Self {
+            client,
+            version_hint: config.version_hint.clone(),
+        })
+    }
+
+    /// Check if this is an OpenSearch cluster based on version hint
+    fn is_opensearch(&self) -> bool {
+        self.version_hint
+            .as_ref()
+            .map(|v| v.to_lowercase().contains("opensearch"))
+            .unwrap_or(false)
+    }
+
+    /// Convert Elasticsearch SDK response to reqwest Response for compatibility
+    async fn convert_response(&self, es_response: EsResponse) -> Result<Response> {
+        let status = es_response.status_code();
+        let headers = es_response.headers().clone();
+        let body_bytes = es_response
+            .bytes()
+            .await
+            .context("Failed to read response body")?;
+
+        // Build http response
+        let mut response_builder = http::Response::builder().status(status.as_u16());
+
+        // Copy headers
+        for (key, value) in headers.iter() {
+            response_builder = response_builder.header(key.as_str(), value.as_bytes());
+        }
+
+        let http_response = response_builder
+            .body(body_bytes.to_vec())
+            .context("Failed to build HTTP response")?;
+
+        // Convert http::Response to reqwest::Response
+        Ok(Response::from(http_response))
     }
 }
 
 #[async_trait]
 impl ElasticsearchClient for SdkClient {
-    async fn request(
-        &self,
-        _method: Method,
-        _path: &str,
-        _body: Option<Value>,
-    ) -> Result<Response> {
-        anyhow::bail!("SDK client is not yet implemented")
+    async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
+        // Use the generic send method for arbitrary requests
+        let es_method = match method {
+            Method::GET => elasticsearch::http::Method::Get,
+            Method::POST => elasticsearch::http::Method::Post,
+            Method::PUT => elasticsearch::http::Method::Put,
+            Method::DELETE => elasticsearch::http::Method::Delete,
+            Method::HEAD => elasticsearch::http::Method::Head,
+            _ => anyhow::bail!("Unsupported HTTP method: {}", method),
+        };
+
+        let es_response = self
+            .client
+            .send(
+                es_method,
+                path,
+                elasticsearch::http::headers::HeaderMap::new(),
+                body.as_ref(),
+                None::<String>,
+                None,
+            )
+            .await
+            .context("Elasticsearch request failed")?;
+
+        self.convert_response(es_response).await
     }
 
     async fn health(&self) -> Result<Value> {
-        anyhow::bail!("SDK client is not yet implemented")
+        let response = self
+            .client
+            .cluster()
+            .health(elasticsearch::cluster::ClusterHealthParts::None)
+            .send()
+            .await
+            .context("Health check failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Health check failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse health response")
     }
 
     async fn info(&self) -> Result<Value> {
-        anyhow::bail!("SDK client is not yet implemented")
+        let response = self
+            .client
+            .info()
+            .send()
+            .await
+            .context("Info request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Info request failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse info response")
     }
 }
 
@@ -355,7 +508,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             version_hint: Some("opensearch".to_string()),
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         assert!(client.is_opensearch());
@@ -365,7 +518,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             version_hint: Some("8".to_string()),
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         assert!(!client.is_opensearch());
@@ -382,13 +535,30 @@ mod tests {
             ],
             auth: None,
             version_hint: None,
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         assert_eq!(client.get_next_node(), "http://node1:9200");
         assert_eq!(client.get_next_node(), "http://node2:9200");
         assert_eq!(client.get_next_node(), "http://node3:9200");
         assert_eq!(client.get_next_node(), "http://node1:9200"); // Wraps around
+    }
+
+    #[tokio::test]
+    async fn test_client_creation_sdk() {
+        let config = ClusterConfig {
+            id: "test".to_string(),
+            name: "Test".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            client_type: ClientType::Sdk,
+            version_hint: None,
+        };
+
+        let client = Client::new(&config).await;
+        assert!(client.is_ok());
+        assert!(matches!(client.unwrap(), Client::Sdk(_)));
     }
 
     #[tokio::test]
@@ -408,26 +578,6 @@ mod tests {
         assert!(matches!(client.unwrap(), Client::Http(_)));
     }
 
-    #[tokio::test]
-    async fn test_client_creation_sdk_fails() {
-        let config = ClusterConfig {
-            id: "test".to_string(),
-            name: "Test".to_string(),
-            nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
-            tls: TlsConfig::default(),
-            client_type: ClientType::Sdk,
-            version_hint: None,
-        };
-
-        let client = Client::new(&config).await;
-        assert!(client.is_err());
-        assert!(client
-            .unwrap_err()
-            .to_string()
-            .contains("not yet implemented"));
-    }
-
     #[test]
     fn test_adjust_path_for_version() {
         let client = HttpClient {
@@ -435,7 +585,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             version_hint: Some("8".to_string()),
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         let path = "/_cluster/health";
@@ -452,7 +602,7 @@ mod tests {
                 password: "pass".to_string(),
             }),
             version_hint: None,
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         let request =
@@ -469,7 +619,7 @@ mod tests {
                 key: "test-key".to_string(),
             }),
             version_hint: None,
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         let request =
@@ -484,7 +634,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             version_hint: None,
-            current_node_index: std::sync::atomic::AtomicUsize::new(0),
+            current_node_index: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         };
 
         let body = serde_json::json!({"query": {"match_all": {}}});

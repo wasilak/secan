@@ -11,5 +11,5 @@ clusters:
     name: "Local Development"
     nodes:
       - "http://localhost:9200"
-    client_type: "http"
+    client_type: "sdk"
     version_hint: "8"
