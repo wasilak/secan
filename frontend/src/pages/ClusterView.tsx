@@ -17,6 +17,8 @@ import {
   Menu,
   ActionIcon,
   TextInput,
+  MultiSelect,
+  Checkbox,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -342,7 +344,7 @@ export function ClusterView() {
 }
 
 /**
- * NodesList component displays the list of nodes with search
+ * NodesList component displays the list of nodes with search and role filtering
  * Requirements: 4.6, 14.1, 14.2, 14.3, 14.4, 14.5, 31.7
  */
 function NodesList({
@@ -356,17 +358,52 @@ function NodesList({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get filters from URL
+  const searchQuery = searchParams.get('nodesSearch') || '';
+  const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || [];
   
   // Debounce search query
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Filter nodes based on debounced search query
-  const filteredNodes = nodes?.filter((node) =>
-    node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-    node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  // Update URL when filters change
+  const updateFilters = (newSearch?: string, newRoles?: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (newSearch !== undefined) {
+      if (newSearch) {
+        params.set('nodesSearch', newSearch);
+      } else {
+        params.delete('nodesSearch');
+      }
+    }
+    
+    if (newRoles !== undefined) {
+      if (newRoles.length > 0) {
+        params.set('roles', newRoles.join(','));
+      } else {
+        params.delete('roles');
+      }
+    }
+    
+    setSearchParams(params);
+  };
+
+  // Get all unique roles from nodes
+  const allRoles = Array.from(new Set(nodes?.flatMap(n => n.roles) || []));
+
+  // Filter nodes based on debounced search query and selected roles
+  const filteredNodes = nodes?.filter((node) => {
+    const matchesSearch = node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase());
+    
+    const matchesRoles = selectedRoles.length === 0 || 
+      selectedRoles.some(role => node.roles.includes(role as any));
+    
+    return matchesSearch && matchesRoles;
+  });
 
   if (loading) {
     return (
@@ -390,17 +427,29 @@ function NodesList({
 
   return (
     <Stack gap="md">
-      <TextInput
-        placeholder="Search nodes..."
-        leftSection={<IconSearch size={16} />}
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.currentTarget.value)}
-        style={{ maxWidth: 400 }}
-      />
+      <Group>
+        <TextInput
+          placeholder="Search nodes..."
+          leftSection={<IconSearch size={16} />}
+          value={searchQuery}
+          onChange={(e) => updateFilters(e.currentTarget.value, undefined)}
+          style={{ flex: 1, maxWidth: 400 }}
+        />
+        
+        <MultiSelect
+          placeholder="Filter by roles"
+          data={allRoles}
+          value={selectedRoles}
+          onChange={(values) => updateFilters(undefined, values)}
+          clearable
+          searchable
+          style={{ flex: 1, maxWidth: 300 }}
+        />
+      </Group>
 
       {filteredNodes && filteredNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
-          No nodes match your search
+          No nodes match your filters
         </Text>
       ) : (
         <ScrollArea>
@@ -486,16 +535,56 @@ function IndicesList({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get filters from URL
+  const searchQuery = searchParams.get('indicesSearch') || '';
+  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [];
+  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [];
   
   // Debounce search query to avoid excessive filtering
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Filter indices based on debounced search query
-  const filteredIndices = indices?.filter((index) =>
-    index.name.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  // Update URL when filters change
+  const updateFilters = (newSearch?: string, newHealth?: string[], newStatus?: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (newSearch !== undefined) {
+      if (newSearch) {
+        params.set('indicesSearch', newSearch);
+      } else {
+        params.delete('indicesSearch');
+      }
+    }
+    
+    if (newHealth !== undefined) {
+      if (newHealth.length > 0) {
+        params.set('health', newHealth.join(','));
+      } else {
+        params.delete('health');
+      }
+    }
+    
+    if (newStatus !== undefined) {
+      if (newStatus.length > 0) {
+        params.set('status', newStatus.join(','));
+      } else {
+        params.delete('status');
+      }
+    }
+    
+    setSearchParams(params);
+  };
+
+  // Filter indices based on debounced search query and filters
+  const filteredIndices = indices?.filter((index) => {
+    const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
+    const matchesHealth = selectedHealth.length === 0 || selectedHealth.includes(index.health);
+    const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
+    
+    return matchesSearch && matchesHealth && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -531,14 +620,35 @@ function IndicesList({
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <TextInput
-          placeholder="Search indices..."
-          leftSection={<IconSearch size={16} />}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.currentTarget.value)}
-          style={{ flex: 1, maxWidth: 400 }}
-        />
+      <Group justify="space-between" wrap="wrap">
+        <Group style={{ flex: 1 }}>
+          <TextInput
+            placeholder="Search indices..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
+            style={{ flex: 1, maxWidth: 300 }}
+          />
+          
+          <MultiSelect
+            placeholder="Health"
+            data={['green', 'yellow', 'red']}
+            value={selectedHealth}
+            onChange={(values) => updateFilters(undefined, values, undefined)}
+            clearable
+            style={{ maxWidth: 200 }}
+          />
+          
+          <MultiSelect
+            placeholder="Status"
+            data={['open', 'close']}
+            value={selectedStatus}
+            onChange={(values) => updateFilters(undefined, undefined, values)}
+            clearable
+            style={{ maxWidth: 150 }}
+          />
+        </Group>
+        
         {id && (
           <Button
             leftSection={<IconPlus size={16} />}
@@ -551,7 +661,7 @@ function IndicesList({
 
       {filteredIndices && filteredIndices.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
-          No indices match your search
+          No indices match your filters
         </Text>
       ) : (
         <ScrollArea>
@@ -886,8 +996,8 @@ function ShardAllocationGrid({
 
 
 /**
- * ShardsList component displays detailed shard information in table format
- * Requirements: 4.8
+ * ShardsList component displays detailed shard information in table format with filtering
+ * Requirements: 4.8, 31.7
  */
 function ShardsList({
   shards,
@@ -898,6 +1008,71 @@ function ShardsList({
   loading: boolean;
   error: Error | null;
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get filters from URL
+  const searchQuery = searchParams.get('shardsSearch') || '';
+  const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
+  const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
+  const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
+  
+  // Debounce search query
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Update URL when filters change
+  const updateFilters = (newSearch?: string, newStates?: string[], newPrimaryOnly?: boolean, newReplicaOnly?: boolean) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (newSearch !== undefined) {
+      if (newSearch) {
+        params.set('shardsSearch', newSearch);
+      } else {
+        params.delete('shardsSearch');
+      }
+    }
+    
+    if (newStates !== undefined) {
+      if (newStates.length > 0) {
+        params.set('shardStates', newStates.join(','));
+      } else {
+        params.delete('shardStates');
+      }
+    }
+    
+    if (newPrimaryOnly !== undefined) {
+      if (newPrimaryOnly) {
+        params.set('primaryOnly', 'true');
+        params.delete('replicaOnly');
+      } else {
+        params.delete('primaryOnly');
+      }
+    }
+    
+    if (newReplicaOnly !== undefined) {
+      if (newReplicaOnly) {
+        params.set('replicaOnly', 'true');
+        params.delete('primaryOnly');
+      } else {
+        params.delete('replicaOnly');
+      }
+    }
+    
+    setSearchParams(params);
+  };
+
+  // Filter shards
+  const filteredShards = shards?.filter((shard) => {
+    const matchesSearch = shard.index.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      shard.node?.toLowerCase().includes(debouncedSearch.toLowerCase());
+    
+    const matchesState = selectedStates.length === 0 || selectedStates.includes(shard.state);
+    
+    const matchesType = (!showPrimaryOnly && !showReplicaOnly) ||
+      (showPrimaryOnly && shard.primary) ||
+      (showReplicaOnly && !shard.primary);
+    
+    return matchesSearch && matchesState && matchesType;
+  });
   if (loading) {
     return (
       <Group justify="center" py="xl">
@@ -919,7 +1094,7 @@ function ShardsList({
   }
 
   // Group shards by state for visualization
-  const shardsByState = shards.reduce((acc, shard) => {
+  const shardsByState = (filteredShards || []).reduce((acc, shard) => {
     if (!acc[shard.state]) {
       acc[shard.state] = [];
     }
@@ -929,6 +1104,39 @@ function ShardsList({
 
   return (
     <Stack gap="md">
+      {/* Filters */}
+      <Group wrap="wrap">
+        <TextInput
+          placeholder="Search by index or node..."
+          leftSection={<IconSearch size={16} />}
+          value={searchQuery}
+          onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined, undefined)}
+          style={{ flex: 1, maxWidth: 300 }}
+        />
+        
+        <MultiSelect
+          placeholder="State"
+          data={['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED']}
+          value={selectedStates}
+          onChange={(values) => updateFilters(undefined, values, undefined, undefined)}
+          clearable
+          style={{ maxWidth: 250 }}
+        />
+        
+        <Group gap="md">
+          <Checkbox
+            label="Primary only"
+            checked={showPrimaryOnly}
+            onChange={(e) => updateFilters(undefined, undefined, e.currentTarget.checked, undefined)}
+          />
+          <Checkbox
+            label="Replica only"
+            checked={showReplicaOnly}
+            onChange={(e) => updateFilters(undefined, undefined, undefined, e.currentTarget.checked)}
+          />
+        </Group>
+      </Group>
+
       {/* Shard state summary */}
       <Grid>
         {Object.entries(shardsByState).map(([state, stateShards]) => (
@@ -943,22 +1151,26 @@ function ShardsList({
         ))}
       </Grid>
 
-      {/* Detailed shard list */}
-      <ScrollArea>
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Index</Table.Th>
-              <Table.Th>Shard</Table.Th>
-              <Table.Th>Type</Table.Th>
-              <Table.Th>State</Table.Th>
-              <Table.Th>Node</Table.Th>
-              <Table.Th>Documents</Table.Th>
-              <Table.Th>Size</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {shards.slice(0, 100).map((shard, idx) => (
+      {filteredShards && filteredShards.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          No shards match your filters
+        </Text>
+      ) : (
+        <ScrollArea>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Index</Table.Th>
+                <Table.Th>Shard</Table.Th>
+                <Table.Th>Type</Table.Th>
+                <Table.Th>State</Table.Th>
+                <Table.Th>Node</Table.Th>
+                <Table.Th>Documents</Table.Th>
+                <Table.Th>Size</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredShards?.slice(0, 100).map((shard, idx) => (
               <Table.Tr key={`${shard.index}-${shard.shard}-${idx}`}>
                 <Table.Td>
                   <Text size="sm">{shard.index}</Text>
@@ -998,12 +1210,13 @@ function ShardsList({
             ))}
           </Table.Tbody>
         </Table>
-        {shards.length > 100 && (
+        {filteredShards && filteredShards.length > 100 && (
           <Text size="sm" c="dimmed" ta="center" mt="md">
-            Showing first 100 of {shards.length} shards
+            Showing first 100 of {filteredShards.length} shards
           </Text>
         )}
       </ScrollArea>
+      )}
     </Stack>
   );
 }
