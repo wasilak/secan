@@ -14,10 +14,13 @@ import {
   Table,
   Progress,
   ScrollArea,
+  Button,
+  Menu,
+  ActionIcon,
 } from '@mantine/core';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { usePreferences } from '../hooks/usePreferences';
 import { IndexOperations } from '../components/IndexOperations';
@@ -404,7 +407,7 @@ function NodesList({
 
 /**
  * IndicesList component displays the list of indices
- * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
+ * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 6.1, 7.1, 8.1
  */
 function IndicesList({
   indices,
@@ -416,6 +419,7 @@ function IndicesList({
   error: Error | null;
 }) {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -434,58 +438,108 @@ function IndicesList({
   }
 
   if (!indices || indices.length === 0) {
-    return <Text c="dimmed">No indices found</Text>;
+    return (
+      <Stack gap="md" align="center" py="xl">
+        <Text c="dimmed">No indices found</Text>
+        {id && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => navigate(`/cluster/${id}/indices/create`)}
+          >
+            Create Index
+          </Button>
+        )}
+      </Stack>
+    );
   }
 
   return (
-    <ScrollArea>
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Health</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Documents</Table.Th>
-            <Table.Th>Size</Table.Th>
-            <Table.Th>Shards</Table.Th>
-            <Table.Th>Actions</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {indices.map((index) => (
-            <Table.Tr key={index.name}>
-              <Table.Td>
-                <Text size="sm" fw={500}>{index.name}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Badge size="sm" color={getHealthColor(index.health)}>
-                  {index.health}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
-                  {index.status}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{index.docsCount.toLocaleString()}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{formatBytes(index.storeSize)}</Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">
-                  {index.primaryShards}p / {index.replicaShards}r
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {id && <IndexOperations clusterId={id} index={index} />}
-              </Table.Td>
+    <Stack gap="md">
+      <Group justify="flex-end">
+        {id && (
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={() => navigate(`/cluster/${id}/indices/create`)}
+          >
+            Create Index
+          </Button>
+        )}
+      </Group>
+
+      <ScrollArea>
+        <Table striped highlightOnHover>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Name</Table.Th>
+              <Table.Th>Health</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Documents</Table.Th>
+              <Table.Th>Size</Table.Th>
+              <Table.Th>Shards</Table.Th>
+              <Table.Th>Actions</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </ScrollArea>
+          </Table.Thead>
+          <Table.Tbody>
+            {indices.map((index) => (
+              <Table.Tr key={index.name}>
+                <Table.Td>
+                  <Text size="sm" fw={500}>{index.name}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Badge size="sm" color={getHealthColor(index.health)}>
+                    {index.health}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
+                    {index.status}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{index.docsCount.toLocaleString()}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{formatBytes(index.storeSize)}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">
+                    {index.primaryShards}p / {index.replicaShards}r
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Group gap="xs">
+                    {id && <IndexOperations clusterId={id} index={index} />}
+                    <Menu shadow="md" width={200}>
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray">
+                          <IconDots size={16} />
+                        </ActionIcon>
+                      </Menu.Target>
+
+                      <Menu.Dropdown>
+                        <Menu.Label>Index Management</Menu.Label>
+                        <Menu.Item
+                          leftSection={<IconSettings size={14} />}
+                          onClick={() => navigate(`/cluster/${id}/indices/${index.name}/settings`)}
+                        >
+                          Settings
+                        </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconMap size={14} />}
+                          onClick={() => navigate(`/cluster/${id}/indices/${index.name}/mappings`)}
+                        >
+                          Mappings
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  </Group>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </ScrollArea>
+    </Stack>
   );
 }
 
