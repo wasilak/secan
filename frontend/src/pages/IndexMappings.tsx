@@ -75,7 +75,10 @@ export function IndexMappings() {
         `/${indexName}/_mapping`
       );
 
-      return response;
+      // Extract mappings from the response
+      // Response format: { "index-name": { "mappings": { ... } } }
+      const indexData = response[indexName] as Record<string, unknown>;
+      return indexData?.mappings as Record<string, unknown>;
     },
     enabled: !!clusterId && !!indexName,
   });
