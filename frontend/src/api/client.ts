@@ -4,6 +4,7 @@ import {
   ClusterHealth,
   ClusterStats,
   NodeInfo,
+  NodeRole,
   NodeDetailStats,
   IndexInfo,
   ShardInfo,
@@ -359,14 +360,51 @@ export class ApiClient {
    */
   async getNodes(clusterId: string): Promise<NodeInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<NodeInfo[] | string>(
-        `/clusters/${clusterId}/_cat/nodes?format=json`
+      const response = await this.client.get<Array<Record<string, string>> | string>(
+        `/clusters/${clusterId}/_cat/nodes?format=json&h=id,name,node.role,heap.percent,heap.max,disk.used_percent,disk.total,cpu,ip,version`
       );
+      
       // Handle empty response from Elasticsearch (returns empty string instead of empty array)
       if (typeof response.data === 'string' && response.data.trim() === '') {
         return [];
       }
-      return Array.isArray(response.data) ? response.data : [];
+      
+      if (!Array.isArray(response.data)) {
+        return [];
+      }
+
+      // Transform _cat/nodes response to NodeInfo format
+      return response.data.map((node) => {
+        // Parse node roles from string (e.g., "cdfhilmrstw" -> ["data", "master", etc.])
+        const roleString = node['node.role'] || '';
+        const roles: NodeRole[] = [];
+        
+        // Map Elasticsearch role letters to role names
+        if (roleString.includes('m')) roles.push('master');
+        if (roleString.includes('d')) roles.push('data');
+        if (roleString.includes('i')) roles.push('ingest');
+        if (roleString.includes('c')) roles.push('coordinating');
+        if (roleString.includes('l')) roles.push('ml');
+        
+        // Parse numeric values
+        const heapPercent = parseFloat(node['heap.percent'] || '0');
+        const heapMax = parseFloat(node['heap.max'] || '0');
+        const diskUsedPercent = parseFloat(node['disk.used_percent'] || '0');
+        const diskTotal = parseFloat(node['disk.total'] || '0');
+        
+        return {
+          id: node.id || '',
+          name: node.name || '',
+          roles,
+          heapUsed: Math.round((heapPercent / 100) * heapMax),
+          heapMax: Math.round(heapMax),
+          diskUsed: Math.round((diskUsedPercent / 100) * diskTotal),
+          diskTotal: Math.round(diskTotal),
+          cpuPercent: parseFloat(node.cpu || '0'),
+          ip: node.ip,
+          version: node.version,
+        };
+      });
     });
   }
 
