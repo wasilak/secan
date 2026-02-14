@@ -280,17 +280,13 @@ export function ClusterView() {
           </Tabs.List>
 
           <Tabs.Panel value="overview" pt="md">
-            <Stack gap="md">
-              <Text>
-                This cluster has {stats?.numberOfNodes || 0} nodes with {stats?.activeShards || 0} active shards
-                across {stats?.numberOfIndices || 0} indices.
-              </Text>
-              {stats?.unassignedShards ? (
-                <Alert icon={<IconAlertCircle size={16} />} title="Warning" color="yellow">
-                  There are {stats.unassignedShards} unassigned shards in this cluster.
-                </Alert>
-              ) : null}
-            </Stack>
+            <ShardAllocationGrid 
+              nodes={nodes} 
+              indices={indices} 
+              shards={shards}
+              loading={nodesLoading || indicesLoading || shardsLoading}
+              error={nodesError || indicesError || shardsError}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="nodes" pt="md">
@@ -602,7 +598,281 @@ function IndicesList({
 }
 
 /**
- * ShardsList component displays shard allocation visualization
+ * ShardAllocationGrid component displays visual shard allocation across nodes and indices
+ * This is the main "overview" visualization showing how shards are distributed
+ * Requirements: 4.8
+ */
+function ShardAllocationGrid({
+  nodes,
+  indices,
+  shards,
+  loading,
+  error,
+}: {
+  nodes?: NodeInfo[];
+  indices?: IndexInfo[];
+  shards?: ShardInfo[];
+  loading: boolean;
+  error: Error | null;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showClosed, setShowClosed] = useState(false);
+  const [showSpecial, setShowSpecial] = useState(false);
+  
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  if (loading) {
+    return (
+      <Group justify="center" py="xl">
+        <Loader />
+      </Group>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+        Failed to load shard allocation data: {error.message}
+      </Alert>
+    );
+  }
+
+  if (!nodes || !indices || !shards || nodes.length === 0 || indices.length === 0) {
+    return (
+      <Stack gap="md" align="center" py="xl">
+        <Text c="dimmed">No shard allocation data available</Text>
+      </Stack>
+    );
+  }
+
+  // Filter indices based on search and filters
+  const filteredIndices = indices.filter((index) => {
+    const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
+    const matchesClosed = showClosed || index.status === 'open';
+    const matchesSpecial = showSpecial || !index.name.startsWith('.');
+    return matchesSearch && matchesClosed && matchesSpecial;
+  });
+
+  // Group shards by node and index
+  const shardsByNodeAndIndex = new Map<string, Map<string, ShardInfo[]>>();
+  
+  shards.forEach((shard) => {
+    if (!shard.node) return; // Skip unassigned shards for grid view
+    
+    if (!shardsByNodeAndIndex.has(shard.node)) {
+      shardsByNodeAndIndex.set(shard.node, new Map());
+    }
+    
+    const nodeShards = shardsByNodeAndIndex.get(shard.node)!;
+    if (!nodeShards.has(shard.index)) {
+      nodeShards.set(shard.index, []);
+    }
+    
+    nodeShards.get(shard.index)!.push(shard);
+  });
+
+  // Count unassigned shards
+  const unassignedShards = shards.filter(s => s.state === 'UNASSIGNED');
+
+  return (
+    <Stack gap="md">
+      {/* Filters and search */}
+      <Group justify="space-between" wrap="wrap">
+        <TextInput
+          placeholder="Filter indices by name or alias..."
+          leftSection={<IconSearch size={16} />}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.currentTarget.value)}
+          style={{ flex: 1, maxWidth: 400 }}
+        />
+        
+        <Group gap="md">
+          <Group gap="xs">
+            <input
+              type="checkbox"
+              id="show-closed"
+              checked={showClosed}
+              onChange={(e) => setShowClosed(e.target.checked)}
+            />
+            <Text size="sm" component="label" htmlFor="show-closed" style={{ cursor: 'pointer' }}>
+              closed ({indices.filter(i => i.status !== 'open').length})
+            </Text>
+          </Group>
+          
+          <Group gap="xs">
+            <input
+              type="checkbox"
+              id="show-special"
+              checked={showSpecial}
+              onChange={(e) => setShowSpecial(e.target.checked)}
+            />
+            <Text size="sm" component="label" htmlFor="show-special" style={{ cursor: 'pointer' }}>
+              special ({indices.filter(i => i.name.startsWith('.')).length})
+            </Text>
+          </Group>
+          
+          <Text size="sm" c="dimmed">
+            {filteredIndices.length} of {indices.length}
+          </Text>
+        </Group>
+      </Group>
+
+      {/* Summary stats */}
+      <Group gap="md">
+        <Text size="sm">
+          <Text component="span" fw={700}>{nodes.length}</Text> nodes
+        </Text>
+        <Text size="sm">
+          <Text component="span" fw={700}>{filteredIndices.length}</Text> indices
+        </Text>
+        <Text size="sm">
+          <Text component="span" fw={700}>{shards.length}</Text> shards
+        </Text>
+        {unassignedShards.length > 0 && (
+          <Badge color="red" variant="filled">
+            {unassignedShards.length} unassigned
+          </Badge>
+        )}
+      </Group>
+
+      {/* Shard allocation grid */}
+      <ScrollArea>
+        <div style={{ minWidth: '800px' }}>
+          <Table striped withTableBorder withColumnBorders>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th style={{ minWidth: '150px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
+                  Node
+                </Table.Th>
+                {filteredIndices.map((index) => (
+                  <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
+                    <Stack gap={4}>
+                      <Text size="xs" fw={500} truncate="end" title={index.name}>
+                        {index.name}
+                      </Text>
+                      <Group gap={4} justify="center">
+                        <Badge size="xs" color={getHealthColor(index.health)} variant="dot">
+                          {index.primaryShards}×{index.replicaShards + 1}
+                        </Badge>
+                        <Text size="xs" c="dimmed">
+                          {formatBytes(index.storeSize)}
+                        </Text>
+                      </Group>
+                    </Stack>
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {nodes.map((node) => {
+                const nodeShards = shardsByNodeAndIndex.get(node.name);
+                
+                return (
+                  <Table.Tr key={node.id}>
+                    <Table.Td style={{ position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
+                      <Stack gap={4}>
+                        <Text size="sm" fw={500} truncate="end" title={node.name}>
+                          {node.name}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {node.ip}
+                        </Text>
+                      </Stack>
+                    </Table.Td>
+                    {filteredIndices.map((index) => {
+                      const indexShards = nodeShards?.get(index.name) || [];
+                      
+                      return (
+                        <Table.Td key={`${node.id}-${index.name}`} style={{ padding: '4px', textAlign: 'center' }}>
+                          {indexShards.length > 0 ? (
+                            <Group gap={2} justify="center" wrap="wrap">
+                              {indexShards.map((shard, idx) => (
+                                <div
+                                  key={`${shard.shard}-${shard.primary}-${idx}`}
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: shard.state === 'STARTED' 
+                                      ? (shard.primary ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-green-7)')
+                                      : shard.state === 'RELOCATING'
+                                      ? 'var(--mantine-color-yellow-6)'
+                                      : 'var(--mantine-color-red-6)',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    borderRadius: '2px',
+                                    border: shard.primary ? '1px solid var(--mantine-color-green-9)' : 'none',
+                                  }}
+                                  title={`Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) - ${shard.state}`}
+                                >
+                                  {shard.shard}
+                                </div>
+                              ))}
+                            </Group>
+                          ) : (
+                            <Text size="xs" c="dimmed">-</Text>
+                          )}
+                        </Table.Td>
+                      );
+                    })}
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </div>
+      </ScrollArea>
+
+      {/* Unassigned shards warning */}
+      {unassignedShards.length > 0 && (
+        <Alert icon={<IconAlertCircle size={16} />} title="Unassigned Shards" color="yellow">
+          <Stack gap="xs">
+            <Text size="sm">
+              There are {unassignedShards.length} unassigned shards in this cluster.
+            </Text>
+            <ScrollArea h={200}>
+              <Table>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Index</Table.Th>
+                    <Table.Th>Shard</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {unassignedShards.slice(0, 50).map((shard, idx) => (
+                    <Table.Tr key={`unassigned-${idx}`}>
+                      <Table.Td>{shard.index}</Table.Td>
+                      <Table.Td>{shard.shard}</Table.Td>
+                      <Table.Td>
+                        <Badge size="xs" variant="light">
+                          {shard.primary ? 'Primary' : 'Replica'}
+                        </Badge>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              {unassignedShards.length > 50 && (
+                <Text size="xs" c="dimmed" ta="center" mt="xs">
+                  Showing first 50 of {unassignedShards.length} unassigned shards
+                </Text>
+              )}
+            </ScrollArea>
+          </Stack>
+        </Alert>
+      )}
+    </Stack>
+  );
+}
+
+
+
+/**
+ * ShardsList component displays detailed shard information in table format
  * Requirements: 4.8
  */
 function ShardsList({
