@@ -7,6 +7,10 @@ import { Login } from './pages/Login';
 import { IndexCreate } from './pages/IndexCreate';
 import { IndexSettings } from './pages/IndexSettings';
 import { IndexMappings } from './pages/IndexMappings';
+import { Aliases } from './pages/Aliases';
+import { Templates } from './pages/Templates';
+import { ClusterSettingsPage } from './pages/ClusterSettings';
+import { ShardManagement } from './pages/ShardManagement';
 
 /**
  * Main application router configuration
@@ -19,6 +23,10 @@ import { IndexMappings } from './pages/IndexMappings';
  * - /cluster/:id/indices/create - Create new index
  * - /cluster/:id/indices/:indexName/settings - View/edit index settings
  * - /cluster/:id/indices/:indexName/mappings - View/edit index mappings
+ * - /cluster/:id/aliases - Manage index aliases
+ * - /cluster/:id/templates - Manage index templates
+ * - /cluster/:id/settings - Manage cluster settings
+ * - /cluster/:id/shards - Manage shard allocation
  * 
  * Authentication redirects will be implemented when auth is integrated.
  */
@@ -54,6 +62,22 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/indices/:indexName/mappings',
         element: <IndexMappings />,
+      },
+      {
+        path: 'cluster/:id/aliases',
+        element: <Aliases />,
+      },
+      {
+        path: 'cluster/:id/templates',
+        element: <Templates />,
+      },
+      {
+        path: 'cluster/:id/settings',
+        element: <ClusterSettingsPage />,
+      },
+      {
+        path: 'cluster/:id/shards',
+        element: <ShardManagement />,
       },
     ],
   },
