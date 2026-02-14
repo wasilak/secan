@@ -322,6 +322,9 @@ function NodesList({
   loading: boolean;
   error: Error | null;
 }) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
   if (loading) {
     return (
       <Group justify="center" py="xl">
@@ -356,7 +359,11 @@ function NodesList({
         </Table.Thead>
         <Table.Tbody>
           {nodes.map((node) => (
-            <Table.Tr key={node.id}>
+            <Table.Tr
+              key={node.id}
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/cluster/${id}/nodes/${node.id}`)}
+            >
               <Table.Td>
                 <Text size="sm" fw={500}>{node.name}</Text>
                 {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}

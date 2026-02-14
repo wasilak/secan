@@ -4,6 +4,7 @@ import {
   ClusterHealth,
   ClusterStats,
   NodeInfo,
+  NodeDetailStats,
   IndexInfo,
   ShardInfo,
   LoginRequest,
@@ -310,6 +311,19 @@ export class ApiClient {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<NodeInfo[]>(
         `/clusters/${clusterId}/_cat/nodes?format=json`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Get detailed statistics for a specific node
+   * Requirements: 14.7, 14.8
+   */
+  async getNodeStats(clusterId: string, nodeId: string): Promise<NodeDetailStats> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<NodeDetailStats>(
+        `/clusters/${clusterId}/_nodes/${nodeId}/stats`
       );
       return response.data;
     });
