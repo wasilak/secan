@@ -299,8 +299,8 @@ export function Dashboard() {
   // Loading state
   if (clustersLoading) {
     return (
-      <Container size="xl">
-        <Title order={1} mb="md">
+      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Title order={1} mb="md" className="text-responsive-xl">
           Dashboard
         </Title>
         <Center h={200}>
@@ -316,8 +316,8 @@ export function Dashboard() {
   // Error state
   if (clustersError) {
     return (
-      <Container size="xl">
-        <Title order={1} mb="md">
+      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Title order={1} mb="md" className="text-responsive-xl">
           Dashboard
         </Title>
         <Alert
@@ -336,8 +336,8 @@ export function Dashboard() {
   // Empty state
   if (!clusters || clusters.length === 0) {
     return (
-      <Container size="xl">
-        <Title order={1} mb="md">
+      <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Title order={1} mb="md" className="text-responsive-xl">
           Dashboard
         </Title>
         <Alert
@@ -353,9 +353,9 @@ export function Dashboard() {
   }
 
   return (
-    <Container size="xl">
-      <Group justify="space-between" mb="md">
-        <Title order={1}>Dashboard</Title>
+    <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+      <Group justify="space-between" mb="md" wrap="wrap">
+        <Title order={1} className="text-responsive-xl">Dashboard</Title>
         <Group gap="xs">
           <IconRefresh size={16} aria-hidden="true" />
           <Text size="sm" c="dimmed" aria-live="polite">
@@ -364,96 +364,105 @@ export function Dashboard() {
         </Group>
       </Group>
 
-      <Table highlightOnHover striped role="table" aria-label="Cluster overview table">
-        <Table.Thead>
-          <Table.Tr>
-            <SortableHeader
-              column="name"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Cluster Name
-            </SortableHeader>
-            <SortableHeader
-              column="health"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Health
-            </SortableHeader>
-            <SortableHeader
-              column="nodes"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Nodes
-            </SortableHeader>
-            <SortableHeader
-              column="shards"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Shards
-            </SortableHeader>
-            <SortableHeader
-              column="indices"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Indices
-            </SortableHeader>
-            <SortableHeader
-              column="documents"
-              currentColumn={sortColumn}
-              direction={sortDirection}
-              onSort={handleSort}
-            >
-              Documents
-            </SortableHeader>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {sortedClusters.map((cluster) => (
-            <Table.Tr
-              key={cluster.id}
-              onClick={() => handleClusterClick(cluster.id)}
-              style={{ cursor: 'pointer' }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleClusterClick(cluster.id);
-                }
-              }}
-              aria-label={`View details for cluster ${cluster.name}`}
-            >
-              <Table.Td>
-                <Text fw={500}>{cluster.name}</Text>
-                {cluster.error && (
-                  <Text size="xs" c="dimmed" role="alert">
-                    {cluster.error}
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Badge color={getHealthColor(cluster.health)} variant="filled" aria-label={`Health status: ${cluster.health}`}>
-                  {cluster.health}
-                </Badge>
-              </Table.Td>
-              <Table.Td>{cluster.nodes}</Table.Td>
-              <Table.Td>{cluster.shards}</Table.Td>
-              <Table.Td>{cluster.indices}</Table.Td>
-              <Table.Td>{cluster.documents.toLocaleString()}</Table.Td>
+      {/* Responsive table with horizontal scroll on mobile */}
+      <div style={{ overflowX: 'auto' }}>
+        <Table 
+          highlightOnHover 
+          striped 
+          role="table" 
+          aria-label="Cluster overview table"
+          style={{ minWidth: '600px' }}
+        >
+          <Table.Thead>
+            <Table.Tr>
+              <SortableHeader
+                column="name"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Cluster Name
+              </SortableHeader>
+              <SortableHeader
+                column="health"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Health
+              </SortableHeader>
+              <SortableHeader
+                column="nodes"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Nodes
+              </SortableHeader>
+              <SortableHeader
+                column="shards"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Shards
+              </SortableHeader>
+              <SortableHeader
+                column="indices"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Indices
+              </SortableHeader>
+              <SortableHeader
+                column="documents"
+                currentColumn={sortColumn}
+                direction={sortDirection}
+                onSort={handleSort}
+              >
+                Documents
+              </SortableHeader>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {sortedClusters.map((cluster) => (
+              <Table.Tr
+                key={cluster.id}
+                onClick={() => handleClusterClick(cluster.id)}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleClusterClick(cluster.id);
+                  }
+                }}
+                aria-label={`View details for cluster ${cluster.name}`}
+              >
+                <Table.Td>
+                  <Text fw={500}>{cluster.name}</Text>
+                  {cluster.error && (
+                    <Text size="xs" c="dimmed" role="alert">
+                      {cluster.error}
+                    </Text>
+                  )}
+                </Table.Td>
+                <Table.Td>
+                  <Badge color={getHealthColor(cluster.health)} variant="filled" aria-label={`Health status: ${cluster.health}`}>
+                    {cluster.health}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>{cluster.nodes}</Table.Td>
+                <Table.Td>{cluster.shards}</Table.Td>
+                <Table.Td>{cluster.indices}</Table.Td>
+                <Table.Td>{cluster.documents.toLocaleString()}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </div>
     </Container>
   );
 }

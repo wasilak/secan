@@ -155,10 +155,10 @@ export function ClusterView() {
   }
 
   return (
-    <Container size="xl" py="md">
-      <Group justify="space-between" mb="md">
+    <Container size="xl" py={{ base: 'sm', sm: 'md' }} px={{ base: 'xs', sm: 'md' }}>
+      <Group justify="space-between" mb="md" wrap="wrap">
         <div>
-          <Title order={1}>
+        <Title order={1} className="text-responsive-xl">
             {stats?.clusterName || id}
           </Title>
           <Text size="sm" c="dimmed">
