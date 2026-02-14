@@ -20,6 +20,12 @@ import {
   IndexAnalyzersResponse,
   IndexFieldsResponse,
   FieldInfo,
+  RepositoryInfo,
+  RepositoryType,
+  CreateRepositoryRequest,
+  SnapshotInfo,
+  CreateSnapshotRequest,
+  RestoreSnapshotRequest,
 } from '../types/api';
 
 /**
@@ -778,6 +784,157 @@ export class ApiClient {
       extractFields(properties);
 
       return { fields };
+    });
+  }
+
+  /**
+   * Get all snapshot repositories in a cluster
+   * 
+   * Requirements: 17.1
+   */
+  async getRepositories(clusterId: string): Promise<RepositoryInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, { type: string; settings: Record<string, unknown> }>>(
+        `/clusters/${clusterId}/_snapshot`
+      );
+
+      const repositories: RepositoryInfo[] = [];
+      for (const [name, config] of Object.entries(response.data)) {
+        repositories.push({
+          name,
+          type: config.type as RepositoryType,
+          settings: config.settings,
+        });
+      }
+
+      return repositories;
+    });
+  }
+
+  /**
+   * Create a snapshot repository
+   * 
+   * Requirements: 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9
+   */
+  async createRepository(clusterId: string, request: CreateRepositoryRequest): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.put(`/clusters/${clusterId}/_snapshot/${request.name}`, {
+        type: request.type,
+        settings: request.settings,
+      });
+    });
+  }
+
+  /**
+   * Delete a snapshot repository
+   * 
+   * Requirements: 17.10
+   */
+  async deleteRepository(clusterId: string, name: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/_snapshot/${name}`);
+    });
+  }
+
+  /**
+   * Get snapshots in a repository
+   * 
+   * Requirements: 18.1
+   */
+  async getSnapshots(clusterId: string, repository: string): Promise<SnapshotInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<{ snapshots: SnapshotInfo[] }>(
+        `/clusters/${clusterId}/_snapshot/${repository}/_all`
+      );
+
+      return response.data.snapshots || [];
+    });
+  }
+
+  /**
+   * Create a snapshot
+   * 
+   * Requirements: 18.2, 18.3, 18.4, 18.5
+   */
+  async createSnapshot(
+    clusterId: string,
+    repository: string,
+    request: CreateSnapshotRequest
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {};
+
+      if (request.indices && request.indices.length > 0) {
+        body.indices = request.indices.join(',');
+      }
+      if (request.ignoreUnavailable !== undefined) {
+        body.ignore_unavailable = request.ignoreUnavailable;
+      }
+      if (request.includeGlobalState !== undefined) {
+        body.include_global_state = request.includeGlobalState;
+      }
+      if (request.partial !== undefined) {
+        body.partial = request.partial;
+      }
+
+      await this.client.put(
+        `/clusters/${clusterId}/_snapshot/${repository}/${request.snapshot}`,
+        body
+      );
+    });
+  }
+
+  /**
+   * Delete a snapshot
+   * 
+   * Requirements: 18.7
+   */
+  async deleteSnapshot(clusterId: string, repository: string, snapshot: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/_snapshot/${repository}/${snapshot}`);
+    });
+  }
+
+  /**
+   * Restore a snapshot
+   * 
+   * Requirements: 18.8, 18.9
+   */
+  async restoreSnapshot(
+    clusterId: string,
+    repository: string,
+    snapshot: string,
+    request: RestoreSnapshotRequest
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {};
+
+      if (request.indices && request.indices.length > 0) {
+        body.indices = request.indices.join(',');
+      }
+      if (request.ignoreUnavailable !== undefined) {
+        body.ignore_unavailable = request.ignoreUnavailable;
+      }
+      if (request.includeGlobalState !== undefined) {
+        body.include_global_state = request.includeGlobalState;
+      }
+      if (request.renamePattern) {
+        body.rename_pattern = request.renamePattern;
+      }
+      if (request.renameReplacement) {
+        body.rename_replacement = request.renameReplacement;
+      }
+      if (request.includeAliases !== undefined) {
+        body.include_aliases = request.includeAliases;
+      }
+      if (request.partial !== undefined) {
+        body.partial = request.partial;
+      }
+
+      await this.client.post(
+        `/clusters/${clusterId}/_snapshot/${repository}/${snapshot}/_restore`,
+        body
+      );
     });
   }
 }

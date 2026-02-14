@@ -13,6 +13,8 @@ import { ClusterSettingsPage } from './pages/ClusterSettings';
 import { ShardManagement } from './pages/ShardManagement';
 import { TextAnalysisPage } from './pages/TextAnalysis';
 import { IndexAnalyzersPage } from './pages/IndexAnalyzers';
+import { Repositories } from './pages/Repositories';
+import { Snapshots } from './pages/Snapshots';
 
 /**
  * Main application router configuration
@@ -31,6 +33,8 @@ import { IndexAnalyzersPage } from './pages/IndexAnalyzers';
  * - /cluster/:id/settings - Manage cluster settings
  * - /cluster/:id/shards - Manage shard allocation
  * - /cluster/:id/analysis - Text analysis tools
+ * - /cluster/:id/repositories - Manage snapshot repositories
+ * - /cluster/:id/snapshots/:repository - Manage snapshots in a repository
  * 
  * Authentication redirects will be implemented when auth is integrated.
  */
@@ -90,6 +94,14 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/indices/:indexName/analyzers',
         element: <IndexAnalyzersPage />,
+      },
+      {
+        path: 'cluster/:id/repositories',
+        element: <Repositories />,
+      },
+      {
+        path: 'cluster/:id/snapshots/:repository',
+        element: <Snapshots />,
       },
     ],
   },
