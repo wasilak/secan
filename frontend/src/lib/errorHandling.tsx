@@ -30,9 +30,12 @@ export function parseError(error: unknown): ErrorDetails {
     const response = (error as { response?: { data?: ApiError; status?: number; statusText?: string; headers?: Record<string, string> } }).response;
     
     if (response?.data) {
+      // Try to extract Elasticsearch error if present
+      const esError = extractElasticsearchError(response.data);
+      
       return {
         error: response.data.error || 'api_error',
-        message: response.data.message || 'An error occurred',
+        message: esError || response.data.message || 'An error occurred',
         details: response.data.details,
         statusCode: response.status,
         requestId: response.headers?.['x-request-id'],
@@ -79,6 +82,46 @@ export function parseError(error: unknown): ErrorDetails {
     message: 'An unexpected error occurred',
     details: error,
   };
+}
+
+/**
+ * Extract Elasticsearch error message from API error response
+ * 
+ * @param data - API error response data
+ * @returns Elasticsearch error message if found, null otherwise
+ */
+function extractElasticsearchError(data: ApiError): string | null {
+  // Check if details contains Elasticsearch error structure
+  if (data.details && typeof data.details === 'object') {
+    const details = data.details as Record<string, unknown>;
+    
+    // Elasticsearch error structure: { error: { type: string, reason: string, root_cause: [...] } }
+    if (details.error && typeof details.error === 'object') {
+      const esError = details.error as Record<string, unknown>;
+      
+      // Get the main error reason
+      if (esError.reason && typeof esError.reason === 'string') {
+        let message = `Elasticsearch: ${esError.reason}`;
+        
+        // Add error type if available
+        if (esError.type && typeof esError.type === 'string') {
+          message = `Elasticsearch (${esError.type}): ${esError.reason}`;
+        }
+        
+        // Add root cause if available and different from main reason
+        if (esError.root_cause && Array.isArray(esError.root_cause) && esError.root_cause.length > 0) {
+          const rootCause = esError.root_cause[0] as Record<string, unknown>;
+          if (rootCause.reason && rootCause.reason !== esError.reason) {
+            message += `\nRoot cause: ${rootCause.reason}`;
+          }
+        }
+        
+        return message;
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**
