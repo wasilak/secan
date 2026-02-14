@@ -1,6 +1,7 @@
 // Library exports for the Cerebro backend
 // This allows other crates to use our modules
 
+pub mod assets;
 pub mod auth;
 pub mod cluster;
 pub mod config;
