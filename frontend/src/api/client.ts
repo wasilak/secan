@@ -304,52 +304,10 @@ export class ApiClient {
    */
   async getClusterStats(clusterId: string): Promise<ClusterStats> {
     return this.executeWithRetry(async () => {
-      // Fetch both stats and health for complete information
-      const [statsResponse, healthResponse] = await Promise.all([
-        this.client.get<{
-          cluster_name: string;
-          status: string;
-          indices: {
-            count: number;
-            docs: { count: number };
-          };
-          nodes: {
-            count: {
-              total: number;
-              data: number;
-            };
-          };
-        }>(`/clusters/${clusterId}/_cluster/stats`),
-        this.client.get<{
-          cluster_name: string;
-          status: string;
-          number_of_nodes: number;
-          number_of_data_nodes: number;
-          active_primary_shards: number;
-          active_shards: number;
-          relocating_shards: number;
-          initializing_shards: number;
-          unassigned_shards: number;
-        }>(`/clusters/${clusterId}/_cluster/health`),
-      ]);
-
-      const stats = statsResponse.data;
-      const health = healthResponse.data;
-
-      // Transform Elasticsearch responses to ClusterStats format
-      return {
-        health: (health.status as HealthStatus) || 'red',
-        clusterName: stats.cluster_name || health.cluster_name || clusterId,
-        numberOfNodes: health.number_of_nodes || stats.nodes?.count?.total || 0,
-        numberOfDataNodes: health.number_of_data_nodes || stats.nodes?.count?.data || 0,
-        numberOfIndices: stats.indices?.count || 0,
-        numberOfDocuments: stats.indices?.docs?.count || 0,
-        activePrimaryShards: health.active_primary_shards || 0,
-        activeShards: health.active_shards || 0,
-        relocatingShards: health.relocating_shards || 0,
-        initializingShards: health.initializing_shards || 0,
-        unassignedShards: health.unassigned_shards || 0,
-      };
+      const response = await this.client.get<ClusterStats>(
+        `/clusters/${clusterId}/stats`
+      );
+      return response.data;
     });
   }
 
@@ -360,51 +318,10 @@ export class ApiClient {
    */
   async getNodes(clusterId: string): Promise<NodeInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<Array<Record<string, string>> | string>(
-        `/clusters/${clusterId}/_cat/nodes?format=json&h=id,name,node.role,heap.percent,heap.max,disk.used_percent,disk.total,cpu,ip,version`
+      const response = await this.client.get<NodeInfo[]>(
+        `/clusters/${clusterId}/nodes`
       );
-      
-      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
-      if (typeof response.data === 'string' && response.data.trim() === '') {
-        return [];
-      }
-      
-      if (!Array.isArray(response.data)) {
-        return [];
-      }
-
-      // Transform _cat/nodes response to NodeInfo format
-      return response.data.map((node) => {
-        // Parse node roles from string (e.g., "cdfhilmrstw" -> ["data", "master", etc.])
-        const roleString = node['node.role'] || '';
-        const roles: NodeRole[] = [];
-        
-        // Map Elasticsearch role letters to role names
-        if (roleString.includes('m')) roles.push('master');
-        if (roleString.includes('d')) roles.push('data');
-        if (roleString.includes('i')) roles.push('ingest');
-        if (roleString.includes('c')) roles.push('coordinating');
-        if (roleString.includes('l')) roles.push('ml');
-        
-        // Parse numeric values
-        const heapPercent = parseFloat(node['heap.percent'] || '0');
-        const heapMax = parseFloat(node['heap.max'] || '0');
-        const diskUsedPercent = parseFloat(node['disk.used_percent'] || '0');
-        const diskTotal = parseFloat(node['disk.total'] || '0');
-        
-        return {
-          id: node.id || '',
-          name: node.name || '',
-          roles,
-          heapUsed: Math.round((heapPercent / 100) * heapMax),
-          heapMax: Math.round(heapMax),
-          diskUsed: Math.round((diskUsedPercent / 100) * diskTotal),
-          diskTotal: Math.round(diskTotal),
-          cpuPercent: parseFloat(node.cpu || '0'),
-          ip: node.ip,
-          version: node.version,
-        };
-      });
+      return response.data;
     });
   }
 
@@ -428,14 +345,10 @@ export class ApiClient {
    */
   async getIndices(clusterId: string): Promise<IndexInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<IndexInfo[] | string>(
-        `/clusters/${clusterId}/_cat/indices?format=json`
+      const response = await this.client.get<IndexInfo[]>(
+        `/clusters/${clusterId}/indices`
       );
-      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
-      if (typeof response.data === 'string' && response.data.trim() === '') {
-        return [];
-      }
-      return Array.isArray(response.data) ? response.data : [];
+      return response.data;
     });
   }
 
@@ -446,14 +359,10 @@ export class ApiClient {
    */
   async getShards(clusterId: string): Promise<ShardInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ShardInfo[] | string>(
-        `/clusters/${clusterId}/_cat/shards?format=json`
+      const response = await this.client.get<ShardInfo[]>(
+        `/clusters/${clusterId}/shards`
       );
-      // Handle empty response from Elasticsearch (returns empty string instead of empty array)
-      if (typeof response.data === 'string' && response.data.trim() === '') {
-        return [];
-      }
-      return Array.isArray(response.data) ? response.data : [];
+      return response.data;
     });
   }
 

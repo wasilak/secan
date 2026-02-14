@@ -8,6 +8,12 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+mod transform;
+use transform::{
+    transform_cluster_stats, transform_indices, transform_nodes, transform_shards,
+    ClusterStatsResponse, IndexInfoResponse, NodeInfoResponse, ShardInfoResponse,
+};
+
 /// Shared application state for cluster routes
 #[derive(Clone)]
 pub struct ClusterState {
@@ -47,6 +53,272 @@ pub async fn list_clusters(
     tracing::info!("Returning {} cluster(s)", clusters.len());
 
     Ok(Json(clusters))
+}
+
+/// Get cluster statistics using SDK typed methods
+///
+/// Returns cluster stats in frontend-compatible format
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.1, 4.2, 4.3
+pub async fn get_cluster_stats(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+) -> Result<Json<ClusterStatsResponse>, ClusterErrorResponse> {
+    tracing::debug!(cluster_id = %cluster_id, "Getting cluster stats");
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get cluster stats and health using SDK typed methods
+    let stats = cluster.cluster_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get cluster stats"
+        );
+        ClusterErrorResponse {
+            error: "stats_failed".to_string(),
+            message: format!("Failed to get cluster stats: {}", e),
+        }
+    })?;
+
+    let health = cluster.health().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get cluster health"
+        );
+        ClusterErrorResponse {
+            error: "health_failed".to_string(),
+            message: format!("Failed to get cluster health: {}", e),
+        }
+    })?;
+
+    // Transform to frontend format
+    let response = transform_cluster_stats(&stats, &health).map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to transform cluster stats"
+        );
+        ClusterErrorResponse {
+            error: "transform_failed".to_string(),
+            message: format!("Failed to transform cluster stats: {}", e),
+        }
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        health = %response.health,
+        "Cluster stats retrieved successfully"
+    );
+
+    Ok(Json(response))
+}
+
+/// Get nodes information using SDK typed methods
+///
+/// Returns nodes info in frontend-compatible format
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.6, 14.1, 14.2
+pub async fn get_nodes(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+) -> Result<Json<Vec<NodeInfoResponse>>, ClusterErrorResponse> {
+    tracing::debug!(cluster_id = %cluster_id, "Getting nodes info");
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get nodes info and stats using SDK typed methods
+    let nodes_info = cluster.nodes_info().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get nodes info"
+        );
+        ClusterErrorResponse {
+            error: "nodes_info_failed".to_string(),
+            message: format!("Failed to get nodes info: {}", e),
+        }
+    })?;
+
+    let nodes_stats = cluster.nodes_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get nodes stats"
+        );
+        ClusterErrorResponse {
+            error: "nodes_stats_failed".to_string(),
+            message: format!("Failed to get nodes stats: {}", e),
+        }
+    })?;
+
+    // Transform to frontend format
+    let response = transform_nodes(&nodes_info, &nodes_stats);
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_count = response.len(),
+        "Nodes info retrieved successfully"
+    );
+
+    Ok(Json(response))
+}
+
+/// Get indices information using SDK typed methods
+///
+/// Returns indices info in frontend-compatible format
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.7
+pub async fn get_indices(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+) -> Result<Json<Vec<IndexInfoResponse>>, ClusterErrorResponse> {
+    tracing::debug!(cluster_id = %cluster_id, "Getting indices info");
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get indices stats using SDK typed method
+    let indices_stats = cluster.indices_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get indices stats"
+        );
+        ClusterErrorResponse {
+            error: "indices_stats_failed".to_string(),
+            message: format!("Failed to get indices stats: {}", e),
+        }
+    })?;
+
+    // Transform to frontend format
+    let response = transform_indices(&indices_stats);
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        index_count = response.len(),
+        "Indices info retrieved successfully"
+    );
+
+    Ok(Json(response))
+}
+
+/// Get shards information using SDK typed methods
+///
+/// Returns shards info in frontend-compatible format
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.8
+pub async fn get_shards(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+) -> Result<Json<Vec<ShardInfoResponse>>, ClusterErrorResponse> {
+    tracing::debug!(cluster_id = %cluster_id, "Getting shards info");
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get cluster state and indices stats using SDK typed methods
+    let cluster_state = cluster.cluster_state().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get cluster state"
+        );
+        ClusterErrorResponse {
+            error: "cluster_state_failed".to_string(),
+            message: format!("Failed to get cluster state: {}", e),
+        }
+    })?;
+
+    let indices_stats = cluster.indices_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get indices stats"
+        );
+        ClusterErrorResponse {
+            error: "indices_stats_failed".to_string(),
+            message: format!("Failed to get indices stats: {}", e),
+        }
+    })?;
+
+    // Transform to frontend format
+    let response = transform_shards(&cluster_state, &indices_stats);
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        shard_count = response.len(),
+        "Shards info retrieved successfully"
+    );
+
+    Ok(Json(response))
 }
 
 /// Proxy request to Elasticsearch cluster

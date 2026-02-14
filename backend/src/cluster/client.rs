@@ -32,6 +32,24 @@ pub trait ElasticsearchClient: Send + Sync {
 
     /// Get cluster info
     async fn info(&self) -> Result<Value>;
+
+    /// Get cluster stats
+    async fn cluster_stats(&self) -> Result<Value>;
+
+    /// Get nodes info
+    async fn nodes_info(&self) -> Result<Value>;
+
+    /// Get nodes stats
+    async fn nodes_stats(&self) -> Result<Value>;
+
+    /// Get indices
+    async fn indices_get(&self, index: &str) -> Result<Value>;
+
+    /// Get indices stats
+    async fn indices_stats(&self) -> Result<Value>;
+
+    /// Get cluster state
+    async fn cluster_state(&self) -> Result<Value>;
 }
 
 impl Client {
@@ -200,6 +218,135 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse info response")
+    }
+
+    /// Get cluster stats using SDK typed method
+    async fn cluster_stats(&self) -> Result<Value> {
+        let response = self
+            .client
+            .cluster()
+            .stats(elasticsearch::cluster::ClusterStatsParts::None)
+            .send()
+            .await
+            .context("Cluster stats request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Cluster stats failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cluster stats response")
+    }
+
+    /// Get nodes info using SDK typed method
+    async fn nodes_info(&self) -> Result<Value> {
+        let response = self
+            .client
+            .nodes()
+            .info(elasticsearch::nodes::NodesInfoParts::None)
+            .send()
+            .await
+            .context("Nodes info request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!("Nodes info failed with status: {}", response.status_code());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse nodes info response")
+    }
+
+    /// Get nodes stats using SDK typed method
+    async fn nodes_stats(&self) -> Result<Value> {
+        let response = self
+            .client
+            .nodes()
+            .stats(elasticsearch::nodes::NodesStatsParts::None)
+            .send()
+            .await
+            .context("Nodes stats request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!("Nodes stats failed with status: {}", response.status_code());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse nodes stats response")
+    }
+
+    /// Get indices using SDK typed method
+    async fn indices_get(&self, index: &str) -> Result<Value> {
+        let response = self
+            .client
+            .indices()
+            .get(elasticsearch::indices::IndicesGetParts::Index(&[index]))
+            .send()
+            .await
+            .context("Indices get request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!("Indices get failed with status: {}", response.status_code());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse indices get response")
+    }
+
+    /// Get all indices stats using SDK typed method
+    async fn indices_stats(&self) -> Result<Value> {
+        let response = self
+            .client
+            .indices()
+            .stats(elasticsearch::indices::IndicesStatsParts::None)
+            .send()
+            .await
+            .context("Indices stats request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Indices stats failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse indices stats response")
+    }
+
+    /// Get cluster state for shard information using SDK typed method
+    async fn cluster_state(&self) -> Result<Value> {
+        let response = self
+            .client
+            .cluster()
+            .state(elasticsearch::cluster::ClusterStateParts::None)
+            .send()
+            .await
+            .context("Cluster state request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Cluster state failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cluster state response")
     }
 }
 
