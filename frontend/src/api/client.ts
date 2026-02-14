@@ -937,6 +937,79 @@ export class ApiClient {
       );
     });
   }
+
+  /**
+   * Get available Cat API endpoints
+   * 
+   * Requirements: 20.1
+   */
+  async getCatEndpoints(_clusterId: string): Promise<string[]> {
+    return this.executeWithRetry(async () => {
+      // Return a predefined list of common Cat API endpoints
+      // These are standard Elasticsearch Cat APIs
+      return [
+        'aliases',
+        'allocation',
+        'count',
+        'fielddata',
+        'health',
+        'indices',
+        'master',
+        'nodeattrs',
+        'nodes',
+        'pending_tasks',
+        'plugins',
+        'recovery',
+        'repositories',
+        'segments',
+        'shards',
+        'snapshots',
+        'tasks',
+        'templates',
+        'thread_pool',
+      ];
+    });
+  }
+
+  /**
+   * Execute a Cat API request
+   * 
+   * Requirements: 20.2, 20.3
+   */
+  async executeCatApi(
+    clusterId: string,
+    endpoint: string,
+    params?: Record<string, string>
+  ): Promise<Array<Record<string, string | number>>> {
+    return this.executeWithRetry(async () => {
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        format: 'json',
+        ...params,
+      });
+
+      const response = await this.client.get<Array<Record<string, string | number>>>(
+        `/clusters/${clusterId}/_cat/${endpoint}?${queryParams.toString()}`
+      );
+
+      return response.data;
+    });
+  }
+
+  /**
+   * Get help text for a Cat API endpoint
+   * 
+   * Requirements: 20.7
+   */
+  async getCatApiHelp(clusterId: string, endpoint: string): Promise<string> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<string>(
+        `/clusters/${clusterId}/_cat/${endpoint}?help`
+      );
+
+      return response.data;
+    });
+  }
 }
 
 /**
