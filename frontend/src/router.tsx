@@ -1,23 +1,28 @@
+import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
-import { Dashboard } from './pages/Dashboard';
-import { ClusterView } from './pages/ClusterView';
-import { RestConsole } from './pages/RestConsole';
-import { Login } from './pages/Login';
-import { IndexCreate } from './pages/IndexCreate';
-import { IndexSettings } from './pages/IndexSettings';
-import { IndexMappings } from './pages/IndexMappings';
-import { Aliases } from './pages/Aliases';
-import { Templates } from './pages/Templates';
-import { ClusterSettingsPage } from './pages/ClusterSettings';
-import { ShardManagement } from './pages/ShardManagement';
-import { TextAnalysisPage } from './pages/TextAnalysis';
-import { IndexAnalyzersPage } from './pages/IndexAnalyzers';
-import { Repositories } from './pages/Repositories';
-import { Snapshots } from './pages/Snapshots';
-import { CatApiPage } from './pages/CatApi';
-import { NodeDetail } from './pages/NodeDetail';
-import { IndexStatistics } from './pages/IndexStatistics';
+import { LazyRoute } from './components/LazyRoute';
+
+// Lazy-load page components for better performance
+// Requirements: 31.4 - Lazy-load components to reduce initial bundle size
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const ClusterView = lazy(() => import('./pages/ClusterView').then(m => ({ default: m.ClusterView })));
+const RestConsole = lazy(() => import('./pages/RestConsole').then(m => ({ default: m.RestConsole })));
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const IndexCreate = lazy(() => import('./pages/IndexCreate').then(m => ({ default: m.IndexCreate })));
+const IndexSettings = lazy(() => import('./pages/IndexSettings').then(m => ({ default: m.IndexSettings })));
+const IndexMappings = lazy(() => import('./pages/IndexMappings').then(m => ({ default: m.IndexMappings })));
+const Aliases = lazy(() => import('./pages/Aliases').then(m => ({ default: m.Aliases })));
+const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
+const ClusterSettingsPage = lazy(() => import('./pages/ClusterSettings').then(m => ({ default: m.ClusterSettingsPage })));
+const ShardManagement = lazy(() => import('./pages/ShardManagement').then(m => ({ default: m.ShardManagement })));
+const TextAnalysisPage = lazy(() => import('./pages/TextAnalysis').then(m => ({ default: m.TextAnalysisPage })));
+const IndexAnalyzersPage = lazy(() => import('./pages/IndexAnalyzers').then(m => ({ default: m.IndexAnalyzersPage })));
+const Repositories = lazy(() => import('./pages/Repositories').then(m => ({ default: m.Repositories })));
+const Snapshots = lazy(() => import('./pages/Snapshots').then(m => ({ default: m.Snapshots })));
+const CatApiPage = lazy(() => import('./pages/CatApi').then(m => ({ default: m.CatApiPage })));
+const NodeDetail = lazy(() => import('./pages/NodeDetail').then(m => ({ default: m.NodeDetail })));
+const IndexStatistics = lazy(() => import('./pages/IndexStatistics').then(m => ({ default: m.IndexStatistics })));
 
 /**
  * Main application router configuration
@@ -47,7 +52,11 @@ import { IndexStatistics } from './pages/IndexStatistics';
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <Login />,
+    element: (
+      <LazyRoute>
+        <Login />
+      </LazyRoute>
+    ),
   },
   {
     path: '/',
@@ -55,71 +64,139 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Dashboard />,
+        element: (
+          <LazyRoute>
+            <Dashboard />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id',
-        element: <ClusterView />,
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/nodes/:nodeId',
-        element: <NodeDetail />,
+        element: (
+          <LazyRoute>
+            <NodeDetail />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/rest',
-        element: <RestConsole />,
+        element: (
+          <LazyRoute>
+            <RestConsole />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/indices/create',
-        element: <IndexCreate />,
+        element: (
+          <LazyRoute>
+            <IndexCreate />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/indices/:indexName/settings',
-        element: <IndexSettings />,
+        element: (
+          <LazyRoute>
+            <IndexSettings />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/indices/:indexName/mappings',
-        element: <IndexMappings />,
+        element: (
+          <LazyRoute>
+            <IndexMappings />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/indices/:indexName/stats',
-        element: <IndexStatistics />,
+        element: (
+          <LazyRoute>
+            <IndexStatistics />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/aliases',
-        element: <Aliases />,
+        element: (
+          <LazyRoute>
+            <Aliases />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/templates',
-        element: <Templates />,
+        element: (
+          <LazyRoute>
+            <Templates />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/settings',
-        element: <ClusterSettingsPage />,
+        element: (
+          <LazyRoute>
+            <ClusterSettingsPage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/shards',
-        element: <ShardManagement />,
+        element: (
+          <LazyRoute>
+            <ShardManagement />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/analysis',
-        element: <TextAnalysisPage />,
+        element: (
+          <LazyRoute>
+            <TextAnalysisPage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/indices/:indexName/analyzers',
-        element: <IndexAnalyzersPage />,
+        element: (
+          <LazyRoute>
+            <IndexAnalyzersPage />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/repositories',
-        element: <Repositories />,
+        element: (
+          <LazyRoute>
+            <Repositories />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/snapshots/:repository',
-        element: <Snapshots />,
+        element: (
+          <LazyRoute>
+            <Snapshots />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/cat',
-        element: <CatApiPage />,
+        element: (
+          <LazyRoute>
+            <CatApiPage />
+          </LazyRoute>
+        ),
       },
     ],
   },

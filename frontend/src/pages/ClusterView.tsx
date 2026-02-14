@@ -17,12 +17,14 @@ import {
   Button,
   Menu,
   ActionIcon,
+  TextInput,
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots } from '@tabler/icons-react';
+import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots, IconSearch } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { usePreferences } from '../hooks/usePreferences';
+import { useDebounce } from '../hooks/useDebounce';
 import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 
@@ -310,8 +312,8 @@ export function ClusterView() {
 }
 
 /**
- * NodesList component displays the list of nodes
- * Requirements: 4.6, 14.1, 14.2, 14.3, 14.4, 14.5
+ * NodesList component displays the list of nodes with search
+ * Requirements: 4.6, 14.1, 14.2, 14.3, 14.4, 14.5, 31.7
  */
 function NodesList({
   nodes,
@@ -324,6 +326,17 @@ function NodesList({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Debounce search query
+  // Requirements: 31.7 - Debounce user input in search and filter fields
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Filter nodes based on debounced search query
+  const filteredNodes = nodes?.filter((node) =>
+    node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -346,75 +359,91 @@ function NodesList({
   }
 
   return (
-    <ScrollArea>
-      <Table striped highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Name</Table.Th>
-            <Table.Th>Roles</Table.Th>
-            <Table.Th>Heap Usage</Table.Th>
-            <Table.Th>Disk Usage</Table.Th>
-            <Table.Th>CPU</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {nodes.map((node) => (
-            <Table.Tr
-              key={node.id}
-              style={{ cursor: 'pointer' }}
-              onClick={() => navigate(`/cluster/${id}/nodes/${node.id}`)}
-            >
-              <Table.Td>
-                <Text size="sm" fw={500}>{node.name}</Text>
-                {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
-              </Table.Td>
-              <Table.Td>
-                <Group gap="xs">
-                  {node.roles.map((role) => (
-                    <Badge key={role} size="sm" variant="light">
-                      {role}
-                    </Badge>
-                  ))}
-                </Group>
-              </Table.Td>
-              <Table.Td>
-                <Stack gap={4}>
-                  <Progress
-                    value={formatPercent(node.heapUsed, node.heapMax)}
-                    color={formatPercent(node.heapUsed, node.heapMax) > 90 ? 'red' : 'blue'}
-                    size="sm"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytes(node.heapUsed)} / {formatBytes(node.heapMax)}
-                  </Text>
-                </Stack>
-              </Table.Td>
-              <Table.Td>
-                <Stack gap={4}>
-                  <Progress
-                    value={formatPercent(node.diskUsed, node.diskTotal)}
-                    color={formatPercent(node.diskUsed, node.diskTotal) > 90 ? 'red' : 'blue'}
-                    size="sm"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytes(node.diskUsed)} / {formatBytes(node.diskTotal)}
-                  </Text>
-                </Stack>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{node.cpuPercent !== undefined ? `${node.cpuPercent}%` : 'N/A'}</Text>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </ScrollArea>
+    <Stack gap="md">
+      <TextInput
+        placeholder="Search nodes..."
+        leftSection={<IconSearch size={16} />}
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.currentTarget.value)}
+        style={{ maxWidth: 400 }}
+      />
+
+      {filteredNodes && filteredNodes.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          No nodes match your search
+        </Text>
+      ) : (
+        <ScrollArea>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Roles</Table.Th>
+                <Table.Th>Heap Usage</Table.Th>
+                <Table.Th>Disk Usage</Table.Th>
+                <Table.Th>CPU</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredNodes?.map((node) => (
+                <Table.Tr
+                  key={node.id}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/cluster/${id}/nodes/${node.id}`)}
+                >
+                  <Table.Td>
+                    <Text size="sm" fw={500}>{node.name}</Text>
+                    {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      {node.roles.map((role) => (
+                        <Badge key={role} size="sm" variant="light">
+                          {role}
+                        </Badge>
+                      ))}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap={4}>
+                      <Progress
+                        value={formatPercent(node.heapUsed, node.heapMax)}
+                        color={formatPercent(node.heapUsed, node.heapMax) > 90 ? 'red' : 'blue'}
+                        size="sm"
+                      />
+                      <Text size="xs" c="dimmed">
+                        {formatBytes(node.heapUsed)} / {formatBytes(node.heapMax)}
+                      </Text>
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap={4}>
+                      <Progress
+                        value={formatPercent(node.diskUsed, node.diskTotal)}
+                        color={formatPercent(node.diskUsed, node.diskTotal) > 90 ? 'red' : 'blue'}
+                        size="sm"
+                      />
+                      <Text size="xs" c="dimmed">
+                        {formatBytes(node.diskUsed)} / {formatBytes(node.diskTotal)}
+                      </Text>
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{node.cpuPercent !== undefined ? `${node.cpuPercent}%` : 'N/A'}</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      )}
+    </Stack>
   );
 }
 
 /**
- * IndicesList component displays the list of indices
- * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 6.1, 7.1, 8.1
+ * IndicesList component displays the list of indices with search and filtering
+ * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 6.1, 7.1, 8.1, 31.7
  */
 function IndicesList({
   indices,
@@ -427,6 +456,16 @@ function IndicesList({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Debounce search query to avoid excessive filtering
+  // Requirements: 31.7 - Debounce user input in search and filter fields
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Filter indices based on debounced search query
+  const filteredIndices = indices?.filter((index) =>
+    index.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -462,7 +501,14 @@ function IndicesList({
 
   return (
     <Stack gap="md">
-      <Group justify="flex-end">
+      <Group justify="space-between">
+        <TextInput
+          placeholder="Search indices..."
+          leftSection={<IconSearch size={16} />}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.currentTarget.value)}
+          style={{ flex: 1, maxWidth: 400 }}
+        />
         {id && (
           <Button
             leftSection={<IconPlus size={16} />}
@@ -473,79 +519,85 @@ function IndicesList({
         )}
       </Group>
 
-      <ScrollArea>
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Health</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Documents</Table.Th>
-              <Table.Th>Size</Table.Th>
-              <Table.Th>Shards</Table.Th>
-              <Table.Th>Actions</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {indices.map((index) => (
-              <Table.Tr key={index.name}>
-                <Table.Td>
-                  <Text size="sm" fw={500}>{index.name}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge size="sm" color={getHealthColor(index.health)}>
-                    {index.health}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
-                    {index.status}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{index.docsCount.toLocaleString()}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{formatBytes(index.storeSize)}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">
-                    {index.primaryShards}p / {index.replicaShards}r
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Group gap="xs">
-                    {id && <IndexOperations clusterId={id} index={index} />}
-                    <Menu shadow="md" width={200}>
-                      <Menu.Target>
-                        <ActionIcon variant="subtle" color="gray">
-                          <IconDots size={16} />
-                        </ActionIcon>
-                      </Menu.Target>
-
-                      <Menu.Dropdown>
-                        <Menu.Label>Index Management</Menu.Label>
-                        <Menu.Item
-                          leftSection={<IconSettings size={14} />}
-                          onClick={() => navigate(`/cluster/${id}/indices/${index.name}/settings`)}
-                        >
-                          Settings
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={<IconMap size={14} />}
-                          onClick={() => navigate(`/cluster/${id}/indices/${index.name}/mappings`)}
-                        >
-                          Mappings
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  </Group>
-                </Table.Td>
+      {filteredIndices && filteredIndices.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          No indices match your search
+        </Text>
+      ) : (
+        <ScrollArea>
+          <Table striped highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Health</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Documents</Table.Th>
+                <Table.Th>Size</Table.Th>
+                <Table.Th>Shards</Table.Th>
+                <Table.Th>Actions</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </ScrollArea>
+            </Table.Thead>
+            <Table.Tbody>
+              {filteredIndices?.map((index) => (
+                <Table.Tr key={index.name}>
+                  <Table.Td>
+                    <Text size="sm" fw={500}>{index.name}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" color={getHealthColor(index.health)}>
+                      {index.health}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
+                      {index.status}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{index.docsCount.toLocaleString()}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{formatBytes(index.storeSize)}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">
+                      {index.primaryShards}p / {index.replicaShards}r
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      {id && <IndexOperations clusterId={id} index={index} />}
+                      <Menu shadow="md" width={200}>
+                        <Menu.Target>
+                          <ActionIcon variant="subtle" color="gray">
+                            <IconDots size={16} />
+                          </ActionIcon>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Label>Index Management</Menu.Label>
+                          <Menu.Item
+                            leftSection={<IconSettings size={14} />}
+                            onClick={() => navigate(`/cluster/${id}/indices/${index.name}/settings`)}
+                          >
+                            Settings
+                          </Menu.Item>
+                          <Menu.Item
+                            leftSection={<IconMap size={14} />}
+                            onClick={() => navigate(`/cluster/${id}/indices/${index.name}/mappings`)}
+                          >
+                            Mappings
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+      )}
     </Stack>
   );
 }
