@@ -286,3 +286,74 @@ export interface IndexAnalyzersResponse {
 export interface IndexFieldsResponse {
   fields: FieldInfo[];
 }
+
+/**
+ * Repository type
+ */
+export type RepositoryType = 'fs' | 's3' | 'azure' | 'gcs' | 'hdfs' | 'url';
+
+/**
+ * Repository information
+ */
+export interface RepositoryInfo {
+  name: string;
+  type: RepositoryType;
+  settings: Record<string, unknown>;
+}
+
+/**
+ * Create repository request
+ */
+export interface CreateRepositoryRequest {
+  name: string;
+  type: RepositoryType;
+  settings: Record<string, unknown>;
+}
+
+/**
+ * Snapshot state
+ */
+export type SnapshotState = 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
+
+/**
+ * Snapshot information
+ */
+export interface SnapshotInfo {
+  snapshot: string;
+  uuid: string;
+  state: SnapshotState;
+  indices: string[];
+  startTime: string;
+  endTime?: string;
+  durationInMillis?: number;
+  shards?: {
+    total: number;
+    successful: number;
+    failed: number;
+  };
+  failures?: unknown[];
+}
+
+/**
+ * Create snapshot request
+ */
+export interface CreateSnapshotRequest {
+  snapshot: string;
+  indices?: string[];
+  ignoreUnavailable?: boolean;
+  includeGlobalState?: boolean;
+  partial?: boolean;
+}
+
+/**
+ * Restore snapshot request
+ */
+export interface RestoreSnapshotRequest {
+  indices?: string[];
+  ignoreUnavailable?: boolean;
+  includeGlobalState?: boolean;
+  renamePattern?: string;
+  renameReplacement?: string;
+  includeAliases?: boolean;
+  partial?: boolean;
+}
