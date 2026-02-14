@@ -8,7 +8,7 @@ import {
   Stack,
   Group,
   Alert,
-  Loader,
+  Skeleton,
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
+import { showErrorNotification, parseError } from '../lib/errorHandling';
 
 /**
  * Validate JSON string
@@ -174,13 +175,8 @@ export function IndexSettings() {
       setIsModified(false);
     },
     onError: (error: Error) => {
-      // Show error notification
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to update settings',
-        color: 'red',
-        icon: <IconAlertCircle size={16} />,
-      });
+      // Show error notification with Elasticsearch error details
+      showErrorNotification(error, 'Failed to Update Settings');
     },
   });
 
@@ -215,20 +211,44 @@ export function IndexSettings() {
 
   if (isLoading) {
     return (
-      <Container size="xl">
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
+      <Container size="xl" py="md">
+        <Group justify="space-between" mb="md">
+          <div>
+            <Skeleton height={32} width={200} mb="xs" />
+            <Skeleton height={20} width={150} />
+          </div>
+          <Skeleton height={36} width={120} />
         </Group>
+
+        <Stack gap="md">
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Skeleton height={24} width={150} mb="md" />
+            <Skeleton height={400} />
+          </Card>
+
+          <Card shadow="sm" padding="md" radius="md" withBorder>
+            <Skeleton height={20} width="100%" mb="xs" />
+            <Skeleton height={20} width="90%" />
+          </Card>
+        </Stack>
       </Container>
     );
   }
 
   if (error) {
+    const errorDetails = parseError(error);
     return (
-      <Container size="xl">
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load index settings: {(error as Error).message}
+      <Container size="xl" py="md">
+        <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Settings" color="red">
+          {errorDetails.message}
         </Alert>
+        <Button
+          variant="default"
+          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
+          mt="md"
+        >
+          Back to Indices
+        </Button>
       </Container>
     );
   }
