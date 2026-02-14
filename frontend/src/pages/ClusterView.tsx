@@ -18,7 +18,7 @@ import {
   ActionIcon,
   TextInput,
 } from '@mantine/core';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots, IconSearch } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
@@ -75,7 +75,22 @@ function formatPercent(used: number, total: number): number {
 export function ClusterView() {
   const { id } = useParams<{ id: string }>();
   const { preferences } = usePreferences();
-  const [activeTab, setActiveTab] = useState<string | null>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get active tab from URL, default to 'overview'
+  const activeTab = searchParams.get('tab') || 'overview';
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string | null) => {
+    if (value) {
+      setSearchParams({ tab: value });
+    }
+  };
+
+  // Navigate to a specific tab
+  const navigateToTab = (tab: string) => {
+    setSearchParams({ tab });
+  };
 
   // Fetch cluster statistics with auto-refresh
   const {
@@ -176,7 +191,12 @@ export function ClusterView() {
       {/* Cluster Statistics Cards */}
       <Grid>
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+          <Card 
+            shadow="sm" 
+            padding="lg" 
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigateToTab('nodes')}
+          >
             <Stack gap="xs">
               <Text size="sm" c="dimmed">Nodes</Text>
               <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
@@ -188,7 +208,12 @@ export function ClusterView() {
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+          <Card 
+            shadow="sm" 
+            padding="lg"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigateToTab('indices')}
+          >
             <Stack gap="xs">
               <Text size="sm" c="dimmed">Indices</Text>
               <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
@@ -200,7 +225,12 @@ export function ClusterView() {
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+          <Card 
+            shadow="sm" 
+            padding="lg"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigateToTab('shards')}
+          >
             <Stack gap="xs">
               <Text size="sm" c="dimmed">Shards</Text>
               <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
@@ -212,7 +242,12 @@ export function ClusterView() {
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+          <Card 
+            shadow="sm" 
+            padding="lg"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigateToTab('shards')}
+          >
             <Stack gap="xs">
               <Text size="sm" c="dimmed">Unassigned</Text>
               <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
@@ -271,7 +306,7 @@ export function ClusterView() {
 
       {/* Tabs for Nodes, Indices, and Shards */}
       <Card shadow="sm" padding="lg">
-        <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
           <Tabs.List>
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
             <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
