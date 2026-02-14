@@ -11,6 +11,7 @@ import {
 } from '@tabler/icons-react';
 import { ThemeSelector } from './ThemeSelector';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
+import { SpotlightSearch } from './SpotlightSearch';
 
 /**
  * AppShell component provides the main layout structure for the application.
@@ -207,6 +208,9 @@ export function AppShell() {
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcuts opened={shortcutsOpened} onClose={closeShortcuts} />
+      
+      {/* Spotlight Search - must be inside router context */}
+      <SpotlightSearch />
     </MantineAppShell>
   );
 }
