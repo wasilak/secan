@@ -10,6 +10,10 @@ import '@mantine/spotlight/styles.css';
 import './styles/responsive.css';
 import { router } from './router';
 import { queryClient } from './lib/query-client';
+import { configureMonaco } from './lib/monacoConfig';
+
+// Configure Monaco Editor to use bundled files instead of CDN
+configureMonaco();
 
 // Create custom theme configuration with responsive design
 const theme = createTheme({

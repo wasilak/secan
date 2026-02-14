@@ -31,9 +31,10 @@ pub async fn security_headers_middleware(
     // Allow self for scripts, styles, images, fonts
     // Allow inline styles for Mantine UI
     // Allow data: URIs for images (used by some components)
+    // Allow blob: for Monaco Editor web workers
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:"
             .parse()
             .unwrap(),
     );
@@ -137,6 +138,7 @@ mod tests {
         assert!(csp.contains("script-src 'self'"));
         assert!(csp.contains("style-src 'self' 'unsafe-inline'"));
         assert!(csp.contains("frame-ancestors 'none'"));
+        assert!(csp.contains("worker-src 'self' blob:"));
     }
 
     #[tokio::test]
