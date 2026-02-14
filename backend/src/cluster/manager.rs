@@ -174,6 +174,41 @@ impl ClusterConnection {
     ) -> Result<Response> {
         self.client.request(method, path, body).await
     }
+
+    /// Get cluster health using SDK typed method
+    pub async fn health(&self) -> Result<Value> {
+        self.client.health().await
+    }
+
+    /// Get cluster stats using SDK typed method
+    pub async fn cluster_stats(&self) -> Result<Value> {
+        self.client.cluster_stats().await
+    }
+
+    /// Get nodes info using SDK typed method
+    pub async fn nodes_info(&self) -> Result<Value> {
+        self.client.nodes_info().await
+    }
+
+    /// Get nodes stats using SDK typed method
+    pub async fn nodes_stats(&self) -> Result<Value> {
+        self.client.nodes_stats().await
+    }
+
+    /// Get indices using SDK typed method
+    pub async fn indices_get(&self, index: &str) -> Result<Value> {
+        self.client.indices_get(index).await
+    }
+
+    /// Get indices stats using SDK typed method
+    pub async fn indices_stats(&self) -> Result<Value> {
+        self.client.indices_stats().await
+    }
+
+    /// Get cluster state using SDK typed method
+    pub async fn cluster_state(&self) -> Result<Value> {
+        self.client.cluster_state().await
+    }
 }
 
 #[cfg(test)]

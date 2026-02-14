@@ -89,6 +89,24 @@ impl Server {
             .with_state(auth_state)
             // Cluster routes
             .route("/api/clusters", get(crate::routes::clusters::list_clusters))
+            // Typed SDK routes for cluster data
+            .route(
+                "/api/clusters/:id/stats",
+                get(crate::routes::clusters::get_cluster_stats),
+            )
+            .route(
+                "/api/clusters/:id/nodes",
+                get(crate::routes::clusters::get_nodes),
+            )
+            .route(
+                "/api/clusters/:id/indices",
+                get(crate::routes::clusters::get_indices),
+            )
+            .route(
+                "/api/clusters/:id/shards",
+                get(crate::routes::clusters::get_shards),
+            )
+            // Generic proxy route - must be last to avoid conflicts
             .route(
                 "/api/clusters/:id/*path",
                 get(crate::routes::clusters::proxy_request)
