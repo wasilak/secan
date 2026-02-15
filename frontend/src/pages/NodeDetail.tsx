@@ -30,7 +30,10 @@ import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { MasterIndicator } from '../components/MasterIndicator';
+import { NodeCharts } from '../components/NodeCharts';
+import { useSparklineData } from '../hooks/useSparklineData';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
+import type { DataPoint } from '../hooks/useSparklineData';
 
 /**
  * Format bytes to human-readable format
@@ -76,6 +79,10 @@ export function NodeDetail() {
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
   
+  // Get current page/route as reset key for sparkline data
+  // This ensures data resets when navigating away from this page
+  const resetKey = `node-${nodeId}`;
+  
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(clusterId);
 
@@ -90,6 +97,37 @@ export function NodeDetail() {
     refetchInterval: refreshInterval,
     enabled: !!clusterId && !!nodeId,
   });
+
+  // Track historical data for charts
+  // Pass resetKey so data resets when navigating away from this page
+  // Request timestamps for proper time-series charts
+  const heapHistory = useSparklineData(
+    nodeStats?.heapPercent,
+    50, // Keep last 50 data points
+    resetKey,
+    true // withTimestamps
+  ) as DataPoint[];
+
+  const diskHistory = useSparklineData(
+    nodeStats?.diskPercent,
+    50,
+    resetKey,
+    true
+  ) as DataPoint[];
+
+  const cpuHistory = useSparklineData(
+    nodeStats?.cpuPercent,
+    50,
+    resetKey,
+    true
+  ) as DataPoint[];
+
+  const loadHistory = useSparklineData(
+    nodeStats?.loadAverage?.[0], // Use 1-minute load average
+    50,
+    resetKey,
+    true
+  ) as DataPoint[];
 
   if (!clusterId || !nodeId) {
     return (
@@ -317,6 +355,17 @@ export function NodeDetail() {
           </Card>
         </Grid.Col>
       </Grid>
+
+      {/* Performance Metrics - Time Series Charts */}
+      <Stack gap="md" mb="md">
+        <Title order={3}>Performance Metrics</Title>
+        <NodeCharts
+          heapHistory={heapHistory}
+          diskHistory={diskHistory}
+          cpuHistory={cpuHistory}
+          loadHistory={loadHistory}
+        />
+      </Stack>
 
       {/* Thread Pool Statistics */}
       <Card shadow="sm" padding="lg">
