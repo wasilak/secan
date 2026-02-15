@@ -2,20 +2,35 @@ import { useState, useEffect, useRef } from 'react';
 import { useRefresh } from '../contexts/RefreshContext';
 
 /**
- * Hook to track historical data for sparklines
+ * Hook to track historical data for sparklines and charts
  * Adds a new data point on EVERY refresh (even if value doesn't change)
  * Initializes with [0, currentValue] to show trend from baseline
  * 
  * This ensures the time axis progresses properly on every refresh interval
  * by tracking lastRefreshTime from RefreshContext instead of value changes
+ * 
+ * @param currentValue - The current value to track
+ * @param maxDataPoints - Maximum number of data points to keep (default: 20)
+ * @param resetKey - Optional key that when changed, resets the data (useful for tab switching)
  */
 export function useSparklineData(
   currentValue: number | undefined,
-  maxDataPoints: number = 20
+  maxDataPoints: number = 20,
+  resetKey?: string | number
 ) {
   const [data, setData] = useState<number[]>([]);
   const initializedRef = useRef(false);
   const { lastRefreshTime } = useRefresh();
+  const lastResetKeyRef = useRef(resetKey);
+
+  // Reset data when resetKey changes
+  useEffect(() => {
+    if (resetKey !== undefined && resetKey !== lastResetKeyRef.current) {
+      lastResetKeyRef.current = resetKey;
+      initializedRef.current = false;
+      setData([]);
+    }
+  }, [resetKey]);
 
   useEffect(() => {
     if (currentValue === undefined) return;

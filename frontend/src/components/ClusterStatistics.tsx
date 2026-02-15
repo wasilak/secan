@@ -13,11 +13,13 @@ import {
   ResponsiveContainer,
   Tooltip,
   Legend,
+  YAxis,
+  CartesianGrid,
 } from 'recharts';
 
 /**
  * ClusterStatistics component displays various charts for cluster metrics
- * Uses recharts to create Mantine-styled visualizations
+ * Uses recharts to create Mantine-styled visualizations with professional design
  */
 
 interface ClusterStatisticsProps {
@@ -116,17 +118,23 @@ export function ClusterStatistics({
             <Stack gap="xs">
               <Text size="sm" fw={500}>Nodes & Indices Over Time</Text>
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={timeSeriesData}>
+                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorNodes" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.05}/>
                     </linearGradient>
                     <linearGradient id="colorIndices" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-green-6)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.05}/>
                     </linearGradient>
                   </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+                  <YAxis 
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={35}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--mantine-color-dark-7)',
@@ -138,17 +146,23 @@ export function ClusterStatistics({
                     type="monotone"
                     dataKey="nodes"
                     stroke="var(--mantine-color-blue-6)"
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorNodes)"
                     name="Nodes"
+                    dot={{ fill: 'var(--mantine-color-blue-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                   <Area
                     type="monotone"
                     dataKey="indices"
                     stroke="var(--mantine-color-green-6)"
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorIndices)"
                     name="Indices"
+                    dot={{ fill: 'var(--mantine-color-green-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -161,17 +175,23 @@ export function ClusterStatistics({
             <Stack gap="xs">
               <Text size="sm" fw={500}>Shards Over Time</Text>
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={timeSeriesData}>
+                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorShards" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0.05}/>
                     </linearGradient>
                     <linearGradient id="colorUnassigned" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-red-6)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.05}/>
                     </linearGradient>
                   </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+                  <YAxis 
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={35}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--mantine-color-dark-7)',
@@ -183,17 +203,23 @@ export function ClusterStatistics({
                     type="monotone"
                     dataKey="shards"
                     stroke="var(--mantine-color-violet-6)"
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorShards)"
                     name="Active Shards"
+                    dot={{ fill: 'var(--mantine-color-violet-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                   <Area
                     type="monotone"
                     dataKey="unassigned"
                     stroke="var(--mantine-color-red-6)"
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorUnassigned)"
                     name="Unassigned"
+                    dot={{ fill: 'var(--mantine-color-red-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -207,13 +233,20 @@ export function ClusterStatistics({
         <Stack gap="xs">
           <Text size="sm" fw={500}>Documents Over Time</Text>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={timeSeriesData}>
+            <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05}/>
                 </linearGradient>
               </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+              <YAxis 
+                stroke="var(--mantine-color-gray-6)" 
+                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                width={50}
+                tickFormatter={(value) => value.toLocaleString()}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'var(--mantine-color-dark-7)',
@@ -226,9 +259,12 @@ export function ClusterStatistics({
                 type="monotone"
                 dataKey="documents"
                 stroke="var(--mantine-color-cyan-6)"
+                strokeWidth={2}
                 fillOpacity={1}
                 fill="url(#colorDocuments)"
                 name="Documents"
+                dot={{ fill: 'var(--mantine-color-cyan-6)', r: 3 }}
+                activeDot={{ r: 5 }}
               />
             </AreaChart>
           </ResponsiveContainer>
