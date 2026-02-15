@@ -243,13 +243,16 @@ export function ShardManagement() {
 
   // Fetch detailed stats when details modal opens
   useEffect(() => {
-    if (detailsModalOpen && selectedShard && !shardDetailsLoading) {
+    if (detailsModalOpen && selectedShard) {
       setShardDetailsLoading(true);
       setShardDetailsData(null); // Reset previous data
+      
+      console.log('Fetching shard stats:', { clusterId: id, index: selectedShard.index, shard: selectedShard.shard });
       
       apiClient
         .getShardStats(id!, selectedShard.index, selectedShard.shard)
         .then((stats) => {
+          console.log('Received shard stats:', stats);
           setShardDetailsData(stats);
         })
         .catch((error) => {
@@ -264,7 +267,7 @@ export function ShardManagement() {
       setShardDetailsData(null);
       setShardDetailsLoading(false);
     }
-  }, [detailsModalOpen, selectedShard, id, shardDetailsLoading]);
+  }, [detailsModalOpen, selectedShard?.index, selectedShard?.shard, id]);
 
   if (!id) {
     return (
