@@ -113,14 +113,17 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
  * Requirements: 7.1-7.8, 8.1-8.8
  */
 export function IndexEdit() {
-  const { id: clusterId, indexName: indexNameFromRoute } = useParams<{ id: string; indexName: string }>();
+  const params = useParams<{ id?: string; indexName?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   
+  // Get cluster ID from route params (works in both modal and standalone mode)
+  const clusterId = params.id;
+  
   // Get index name from URL params (for modal mode) or route params (for standalone mode)
-  const indexName = searchParams.get('index') || indexNameFromRoute;
+  const indexName = searchParams.get('index') || params.indexName;
   
   // Get active tab from URL or default to 'settings'
   const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'settings';
