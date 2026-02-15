@@ -51,7 +51,7 @@ import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
-import { formatLoadAverage, getLoadColor } from '../utils/formatters';
+import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
 
 /**
@@ -711,6 +711,7 @@ function NodesList({
                 <Table.Th>Roles</Table.Th>
                 <Table.Th>Tags</Table.Th>
                 <Table.Th>Load</Table.Th>
+                <Table.Th>Uptime</Table.Th>
                 <Table.Th>Heap Usage</Table.Th>
                 <Table.Th>Disk Usage</Table.Th>
                 <Table.Th>CPU</Table.Th>
@@ -772,6 +773,17 @@ function NodesList({
                       >
                         {formatLoadAverage(node.loadAverage)}
                       </Text>
+                    ) : (
+                      <Text size="sm" c="dimmed">N/A</Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {node.uptime ? (
+                      <Tooltip label={formatUptimeDetailed(node.uptimeMillis || 0)}>
+                        <Text size="sm" c="dimmed">
+                          {node.uptime}
+                        </Text>
+                      </Tooltip>
                     ) : (
                       <Text size="sm" c="dimmed">N/A</Text>
                     )}
