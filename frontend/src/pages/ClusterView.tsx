@@ -49,6 +49,7 @@ import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
+import { MasterIndicator } from '../components/MasterIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { useState, useEffect } from 'react';
 
@@ -721,8 +722,17 @@ function NodesList({
                   onClick={() => navigate(`/cluster/${id}/nodes/${node.id}`)}
                 >
                   <Table.Td>
-                    <Text size="sm" fw={500}>{node.name}</Text>
-                    {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                    <Group gap="xs" wrap="nowrap">
+                      <MasterIndicator 
+                        isMaster={node.isMaster} 
+                        isMasterEligible={node.isMasterEligible}
+                        size="sm"
+                      />
+                      <div>
+                        <Text size="sm" fw={500}>{node.name}</Text>
+                        {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                      </div>
+                    </Group>
                   </Table.Td>
                   <Table.Td>
                     <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
