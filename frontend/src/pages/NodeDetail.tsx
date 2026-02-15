@@ -33,6 +33,7 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { NodeCharts } from '../components/NodeCharts';
+import { getRoleIcon } from '../components/RoleIcons';
 import { useSparklineData } from '../hooks/useSparklineData';
 import { formatRate } from '../utils/formatters';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
@@ -208,12 +209,17 @@ export function NodeDetail() {
           {nodeStats.roles && nodeStats.roles.length > 0 && (
             <div>
               <Text size="sm" c="dimmed" mb="xs">Roles</Text>
-              <Group>
-                {nodeStats.roles.map((role) => (
-                  <Badge key={role} size="lg" variant="light">
-                    {role.toLowerCase()}
-                  </Badge>
-                ))}
+              <Group gap="md">
+                {nodeStats.roles.map((role) => {
+                  const roleInfo = getRoleIcon(role);
+                  const Icon = roleInfo.icon;
+                  return (
+                    <Group key={role} gap={4}>
+                      <Icon size={16} color={`var(--mantine-color-${roleInfo.color}-6)`} />
+                      <Text size="sm">{roleInfo.label}</Text>
+                    </Group>
+                  );
+                })}
               </Group>
             </div>
           )}
