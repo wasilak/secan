@@ -31,7 +31,9 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { NodeCharts } from '../components/NodeCharts';
+import { ShardList } from '../components/ShardList';
 import { useSparklineData } from '../hooks/useSparklineData';
+import { formatRate } from '../utils/formatters';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
 
@@ -366,6 +368,200 @@ export function NodeDetail() {
           loadHistory={loadHistory}
         />
       </Stack>
+
+      {/* Data Node Section - Only show for data nodes */}
+      {nodeStats.roles?.includes('data') && (
+        <Card shadow="sm" padding="lg" mb="md">
+          <Stack gap="md">
+            <Group justify="space-between" align="center">
+              <Title order={3}>Data Node Statistics</Title>
+              <Badge size="lg" variant="light" color="blue">
+                Data Node
+              </Badge>
+            </Group>
+
+            {/* Shard Statistics Summary */}
+            {nodeStats.shards && (
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <Card withBorder>
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">Total Shards</Text>
+                      <Text size="xl" fw={700}>{nodeStats.shards.total}</Text>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <Card withBorder>
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">Primary Shards</Text>
+                      <Text size="xl" fw={700} c="blue">{nodeStats.shards.primary}</Text>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 4 }}>
+                  <Card withBorder>
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">Replica Shards</Text>
+                      <Text size="xl" fw={700} c="gray">{nodeStats.shards.replica}</Text>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              </Grid>
+            )}
+
+            {/* Shard List Table */}
+            {nodeStats.shards && nodeStats.shards.list && (
+              <div>
+                <Title order={4} mb="sm">Allocated Shards</Title>
+                <ShardList shards={nodeStats.shards.list} loading={false} />
+              </div>
+            )}
+
+            {/* Indexing Metrics */}
+            {nodeStats.indexing && (
+              <div>
+                <Title order={4} mb="sm">Indexing Statistics</Title>
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Documents Indexed</Text>
+                        <Text size="lg" fw={700}>
+                          {nodeStats.indexing.indexTotal.toLocaleString()}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Rate: {formatRate(nodeStats.indexing.indexTotal, nodeStats.indexing.indexTimeInMillis)}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Indexing Time</Text>
+                        <Text size="lg" fw={700}>
+                          {(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Current: {nodeStats.indexing.indexCurrent}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Index Failures</Text>
+                        <Text size="lg" fw={700} c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}>
+                          {nodeStats.indexing.indexFailed.toLocaleString()}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Documents Deleted</Text>
+                        <Text size="lg" fw={700}>
+                          {nodeStats.indexing.deleteTotal.toLocaleString()}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Time: {(nodeStats.indexing.deleteTimeInMillis / 1000).toFixed(2)}s
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+              </div>
+            )}
+
+            {/* Search Metrics */}
+            {nodeStats.search && (
+              <div>
+                <Title order={4} mb="sm">Search Statistics</Title>
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Query Count</Text>
+                        <Text size="lg" fw={700}>
+                          {nodeStats.search.queryTotal.toLocaleString()}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Rate: {formatRate(nodeStats.search.queryTotal, nodeStats.search.queryTimeInMillis)}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Query Time</Text>
+                        <Text size="lg" fw={700}>
+                          {(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Current: {nodeStats.search.queryCurrent}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Fetch Count</Text>
+                        <Text size="lg" fw={700}>
+                          {nodeStats.search.fetchTotal.toLocaleString()}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Time: {(nodeStats.search.fetchTimeInMillis / 1000).toFixed(2)}s
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
+              </div>
+            )}
+
+            {/* File System Information */}
+            {nodeStats.fs && (
+              <div>
+                <Title order={4} mb="sm">File System</Title>
+                <Card withBorder>
+                  <Grid>
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Total</Text>
+                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.total)}</Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Available</Text>
+                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.available)}</Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Used</Text>
+                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.used)}</Text>
+                      </Stack>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Path</Text>
+                        <Text size="sm" style={{ wordBreak: 'break-all' }}>{nodeStats.fs.path}</Text>
+                        <Text size="xs" c="dimmed">Type: {nodeStats.fs.type}</Text>
+                      </Stack>
+                    </Grid.Col>
+                  </Grid>
+                </Card>
+              </div>
+            )}
+          </Stack>
+        </Card>
+      )}
 
       {/* Thread Pool Statistics */}
       <Card shadow="sm" padding="lg">
