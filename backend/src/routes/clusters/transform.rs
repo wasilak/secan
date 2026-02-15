@@ -6,6 +6,17 @@ pub fn transform_cluster_stats(
     stats: &Value,
     health: &Value,
 ) -> Result<ClusterStatsResponse, anyhow::Error> {
+    // Extract memory and disk totals from nodes stats
+    let memory_used = stats["nodes"]["jvm"]["mem"]["heap_used_in_bytes"].as_u64();
+    let memory_total = stats["nodes"]["jvm"]["mem"]["heap_max_in_bytes"].as_u64();
+    let disk_total = stats["nodes"]["fs"]["total_in_bytes"].as_u64();
+    let disk_available = stats["nodes"]["fs"]["available_in_bytes"].as_u64();
+    let disk_used = if let (Some(total), Some(available)) = (disk_total, disk_available) {
+        Some(total.saturating_sub(available))
+    } else {
+        None
+    };
+
     Ok(ClusterStatsResponse {
         health: health["status"].as_str().unwrap_or("red").to_string(),
         cluster_name: stats["cluster_name"]
@@ -22,6 +33,10 @@ pub fn transform_cluster_stats(
         relocating_shards: health["relocating_shards"].as_u64().unwrap_or(0) as u32,
         initializing_shards: health["initializing_shards"].as_u64().unwrap_or(0) as u32,
         unassigned_shards: health["unassigned_shards"].as_u64().unwrap_or(0) as u32,
+        memory_used,
+        memory_total,
+        disk_used,
+        disk_total,
     })
 }
 
@@ -201,6 +216,14 @@ pub struct ClusterStatsResponse {
     pub initializing_shards: u32,
     #[serde(rename = "unassignedShards")]
     pub unassigned_shards: u32,
+    #[serde(rename = "memoryUsed", skip_serializing_if = "Option::is_none")]
+    pub memory_used: Option<u64>,
+    #[serde(rename = "memoryTotal", skip_serializing_if = "Option::is_none")]
+    pub memory_total: Option<u64>,
+    #[serde(rename = "diskUsed", skip_serializing_if = "Option::is_none")]
+    pub disk_used: Option<u64>,
+    #[serde(rename = "diskTotal", skip_serializing_if = "Option::is_none")]
+    pub disk_total: Option<u64>,
 }
 
 /// Node info response for frontend

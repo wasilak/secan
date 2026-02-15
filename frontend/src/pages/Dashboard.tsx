@@ -214,31 +214,27 @@ export function Dashboard() {
     }
   }, [clustersLoading, clustersError, clusters, announce, announceError]);
 
-  // Fetch health for all clusters
+  // Fetch stats for all clusters
   useEffect(() => {
     if (!clusters || clusters.length === 0) {
       setClusterSummaries([]);
       return;
     }
 
-    const fetchClusterHealth = async () => {
+    const fetchClusterStats = async () => {
       const summaries = await Promise.all(
         clusters.map(async (cluster): Promise<ClusterSummary> => {
           try {
-            const health = await apiClient.getClusterHealth(cluster.id);
+            const stats = await apiClient.getClusterStats(cluster.id);
             
-            // Calculate total documents and indices from health data
-            // Note: These would typically come from cluster stats API
-            // For now, we'll use placeholder values that should be replaced
-            // when the backend implements the full cluster stats endpoint
             return {
               id: cluster.id,
               name: cluster.name,
-              health: health.status,
-              nodes: health.numberOfNodes,
-              shards: health.activeShards,
-              indices: 0, // TODO: Get from cluster stats
-              documents: 0, // TODO: Get from cluster stats
+              health: stats.health,
+              nodes: stats.numberOfNodes,
+              shards: stats.activeShards,
+              indices: stats.numberOfIndices,
+              documents: stats.numberOfDocuments,
             };
           } catch (error) {
             // Handle unreachable clusters
@@ -259,7 +255,7 @@ export function Dashboard() {
       setClusterSummaries(summaries);
     };
 
-    fetchClusterHealth();
+    fetchClusterStats();
   }, [clusters]);
 
   // Handle sort column click

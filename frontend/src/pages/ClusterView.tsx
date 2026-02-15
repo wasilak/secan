@@ -190,19 +190,27 @@ export function ClusterView() {
     <Stack gap="md" p="md">
       <Group justify="space-between" wrap="wrap">
         <div>
-        <Title order={1} className="text-responsive-xl">
+          <Title order={1} className="text-responsive-xl">
             {stats?.clusterName || id}
           </Title>
           <Text size="sm" c="dimmed">
             Cluster Overview
           </Text>
         </div>
-        <Group>
-          <Badge size="lg" color={getHealthColor(stats?.health || 'red')}>
-            {stats?.health?.toUpperCase() || 'UNKNOWN'}
-          </Badge>
-        </Group>
       </Group>
+
+      {/* Health Status Progress Bar */}
+      <Progress
+        value={100}
+        color={getHealthColor(stats?.health || 'red')}
+        size="xl"
+        radius="xl"
+        style={{ marginBottom: '1rem' }}
+        aria-label={`Cluster health: ${stats?.health || 'unknown'}`}
+      />
+      <Text ta="center" size="xl" fw={700} c={getHealthColor(stats?.health || 'red')} mb="md">
+        {stats?.health?.toUpperCase() || 'UNKNOWN'}
+      </Text>
 
       {/* Cluster Statistics Cards */}
       <Grid>
