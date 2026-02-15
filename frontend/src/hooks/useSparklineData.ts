@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 /**
  * Hook to track historical data for sparklines
  * Adds a new data point on every value change (refresh)
- * Initializes with duplicate values so sparkline shows immediately
+ * Initializes with [0, currentValue] to show trend from baseline
  */
 export function useSparklineData(
   currentValue: number | undefined,
@@ -15,10 +15,10 @@ export function useSparklineData(
   useEffect(() => {
     if (currentValue === undefined) return;
 
-    // On first value, initialize with 2 duplicate points so sparkline shows immediately
+    // On first value, initialize with [0, currentValue] to show trend from baseline
     if (!initializedRef.current) {
       initializedRef.current = true;
-      setData([currentValue, currentValue]);
+      setData([0, currentValue]);
       return;
     }
 
