@@ -25,6 +25,42 @@ export function parseError(error: unknown): ErrorDetails {
   // Log to console for debugging
   console.error('Error occurred:', error);
 
+  // Handle ApiClientError instances (from our API client)
+  if (
+    error &&
+    typeof error === 'object' &&
+    'name' in error &&
+    error.name === 'ApiClientError' &&
+    'message' in error &&
+    'statusCode' in error
+  ) {
+    const apiError = error as {
+      message: string;
+      statusCode: number;
+      error?: ApiError;
+    };
+    
+    // Try to extract Elasticsearch error from the error property
+    if (apiError.error) {
+      const esError = extractElasticsearchError(apiError.error);
+      if (esError) {
+        return {
+          error: 'elasticsearch_error',
+          message: esError,
+          statusCode: apiError.statusCode,
+          details: apiError.error,
+        };
+      }
+    }
+    
+    return {
+      error: 'api_error',
+      message: apiError.message,
+      statusCode: apiError.statusCode,
+      details: apiError.error,
+    };
+  }
+
   // Handle Axios/Fetch errors with response
   if (error && typeof error === 'object' && 'response' in error) {
     const response = (error as { response?: { data?: ApiError; status?: number; statusText?: string; headers?: Record<string, string> } }).response;
@@ -90,25 +126,50 @@ export function parseError(error: unknown): ErrorDetails {
  * @param data - API error response data
  * @returns Elasticsearch error message if found, null otherwise
  */
-function extractElasticsearchError(data: ApiError): string | null {
-  // Check if details contains Elasticsearch error structure
-  if (data.details && typeof data.details === 'object') {
-    const details = data.details as Record<string, unknown>;
+function extractElasticsearchError(data: ApiError | Record<string, unknown>): string | null {
+  // Cast to a generic object to check for error structure
+  const errorData = data as Record<string, unknown>;
+  
+  // Check if this is directly an Elasticsearch error response
+  // Elasticsearch error structure: { error: { type: string, reason: string, root_cause: [...] }, status: number }
+  if (errorData.error && typeof errorData.error === 'object') {
+    const esError = errorData.error as Record<string, unknown>;
     
-    // Elasticsearch error structure: { error: { type: string, reason: string, root_cause: [...] } }
+    // Get the main error reason
+    if (esError.reason && typeof esError.reason === 'string') {
+      let message = `Elasticsearch: ${esError.reason}`;
+      
+      // Add error type if available
+      if (esError.type && typeof esError.type === 'string') {
+        message = `Elasticsearch (${esError.type}): ${esError.reason}`;
+      }
+      
+      // Add root cause if available and different from main reason
+      if (esError.root_cause && Array.isArray(esError.root_cause) && esError.root_cause.length > 0) {
+        const rootCause = esError.root_cause[0] as Record<string, unknown>;
+        if (rootCause.reason && rootCause.reason !== esError.reason) {
+          message += `\nRoot cause: ${rootCause.reason}`;
+        }
+      }
+      
+      return message;
+    }
+  }
+  
+  // Check if details contains Elasticsearch error structure (legacy path)
+  if ('details' in errorData && errorData.details && typeof errorData.details === 'object') {
+    const details = errorData.details as Record<string, unknown>;
+    
     if (details.error && typeof details.error === 'object') {
       const esError = details.error as Record<string, unknown>;
       
-      // Get the main error reason
       if (esError.reason && typeof esError.reason === 'string') {
         let message = `Elasticsearch: ${esError.reason}`;
         
-        // Add error type if available
         if (esError.type && typeof esError.type === 'string') {
           message = `Elasticsearch (${esError.type}): ${esError.reason}`;
         }
         
-        // Add root cause if available and different from main reason
         if (esError.root_cause && Array.isArray(esError.root_cause) && esError.root_cause.length > 0) {
           const rootCause = esError.root_cause[0] as Record<string, unknown>;
           if (rootCause.reason && rootCause.reason !== esError.reason) {
