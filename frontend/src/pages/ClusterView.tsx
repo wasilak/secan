@@ -40,6 +40,7 @@ import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import { useWatermarks } from '../hooks/useWatermarks';
 import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 
@@ -108,6 +109,9 @@ export function ClusterView() {
   const { id } = useParams<{ id: string }>();
   const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Fetch watermark thresholds for disk/memory coloring
+  const { getColor } = useWatermarks(id);
   
   // Get active tab from URL, default to 'overview'
   const activeTab = searchParams.get('tab') || 'overview';
@@ -307,7 +311,7 @@ export function ClusterView() {
                   <Text size="sm" c="dimmed">Memory Usage</Text>
                   <Progress
                     value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
-                    color={formatPercent(stats.memoryUsed || 0, stats.memoryTotal) > 90 ? 'red' : 'blue'}
+                    color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
                     size="sm"
                     radius="xs"
                   />
@@ -327,7 +331,7 @@ export function ClusterView() {
                   <Text size="sm" c="dimmed">Disk Usage</Text>
                   <Progress
                     value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
-                    color={formatPercent(stats.diskUsed || 0, stats.diskTotal) > 90 ? 'red' : 'blue'}
+                    color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
                     size="sm"
                     radius="xs"
                   />
@@ -395,6 +399,9 @@ function NodesList({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Fetch watermark thresholds for disk/memory coloring
+  const { getColor } = useWatermarks(id);
   
   // Get filters from URL
   const searchQuery = searchParams.get('nodesSearch') || '';
@@ -523,7 +530,7 @@ function NodesList({
                     <Stack gap={4}>
                       <Progress
                         value={formatPercent(node.heapUsed, node.heapMax)}
-                        color={formatPercent(node.heapUsed, node.heapMax) > 90 ? 'red' : 'blue'}
+                        color={getColor(formatPercent(node.heapUsed, node.heapMax))}
                         size="sm"
                         radius="xs"
                       />
@@ -536,7 +543,7 @@ function NodesList({
                     <Stack gap={4}>
                       <Progress
                         value={formatPercent(node.diskUsed, node.diskTotal)}
-                        color={formatPercent(node.diskUsed, node.diskTotal) > 90 ? 'red' : 'blue'}
+                        color={getColor(formatPercent(node.diskUsed, node.diskTotal))}
                         size="sm"
                         radius="xs"
                       />
