@@ -1013,6 +1013,7 @@ function IndicesList({
               label="Show only affected"
               checked={showOnlyAffected}
               onChange={(e) => updateParam('affected', e.currentTarget.checked)}
+              size="sm"
             />
           )}
         </Group>
@@ -1573,35 +1574,26 @@ function ShardAllocationGrid({
           />
           
           <Group gap="md">
-            <Group gap="xs">
-              <input
-                type="checkbox"
-                id="overview-show-closed"
-                checked={showClosed}
-                onChange={(e) => updateParam('showClosed', e.target.checked)}
-              />
-              <Text size="sm" component="label" htmlFor="overview-show-closed" style={{ cursor: 'pointer' }}>
-                closed ({indices.filter(i => i.status !== 'open').length})
-              </Text>
-            </Group>
+            <Checkbox
+              label={`closed (${indices.filter(i => i.status !== 'open').length})`}
+              checked={showClosed}
+              onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
+              size="sm"
+            />
             
-            <Group gap="xs">
-              <input
-                type="checkbox"
-                id="overview-show-special"
-                checked={showSpecial}
-                onChange={(e) => updateParam('showSpecial', e.target.checked)}
-              />
-              <Text size="sm" component="label" htmlFor="overview-show-special" style={{ cursor: 'pointer' }}>
-                special ({indices.filter(i => i.name.startsWith('.')).length})
-              </Text>
-            </Group>
+            <Checkbox
+              label={`special (${indices.filter(i => i.name.startsWith('.')).length})`}
+              checked={showSpecial}
+              onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
+              size="sm"
+            />
 
             {unassignedShards.length > 0 && (
               <Checkbox
                 label="Show only affected"
                 checked={showOnlyAffected}
                 onChange={(e) => updateParam('overviewAffected', e.currentTarget.checked)}
+                size="sm"
               />
             )}
             
@@ -2006,11 +1998,13 @@ function ShardsList({
             label="Primary only"
             checked={showPrimaryOnly}
             onChange={(e) => updateFilters(undefined, undefined, e.currentTarget.checked, undefined)}
+            size="sm"
           />
           <Checkbox
             label="Replica only"
             checked={showReplicaOnly}
             onChange={(e) => updateFilters(undefined, undefined, undefined, e.currentTarget.checked)}
+            size="sm"
           />
         </Group>
       </Group>
