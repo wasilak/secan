@@ -14,8 +14,10 @@ import {
   Tooltip,
   Legend,
   YAxis,
+  XAxis,
   CartesianGrid,
 } from 'recharts';
+import type { DataPoint } from '../hooks/useSparklineData';
 
 /**
  * ClusterStatistics component displays various charts for cluster metrics
@@ -23,12 +25,12 @@ import {
  */
 
 interface ClusterStatisticsProps {
-  // Time series data
-  nodesHistory: number[];
-  indicesHistory: number[];
-  documentsHistory: number[];
-  shardsHistory: number[];
-  unassignedHistory: number[];
+  // Time series data with timestamps
+  nodesHistory: DataPoint[];
+  indicesHistory: DataPoint[];
+  documentsHistory: DataPoint[];
+  shardsHistory: DataPoint[];
+  unassignedHistory: DataPoint[];
   
   // Current stats
   stats?: {
@@ -43,6 +45,19 @@ interface ClusterStatisticsProps {
   };
 }
 
+/**
+ * Format timestamp to HH:MM:SS
+ */
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit',
+    hour12: false 
+  });
+}
+
 export function ClusterStatistics({
   nodesHistory,
   indicesHistory,
@@ -52,13 +67,15 @@ export function ClusterStatistics({
   stats,
 }: ClusterStatisticsProps) {
   // Prepare time series data for area charts
-  const timeSeriesData = nodesHistory.map((_, index) => ({
-    index,
-    nodes: nodesHistory[index] || 0,
-    indices: indicesHistory[index] || 0,
-    documents: documentsHistory[index] || 0,
-    shards: shardsHistory[index] || 0,
-    unassigned: unassignedHistory[index] || 0,
+  // Merge all histories by timestamp
+  const timeSeriesData = nodesHistory.map((nodePoint, index) => ({
+    timestamp: nodePoint.timestamp,
+    time: formatTime(nodePoint.timestamp),
+    nodes: nodePoint.value,
+    indices: indicesHistory[index]?.value || 0,
+    documents: documentsHistory[index]?.value || 0,
+    shards: shardsHistory[index]?.value || 0,
+    unassigned: unassignedHistory[index]?.value || 0,
   }));
 
   // Prepare node types data for donut chart
@@ -76,10 +93,10 @@ export function ClusterStatistics({
   ].filter(item => item.value > 0);
 
   // Prepare radar chart data for cluster health overview
-  const maxNodes = Math.max(...nodesHistory, 1);
-  const maxIndices = Math.max(...indicesHistory, 1);
-  const maxShards = Math.max(...shardsHistory, 1);
-  const maxDocs = Math.max(...documentsHistory, 1);
+  const maxNodes = Math.max(...nodesHistory.map(d => d.value), 1);
+  const maxIndices = Math.max(...indicesHistory.map(d => d.value), 1);
+  const maxShards = Math.max(...shardsHistory.map(d => d.value), 1);
+  const maxDocs = Math.max(...documentsHistory.map(d => d.value), 1);
 
   const radarData = [
     {
@@ -130,6 +147,14 @@ export function ClusterStatistics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+                  <XAxis 
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
                   <YAxis 
                     stroke="var(--mantine-color-gray-6)" 
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
@@ -187,6 +212,14 @@ export function ClusterStatistics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+                  <XAxis 
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
                   <YAxis 
                     stroke="var(--mantine-color-gray-6)" 
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
@@ -241,6 +274,14 @@ export function ClusterStatistics({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+              <XAxis 
+                dataKey="time"
+                stroke="var(--mantine-color-gray-6)" 
+                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                height={40}
+                angle={-45}
+                textAnchor="end"
+              />
               <YAxis 
                 stroke="var(--mantine-color-gray-6)" 
                 tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}

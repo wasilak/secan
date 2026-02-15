@@ -2,6 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useRefresh } from '../contexts/RefreshContext';
 
 /**
+ * Data point with timestamp for charts
+ */
+export interface DataPoint {
+  value: number;
+  timestamp: number;
+}
+
+/**
  * Hook to track historical data for sparklines and charts
  * Adds a new data point on EVERY refresh (even if value doesn't change)
  * Initializes with [0, currentValue] to show trend from baseline
@@ -12,13 +20,15 @@ import { useRefresh } from '../contexts/RefreshContext';
  * @param currentValue - The current value to track
  * @param maxDataPoints - Maximum number of data points to keep (default: 20)
  * @param resetKey - Optional key that when changed, resets the data (useful for tab switching)
+ * @param withTimestamps - If true, returns DataPoint[] with timestamps, otherwise returns number[]
  */
 export function useSparklineData(
   currentValue: number | undefined,
   maxDataPoints: number = 20,
-  resetKey?: string | number
-) {
-  const [data, setData] = useState<number[]>([]);
+  resetKey?: string | number,
+  withTimestamps: boolean = false
+): number[] | DataPoint[] {
+  const [data, setData] = useState<DataPoint[]>([]);
   const initializedRef = useRef(false);
   const { lastRefreshTime } = useRefresh();
   const lastResetKeyRef = useRef(resetKey);
@@ -38,14 +48,18 @@ export function useSparklineData(
     // On first value, initialize with [0, currentValue] to show trend from baseline
     if (!initializedRef.current) {
       initializedRef.current = true;
-      setData([0, currentValue]);
+      const now = Date.now();
+      setData([
+        { value: 0, timestamp: now - 1000 }, // 1 second before for baseline
+        { value: currentValue, timestamp: now }
+      ]);
       return;
     }
 
     // Add data point on EVERY refresh (tracked by lastRefreshTime)
     // This ensures the time axis progresses even if value doesn't change
     setData((prev) => {
-      const newData = [...prev, currentValue];
+      const newData = [...prev, { value: currentValue, timestamp: Date.now() }];
       
       // Keep only the last maxDataPoints
       if (newData.length > maxDataPoints) {
@@ -55,5 +69,9 @@ export function useSparklineData(
     });
   }, [currentValue, lastRefreshTime, maxDataPoints]);
 
-  return data;
+  // Return data in requested format
+  if (withTimestamps) {
+    return data;
+  }
+  return data.map(d => d.value);
 }
