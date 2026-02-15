@@ -166,8 +166,8 @@ export function IndexCreate() {
         icon: <IconCheck size={16} />,
       });
 
-      // Navigate to the new index settings page
-      navigate(`/cluster/${clusterId}/indices/${indexName}/settings`);
+      // Navigate to the new index edit page
+      navigate(`/cluster/${clusterId}/indices/${indexName}/edit`);
     },
     onError: (error: Error) => {
       // Show error notification

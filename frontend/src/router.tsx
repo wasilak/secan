@@ -10,8 +10,7 @@ const ClusterView = lazy(() => import('./pages/ClusterView').then(m => ({ defaul
 const RestConsole = lazy(() => import('./pages/RestConsole').then(m => ({ default: m.RestConsole })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const IndexCreate = lazy(() => import('./pages/IndexCreate').then(m => ({ default: m.IndexCreate })));
-const IndexSettings = lazy(() => import('./pages/IndexSettings').then(m => ({ default: m.IndexSettings })));
-const IndexMappings = lazy(() => import('./pages/IndexMappings').then(m => ({ default: m.IndexMappings })));
+const IndexEdit = lazy(() => import('./pages/IndexEdit').then(m => ({ default: m.IndexEdit })));
 const Aliases = lazy(() => import('./pages/Aliases').then(m => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
 const ClusterSettingsPage = lazy(() => import('./pages/ClusterSettings').then(m => ({ default: m.ClusterSettingsPage })));
@@ -34,8 +33,7 @@ const IndexStatistics = lazy(() => import('./pages/IndexStatistics').then(m => (
  * - /cluster/:id/nodes/:nodeId - Node detail view with statistics
  * - /cluster/:id/rest - REST console
  * - /cluster/:id/indices/create - Create new index
- * - /cluster/:id/indices/:indexName/settings - View/edit index settings
- * - /cluster/:id/indices/:indexName/mappings - View/edit index mappings
+ * - /cluster/:id/indices/:indexName/edit - Edit index (settings and mappings)
  * - /cluster/:id/indices/:indexName/analyzers - View index analyzers and fields
  * - /cluster/:id/indices/:indexName/stats - View index statistics
  * - /cluster/:id/aliases - Manage index aliases
@@ -103,20 +101,20 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: 'cluster/:id/indices/:indexName/settings',
+        path: 'cluster/:id/indices/:indexName/edit',
         element: (
           <LazyRoute>
-            <IndexSettings />
+            <IndexEdit />
           </LazyRoute>
         ),
       },
       {
+        path: 'cluster/:id/indices/:indexName/settings',
+        element: <Navigate to="../edit?tab=settings" replace />,
+      },
+      {
         path: 'cluster/:id/indices/:indexName/mappings',
-        element: (
-          <LazyRoute>
-            <IndexMappings />
-          </LazyRoute>
-        ),
+        element: <Navigate to="../edit?tab=mappings" replace />,
       },
       {
         path: 'cluster/:id/indices/:indexName/stats',
