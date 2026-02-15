@@ -1124,7 +1124,21 @@ function ShardDetailsModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={`Shard Details: ${shard.index} / ${shard.shard}`}
+      title={
+        <Group gap="xs">
+          <Text size="lg" fw={600}>Shard Details:</Text>
+          <Badge size="lg" variant="light" color="blue">{shard.index}</Badge>
+          <Text size="lg" c="dimmed">/</Text>
+          <Badge size="lg" variant="filled" color="cyan">#{shard.shard}</Badge>
+          <Badge 
+            size="lg" 
+            variant={shard.primary ? 'filled' : 'light'} 
+            color={shard.primary ? 'green' : 'gray'}
+          >
+            {shard.primary ? 'Primary' : 'Replica'}
+          </Badge>
+        </Group>
+      }
       size="80%"
       fullScreen={false}
       styles={{

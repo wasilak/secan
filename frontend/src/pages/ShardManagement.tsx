@@ -786,7 +786,25 @@ export function ShardManagement() {
             setDetailsModalOpen(false);
             setShardDetailsData(null);
           }}
-          title={selectedShard ? `Shard Details: ${selectedShard.index} / ${selectedShard.shard}` : 'Shard Details'}
+          title={
+            selectedShard ? (
+              <Group gap="xs">
+                <Text size="lg" fw={600}>Shard Details:</Text>
+                <Badge size="lg" variant="light" color="blue">{selectedShard.index}</Badge>
+                <Text size="lg" c="dimmed">/</Text>
+                <Badge size="lg" variant="filled" color="cyan">#{selectedShard.shard}</Badge>
+                <Badge 
+                  size="lg" 
+                  variant={selectedShard.primary ? 'filled' : 'light'} 
+                  color={selectedShard.primary ? 'green' : 'gray'}
+                >
+                  {selectedShard.primary ? 'Primary' : 'Replica'}
+                </Badge>
+              </Group>
+            ) : (
+              'Shard Details'
+            )
+          }
           size="80%"
           fullScreen={false}
           styles={{
