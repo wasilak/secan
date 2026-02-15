@@ -18,7 +18,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
-import { usePreferences } from '../hooks/usePreferences';
+import { useRefreshInterval } from '../contexts/RefreshContext';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 
 /**
@@ -53,7 +53,7 @@ function formatPercent(value: number): number {
 export function NodeDetail() {
   const { id: clusterId, nodeId } = useParams<{ id: string; nodeId: string }>();
   const navigate = useNavigate();
-  const { preferences } = usePreferences();
+  const refreshInterval = useRefreshInterval();
 
   // Fetch node statistics with auto-refresh
   const {
@@ -63,7 +63,7 @@ export function NodeDetail() {
   } = useQuery<NodeDetailStats>({
     queryKey: ['cluster', clusterId, 'node', nodeId, 'stats'],
     queryFn: () => apiClient.getNodeStats(clusterId!, nodeId!),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
     enabled: !!clusterId && !!nodeId,
   });
 

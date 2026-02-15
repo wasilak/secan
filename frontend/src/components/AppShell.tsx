@@ -16,8 +16,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ThemeSelector } from './ThemeSelector';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
 import { SpotlightSearch } from './SpotlightSearch';
+import { RefreshControl } from './RefreshControl';
 import { apiClient } from '../api/client';
-import { usePreferences } from '../hooks/usePreferences';
+import { useRefreshInterval } from '../contexts/RefreshContext';
 
 /**
  * Navigation content component - shared between drawer and static navbar
@@ -25,7 +26,7 @@ import { usePreferences } from '../hooks/usePreferences';
 function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { preferences } = usePreferences();
+  const refreshInterval = useRefreshInterval();
 
   // Fetch list of clusters
   const {
@@ -35,7 +36,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   } = useQuery({
     queryKey: ['clusters'],
     queryFn: () => apiClient.getClusters(),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
   });
 
   const isActive = (path: string) => {
@@ -194,6 +195,7 @@ export function AppShell() {
             </Group>
 
             <Group gap="xs" wrap="nowrap">
+              <RefreshControl />
               <ThemeSelector />
               
               {/* Keyboard shortcuts button - hidden on mobile */}
