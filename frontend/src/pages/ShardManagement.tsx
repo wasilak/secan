@@ -20,6 +20,7 @@ import {
   TextInput,
   Tooltip,
   Code,
+  Skeleton,
 } from '@mantine/core';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -244,6 +245,8 @@ export function ShardManagement() {
   useEffect(() => {
     if (detailsModalOpen && selectedShard && !shardDetailsLoading) {
       setShardDetailsLoading(true);
+      setShardDetailsData(null); // Reset previous data
+      
       apiClient
         .getShardStats(id!, selectedShard.index, selectedShard.shard)
         .then((stats) => {
@@ -251,11 +254,15 @@ export function ShardManagement() {
         })
         .catch((error) => {
           console.error('Failed to fetch shard stats:', error);
-          setShardDetailsData(null);
+          setShardDetailsData(selectedShard); // Fallback to basic shard info
         })
         .finally(() => {
           setShardDetailsLoading(false);
         });
+    } else if (!detailsModalOpen) {
+      // Reset when modal closes
+      setShardDetailsData(null);
+      setShardDetailsLoading(false);
     }
   }, [detailsModalOpen, selectedShard, id, shardDetailsLoading]);
 
@@ -776,14 +783,23 @@ export function ShardManagement() {
             setDetailsModalOpen(false);
             setShardDetailsData(null);
           }}
-          title={`Shard Details: ${selectedShard.index} / ${selectedShard.shard}`}
+          title={selectedShard ? `Shard Details: ${selectedShard.index} / ${selectedShard.shard}` : 'Shard Details'}
           size="lg"
         >
           <ScrollArea h={500}>
             {shardDetailsLoading ? (
-              <Group justify="center" py="xl">
-                <Loader />
-              </Group>
+              <Stack gap="xs">
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="70%" radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="50%" radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="80%" radius="xs" />
+              </Stack>
             ) : (
               <Code block>
                 {JSON.stringify(shardDetailsData || selectedShard, null, 2)}
