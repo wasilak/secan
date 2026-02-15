@@ -963,11 +963,15 @@ function IndicesList({
             <Table.Tbody>
               {filteredIndices?.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
+                const hasUnassigned = unassignedCount > 0;
                 
                 return (
                   <Table.Tr 
                     key={index.name}
-                    style={{ cursor: 'pointer' }}
+                    style={{ 
+                      cursor: 'pointer',
+                      backgroundColor: hasUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
+                    }}
                     onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
                   >
                     <Table.Td>
@@ -1810,52 +1814,61 @@ function ShardsList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredShards?.slice(0, 100).map((shard, idx) => (
-              <Table.Tr key={`${shard.index}-${shard.shard}-${idx}`}>
-                <Table.Td>
-                  <Text size="sm">{shard.index}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{shard.shard}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge size="sm" variant="light" color={shard.primary ? 'blue' : 'gray'}>
-                    {shard.primary ? 'Primary' : 'Replica'}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Badge
-                    size="sm"
-                    color={
-                      shard.state === 'STARTED'
-                        ? 'green'
-                        : shard.state === 'UNASSIGNED'
-                        ? 'red'
-                        : 'yellow'
-                    }
+              {filteredShards?.slice(0, 100).map((shard, idx) => {
+                const isUnassigned = shard.state === 'UNASSIGNED';
+                
+                return (
+                  <Table.Tr 
+                    key={`${shard.index}-${shard.shard}-${idx}`}
+                    style={{
+                      backgroundColor: isUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
+                    }}
                   >
-                    {shard.state}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{shard.node || 'N/A'}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{shard.docs?.toLocaleString() || 'N/A'}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">{shard.store ? formatBytes(shard.store) : 'N/A'}</Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        {filteredShards && filteredShards.length > 100 && (
-          <Text size="sm" c="dimmed" ta="center" mt="md">
-            Showing first 100 of {filteredShards.length} shards
-          </Text>
-        )}
-      </ScrollArea>
+                    <Table.Td>
+                      <Text size="sm">{shard.index}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{shard.shard}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="sm" variant="light" color={shard.primary ? 'blue' : 'gray'}>
+                        {shard.primary ? 'Primary' : 'Replica'}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        size="sm"
+                        color={
+                          shard.state === 'STARTED'
+                            ? 'green'
+                            : shard.state === 'UNASSIGNED'
+                            ? 'red'
+                            : 'yellow'
+                        }
+                      >
+                        {shard.state}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{shard.node || 'N/A'}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{shard.docs?.toLocaleString() || 'N/A'}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{shard.store ? formatBytes(shard.store) : 'N/A'}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+          {filteredShards && filteredShards.length > 100 && (
+            <Text size="sm" c="dimmed" ta="center" mt="md">
+              Showing first 100 of {filteredShards.length} shards
+            </Text>
+          )}
+        </ScrollArea>
       )}
     </Stack>
   );
