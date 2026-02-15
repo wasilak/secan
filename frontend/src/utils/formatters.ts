@@ -141,3 +141,27 @@ export function formatRate(count: number, timeMs: number): string {
 
   return `${perSecond.toFixed(2)}/s`;
 }
+
+/**
+ * Format bytes to human-readable size
+ * 
+ * Examples:
+ * - 1024 -> "1.00 KB"
+ * - 1048576 -> "1.00 MB"
+ * - 1073741824 -> "1.00 GB"
+ * 
+ * @param bytes - Size in bytes
+ * @returns Formatted size string
+ */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes === 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const k = 1024;
+  const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
+  const unitIndex = Math.min(i, units.length - 1);
+
+  return `${(bytes / Math.pow(k, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
+}
