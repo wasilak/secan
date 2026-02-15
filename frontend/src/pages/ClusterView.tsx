@@ -1790,7 +1790,10 @@ function ShardsList({
   loading: boolean;
   error: Error | null;
 }) {
+  const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
   
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
@@ -1800,6 +1803,12 @@ function ShardsList({
   
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Handle shard click to open details modal
+  const handleShardClick = (shard: ShardInfo) => {
+    setSelectedShard(shard);
+    setDetailsModalOpen(true);
+  };
 
   // Update URL when filters change
   const updateFilters = (newSearch?: string, newStates?: string[], newPrimaryOnly?: boolean, newReplicaOnly?: boolean) => {
@@ -1960,7 +1969,9 @@ function ShardsList({
                     key={`${shard.index}-${shard.shard}-${idx}`}
                     style={{
                       backgroundColor: isUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
+                      cursor: 'pointer',
                     }}
+                    onClick={() => handleShardClick(shard)}
                   >
                     <Table.Td>
                       <Text size="sm">{shard.index}</Text>
@@ -2011,6 +2022,19 @@ function ShardsList({
             </Text>
           )}
         </ScrollArea>
+      )}
+
+      {/* Shard Details Modal */}
+      {selectedShard && (
+        <ShardDetailsModal
+          opened={detailsModalOpen}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setSelectedShard(null);
+          }}
+          shard={selectedShard}
+          clusterId={id!}
+        />
       )}
     </Stack>
   );
