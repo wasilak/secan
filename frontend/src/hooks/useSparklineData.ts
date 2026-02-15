@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * Hook to track historical data for sparklines
@@ -10,19 +10,20 @@ export function useSparklineData(
   maxDataPoints: number = 20
 ) {
   const [data, setData] = useState<number[]>([]);
-  const [initialized, setInitialized] = useState(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     if (currentValue === undefined) return;
 
-    setData((prev) => {
-      // On first value, initialize with 2 duplicate points so sparkline shows immediately
-      if (!initialized) {
-        setInitialized(true);
-        return [currentValue, currentValue];
-      }
+    // On first value, initialize with 2 duplicate points so sparkline shows immediately
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      setData([currentValue, currentValue]);
+      return;
+    }
 
-      // Add data point on every value change (every refresh)
+    // Add data point on every value change (every refresh)
+    setData((prev) => {
       const newData = [...prev, currentValue];
       
       // Keep only the last maxDataPoints
@@ -31,7 +32,7 @@ export function useSparklineData(
       }
       return newData;
     });
-  }, [currentValue, maxDataPoints, initialized]);
+  }, [currentValue, maxDataPoints]);
 
   return data;
 }
