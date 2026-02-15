@@ -192,11 +192,12 @@ export function ClusterView() {
   });
 
   // Track historical data for sparklines
-  const nodesHistory = useSparklineData(stats?.numberOfNodes);
-  const indicesHistory = useSparklineData(stats?.numberOfIndices);
-  const documentsHistory = useSparklineData(stats?.numberOfDocuments);
-  const shardsHistory = useSparklineData(stats?.activeShards);
-  const unassignedHistory = useSparklineData(stats?.unassignedShards);
+  // Pass activeTab as resetKey so data resets when switching to statistics tab
+  const nodesHistory = useSparklineData(stats?.numberOfNodes, 20, activeTab);
+  const indicesHistory = useSparklineData(stats?.numberOfIndices, 20, activeTab);
+  const documentsHistory = useSparklineData(stats?.numberOfDocuments, 20, activeTab);
+  const shardsHistory = useSparklineData(stats?.activeShards, 20, activeTab);
+  const unassignedHistory = useSparklineData(stats?.unassignedShards, 20, activeTab);
 
   // Fetch nodes with auto-refresh
   const {
