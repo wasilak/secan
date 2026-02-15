@@ -10,6 +10,7 @@ import {
   Group,
   Tabs,
   Alert,
+  Box,
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -270,7 +271,7 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Configure index settings such as number of shards and replicas
                 </Text>
-                <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
                   <Editor
                     height="300px"
                     defaultLanguage="json"
@@ -285,7 +286,7 @@ export function IndexCreate() {
                       automaticLayout: true,
                     }}
                   />
-                </div>
+                </Box>
                 {settingsError && (
                   <Text size="sm" c="red" mt="xs">
                     {settingsError}
@@ -315,7 +316,7 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Define field types and properties for your documents
                 </Text>
-                <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
                   <Editor
                     height="300px"
                     defaultLanguage="json"
@@ -330,7 +331,7 @@ export function IndexCreate() {
                       automaticLayout: true,
                     }}
                   />
-                </div>
+                </Box>
                 {mappingsError && (
                   <Text size="sm" c="red" mt="xs">
                     {mappingsError}

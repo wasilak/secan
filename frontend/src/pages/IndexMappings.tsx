@@ -9,6 +9,7 @@ import {
   Group,
   Alert,
   Loader,
+  Box,
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -237,7 +238,7 @@ export function IndexMappings() {
               <Text size="xs" c="dimmed" mb="sm">
                 Add new fields to the mappings below and click "Update Mappings" to apply changes
               </Text>
-              <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+              <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
                 <Editor
                   height="500px"
                   defaultLanguage="json"
@@ -252,7 +253,7 @@ export function IndexMappings() {
                     automaticLayout: true,
                   }}
                 />
-              </div>
+              </Box>
               {mappingsError && (
                 <Text size="sm" c="red" mt="xs">
                   {mappingsError}
