@@ -11,8 +11,9 @@ use std::sync::Arc;
 
 mod transform;
 use transform::{
-    transform_cluster_stats, transform_indices, transform_nodes, transform_shards,
-    ClusterStatsResponse, IndexInfoResponse, NodeInfoResponse, ShardInfoResponse,
+    transform_cluster_stats, transform_indices, transform_node_detail_stats, transform_nodes,
+    transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
+    NodeInfoResponse, ShardInfoResponse,
 };
 
 /// Shared application state for cluster routes
@@ -212,6 +213,129 @@ pub async fn get_nodes(
         node_count = response.len(),
         master_node = ?master_node_id,
         "Nodes info retrieved successfully"
+    );
+
+    Ok(Json(response))
+}
+
+/// Get detailed stats for a specific node
+///
+/// Returns comprehensive node statistics including thread pools, shards, and metrics
+///
+/// # Requirements
+///
+/// Validates: Requirements 14.3, 14.4, 14.5
+pub async fn get_node_stats(
+    State(state): State<ClusterState>,
+    Path((cluster_id, node_id)): Path<(String, String)>,
+) -> Result<Json<NodeDetailStatsResponse>, ClusterErrorResponse> {
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_id = %node_id,
+        "Getting detailed node stats"
+    );
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get nodes info for the specific node
+    let nodes_info = cluster.nodes_info().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            node_id = %node_id,
+            error = %e,
+            "Failed to get node info"
+        );
+        ClusterErrorResponse {
+            error: "node_info_failed".to_string(),
+            message: format!("Failed to get node info: {}", e),
+        }
+    })?;
+
+    // Get detailed node stats for the specific node using SDK
+    let node_stats = cluster.node_stats(&node_id).await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            node_id = %node_id,
+            error = %e,
+            "Failed to get node stats"
+        );
+        ClusterErrorResponse {
+            error: "node_stats_failed".to_string(),
+            message: format!("Failed to get node stats: {}", e),
+        }
+    })?;
+
+    // Get cluster state for master info
+    let cluster_state = cluster.cluster_state().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get cluster state"
+        );
+        ClusterErrorResponse {
+            error: "cluster_state_failed".to_string(),
+            message: format!("Failed to get cluster state: {}", e),
+        }
+    })?;
+
+    // Get shards for data nodes
+    let shards = if let Some(node_info) = nodes_info["nodes"][&node_id].as_object() {
+        if let Some(roles) = node_info.get("roles").and_then(|r| r.as_array()) {
+            let has_data_role = roles
+                .iter()
+                .any(|r| r.as_str() == Some("data"));
+            if has_data_role {
+                Some(cluster_state.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Transform to frontend format
+    let response = transform_node_detail_stats(
+        &node_id,
+        &nodes_info,
+        &node_stats,
+        &cluster_state,
+        shards.as_ref(),
+    )
+    .map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            node_id = %node_id,
+            error = %e,
+            "Failed to transform node stats"
+        );
+        ClusterErrorResponse {
+            error: "transform_failed".to_string(),
+            message: format!("Failed to transform node stats: {}", e),
+        }
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_id = %node_id,
+        "Node stats retrieved successfully"
     );
 
     Ok(Json(response))
