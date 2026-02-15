@@ -25,7 +25,8 @@ import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 /**
  * Format bytes to human-readable format
  */
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number | undefined): string {
+  if (bytes === undefined || bytes === null || isNaN(bytes)) return 'N/A';
   if (bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -36,8 +37,17 @@ function formatBytes(bytes: number): string {
 /**
  * Format percentage
  */
-function formatPercent(value: number): number {
-  return Math.round(value);
+function formatPercent(value: number | undefined): string {
+  if (value === undefined || value === null || isNaN(value)) return 'N/A';
+  return `${Math.round(value)}`;
+}
+
+/**
+ * Safe number formatter - returns N/A for invalid values
+ */
+function formatNumber(value: number | undefined, decimals: number = 0): string {
+  if (value === undefined || value === null || isNaN(value)) return 'N/A';
+  return value.toFixed(decimals);
 }
 
 /**
@@ -151,7 +161,7 @@ export function NodeDetail() {
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" c="dimmed">Elasticsearch Version</Text>
-              <Text size="lg" fw={700}>{nodeStats.version}</Text>
+              <Text size="lg" fw={700}>{nodeStats.version || 'N/A'}</Text>
             </Stack>
           </Card>
         </Grid.Col>
@@ -160,7 +170,7 @@ export function NodeDetail() {
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" c="dimmed">JVM Version</Text>
-              <Text size="lg" fw={700}>{nodeStats.jvmVersion}</Text>
+              <Text size="lg" fw={700}>{nodeStats.jvmVersion || 'N/A'}</Text>
             </Stack>
           </Card>
         </Grid.Col>
@@ -176,12 +186,12 @@ export function NodeDetail() {
           </Grid.Col>
         )}
 
-        {nodeStats.cpuPercent !== undefined && (
+        {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent) && (
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
             <Card shadow="sm" padding="lg">
               <Stack gap="xs">
                 <Text size="sm" c="dimmed">CPU Usage</Text>
-                <Text size="lg" fw={700}>{nodeStats.cpuPercent}%</Text>
+                <Text size="lg" fw={700}>{formatNumber(nodeStats.cpuPercent, 1)}%</Text>
               </Stack>
             </Card>
           </Grid.Col>
@@ -189,22 +199,22 @@ export function NodeDetail() {
       </Grid>
 
       {/* Load Average */}
-      {nodeStats.loadAverage && nodeStats.loadAverage.length > 0 && (
+      {nodeStats.loadAverage && Array.isArray(nodeStats.loadAverage) && nodeStats.loadAverage.length > 0 && (
         <Card shadow="sm" padding="lg" mb="md">
           <Stack gap="xs">
             <Text size="sm" fw={500}>Load Average</Text>
             <Group gap="xl">
               <div>
                 <Text size="xs" c="dimmed">1 min</Text>
-                <Text size="lg" fw={700}>{nodeStats.loadAverage[0]?.toFixed(2) || 'N/A'}</Text>
+                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[0], 2)}</Text>
               </div>
               <div>
                 <Text size="xs" c="dimmed">5 min</Text>
-                <Text size="lg" fw={700}>{nodeStats.loadAverage[1]?.toFixed(2) || 'N/A'}</Text>
+                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[1], 2)}</Text>
               </div>
               <div>
                 <Text size="xs" c="dimmed">15 min</Text>
-                <Text size="lg" fw={700}>{nodeStats.loadAverage[2]?.toFixed(2) || 'N/A'}</Text>
+                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[2], 2)}</Text>
               </div>
             </Group>
           </Stack>
@@ -217,16 +227,22 @@ export function NodeDetail() {
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>Heap Memory Usage</Text>
-              <Progress
-                value={nodeStats.heapPercent}
-                color={getColor(nodeStats.heapPercent)}
-                size="sm"
-                radius="xs"
-              />
-              <Text size="xs" c="dimmed">
-                {formatBytes(nodeStats.heapUsed)} / {formatBytes(nodeStats.heapMax)} (
-                {formatPercent(nodeStats.heapPercent)}%)
-              </Text>
+              {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
+                <>
+                  <Progress
+                    value={nodeStats.heapPercent}
+                    color={getColor(nodeStats.heapPercent)}
+                    size="sm"
+                    radius="xs"
+                  />
+                  <Text size="xs" c="dimmed">
+                    {formatBytes(nodeStats.heapUsed)} / {formatBytes(nodeStats.heapMax)} (
+                    {formatPercent(nodeStats.heapPercent)}%)
+                  </Text>
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">N/A</Text>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
@@ -235,16 +251,22 @@ export function NodeDetail() {
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>Disk Usage</Text>
-              <Progress
-                value={nodeStats.diskPercent}
-                color={getColor(nodeStats.diskPercent)}
-                size="sm"
-                radius="xs"
-              />
-              <Text size="xs" c="dimmed">
-                {formatBytes(nodeStats.diskUsed)} / {formatBytes(nodeStats.diskTotal)} (
-                {formatPercent(nodeStats.diskPercent)}%)
-              </Text>
+              {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
+                <>
+                  <Progress
+                    value={nodeStats.diskPercent}
+                    color={getColor(nodeStats.diskPercent)}
+                    size="sm"
+                    radius="xs"
+                  />
+                  <Text size="xs" c="dimmed">
+                    {formatBytes(nodeStats.diskUsed)} / {formatBytes(nodeStats.diskTotal)} (
+                    {formatPercent(nodeStats.diskPercent)}%)
+                  </Text>
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">N/A</Text>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
@@ -301,9 +323,17 @@ function ThreadPoolRow({
   poolName: string;
   stats: ThreadPoolStats;
 }) {
+  // Safe value extraction with fallbacks
+  const threads = stats?.threads ?? 0;
+  const active = stats?.active ?? 0;
+  const queue = stats?.queue ?? 0;
+  const largest = stats?.largest ?? 0;
+  const completed = stats?.completed ?? 0;
+  const rejected = stats?.rejected ?? 0;
+
   // Highlight pools with high queue sizes or rejections
-  const hasHighQueue = stats.queue > 100;
-  const hasRejections = stats.rejected > 0;
+  const hasHighQueue = queue > 100;
+  const hasRejections = rejected > 0;
   const rowBg = hasRejections 
     ? 'var(--mantine-color-red-light)' 
     : hasHighQueue 
@@ -316,25 +346,25 @@ function ThreadPoolRow({
         <Text size="sm" fw={500}>{poolName}</Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm">{stats.threads}</Text>
+        <Text size="sm">{threads}</Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm">{stats.active}</Text>
+        <Text size="sm">{active}</Text>
       </Table.Td>
       <Table.Td>
         <Text size="sm" fw={hasHighQueue ? 700 : undefined} c={hasHighQueue ? 'yellow' : undefined}>
-          {stats.queue}
+          {queue}
         </Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm">{stats.largest}</Text>
+        <Text size="sm">{largest}</Text>
       </Table.Td>
       <Table.Td>
-        <Text size="sm">{stats.completed.toLocaleString()}</Text>
+        <Text size="sm">{completed.toLocaleString()}</Text>
       </Table.Td>
       <Table.Td>
         <Text size="sm" fw={hasRejections ? 700 : undefined} c={hasRejections ? 'red' : undefined}>
-          {stats.rejected.toLocaleString()}
+          {rejected.toLocaleString()}
         </Text>
       </Table.Td>
     </Table.Tr>
