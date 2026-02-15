@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 /**
@@ -41,6 +41,7 @@ interface RefreshProviderProps {
  * - Last refresh timestamp tracking
  * - Refresh state indicator
  * - Persists interval selection to localStorage
+ * - Tracks automatic query refetches to update lastRefreshTime
  */
 export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS['15s'] }: RefreshProviderProps) {
   // Load interval from localStorage or use default
@@ -63,7 +64,22 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
   const queryClient = useQueryClient();
   const [interval, setIntervalState] = useState<RefreshInterval>(loadInterval);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(Date.now());
+
+  // Track automatic query refetches to update lastRefreshTime
+  useEffect(() => {
+    if (interval === 0) return;
+
+    // Subscribe to query cache updates
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // When any query successfully fetches, update lastRefreshTime
+      if (event?.type === 'updated' && event?.action?.type === 'success') {
+        setLastRefreshTime(Date.now());
+      }
+    });
+
+    return unsubscribe;
+  }, [queryClient, interval]);
 
   const setInterval = useCallback((newInterval: RefreshInterval) => {
     setIntervalState(newInterval);
