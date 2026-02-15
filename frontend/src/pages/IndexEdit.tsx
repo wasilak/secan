@@ -11,10 +11,13 @@ import {
   Skeleton,
   Tabs,
   HoverCard,
+  Code,
+  ScrollArea,
+  Loader,
 } from '@mantine/core';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconCheck, IconSettings, IconMap, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconSettings, IconMap, IconInfoCircle, IconChartBar } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -125,6 +128,35 @@ export function IndexEdit() {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [settingsModified, setSettingsModified] = useState(false);
   const [mappingsModified, setMappingsModified] = useState(false);
+
+  // State for stats tab - fetch on demand
+  const [statsData, setStatsData] = useState<unknown>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // Fetch stats when stats tab is opened
+  useEffect(() => {
+    if (activeTab === 'stats' && !statsData && !statsLoading) {
+      setStatsLoading(true);
+      setStatsError(null);
+      
+      apiClient
+        .proxyRequest<Record<string, unknown>>(
+          clusterId!,
+          'GET',
+          `/${indexName}/_stats`
+        )
+        .then((response) => {
+          setStatsData(response);
+        })
+        .catch((error) => {
+          setStatsError(error instanceof Error ? error.message : 'Failed to fetch stats');
+        })
+        .finally(() => {
+          setStatsLoading(false);
+        });
+    }
+  }, [activeTab, clusterId, indexName, statsData, statsLoading]);
 
   // Fetch current index settings
   const {
@@ -395,6 +427,9 @@ export function IndexEdit() {
             <Tabs.Tab value="mappings" leftSection={<IconMap size={16} />}>
               Mappings
             </Tabs.Tab>
+            <Tabs.Tab value="stats" leftSection={<IconChartBar size={16} />}>
+              Stats
+            </Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="settings" pt="md">
@@ -501,6 +536,36 @@ export function IndexEdit() {
                 </Stack>
               </Card>
             </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="stats" pt="md">
+            <Card shadow="sm" padding="lg">
+              <Stack gap="md">
+                <div>
+                  <Text size="sm" fw={500} mb="xs">
+                    Index Statistics (Read-only)
+                  </Text>
+                  <Text size="xs" c="dimmed" mb="sm">
+                    Detailed statistics for this index
+                  </Text>
+                  {statsLoading ? (
+                    <Group justify="center" py="xl">
+                      <Loader />
+                    </Group>
+                  ) : statsError ? (
+                    <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                      {statsError}
+                    </Alert>
+                  ) : statsData ? (
+                    <ScrollArea h={500}>
+                      <Code block>
+                        {JSON.stringify(statsData, null, 2)}
+                      </Code>
+                    </ScrollArea>
+                  ) : null}
+                </div>
+              </Stack>
+            </Card>
           </Tabs.Panel>
         </Tabs>
 
