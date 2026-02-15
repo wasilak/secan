@@ -372,7 +372,7 @@ export class ApiClient {
   async getNodeStats(clusterId: string, nodeId: string): Promise<NodeDetailStats> {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<NodeDetailStats>(
-        `/clusters/${clusterId}/_nodes/${nodeId}/stats`
+        `/clusters/${clusterId}/nodes/${nodeId}/stats`
       );
       
       // Ensure optional fields have proper defaults and validate numeric fields
