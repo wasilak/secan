@@ -672,8 +672,8 @@ export function ShardManagement() {
                               <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
                               <div>State: {shard.state}</div>
                               <div>Node: {shard.node || 'N/A'}</div>
-                              {shard.docs && <div>Docs: {shard.docs.toLocaleString()}</div>}
-                              {shard.store && <div>Size: {formatBytes(shard.store)}</div>}
+                              {shard.docs !== undefined && shard.docs !== null && <div>Docs: {shard.docs.toLocaleString()}</div>}
+                              {shard.store !== undefined && shard.store !== null && <div>Size: {formatBytes(shard.store)}</div>}
                             </div>
                           }
                         >
