@@ -382,6 +382,20 @@ export class ApiClient {
   }
 
   /**
+   * Get detailed statistics for a specific shard
+   * 
+   * Requirements: 4.8
+   */
+  async getShardStats(clusterId: string, indexName: string, shardNum: number): Promise<unknown> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get(
+        `/clusters/${clusterId}/shards/${encodeURIComponent(indexName)}/${shardNum}`
+      );
+      return response.data;
+    });
+  }
+
+  /**
    * Open a closed index
    * 
    * Requirements: 5.1

@@ -155,55 +155,23 @@ pub fn transform_shards(cluster_state: &Value, indices_stats: &Value) -> Vec<Sha
                             let state = shard["state"].as_str().unwrap_or("UNASSIGNED").to_string();
                             let node = shard["node"].as_str().map(|s| s.to_string());
 
-                            // Get detailed stats from indices stats API
+                            // Get docs and store size from indices stats
                             let shard_stats =
                                 &indices_stats["indices"][index_name]["shards"][shard_num.as_str()];
-                            
-                            // Extract basic docs and store info
-                            let (docs, store) = if let Some(shard_array) = shard_stats.as_array() {
-                                let first_shard = shard_array.first();
-                                let docs = first_shard.and_then(|s| s["docs"]["count"].as_u64());
-                                let store = first_shard.and_then(|s| s["store"]["size_in_bytes"].as_u64());
-                                (docs, store)
+                            let docs = if let Some(shard_array) = shard_stats.as_array() {
+                                shard_array
+                                    .first()
+                                    .and_then(|s| s["docs"]["count"].as_u64())
                             } else {
-                                (None, None)
+                                None
                             };
-
-                            // Extract detailed statistics - only for assigned shards
-                            let (routing, indexing, get, search, merges, refresh, flush, warmer, 
-                                 query_cache, fielddata, completion, segments, translog, 
-                                 request_cache, recovery, commit, seq_no, retention_leases, shard_path) = 
-                                if let Some(shard_array) = shard_stats.as_array() {
-                                    if let Some(first_shard) = shard_array.first() {
-                                        (
-                                            first_shard.get("routing").cloned(),
-                                            first_shard.get("indexing").cloned(),
-                                            first_shard.get("get").cloned(),
-                                            first_shard.get("search").cloned(),
-                                            first_shard.get("merges").cloned(),
-                                            first_shard.get("refresh").cloned(),
-                                            first_shard.get("flush").cloned(),
-                                            first_shard.get("warmer").cloned(),
-                                            first_shard.get("query_cache").cloned(),
-                                            first_shard.get("fielddata").cloned(),
-                                            first_shard.get("completion").cloned(),
-                                            first_shard.get("segments").cloned(),
-                                            first_shard.get("translog").cloned(),
-                                            first_shard.get("request_cache").cloned(),
-                                            first_shard.get("recovery").cloned(),
-                                            first_shard.get("commit").cloned(),
-                                            first_shard.get("seq_no").cloned(),
-                                            first_shard.get("retention_leases").cloned(),
-                                            first_shard.get("shard_path").cloned(),
-                                        )
-                                    } else {
-                                        (None, None, None, None, None, None, None, None, None, None, 
-                                         None, None, None, None, None, None, None, None, None)
-                                    }
-                                } else {
-                                    (None, None, None, None, None, None, None, None, None, None, 
-                                     None, None, None, None, None, None, None, None, None)
-                                };
+                            let store = if let Some(shard_array) = shard_stats.as_array() {
+                                shard_array
+                                    .first()
+                                    .and_then(|s| s["store"]["size_in_bytes"].as_u64())
+                            } else {
+                                None
+                            };
 
                             result.push(ShardInfoResponse {
                                 index: index_name.clone(),
@@ -213,25 +181,6 @@ pub fn transform_shards(cluster_state: &Value, indices_stats: &Value) -> Vec<Sha
                                 node,
                                 docs,
                                 store,
-                                routing,
-                                indexing,
-                                get,
-                                search,
-                                merges,
-                                refresh,
-                                flush,
-                                warmer,
-                                query_cache,
-                                fielddata,
-                                completion,
-                                segments,
-                                translog,
-                                request_cache,
-                                recovery,
-                                commit,
-                                seq_no,
-                                retention_leases,
-                                shard_path,
                             });
                         }
                     }
@@ -314,7 +263,7 @@ pub struct IndexInfoResponse {
     pub uuid: Option<String>,
 }
 
-/// Shard info response for frontend with detailed statistics
+/// Shard info response for frontend
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardInfoResponse {
     pub index: String,
@@ -324,45 +273,6 @@ pub struct ShardInfoResponse {
     pub node: Option<String>,
     pub docs: Option<u64>,
     pub store: Option<u64>,
-    // Additional detailed statistics from indices stats API
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub routing: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub indexing: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub get: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub search: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub merges: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub refresh: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub flush: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub warmer: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub query_cache: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fielddata: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub completion: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub segments: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub translog: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub request_cache: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recovery: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seq_no: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retention_leases: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub shard_path: Option<Value>,
 }
 
 #[cfg(test)]
