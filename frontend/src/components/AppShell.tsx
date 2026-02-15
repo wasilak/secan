@@ -1,5 +1,5 @@
 import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip } from '@mantine/core';
-import { useDisclosure, useHotkeys, useLocalStorage } from '@mantine/hooks';
+import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
   IconDashboard, 
@@ -7,14 +7,12 @@ import {
   IconLogout, 
   IconUser,
   IconChevronDown,
-  IconKeyboard,
   IconPin,
   IconPinFilled,
   IconAlertCircle,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { ThemeSelector } from './ThemeSelector';
-import { KeyboardShortcuts } from './KeyboardShortcuts';
 import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { apiClient } from '../api/client';
@@ -127,12 +125,11 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
  * - Logout button
  * - Theme selector integration
  * - Responsive design with mobile support
- * - Keyboard shortcuts support
+ * - Command palette for navigation (Cmd/Ctrl+K)
  */
 export function AppShell() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const [isPinned, setIsPinned] = useLocalStorage({ key: 'nav-pinned', defaultValue: false });
-  const [shortcutsOpened, { open: openShortcuts, close: closeShortcuts }] = useDisclosure(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -153,12 +150,6 @@ export function AppShell() {
     // Default: refresh all (for other pages)
     return undefined;
   };
-
-  // Keyboard shortcut to open help
-  useHotkeys([
-    ['?', openShortcuts],
-    ['shift+/', openShortcuts],
-  ]);
 
   // TODO: Replace with actual user data from auth context
   const user = {
@@ -217,18 +208,6 @@ export function AppShell() {
               <RefreshControl scope={getRefreshScope()} />
               <ThemeSelector />
               
-              {/* Keyboard shortcuts button - hidden on mobile */}
-              <ActionIcon
-                variant="subtle"
-                size="lg"
-                onClick={openShortcuts}
-                aria-label="View keyboard shortcuts"
-                title="Keyboard shortcuts (?)"
-                visibleFrom="sm"
-              >
-                <IconKeyboard size={20} />
-              </ActionIcon>
-              
               {/* User menu */}
               <Menu shadow="md" width={200} position="bottom-end">
                 <Menu.Target>
@@ -256,15 +235,6 @@ export function AppShell() {
                   
                   <Menu.Item c="dimmed" disabled>
                     Roles: {user.roles.join(', ')}
-                  </Menu.Item>
-
-                  <Menu.Divider />
-
-                  <Menu.Item
-                    leftSection={<IconKeyboard size={16} aria-hidden="true" />}
-                    onClick={openShortcuts}
-                  >
-                    Keyboard Shortcuts
                   </Menu.Item>
 
                   <Menu.Divider />
@@ -324,9 +294,6 @@ export function AppShell() {
           <Outlet />
         </MantineAppShell.Main>
 
-        {/* Keyboard Shortcuts Modal */}
-        <KeyboardShortcuts opened={shortcutsOpened} onClose={closeShortcuts} />
-        
         {/* Spotlight Search - must be inside router context */}
         <SpotlightSearch />
       </MantineAppShell>
