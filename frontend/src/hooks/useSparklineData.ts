@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRefresh } from '../contexts/RefreshContext';
 
 /**
  * Hook to track historical data for sparklines
- * Adds a new data point on every value change (refresh)
+ * Adds a new data point on EVERY refresh (even if value doesn't change)
  * Initializes with [0, currentValue] to show trend from baseline
+ * 
+ * This ensures the time axis progresses properly on every refresh interval
+ * by tracking lastRefreshTime from RefreshContext instead of value changes
  */
 export function useSparklineData(
   currentValue: number | undefined,
@@ -11,6 +15,7 @@ export function useSparklineData(
 ) {
   const [data, setData] = useState<number[]>([]);
   const initializedRef = useRef(false);
+  const { lastRefreshTime } = useRefresh();
 
   useEffect(() => {
     if (currentValue === undefined) return;
@@ -22,7 +27,8 @@ export function useSparklineData(
       return;
     }
 
-    // Add data point on every value change (every refresh)
+    // Add data point on EVERY refresh (tracked by lastRefreshTime)
+    // This ensures the time axis progresses even if value doesn't change
     setData((prev) => {
       const newData = [...prev, currentValue];
       
@@ -32,7 +38,7 @@ export function useSparklineData(
       }
       return newData;
     });
-  }, [currentValue, maxDataPoints]);
+  }, [currentValue, lastRefreshTime, maxDataPoints]);
 
   return data;
 }
