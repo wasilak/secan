@@ -9,25 +9,25 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('MasterIndicator', () => {
-  it('renders filled star for master node', () => {
+  it('renders filled crown for master node', () => {
     render(
       <TestWrapper>
         <MasterIndicator isMaster={true} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
     
-    const indicator = screen.getByText('★');
+    const indicator = screen.getByText('♛');
     expect(indicator).toBeInTheDocument();
   });
 
-  it('renders hollow star for master-eligible node', () => {
+  it('renders hollow crown for master-eligible node', () => {
     render(
       <TestWrapper>
         <MasterIndicator isMaster={false} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
     
-    const indicator = screen.getByText('☆');
+    const indicator = screen.getByText('♔');
     expect(indicator).toBeInTheDocument();
   });
 
@@ -38,9 +38,9 @@ describe('MasterIndicator', () => {
       </TestWrapper>
     );
     
-    // Should not render any star indicators
-    expect(screen.queryByText('★')).not.toBeInTheDocument();
-    expect(screen.queryByText('☆')).not.toBeInTheDocument();
+    // Should not render any crown indicators
+    expect(screen.queryByText('♛')).not.toBeInTheDocument();
+    expect(screen.queryByText('♔')).not.toBeInTheDocument();
   });
 
   it('applies correct aria-label for master node', () => {
@@ -72,7 +72,7 @@ describe('MasterIndicator', () => {
       </TestWrapper>
     );
     
-    const indicator = screen.getByText('★');
+    const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '14px' });
   });
 
@@ -83,7 +83,7 @@ describe('MasterIndicator', () => {
       </TestWrapper>
     );
     
-    const indicator = screen.getByText('★');
+    const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '18px' });
   });
 
@@ -94,7 +94,7 @@ describe('MasterIndicator', () => {
       </TestWrapper>
     );
     
-    const indicator = screen.getByText('★');
+    const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '24px' });
   });
 });
