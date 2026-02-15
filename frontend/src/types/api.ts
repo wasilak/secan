@@ -105,6 +105,73 @@ export interface NodeInfo {
   ip?: string;
   version?: string;
   tags?: string[];
+  isMaster: boolean;
+  isMasterEligible: boolean;
+  loadAverage?: number; // 1-minute
+  uptime?: string;
+  uptimeMillis?: number;
+}
+
+/**
+ * Shard statistics
+ */
+export interface ShardStats {
+  total: number;
+  primary: number;
+  replica: number;
+  list: ShardInfo[];
+}
+
+/**
+ * Indexing statistics
+ */
+export interface IndexingStats {
+  indexTotal: number;
+  indexTimeInMillis: number;
+  indexCurrent: number;
+  indexFailed: number;
+  deleteTotal: number;
+  deleteTimeInMillis: number;
+}
+
+/**
+ * Search statistics
+ */
+export interface SearchStats {
+  queryTotal: number;
+  queryTimeInMillis: number;
+  queryCurrent: number;
+  fetchTotal: number;
+  fetchTimeInMillis: number;
+}
+
+/**
+ * File system statistics
+ */
+export interface FileSystemStats {
+  total: number;
+  available: number;
+  used: number;
+  path: string;
+  type: string;
+}
+
+/**
+ * Network statistics
+ */
+export interface NetworkStats {
+  rxBytes: number;
+  txBytes: number;
+}
+
+/**
+ * JVM statistics
+ */
+export interface JvmStats {
+  gcCollectors: Record<string, {
+    collectionCount: number;
+    collectionTimeInMillis: number;
+  }>;
 }
 
 /**
@@ -136,9 +203,18 @@ export interface NodeDetailStats {
   diskTotal: number;
   diskPercent: number;
   cpuPercent?: number;
-  loadAverage?: number[];
+  loadAverage?: [number, number, number]; // 1m, 5m, 15m
   threadPools?: Record<string, ThreadPoolStats>;
   uptime?: string;
+  uptimeMillis?: number;
+  isMaster: boolean;
+  isMasterEligible: boolean;
+  shards?: ShardStats;
+  indexing?: IndexingStats;
+  search?: SearchStats;
+  fs?: FileSystemStats;
+  network?: NetworkStats;
+  jvm?: JvmStats;
 }
 
 /**
