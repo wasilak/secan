@@ -1125,9 +1125,17 @@ function ShardDetailsModal({
       opened={opened}
       onClose={onClose}
       title={`Shard Details: ${shard.index} / ${shard.shard}`}
-      size="lg"
+      size="80%"
+      fullScreen={false}
+      styles={{
+        body: {
+          height: 'calc(100vh - 120px)',
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
     >
-      <ScrollArea h={500}>
+      <ScrollArea style={{ flex: 1 }}>
         {loading ? (
           <Stack gap="xs">
             <Skeleton height={20} radius="xs" />
