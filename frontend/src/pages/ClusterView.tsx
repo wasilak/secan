@@ -79,6 +79,22 @@ function formatPercent(used: number, total: number): number {
 }
 
 /**
+ * Get background color for index health in shard allocation grid
+ */
+function getIndexBackgroundColor(health: string): string {
+  switch (health) {
+    case 'green':
+      return 'transparent';
+    case 'yellow':
+      return 'rgba(250, 176, 5, 0.15)'; // Semi-transparent yellow
+    case 'red':
+      return 'rgba(250, 82, 82, 0.15)'; // Semi-transparent red
+    default:
+      return 'transparent';
+  }
+}
+
+/**
  * ClusterView component displays detailed information about a single cluster.
  * 
  * Features:
@@ -1500,7 +1516,14 @@ function ShardAllocationGrid({
                     const indexUnassigned = unassignedByIndex[index.name] || [];
                     
                     return (
-                      <Table.Td key={`unassigned-${index.name}`} style={{ padding: '4px', textAlign: 'center', backgroundColor: 'var(--mantine-color-red-0)' }}>
+                      <Table.Td 
+                        key={`unassigned-${index.name}`} 
+                        style={{ 
+                          padding: '4px', 
+                          textAlign: 'center', 
+                          backgroundColor: getIndexBackgroundColor(index.health)
+                        }}
+                      >
                         {indexUnassigned.length > 0 ? (
                           <Group gap={2} justify="center" wrap="wrap">
                             {indexUnassigned.map((shard, idx) => (
@@ -1598,7 +1621,14 @@ function ShardAllocationGrid({
                       const indexShards = nodeShards?.get(index.name) || [];
                       
                       return (
-                        <Table.Td key={`${node.id}-${index.name}`} style={{ padding: '4px', textAlign: 'center' }}>
+                        <Table.Td 
+                          key={`${node.id}-${index.name}`} 
+                          style={{ 
+                            padding: '4px', 
+                            textAlign: 'center',
+                            backgroundColor: getIndexBackgroundColor(index.health)
+                          }}
+                        >
                           {indexShards.length > 0 ? (
                             <Group gap={2} justify="center" wrap="wrap">
                               {indexShards.map((shard, idx) => (
