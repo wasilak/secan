@@ -85,14 +85,33 @@ export function IndexSettings() {
     enabled: !!clusterId && !!indexName,
   });
 
-  // Filter out read-only settings that cannot be updated
+  // Filter out read-only and static settings that cannot be updated on an open index
   const filterReadOnlySettings = (settings: Record<string, unknown>): Record<string, unknown> => {
-    const readOnlyFields = [
+    // System-managed read-only fields (never modifiable)
+    const systemReadOnlyFields = [
       'creation_date',
       'provided_name',
       'uuid',
       'version',
     ];
+
+    // Static settings (can only be set at index creation or on closed index)
+    const staticFields = [
+      'number_of_shards',
+      'number_of_routing_shards',
+      'codec',
+      'mode',
+      'routing_partition_size',
+      'soft_deletes',
+      'load_fixed_bitset_filters_eagerly',
+      'shard',
+      'sort',
+      'store',
+      'time_series',
+      'routing_path',
+    ];
+
+    const allFilteredFields = [...systemReadOnlyFields, ...staticFields];
 
     const filtered: Record<string, unknown> = {};
     
@@ -103,8 +122,8 @@ export function IndexSettings() {
         const filteredIndex: Record<string, unknown> = {};
         
         for (const [indexKey, indexValue] of Object.entries(indexSettings)) {
-          // Skip read-only fields
-          if (!readOnlyFields.includes(indexKey)) {
+          // Skip read-only and static fields
+          if (!allFilteredFields.includes(indexKey)) {
             filteredIndex[indexKey] = indexValue;
           }
         }
@@ -112,7 +131,7 @@ export function IndexSettings() {
         if (Object.keys(filteredIndex).length > 0) {
           filtered[key] = filteredIndex;
         }
-      } else if (!readOnlyFields.includes(key)) {
+      } else if (!allFilteredFields.includes(key)) {
         filtered[key] = value;
       }
     }
@@ -280,20 +299,26 @@ export function IndexSettings() {
       </Group>
 
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} color="blue" title="Read-Only Settings Filtered">
+        <Alert icon={<IconInfoCircle size={16} />} color="blue" title="Static and Read-Only Settings Filtered">
           <Text size="sm">
-            System-managed read-only settings have been automatically filtered out and will not appear in the editor:
-            <br />
-            • <strong>creation_date</strong>: Index creation timestamp
-            <br />
-            • <strong>provided_name</strong>: Original index name
-            <br />
-            • <strong>uuid</strong>: Unique index identifier
-            <br />
-            • <strong>version</strong>: Elasticsearch version information
+            The following settings have been automatically filtered out because they cannot be modified on an open index:
             <br />
             <br />
-            These settings are managed by Elasticsearch and cannot be modified.
+            <strong>System-Managed (Never Modifiable):</strong>
+            <br />
+            • creation_date, provided_name, uuid, version
+            <br />
+            <br />
+            <strong>Static Settings (Require Closed Index):</strong>
+            <br />
+            • number_of_shards, number_of_routing_shards, codec, mode
+            <br />
+            • routing_partition_size, soft_deletes, shard, sort, store
+            <br />
+            • time_series, routing_path, load_fixed_bitset_filters_eagerly
+            <br />
+            <br />
+            To modify static settings, you must close the index first, update the settings, then reopen it.
           </Text>
         </Alert>
 
