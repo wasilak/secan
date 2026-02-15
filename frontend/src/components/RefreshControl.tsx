@@ -11,10 +11,15 @@ import { useEffect, useState } from 'react';
  * - Manual refresh button
  * - Visual indicator when refreshing
  * - Countdown timer showing time until next refresh
+ * - Scoped refresh support (only refresh relevant queries)
  * 
  * Requirements: Real-time cluster state updates
  */
-export function RefreshControl() {
+interface RefreshControlProps {
+  scope?: string | string[];
+}
+
+export function RefreshControl({ scope }: RefreshControlProps = {}) {
   const { interval, setInterval, isRefreshing, refresh, lastRefreshTime } = useRefresh();
   const [timeUntilRefresh, setTimeUntilRefresh] = useState<number | null>(null);
 
@@ -75,7 +80,7 @@ export function RefreshControl() {
         <ActionIcon
           variant="subtle"
           color="blue"
-          onClick={refresh}
+          onClick={() => refresh(scope)}
           loading={isRefreshing}
           size="sm"
         >

@@ -21,7 +21,7 @@ interface RefreshContextValue {
   interval: RefreshInterval;
   setInterval: (interval: RefreshInterval) => void;
   isRefreshing: boolean;
-  refresh: () => void;
+  refresh: (scope?: string | string[]) => void;
   lastRefreshTime: number | null;
 }
 
@@ -71,12 +71,20 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
     localStorage.setItem('cerebro-refresh-interval', String(newInterval));
   }, []);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback((scope?: string | string[]) => {
     setIsRefreshing(true);
     setLastRefreshTime(Date.now());
     
-    // Invalidate all queries to trigger refetch
-    queryClient.invalidateQueries();
+    // Invalidate queries based on scope
+    if (scope) {
+      const scopes = Array.isArray(scope) ? scope : [scope];
+      scopes.forEach(s => {
+        queryClient.invalidateQueries({ queryKey: [s] });
+      });
+    } else {
+      // If no scope provided, invalidate all queries (backward compatibility)
+      queryClient.invalidateQueries();
+    }
     
     // Reset refreshing state after a short delay
     setTimeout(() => {
