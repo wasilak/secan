@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Container,
   Title,
@@ -19,6 +19,7 @@ import {
   Checkbox,
   TextInput,
   Tooltip,
+  Code,
 } from '@mantine/core';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -58,6 +59,9 @@ export function ShardManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [relocateModalOpen, setRelocateModalOpen] = useState(false);
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [shardDetailsData, setShardDetailsData] = useState<unknown>(null);
+  const [shardDetailsLoading, setShardDetailsLoading] = useState(false);
   
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
@@ -230,6 +234,30 @@ export function ShardManagement() {
     setSelectedShard(shard);
     setRelocateModalOpen(true);
   };
+
+  const handleShardDetails = (shard: ShardInfo) => {
+    setSelectedShard(shard);
+    setDetailsModalOpen(true);
+  };
+
+  // Fetch detailed stats when details modal opens
+  useEffect(() => {
+    if (detailsModalOpen && selectedShard && !shardDetailsLoading) {
+      setShardDetailsLoading(true);
+      apiClient
+        .getShardStats(id!, selectedShard.index, selectedShard.shard)
+        .then((stats) => {
+          setShardDetailsData(stats);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch shard stats:', error);
+          setShardDetailsData(null);
+        })
+        .finally(() => {
+          setShardDetailsLoading(false);
+        });
+    }
+  }, [detailsModalOpen, selectedShard, id, shardDetailsLoading]);
 
   if (!id) {
     return (
@@ -687,9 +715,21 @@ export function ShardManagement() {
                                 ? 'red'
                                 : 'yellow'
                             }
-                            style={{ cursor: shard.state === 'STARTED' && shard.node ? 'pointer' : 'default' }}
-                            onClick={() => {
+                            style={{ cursor: 'pointer' }}
+                            onClick={(e) => {
+                              // Right-click or Ctrl+click for relocate, regular click for details
+                              if (e.ctrlKey || e.metaKey || e.button === 2) {
+                                if (shard.state === 'STARTED' && shard.node) {
+                                  e.preventDefault();
+                                  handleRelocateShard(shard);
+                                }
+                              } else {
+                                handleShardDetails(shard);
+                              }
+                            }}
+                            onContextMenu={(e) => {
                               if (shard.state === 'STARTED' && shard.node) {
+                                e.preventDefault();
                                 handleRelocateShard(shard);
                               }
                             }}
@@ -708,18 +748,19 @@ export function ShardManagement() {
       </Card>
 
       {selectedShard && (
-        <RelocateShardModal
-          opened={relocateModalOpen}
-          onClose={() => {
-            setRelocateModalOpen(false);
-            setSelectedShard(null);
-          }}
-          shard={selectedShard}
-          nodes={nodes || []}
-          onRelocate={(toNode) => {
-            if (selectedShard.node) {
-              relocateMutation.mutate({
-                index: selectedShard.index,
+        <>
+          <RelocateShardModal
+            opened={relocateModalOpen}
+            onClose={() => {
+              setRelocateModalOpen(false);
+              setSelectedShard(null);
+            }}
+            shard={selectedShard}
+            nodes={nodes || []}
+            onRelocate={(toNode) => {
+              if (selectedShard.node) {
+                relocateMutation.mutate({
+                  index: selectedShard.index,
                 shard: selectedShard.shard,
                 fromNode: selectedShard.node,
                 toNode,
@@ -728,6 +769,29 @@ export function ShardManagement() {
           }}
           isLoading={relocateMutation.isPending}
         />
+        
+        <Modal
+          opened={detailsModalOpen}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setShardDetailsData(null);
+          }}
+          title={`Shard Details: ${selectedShard.index} / ${selectedShard.shard}`}
+          size="lg"
+        >
+          <ScrollArea h={500}>
+            {shardDetailsLoading ? (
+              <Group justify="center" py="xl">
+                <Loader />
+              </Group>
+            ) : (
+              <Code block>
+                {JSON.stringify(shardDetailsData || selectedShard, null, 2)}
+              </Code>
+            )}
+          </ScrollArea>
+        </Modal>
+      </>
       )}
     </Container>
   );

@@ -11,6 +11,9 @@ import {
   Stack,
   Group,
   UnstyledButton,
+  RingProgress,
+  Card,
+  Grid,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -346,6 +349,96 @@ export function Dashboard() {
       <Group justify="space-between" wrap="wrap">
         <Title order={1} className="text-responsive-xl">Dashboard</Title>
       </Group>
+
+      {/* Cluster Health Summary with RingProgress */}
+      <Grid>
+        <Grid.Col span={{ base: 12, sm: 4 }}>
+          <Card shadow="sm" padding="lg">
+            <Group justify="center">
+              <RingProgress
+                size={120}
+                thickness={12}
+                sections={[
+                  {
+                    value: (sortedClusters.filter(c => c.health === 'green').length / sortedClusters.length) * 100,
+                    color: 'green',
+                  },
+                ]}
+                label={
+                  <Center>
+                    <Stack gap={0} align="center">
+                      <Text size="xl" fw={700}>
+                        {sortedClusters.filter(c => c.health === 'green').length}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Green
+                      </Text>
+                    </Stack>
+                  </Center>
+                }
+              />
+            </Group>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, sm: 4 }}>
+          <Card shadow="sm" padding="lg">
+            <Group justify="center">
+              <RingProgress
+                size={120}
+                thickness={12}
+                sections={[
+                  {
+                    value: (sortedClusters.filter(c => c.health === 'yellow').length / sortedClusters.length) * 100,
+                    color: 'yellow',
+                  },
+                ]}
+                label={
+                  <Center>
+                    <Stack gap={0} align="center">
+                      <Text size="xl" fw={700}>
+                        {sortedClusters.filter(c => c.health === 'yellow').length}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Yellow
+                      </Text>
+                    </Stack>
+                  </Center>
+                }
+              />
+            </Group>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, sm: 4 }}>
+          <Card shadow="sm" padding="lg">
+            <Group justify="center">
+              <RingProgress
+                size={120}
+                thickness={12}
+                sections={[
+                  {
+                    value: (sortedClusters.filter(c => c.health === 'red').length / sortedClusters.length) * 100,
+                    color: 'red',
+                  },
+                ]}
+                label={
+                  <Center>
+                    <Stack gap={0} align="center">
+                      <Text size="xl" fw={700}>
+                        {sortedClusters.filter(c => c.health === 'red').length}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Red
+                      </Text>
+                    </Stack>
+                  </Center>
+                }
+              />
+            </Group>
+          </Card>
+        </Grid.Col>
+      </Grid>
 
       {/* Responsive table with horizontal scroll on mobile */}
       <div style={{ overflowX: 'auto' }}>
