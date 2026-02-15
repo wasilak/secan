@@ -72,7 +72,6 @@ services:
 
   # Original Cerebro (Scala version)
   # Runs on port 9000 for comparison with the rewrite
-  # Pre-configured to connect to Elasticsearch
   cerebro-original:
     image: lmenezes/cerebro:latest
     container_name: cerebro-original
@@ -83,11 +82,6 @@ services:
       - "9000:9000"
     networks:
       - elastic
-    environment:
-      - CEREBRO_PORT=9000
-    volumes:
-      - ./cerebro-config:/opt/cerebro/conf:ro
-    command: ["-Dconfig.file=/opt/cerebro/conf/application.conf"]
 
   # Kibana (optional, for additional cluster management)
   # Uncomment if you want to use Kibana alongside Cerebro
