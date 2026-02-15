@@ -705,6 +705,7 @@ function NodesList({
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
+                <Table.Th>Node ID</Table.Th>
                 <Table.Th>Roles</Table.Th>
                 <Table.Th>Heap Usage</Table.Th>
                 <Table.Th>Disk Usage</Table.Th>
@@ -721,6 +722,11 @@ function NodesList({
                   <Table.Td>
                     <Text size="sm" fw={500}>{node.name}</Text>
                     {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
+                      {node.id}
+                    </Text>
                   </Table.Td>
                   <Table.Td>
                     <Group gap="xs">
