@@ -5,7 +5,6 @@ import {
   Table,
   Badge,
   Text,
-  Loader,
   Alert,
   Center,
   Stack,
@@ -15,6 +14,7 @@ import {
   Card,
   Grid,
   Box,
+  Skeleton,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -296,12 +296,29 @@ export function Dashboard() {
         <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
-        <Center h={200}>
-          <Stack align="center" gap="md">
-            <Loader size="lg" />
-            <Text c="dimmed">Loading clusters...</Text>
-          </Stack>
-        </Center>
+        <Grid>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={120} radius="md" />
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={120} radius="md" />
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 4 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={120} radius="md" />
+            </Card>
+          </Grid.Col>
+        </Grid>
+        <Stack gap="xs">
+          <Skeleton height={40} radius="sm" />
+          <Skeleton height={60} radius="sm" />
+          <Skeleton height={60} radius="sm" />
+          <Skeleton height={60} radius="sm" />
+        </Stack>
       </Stack>
     );
   }

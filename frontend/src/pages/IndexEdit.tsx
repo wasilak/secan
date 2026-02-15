@@ -127,6 +127,15 @@ export function IndexEdit() {
   
   // Get active tab from URL or default to 'settings'
   const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'settings';
+  
+  // Ensure tab is set in URL when modal opens
+  useEffect(() => {
+    if (searchParams.has('index') && !searchParams.has('indexTab')) {
+      const params = new URLSearchParams(searchParams);
+      params.set('indexTab', 'settings');
+      setSearchParams(params, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [settings, setSettings] = useState('');
   const [mappings, setMappings] = useState('');

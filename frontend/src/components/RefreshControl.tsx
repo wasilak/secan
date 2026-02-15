@@ -1,4 +1,4 @@
-import { Group, Select, ActionIcon, Text, Tooltip } from '@mantine/core';
+import { Group, Select, ActionIcon, Text, Tooltip, Progress, Stack } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
 import { useRefresh, REFRESH_INTERVALS, RefreshInterval } from '../contexts/RefreshContext';
 import { useEffect, useState } from 'react';
@@ -56,37 +56,50 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
   }));
 
   return (
-    <Group gap="xs">
-      <Select
-        data={intervalOptions}
-        value={String(interval)}
-        onChange={(value) => setInterval(Number(value) as RefreshInterval)}
-        size="xs"
-        w={80}
-        styles={{
-          input: {
-            fontSize: '0.75rem',
-          },
-        }}
-      />
-      
-      {timeUntilRefresh !== null && interval > 0 && (
-        <Text size="xs" c="dimmed" style={{ minWidth: '30px', textAlign: 'right' }}>
-          {formatTimeRemaining(timeUntilRefresh)}
-        </Text>
-      )}
+    <Stack gap={4}>
+      <Group gap="xs">
+        <Select
+          data={intervalOptions}
+          value={String(interval)}
+          onChange={(value) => setInterval(Number(value) as RefreshInterval)}
+          size="xs"
+          w={80}
+          styles={{
+            input: {
+              fontSize: '0.75rem',
+            },
+          }}
+        />
+        
+        {timeUntilRefresh !== null && interval > 0 && (
+          <Text size="xs" c="dimmed" style={{ minWidth: '30px', textAlign: 'right' }}>
+            {formatTimeRemaining(timeUntilRefresh)}
+          </Text>
+        )}
 
-      <Tooltip label="Refresh now" position="bottom">
-        <ActionIcon
-          variant="subtle"
+        <Tooltip label="Refresh now" position="bottom">
+          <ActionIcon
+            variant="subtle"
+            color="blue"
+            onClick={() => refresh(scope)}
+            loading={isRefreshing}
+            size="sm"
+          >
+            <IconRefresh size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+      
+      {/* Progress bar showing time until next refresh */}
+      {interval > 0 && timeUntilRefresh !== null && (
+        <Progress
+          value={((interval - timeUntilRefresh) / interval) * 100}
+          size="xs"
+          radius="xs"
           color="blue"
-          onClick={() => refresh(scope)}
-          loading={isRefreshing}
-          size="sm"
-        >
-          <IconRefresh size={16} />
-        </ActionIcon>
-      </Tooltip>
-    </Group>
+          animated={false}
+        />
+      )}
+    </Stack>
   );
 }
