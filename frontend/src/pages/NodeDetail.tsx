@@ -20,6 +20,7 @@ import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
+import { MasterIndicator } from '../components/MasterIndicator';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 
 /**
@@ -134,7 +135,15 @@ export function NodeDetail() {
               Back to Cluster
             </Button>
           </Group>
-          <Title order={1}>{nodeStats.name}</Title>
+          <Group gap="xs" align="center">
+            <MasterIndicator
+              isMaster={nodeStats.isMaster}
+              isMasterEligible={nodeStats.isMasterEligible}
+              size="lg"
+              showTooltip={true}
+            />
+            <Title order={1}>{nodeStats.name}</Title>
+          </Group>
           <Text size="sm" c="dimmed">
             Node ID: {nodeStats.id}
           </Text>
