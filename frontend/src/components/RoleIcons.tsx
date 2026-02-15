@@ -64,15 +64,13 @@ export function RoleIcons({ roles, size = 16 }: { roles: string[]; size?: number
 /**
  * RoleLegend component displays a legend of all role icons
  */
-export function RoleLegend() {
-  const commonRoles = ['master', 'data', 'ingest', 'ml', 'remote_cluster_client'];
-
+export function RoleLegend({ roles }: { roles: string[] }) {
   return (
     <Group gap="md" wrap="wrap">
       <Text size="sm" fw={500} c="dimmed">
         Role Legend:
       </Text>
-      {commonRoles.map((role) => {
+      {roles.map((role) => {
         const roleInfo = getRoleIcon(role);
         const Icon = roleInfo.icon;
         return (
