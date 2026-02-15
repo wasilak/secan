@@ -1,0 +1,114 @@
+version: '3'
+
+tasks:
+  dev:
+    desc: Build frontend, build backend, and run the server
+    cmds:
+      - task: build-frontend
+      - task: build-backend
+      - task: run-backend
+
+  build-frontend:
+    desc: Build the frontend React application
+    dir: frontend
+    cmds:
+      - npm run build
+    sources:
+      - src/**/*
+      - index.html
+      - package.json
+      - vite.config.ts
+      - tsconfig.json
+    generates:
+      - ../backend/assets/**/*
+
+  build-backend:
+    desc: Build the Rust backend
+    dir: backend
+    cmds:
+      - cargo build
+    sources:
+      - src/**/*.rs
+      - Cargo.toml
+      - Cargo.lock
+    generates:
+      - target/debug/cerebro-backend
+
+  run-backend:
+    desc: Run the backend server
+    dir: backend
+    cmds:
+      - cargo run
+
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - rm -rf frontend/node_modules
+      - rm -rf frontend/dist
+      - rm -rf backend/target
+      - rm -rf backend/assets
+
+  test:
+    desc: Run all tests
+    cmds:
+      - task: test-backend
+      - task: test-frontend
+
+  test-backend:
+    desc: Run backend tests
+    dir: backend
+    cmds:
+      - cargo test
+
+  test-frontend:
+    desc: Run frontend tests
+    dir: frontend
+    cmds:
+      - npm test
+
+  lint:
+    desc: Run linters
+    cmds:
+      - task: lint-backend
+      - task: lint-frontend
+
+  lint-backend:
+    desc: Run Rust linter
+    dir: backend
+    cmds:
+      - cargo clippy
+      - cargo fmt --check
+
+  lint-frontend:
+    desc: Run TypeScript/React linter
+    dir: frontend
+    cmds:
+      - npm run lint
+
+  bootstrap-data:
+    desc: Bootstrap test data in Elasticsearch
+    cmds:
+      - ./scripts/bootstrap-test-data.sh
+
+  cleanup-data:
+    desc: Clean up test data from Elasticsearch
+    cmds:
+      - ./scripts/cleanup-test-data.sh
+
+  docker-up:
+    desc: Start Elasticsearch with Docker Compose
+    cmds:
+      - docker-compose up -d
+
+  docker-down:
+    desc: Stop Elasticsearch
+    cmds:
+      - docker-compose down
+
+  full-dev:
+    desc: Start Elasticsearch, bootstrap data, and run dev server
+    cmds:
+      - task: docker-up
+      - sleep 5
+      - task: bootstrap-data
+      - task: dev
