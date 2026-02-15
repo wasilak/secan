@@ -926,75 +926,7 @@ function IndicesList({
         )}
       </Group>
 
-      {/* Unassigned shards section */}
-      {unassignedShards.length > 0 && (
-        <Card shadow="sm" padding="lg" style={{ backgroundColor: 'var(--mantine-color-red-0)', border: '2px solid var(--mantine-color-red-3)' }}>
-          <Group justify="space-between" mb="md">
-            <div>
-              <Title order={4}>Unassigned Shards</Title>
-              <Text size="sm" c="dimmed">
-                {unassignedShards.length} shard{unassignedShards.length > 1 ? 's' : ''} not allocated to any node
-              </Text>
-            </div>
-            <Badge size="lg" color="red" variant="filled">
-              {unassignedShards.length}
-            </Badge>
-          </Group>
-          
-          <Stack gap="md">
-            {Object.entries(unassignedByIndex)
-              .filter(([indexName]) => {
-                // Apply search filter
-                if (debouncedSearch && !indexName.toLowerCase().includes(debouncedSearch.toLowerCase())) {
-                  return false;
-                }
-                return true;
-              })
-              .sort(([a], [b]) => sortAscending ? a.localeCompare(b) : b.localeCompare(a))
-              .map(([indexName, indexShards]) => (
-                <Card key={indexName} shadow="xs" padding="sm" withBorder style={{ backgroundColor: 'white' }}>
-                  <Stack gap="xs">
-                    <Group justify="space-between">
-                      <Text 
-                        size="sm" 
-                        fw={500}
-                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                        onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(indexName)}/edit`)}
-                      >
-                        {indexName}
-                      </Text>
-                      <Badge size="sm" color="red" variant="light">
-                        {indexShards.length} unassigned
-                      </Badge>
-                    </Group>
-                    <Group gap="xs">
-                      {indexShards.map((shard, idx) => (
-                        <Tooltip
-                          key={`unassigned-${shard.index}-${shard.shard}-${idx}`}
-                          label={
-                            <div>
-                              <div>Shard: {shard.shard}</div>
-                              <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
-                              <div>State: UNASSIGNED</div>
-                            </div>
-                          }
-                        >
-                          <Badge
-                            size="lg"
-                            variant={shard.primary ? 'filled' : 'light'}
-                            color="red"
-                          >
-                            {shard.shard}
-                          </Badge>
-                        </Tooltip>
-                      ))}
-                    </Group>
-                  </Stack>
-                </Card>
-              ))}
-          </Stack>
-        </Card>
-      )}
+      {/* Unassigned shards section - REMOVED, now shown in table column */}
 
       {filteredIndices && filteredIndices.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
@@ -1013,93 +945,107 @@ function IndicesList({
                 <Table.Th>Shards</Table.Th>
                 {expandedView && <Table.Th>Primaries</Table.Th>}
                 {expandedView && <Table.Th>Replicas</Table.Th>}
+                <Table.Th>Unassigned</Table.Th>
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredIndices?.map((index) => (
-                <Table.Tr 
-                  key={index.name}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
-                >
-                  <Table.Td>
-                    <Stack gap={2}>
-                      <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
-                      {expandedView && hasProblems(index.name) && (
-                        <Badge size="xs" color="yellow" variant="light">
-                          Has Issues
+              {filteredIndices?.map((index) => {
+                const unassignedCount = unassignedByIndex[index.name]?.length || 0;
+                
+                return (
+                  <Table.Tr 
+                    key={index.name}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
+                  >
+                    <Table.Td>
+                      <Stack gap={2}>
+                        <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
+                        {expandedView && hasProblems(index.name) && (
+                          <Badge size="xs" color="yellow" variant="light">
+                            Has Issues
+                          </Badge>
+                        )}
+                      </Stack>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="sm" color={getHealthColor(index.health)}>
+                        {index.health}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
+                        {index.status}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{index.docsCount.toLocaleString()}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{formatBytes(index.storeSize)}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">
+                        {expandedView ? `${index.primaryShards + index.replicaShards}` : `${index.primaryShards}p / ${index.replicaShards}r`}
+                      </Text>
+                    </Table.Td>
+                    {expandedView && (
+                      <Table.Td>
+                        <Text size="sm">{index.primaryShards}</Text>
+                      </Table.Td>
+                    )}
+                    {expandedView && (
+                      <Table.Td>
+                        <Text size="sm">{index.replicaShards}</Text>
+                      </Table.Td>
+                    )}
+                    <Table.Td>
+                      {unassignedCount > 0 ? (
+                        <Badge size="sm" color="red" variant="filled">
+                          {unassignedCount}
                         </Badge>
+                      ) : (
+                        <Text size="sm" c="dimmed">-</Text>
                       )}
-                    </Stack>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge size="sm" color={getHealthColor(index.health)}>
-                      {index.health}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
-                      {index.status}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{index.docsCount.toLocaleString()}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">{formatBytes(index.storeSize)}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm">
-                      {expandedView ? `${index.primaryShards + index.replicaShards}` : `${index.primaryShards}p / ${index.replicaShards}r`}
-                    </Text>
-                  </Table.Td>
-                  {expandedView && (
-                    <Table.Td>
-                      <Text size="sm">{index.primaryShards}</Text>
                     </Table.Td>
-                  )}
-                  {expandedView && (
-                    <Table.Td>
-                      <Text size="sm">{index.replicaShards}</Text>
-                    </Table.Td>
-                  )}
-                  <Table.Td onClick={(e) => e.stopPropagation()}>
-                    <Group gap="xs">
-                      {id && <IndexOperations clusterId={id} index={index} />}
-                      <Menu shadow="md" width={200}>
-                        <Menu.Target>
-                          <ActionIcon variant="subtle" color="gray">
-                            <IconDots size={16} />
-                          </ActionIcon>
-                        </Menu.Target>
+                    <Table.Td onClick={(e) => e.stopPropagation()}>
+                      <Group gap="xs">
+                        {id && <IndexOperations clusterId={id} index={index} />}
+                        <Menu shadow="md" width={200}>
+                          <Menu.Target>
+                            <ActionIcon variant="subtle" color="gray">
+                              <IconDots size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
 
-                        <Menu.Dropdown>
-                          <Menu.Label>Index Management</Menu.Label>
-                          <Menu.Item
-                            leftSection={<IconSettings size={14} />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=settings`);
-                            }}
-                          >
-                            Settings
-                          </Menu.Item>
-                          <Menu.Item
-                            leftSection={<IconMap size={14} />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=mappings`);
-                            }}
-                          >
-                            Mappings
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
+                          <Menu.Dropdown>
+                            <Menu.Label>Index Management</Menu.Label>
+                            <Menu.Item
+                              leftSection={<IconSettings size={14} />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=settings`);
+                              }}
+                            >
+                              Settings
+                            </Menu.Item>
+                            <Menu.Item
+                              leftSection={<IconMap size={14} />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=mappings`);
+                              }}
+                            >
+                              Mappings
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
             </Table.Tbody>
           </Table>
         </ScrollArea>
