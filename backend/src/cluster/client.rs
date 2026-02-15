@@ -77,9 +77,7 @@ impl Client {
             "{}://{}{}",
             url.scheme(),
             url.host_str().unwrap_or("localhost"),
-            url.port()
-                .map(|p| format!(":{}", p))
-                .unwrap_or_default()
+            url.port().map(|p| format!(":{}", p)).unwrap_or_default()
         );
 
         // Create connection pool
@@ -122,9 +120,8 @@ impl Client {
         };
 
         // Configure TLS certificate verification
-        let mut http_client_builder = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30));
-        
+        let mut http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(30));
+
         if !config.tls.verify {
             tracing::warn!("TLS certificate verification is disabled - this is insecure!");
             transport_builder =
@@ -164,7 +161,7 @@ impl ElasticsearchClient for Client {
         // For arbitrary requests, we need to use reqwest directly since the ES SDK
         // doesn't provide a generic request builder for all paths
         let url = format!("{}{}", self.base_url, path);
-        
+
         let mut req = match method {
             Method::GET => self.http_client.get(&url),
             Method::POST => self.http_client.post(&url),

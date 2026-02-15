@@ -92,6 +92,11 @@ pub fn transform_nodes(
             // Parse CPU
             let cpu_percent = node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32;
 
+            // Extract load average (1-minute)
+            let load_average = node_stats["os"]["cpu"]["load_average"]["1m"]
+                .as_f64()
+                .or_else(|| node_stats["os"]["load_average"].as_f64());
+
             result.push(NodeInfoResponse {
                 id: node_id.clone(),
                 name: node_info["name"].as_str().unwrap_or("").to_string(),
@@ -105,6 +110,7 @@ pub fn transform_nodes(
                 version: node_info["version"].as_str().map(|s| s.to_string()),
                 is_master,
                 is_master_eligible,
+                load_average,
             });
         }
     }
@@ -263,6 +269,8 @@ pub struct NodeInfoResponse {
     pub is_master: bool,
     #[serde(rename = "isMasterEligible")]
     pub is_master_eligible: bool,
+    #[serde(rename = "loadAverage", skip_serializing_if = "Option::is_none")]
+    pub load_average: Option<f64>,
 }
 
 /// Index info response for frontend
@@ -362,7 +370,10 @@ mod tests {
                     },
                     "os": {
                         "cpu": {
-                            "percent": 50
+                            "percent": 50,
+                            "load_average": {
+                                "1m": 1.5
+                            }
                         }
                     }
                 }
@@ -378,6 +389,7 @@ mod tests {
         assert_eq!(result[0].disk_used, 5000000);
         assert_eq!(result[0].is_master, true);
         assert_eq!(result[0].is_master_eligible, true);
+        assert_eq!(result[0].load_average, Some(1.5));
     }
 
     #[test]
@@ -410,7 +422,10 @@ mod tests {
                     },
                     "os": {
                         "cpu": {
-                            "percent": 50
+                            "percent": 50,
+                            "load_average": {
+                                "1m": 0.75
+                            }
                         }
                     }
                 }
@@ -423,5 +438,50 @@ mod tests {
         assert_eq!(result[0].name, "data-node");
         assert_eq!(result[0].is_master, false);
         assert_eq!(result[0].is_master_eligible, false);
+        assert_eq!(result[0].load_average, Some(0.75));
+    }
+
+    #[test]
+    fn test_transform_nodes_no_load_average() {
+        let nodes_info = json!({
+            "nodes": {
+                "node1": {
+                    "name": "test-node",
+                    "roles": ["data"],
+                    "ip": "127.0.0.1",
+                    "version": "8.0.0"
+                }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "node1": {
+                    "jvm": {
+                        "mem": {
+                            "heap_used_in_bytes": 1000000,
+                            "heap_max_in_bytes": 2000000
+                        }
+                    },
+                    "fs": {
+                        "total": {
+                            "total_in_bytes": 10000000,
+                            "available_in_bytes": 5000000
+                        }
+                    },
+                    "os": {
+                        "cpu": {
+                            "percent": 50
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "test-node");
+        assert_eq!(result[0].load_average, None);
     }
 }
