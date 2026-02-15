@@ -21,7 +21,6 @@ import {
   Modal,
   Code,
   Skeleton,
-  Pagination,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +48,7 @@ import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
 import { ClusterStatistics } from '../components/ClusterStatistics';
+import { TablePagination } from '../components/TablePagination';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { useState, useEffect } from 'react';
 
@@ -800,7 +800,20 @@ function IndicesList({
   
   // Pagination state
   const currentPage = parseInt(searchParams.get('indicesPage') || '1', 10);
-  const pageSize = 50; // Items per page
+  const pageSize = parseInt(searchParams.get('indicesPageSize') || '50', 10);
+  
+  const handleIndicesPageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('indicesPage', page.toString());
+    setSearchParams(params);
+  };
+
+  const handleIndicesPageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('indicesPageSize', size.toString());
+    params.set('indicesPage', '1'); // Reset to first page when changing page size
+    setSearchParams(params);
+  };
   
   // Debounce search query to avoid excessive filtering
   // Requirements: 31.7 - Debounce user input in search and filter fields
@@ -994,12 +1007,6 @@ function IndicesList({
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
-
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('indicesPage', String(page));
-    setSearchParams(params);
-  };
 
   if (loading) {
     return (
@@ -1295,17 +1302,14 @@ function IndicesList({
       
       {/* Pagination */}
       {filteredIndices && filteredIndices.length > pageSize && (
-        <Group justify="center" mt="md">
-          <Pagination
-            total={totalPages}
-            value={currentPage}
-            onChange={handlePageChange}
-            size="sm"
-          />
-          <Text size="sm" c="dimmed">
-            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIndices.length)} of {filteredIndices.length}
-          </Text>
-        </Group>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredIndices.length}
+          onPageChange={handleIndicesPageChange}
+          onPageSizeChange={handleIndicesPageSizeChange}
+        />
       )}
     </Stack>
   );
@@ -1448,7 +1452,20 @@ function ShardAllocationGrid({
   
   // Pagination state
   const currentPage = parseInt(searchParams.get('overviewPage') || '1', 10);
-  const pageSize = 20; // Indices per page
+  const pageSize = parseInt(searchParams.get('overviewPageSize') || '20', 10);
+  
+  const handleOverviewPageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('overviewPage', page.toString());
+    setSearchParams(params);
+  };
+
+  const handleOverviewPageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('overviewPageSize', size.toString());
+    params.set('overviewPage', '1'); // Reset to first page when changing page size
+    setSearchParams(params);
+  };
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -1615,12 +1632,6 @@ function ShardAllocationGrid({
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
-
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('overviewPage', String(page));
-    setSearchParams(params);
-  };
 
   // Group shards by node and index
   // Build a map of node identifiers (id, name, ip) to node name for matching
@@ -2022,17 +2033,14 @@ function ShardAllocationGrid({
       
       {/* Pagination */}
       {filteredIndices.length > pageSize && (
-        <Group justify="center" mt="md">
-          <Pagination
-            total={totalPages}
-            value={currentPage}
-            onChange={handlePageChange}
-            size="sm"
-          />
-          <Text size="sm" c="dimmed">
-            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIndices.length)} of {filteredIndices.length} indices
-          </Text>
-        </Group>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredIndices.length}
+          onPageChange={handleOverviewPageChange}
+          onPageSizeChange={handleOverviewPageSizeChange}
+        />
       )}
     </Stack>
   );
@@ -2066,7 +2074,20 @@ function ShardsList({
   
   // Pagination state
   const currentPage = parseInt(searchParams.get('shardsPage') || '1', 10);
-  const pageSize = 100; // Items per page
+  const pageSize = parseInt(searchParams.get('shardsPageSize') || '100', 10);
+  
+  const handleShardsPageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('shardsPage', page.toString());
+    setSearchParams(params);
+  };
+
+  const handleShardsPageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('shardsPageSize', size.toString());
+    params.set('shardsPage', '1'); // Reset to first page when changing page size
+    setSearchParams(params);
+  };
   
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -2167,12 +2188,6 @@ function ShardsList({
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
-
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('shardsPage', String(page));
-    setSearchParams(params);
-  };
 
   return (
     <Stack gap="md">
@@ -2304,17 +2319,14 @@ function ShardsList({
       
       {/* Pagination */}
       {filteredShards && filteredShards.length > pageSize && (
-        <Group justify="center" mt="md">
-          <Pagination
-            total={totalPages}
-            value={currentPage}
-            onChange={handlePageChange}
-            size="sm"
-          />
-          <Text size="sm" c="dimmed">
-            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredShards.length)} of {filteredShards.length}
-          </Text>
-        </Group>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredShards.length}
+          onPageChange={handleShardsPageChange}
+          onPageSizeChange={handleShardsPageSizeChange}
+        />
       )}
 
       {/* Shard Details Modal */}
