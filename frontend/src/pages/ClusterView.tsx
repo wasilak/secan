@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   Title,
   Text,
@@ -1125,11 +1124,114 @@ function ShardAllocationGrid({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showClosed, setShowClosed] = useState(false);
-  const [showSpecial, setShowSpecial] = useState(false);
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get UI state from URL
+  const searchQuery = searchParams.get('overviewSearch') || '';
+  const showClosed = searchParams.get('showClosed') === 'true';
+  const showSpecial = searchParams.get('showSpecial') === 'true';
+  const expandedView = searchParams.get('overviewExpanded') === 'true';
+  const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Update URL params
+  const updateParam = (key: string, value: string | boolean) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '' || value === false) {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, String(value));
+    }
+    setSearchParams(newParams);
+  };
+
+  // Fetch cluster settings to check allocation status
+  const {
+    data: clusterSettings,
+  } = useQuery({
+    queryKey: ['cluster', id, 'settings'],
+    queryFn: async () => {
+      const response = await apiClient.proxyRequest<Record<string, unknown>>(
+        id!,
+        'GET',
+        '/_cluster/settings'
+      );
+      return response;
+    },
+    enabled: !!id,
+  });
+
+  // Check if shard allocation is enabled
+  const shardAllocationEnabled = (() => {
+    if (!clusterSettings) return true;
+    
+    const transient = clusterSettings.transient as Record<string, unknown> | undefined;
+    const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
+    
+    const transientAllocation = transient?.cluster as Record<string, unknown> | undefined;
+    const persistentAllocation = persistent?.cluster as Record<string, unknown> | undefined;
+    
+    const transientRouting = transientAllocation?.routing as Record<string, unknown> | undefined;
+    const persistentRouting = persistentAllocation?.routing as Record<string, unknown> | undefined;
+    
+    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
+    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
+    
+    const enableValue = transientEnable || persistentEnable || 'all';
+    return enableValue === 'all';
+  })();
+
+  // Enable shard allocation mutation
+  const enableAllocationMutation = useMutation({
+    mutationFn: () =>
+      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+        transient: {
+          'cluster.routing.allocation.enable': 'all',
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({
+        title: 'Success',
+        message: 'Shard allocation enabled',
+        color: 'green',
+      });
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to enable shard allocation: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  // Disable shard allocation mutation
+  const disableAllocationMutation = useMutation({
+    mutationFn: (mode: string) =>
+      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+        transient: {
+          'cluster.routing.allocation.enable': mode,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({
+        title: 'Success',
+        message: 'Shard allocation disabled',
+        color: 'green',
+      });
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to disable shard allocation: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
 
   if (loading) {
     return (
@@ -1155,12 +1257,33 @@ function ShardAllocationGrid({
     );
   }
 
+  // Identify unassigned shards
+  const unassignedShards = shards.filter(s => s.state === 'UNASSIGNED');
+  const unassignedByIndex = unassignedShards.reduce((acc, shard) => {
+    if (!acc[shard.index]) {
+      acc[shard.index] = [];
+    }
+    acc[shard.index].push(shard);
+    return acc;
+  }, {} as Record<string, ShardInfo[]>);
+
+  // Check if an index has problems
+  const hasProblems = (indexName: string) => {
+    const indexShards = shards.filter(s => s.index === indexName);
+    return indexShards.some(s => 
+      s.state === 'UNASSIGNED' || 
+      s.state === 'RELOCATING' || 
+      s.state === 'INITIALIZING'
+    );
+  };
+
   // Filter indices based on search and filters
-  const filteredIndices = indices.filter((index) => {
+  let filteredIndices = indices.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesClosed = showClosed || index.status === 'open';
     const matchesSpecial = showSpecial || !index.name.startsWith('.');
-    return matchesSearch && matchesClosed && matchesSpecial;
+    const matchesAffected = !showOnlyAffected || hasProblems(index.name);
+    return matchesSearch && matchesClosed && matchesSpecial && matchesAffected;
   });
 
   // Group shards by node and index
@@ -1198,49 +1321,136 @@ function ShardAllocationGrid({
     nodeShards.get(shard.index)!.push(shard);
   });
 
-  // Count unassigned shards
-  const unassignedShards = shards.filter(s => s.state === 'UNASSIGNED');
-
   return (
     <Stack gap="md">
-      {/* Filters and search */}
+      {/* Toolbar with convenience actions */}
       <Group justify="space-between" wrap="wrap">
-        <TextInput
-          placeholder="Filter indices by name or alias..."
-          leftSection={<IconSearch size={16} />}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.currentTarget.value)}
-          style={{ flex: 1, maxWidth: 400 }}
-        />
-        
-        <Group gap="md">
-          <Group gap="xs">
-            <input
-              type="checkbox"
-              id="show-closed"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-            />
-            <Text size="sm" component="label" htmlFor="show-closed" style={{ cursor: 'pointer' }}>
-              closed ({indices.filter(i => i.status !== 'open').length})
+        <Group>
+          {/* Shard allocation lock/unlock */}
+          {shardAllocationEnabled ? (
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Tooltip label="Disable shard allocation">
+                  <ActionIcon
+                    size="lg"
+                    variant="subtle"
+                    color="green"
+                    loading={disableAllocationMutation.isPending}
+                  >
+                    <IconLockOpen size={20} />
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Disable Allocation</Menu.Label>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">None (default)</Text>
+                  </Group>
+                </Menu.Item>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">Primaries only</Text>
+                  </Group>
+                </Menu.Item>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">New primaries only</Text>
+                  </Group>
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          ) : (
+            <Tooltip label="Enable shard allocation">
+              <ActionIcon
+                size="lg"
+                variant="subtle"
+                color="red"
+                onClick={() => enableAllocationMutation.mutate()}
+                loading={enableAllocationMutation.isPending}
+              >
+                <IconLock size={20} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {/* Expand/compress view */}
+          <Tooltip label={expandedView ? 'Compress view' : 'Expand view'}>
+            <ActionIcon
+              size="lg"
+              variant="subtle"
+              onClick={() => updateParam('overviewExpanded', !expandedView)}
+            >
+              {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+            </ActionIcon>
+          </Tooltip>
+
+          {/* Refresh */}
+          <Tooltip label="Refresh data">
+            <ActionIcon
+              size="lg"
+              variant="subtle"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+              }}
+            >
+              <IconRefresh size={20} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+
+        <Group style={{ flex: 1 }}>
+          <TextInput
+            placeholder="Filter indices by name or alias..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => updateParam('overviewSearch', e.currentTarget.value)}
+            style={{ flex: 1, maxWidth: 400 }}
+          />
+          
+          <Group gap="md">
+            <Group gap="xs">
+              <input
+                type="checkbox"
+                id="overview-show-closed"
+                checked={showClosed}
+                onChange={(e) => updateParam('showClosed', e.target.checked)}
+              />
+              <Text size="sm" component="label" htmlFor="overview-show-closed" style={{ cursor: 'pointer' }}>
+                closed ({indices.filter(i => i.status !== 'open').length})
+              </Text>
+            </Group>
+            
+            <Group gap="xs">
+              <input
+                type="checkbox"
+                id="overview-show-special"
+                checked={showSpecial}
+                onChange={(e) => updateParam('showSpecial', e.target.checked)}
+              />
+              <Text size="sm" component="label" htmlFor="overview-show-special" style={{ cursor: 'pointer' }}>
+                special ({indices.filter(i => i.name.startsWith('.')).length})
+              </Text>
+            </Group>
+
+            {unassignedShards.length > 0 && (
+              <Checkbox
+                label="Show only affected"
+                checked={showOnlyAffected}
+                onChange={(e) => updateParam('overviewAffected', e.currentTarget.checked)}
+              />
+            )}
+            
+            <Text size="sm" c="dimmed">
+              {filteredIndices.length} of {indices.length}
             </Text>
           </Group>
-          
-          <Group gap="xs">
-            <input
-              type="checkbox"
-              id="show-special"
-              checked={showSpecial}
-              onChange={(e) => setShowSpecial(e.target.checked)}
-            />
-            <Text size="sm" component="label" htmlFor="show-special" style={{ cursor: 'pointer' }}>
-              special ({indices.filter(i => i.name.startsWith('.')).length})
-            </Text>
-          </Group>
-          
-          <Text size="sm" c="dimmed">
-            {filteredIndices.length} of {indices.length}
-          </Text>
         </Group>
       </Group>
 
@@ -1301,19 +1511,115 @@ function ShardAllocationGrid({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
+              {/* Unassigned shards row */}
+              {unassignedShards.length > 0 && (
+                <Table.Tr style={{ backgroundColor: 'var(--mantine-color-red-0)' }}>
+                  <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-red-0)', zIndex: 1 }}>
+                    <Stack gap={2}>
+                      <Text size="xs" fw={700} c="red">
+                        Unassigned
+                      </Text>
+                      <Badge size="xs" color="red" variant="filled">
+                        {unassignedShards.length}
+                      </Badge>
+                    </Stack>
+                  </Table.Td>
+                  {filteredIndices.map((index) => {
+                    const indexUnassigned = unassignedByIndex[index.name] || [];
+                    
+                    return (
+                      <Table.Td key={`unassigned-${index.name}`} style={{ padding: '4px', textAlign: 'center', backgroundColor: 'var(--mantine-color-red-0)' }}>
+                        {indexUnassigned.length > 0 ? (
+                          <Group gap={2} justify="center" wrap="wrap">
+                            {indexUnassigned.map((shard, idx) => (
+                              <Tooltip
+                                key={`unassigned-${shard.index}-${shard.shard}-${idx}`}
+                                label={
+                                  <div>
+                                    <div>Shard: {shard.shard}</div>
+                                    <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+                                    <div>State: UNASSIGNED</div>
+                                  </div>
+                                }
+                              >
+                                <div
+                                  style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: 'var(--mantine-color-red-6)',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    borderRadius: '2px',
+                                    border: shard.primary 
+                                      ? '2px solid var(--mantine-color-red-9)' 
+                                      : '2px dashed var(--mantine-color-red-9)',
+                                  }}
+                                >
+                                  {shard.shard}
+                                </div>
+                              </Tooltip>
+                            ))}
+                          </Group>
+                        ) : (
+                          <Text size="xs" c="dimmed">-</Text>
+                        )}
+                      </Table.Td>
+                    );
+                  })}
+                </Table.Tr>
+              )}
+              
+              {/* Node rows */}
               {nodes.map((node) => {
                 const nodeShards = shardsByNodeAndIndex.get(node.name);
                 
                 return (
                   <Table.Tr key={node.id}>
                     <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
-                      <Stack gap={2}>
-                        <Text size="xs" fw={500} truncate="end" title={node.name}>
-                          {node.name}
-                        </Text>
+                      <Stack gap={4}>
+                        <Group gap={4}>
+                          <Text size="xs" fw={500} truncate="end" title={node.name}>
+                            {node.name}
+                          </Text>
+                        </Group>
                         <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
                           {node.ip}
                         </Text>
+                        {expandedView && (
+                          <>
+                            <Group gap={4} wrap="wrap">
+                              {node.roles.map((role) => (
+                                <Badge key={role} size="xs" variant="light" color="gray">
+                                  {role}
+                                </Badge>
+                              ))}
+                            </Group>
+                            {/* Node stats badges - similar to original Cerebro */}
+                            <Group gap={4} wrap="wrap">
+                              <Badge size="xs" color="teal" variant="filled">
+                                {node.id.substring(0, 8)}
+                              </Badge>
+                              <Badge size="xs" color="teal" variant="filled">
+                                {node.roles.length}
+                              </Badge>
+                              <Badge size="xs" color="teal" variant="filled">
+                                {formatBytes(node.heapMax)}
+                              </Badge>
+                              <Badge size="xs" color="teal" variant="filled">
+                                {formatBytes(node.diskTotal)}
+                              </Badge>
+                              {node.cpuPercent !== undefined && (
+                                <Badge size="xs" color="teal" variant="filled">
+                                  {node.cpuPercent}%
+                                </Badge>
+                              )}
+                            </Group>
+                          </>
+                        )}
                       </Stack>
                     </Table.Td>
                     {filteredIndices.map((index) => {
