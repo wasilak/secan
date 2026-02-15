@@ -99,6 +99,10 @@ impl Server {
                 get(crate::routes::clusters::get_nodes),
             )
             .route(
+                "/api/clusters/:id/nodes/:nodeId/stats",
+                get(crate::routes::clusters::get_node_stats),
+            )
+            .route(
                 "/api/clusters/:id/indices",
                 get(crate::routes::clusters::get_indices),
             )

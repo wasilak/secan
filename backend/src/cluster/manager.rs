@@ -195,6 +195,11 @@ impl ClusterConnection {
         self.client.nodes_stats().await
     }
 
+    /// Get stats for a specific node using SDK typed method
+    pub async fn node_stats(&self, node_id: &str) -> Result<Value> {
+        self.client.node_stats(node_id).await
+    }
+
     /// Get indices using SDK typed method
     pub async fn indices_get(&self, index: &str) -> Result<Value> {
         self.client.indices_get(index).await

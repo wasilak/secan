@@ -49,6 +49,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get nodes stats
     async fn nodes_stats(&self) -> Result<Value>;
 
+    /// Get stats for a specific node
+    async fn node_stats(&self, node_id: &str) -> Result<Value>;
+
     /// Get indices
     async fn indices_get(&self, index: &str) -> Result<Value>;
 
@@ -303,6 +306,26 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse nodes stats response")
+    }
+
+    /// Get stats for a specific node using SDK typed method
+    async fn node_stats(&self, node_id: &str) -> Result<Value> {
+        let response = self
+            .client
+            .nodes()
+            .stats(elasticsearch::nodes::NodesStatsParts::NodeId(&[node_id]))
+            .send()
+            .await
+            .context("Node stats request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!("Node stats failed with status: {}", response.status_code());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse node stats response")
     }
 
     /// Get indices using SDK typed method
