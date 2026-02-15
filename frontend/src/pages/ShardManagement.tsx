@@ -21,6 +21,7 @@ import {
   Tooltip,
   Code,
   Skeleton,
+  Box,
 } from '@mantine/core';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -470,7 +471,7 @@ export function ShardManagement() {
               leftSection={<IconFilter size={16} />}
               value={indexFilter}
               onChange={(e) => setIndexFilter(e.currentTarget.value)}
-              style={{ width: 200 }}
+              w={200}
             />
 
             {/* Show only affected checkbox */}
@@ -529,14 +530,14 @@ export function ShardManagement() {
 
       {/* Unassigned shards section */}
       {unassignedShards.length > 0 && (
-        <Card shadow="sm" padding="lg" mb="md" style={{ backgroundColor: 'var(--mantine-color-red-0)' }}>
+        <Card shadow="sm" padding="lg" mb="md" bg="var(--mantine-color-red-0)">
           <Group justify="space-between" mb="md">
-            <div>
+            <Box>
               <Title order={3}>Unassigned Shards</Title>
               <Text size="sm" c="dimmed">
                 {unassignedShards.length} shard{unassignedShards.length > 1 ? 's' : ''} not allocated to any node
               </Text>
-            </div>
+            </Box>
             <Badge size="lg" color="red" variant="filled">
               {unassignedShards.length}
             </Badge>
@@ -562,7 +563,7 @@ export function ShardManagement() {
               })
               .sort(([a], [b]) => sortAscending ? a.localeCompare(b) : b.localeCompare(a))
               .map(([index, indexShards]) => (
-                <Card key={index} shadow="xs" padding="sm" withBorder style={{ backgroundColor: 'white' }}>
+                <Card key={index} shadow="xs" padding="sm" withBorder bg="white">
                   <Stack gap="xs">
                     <Group justify="space-between">
                       <Text size="sm" fw={500}>{index}</Text>
@@ -614,7 +615,7 @@ export function ShardManagement() {
               <Card key={node} shadow="xs" padding="md" withBorder>
                 <Stack gap="xs">
                   <Group justify="space-between">
-                    <div>
+                    <Box>
                       <Text size="sm" fw={500}>{node}</Text>
                       {nodeInfo && expandedView && (
                         <>
@@ -622,7 +623,7 @@ export function ShardManagement() {
                           <Text size="xs" c="dimmed">Roles: {nodeInfo.roles.join(', ')}</Text>
                         </>
                       )}
-                    </div>
+                    </Box>
                     <Group gap="xs">
                       <Badge size="sm" variant="light" color="blue">
                         {primaryShards}p
@@ -638,7 +639,7 @@ export function ShardManagement() {
 
                   {nodeInfo && (
                     <Group gap="md">
-                      <div style={{ flex: 1 }}>
+                      <Box style={{ flex: 1 }}>
                         <Text size="xs" c="dimmed">Heap</Text>
                         <Progress
                           value={Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100)}
@@ -651,8 +652,8 @@ export function ShardManagement() {
                             {formatBytes(nodeInfo.heapUsed)} / {formatBytes(nodeInfo.heapMax)}
                           </Text>
                         )}
-                      </div>
-                      <div style={{ flex: 1 }}>
+                      </Box>
+                      <Box style={{ flex: 1 }}>
                         <Text size="xs" c="dimmed">Disk</Text>
                         <Progress
                           value={Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100)}
@@ -665,7 +666,7 @@ export function ShardManagement() {
                             {formatBytes(nodeInfo.diskUsed)} / {formatBytes(nodeInfo.diskTotal)}
                           </Text>
                         )}
-                      </div>
+                      </Box>
                     </Group>
                   )}
                 </Stack>
@@ -726,7 +727,6 @@ export function ShardManagement() {
                                 ? 'red'
                                 : 'yellow'
                             }
-                            style={{ cursor: 'pointer' }}
                             onClick={(e) => {
                               // Right-click or Ctrl+click for relocate, regular click for details
                               if (e.ctrlKey || e.metaKey || e.button === 2) {
@@ -744,6 +744,7 @@ export function ShardManagement() {
                                 handleRelocateShard(shard);
                               }
                             }}
+                            style={{ cursor: 'pointer' }}
                           >
                             {shard.shard}
                           </Badge>

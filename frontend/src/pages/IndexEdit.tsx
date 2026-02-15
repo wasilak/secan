@@ -415,12 +415,12 @@ export function IndexEdit() {
   return (
     <Container size="xl" py="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
-        <div>
+        <Box>
           <Title order={1}>Edit Index</Title>
           <Text size="sm" c="dimmed">
             {indexName}
           </Text>
-        </div>
+        </Box>
         {!searchParams.has('index') && (
           <Button
             variant="default"
@@ -455,7 +455,9 @@ export function IndexEdit() {
                     </Text>
                     <HoverCard width={320} shadow="md" withArrow>
                       <HoverCard.Target>
-                        <IconInfoCircle size={16} style={{ cursor: 'help', color: 'var(--mantine-color-blue-6)' }} />
+                        <Box component="span" style={{ cursor: 'help' }} c="blue.6">
+                          <IconInfoCircle size={16} />
+                        </Box>
                       </HoverCard.Target>
                       <HoverCard.Dropdown>
                         <Text size="sm" fw={500} mb="xs">

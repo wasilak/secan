@@ -1,4 +1,4 @@
-import { Container, Paper, Title, Text, TextInput, PasswordInput, Button, Stack } from '@mantine/core';
+import { Container, Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Box } from '@mantine/core';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -33,14 +33,15 @@ export function Login() {
   };
 
   return (
-    <Container size="xs" py="xl" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      <Paper shadow="md" p="xl" radius="md" withBorder style={{ width: '100%' }}>
-        <Title order={2} ta="center" mb="md">
-          Cerebro
-        </Title>
-        <Text size="sm" c="dimmed" ta="center" mb="xl">
-          Elasticsearch Web Administration Tool
-        </Text>
+    <Box style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
+      <Container size="xs" py="xl">
+        <Paper shadow="md" p="xl" radius="md" withBorder w="100%">
+          <Title order={2} ta="center" mb="md">
+            Cerebro
+          </Title>
+          <Text size="sm" c="dimmed" ta="center" mb="xl">
+            Elasticsearch Web Administration Tool
+          </Text>
 
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
@@ -71,5 +72,6 @@ export function Login() {
         </Text>
       </Paper>
     </Container>
+    </Box>
   );
 }

@@ -14,6 +14,7 @@ import {
   RingProgress,
   Card,
   Grid,
+  Box,
 } from '@mantine/core';
 import {
   IconAlertCircle,
@@ -441,7 +442,7 @@ export function Dashboard() {
       </Grid>
 
       {/* Responsive table with horizontal scroll on mobile */}
-      <div style={{ overflowX: 'auto' }}>
+      <Box style={{ overflowX: 'auto' }}>
         <Table 
           highlightOnHover 
           striped 
@@ -538,7 +539,7 @@ export function Dashboard() {
             ))}
           </Table.Tbody>
         </Table>
-      </div>
+      </Box>
     </Stack>
   );
 }
