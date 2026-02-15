@@ -394,6 +394,14 @@ export function IndexEdit() {
           </Tabs.List>
 
           <Tabs.Panel value="settings" pt="md">
+            <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
+              <Text size="sm">
+                <strong>Note:</strong> Static and read-only settings are automatically filtered from this editor.
+                These include system-managed fields (creation_date, uuid, version) and static settings that require
+                the index to be closed before modification (number_of_shards, codec, sort, etc.).
+              </Text>
+            </Alert>
+
             <Card shadow="sm" padding="lg">
               <Stack gap="md">
                 <div>
@@ -401,7 +409,7 @@ export function IndexEdit() {
                     Index Settings (JSON)
                   </Text>
                   <Text size="xs" c="dimmed" mb="sm">
-                    Edit the settings below. Static and read-only settings are automatically filtered.
+                    Edit the dynamic settings below
                   </Text>
                   <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
                     <Editor
