@@ -136,7 +136,7 @@ export interface NodeDetailStats {
   diskPercent: number;
   cpuPercent?: number;
   loadAverage?: number[];
-  threadPools: Record<string, ThreadPoolStats>;
+  threadPools?: Record<string, ThreadPoolStats>;
   uptime?: string;
 }
 
