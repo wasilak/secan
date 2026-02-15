@@ -13,10 +13,19 @@ import {
   Progress,
   ScrollArea,
   Button,
+  ThemeIcon,
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
+import { 
+  IconAlertCircle, 
+  IconArrowLeft, 
+  IconBrandElastic,
+  IconCoffee,
+  IconClock,
+  IconCpu,
+  IconActivity,
+} from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
@@ -166,69 +175,97 @@ export function NodeDetail() {
 
       {/* Node Information Cards */}
       <Grid mb="md">
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card shadow="sm" padding="lg" h="100%">
             <Stack gap="xs">
-              <Text size="sm" c="dimmed">Elasticsearch Version</Text>
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="blue">
+                  <IconBrandElastic size={16} />
+                </ThemeIcon>
+                <Text size="sm" c="dimmed">ES Version</Text>
+              </Group>
               <Text size="lg" fw={700}>{nodeStats.version || 'N/A'}</Text>
             </Stack>
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <Card shadow="sm" padding="lg">
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card shadow="sm" padding="lg" h="100%">
             <Stack gap="xs">
-              <Text size="sm" c="dimmed">JVM Version</Text>
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="grape">
+                  <IconCoffee size={16} />
+                </ThemeIcon>
+                <Text size="sm" c="dimmed">JVM Version</Text>
+              </Group>
               <Text size="lg" fw={700}>{nodeStats.jvmVersion || 'N/A'}</Text>
             </Stack>
           </Card>
         </Grid.Col>
 
-        {nodeStats.uptime && (
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg">
-              <Stack gap="xs">
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card shadow="sm" padding="lg" h="100%">
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="teal">
+                  <IconClock size={16} />
+                </ThemeIcon>
                 <Text size="sm" c="dimmed">Uptime</Text>
-                <Text size="lg" fw={700}>{nodeStats.uptime}</Text>
-              </Stack>
-            </Card>
-          </Grid.Col>
-        )}
+              </Group>
+              <Text size="lg" fw={700}>{nodeStats.uptime || 'N/A'}</Text>
+            </Stack>
+          </Card>
+        </Grid.Col>
 
-        {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent) && (
-          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="lg">
-              <Stack gap="xs">
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card shadow="sm" padding="lg" h="100%">
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="green">
+                  <IconCpu size={16} />
+                </ThemeIcon>
                 <Text size="sm" c="dimmed">CPU Usage</Text>
-                <Text size="lg" fw={700}>{formatNumber(nodeStats.cpuPercent, 1)}%</Text>
-              </Stack>
-            </Card>
-          </Grid.Col>
-        )}
-      </Grid>
+              </Group>
+              <Text size="lg" fw={700}>
+                {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent) 
+                  ? `${formatNumber(nodeStats.cpuPercent, 1)}%` 
+                  : 'N/A'}
+              </Text>
+            </Stack>
+          </Card>
+        </Grid.Col>
 
-      {/* Load Average */}
-      {nodeStats.loadAverage && Array.isArray(nodeStats.loadAverage) && nodeStats.loadAverage.length > 0 && (
-        <Card shadow="sm" padding="lg" mb="md">
-          <Stack gap="xs">
-            <Text size="sm" fw={500}>Load Average</Text>
-            <Group gap="xl">
-              <div>
-                <Text size="xs" c="dimmed">1 min</Text>
-                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[0], 2)}</Text>
-              </div>
-              <div>
-                <Text size="xs" c="dimmed">5 min</Text>
-                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[1], 2)}</Text>
-              </div>
-              <div>
-                <Text size="xs" c="dimmed">15 min</Text>
-                <Text size="lg" fw={700}>{formatNumber(nodeStats.loadAverage[2], 2)}</Text>
-              </div>
-            </Group>
-          </Stack>
-        </Card>
-      )}
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card shadow="sm" padding="lg" h="100%">
+            <Stack gap="xs">
+              <Group gap="xs">
+                <ThemeIcon size="sm" variant="light" color="orange">
+                  <IconActivity size={16} />
+                </ThemeIcon>
+                <Text size="sm" c="dimmed">Load Average</Text>
+              </Group>
+              {nodeStats.loadAverage && Array.isArray(nodeStats.loadAverage) && nodeStats.loadAverage.length >= 3 ? (
+                <Group gap="xs">
+                  <div>
+                    <Text size="xs" c="dimmed">1m</Text>
+                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[0], 2)}</Text>
+                  </div>
+                  <div>
+                    <Text size="xs" c="dimmed">5m</Text>
+                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[1], 2)}</Text>
+                  </div>
+                  <div>
+                    <Text size="xs" c="dimmed">15m</Text>
+                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[2], 2)}</Text>
+                  </div>
+                </Group>
+              ) : (
+                <Text size="lg" fw={700}>N/A</Text>
+              )}
+            </Stack>
+          </Card>
+        </Grid.Col>
+      </Grid>
 
       {/* Memory and Disk Usage */}
       <Grid mb="md">
