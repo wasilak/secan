@@ -81,15 +81,11 @@ services:
       es01:
         condition: service_healthy
     ports:
-      - "9000:9000"
+      - "9001:9001"
     networks:
       - elastic
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9000 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
+    environment:
+      CEREBRO_PORT: 9091
 
   # Kibana (optional, for additional cluster management)
   # Uncomment if you want to use Kibana alongside Cerebro

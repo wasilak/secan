@@ -10,6 +10,7 @@ import {
   Alert,
   Skeleton,
   Tabs,
+  HoverCard,
 } from '@mantine/core';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -394,20 +395,37 @@ export function IndexEdit() {
           </Tabs.List>
 
           <Tabs.Panel value="settings" pt="md">
-            <Alert icon={<IconInfoCircle size={16} />} color="blue" mb="md">
-              <Text size="sm">
-                <strong>Note:</strong> Static and read-only settings are automatically filtered from this editor.
-                These include system-managed fields (creation_date, uuid, version) and static settings that require
-                the index to be closed before modification (number_of_shards, codec, sort, etc.).
-              </Text>
-            </Alert>
-
             <Card shadow="sm" padding="lg">
               <Stack gap="md">
                 <div>
-                  <Text size="sm" fw={500} mb="xs">
-                    Index Settings (JSON)
-                  </Text>
+                  <Group gap="xs" mb="xs">
+                    <Text size="sm" fw={500}>
+                      Index Settings (JSON)
+                    </Text>
+                    <HoverCard width={320} shadow="md" withArrow>
+                      <HoverCard.Target>
+                        <IconInfoCircle size={16} style={{ cursor: 'help', color: 'var(--mantine-color-blue-6)' }} />
+                      </HoverCard.Target>
+                      <HoverCard.Dropdown>
+                        <Text size="sm" fw={500} mb="xs">
+                          Filtered Settings
+                        </Text>
+                        <Text size="xs">
+                          Static and read-only settings are automatically filtered from this editor.
+                        </Text>
+                        <Text size="xs" mt="xs">
+                          <strong>System-managed (never modifiable):</strong>
+                          <br />
+                          creation_date, uuid, version, provided_name
+                        </Text>
+                        <Text size="xs" mt="xs">
+                          <strong>Static (require closed index):</strong>
+                          <br />
+                          number_of_shards, codec, sort, store, routing_path, and others
+                        </Text>
+                      </HoverCard.Dropdown>
+                    </HoverCard>
+                  </Group>
                   <Text size="xs" c="dimmed" mb="sm">
                     Edit the dynamic settings below
                   </Text>
