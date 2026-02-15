@@ -3,22 +3,26 @@ version: "3.8"
 # Docker Compose configuration for Cerebro development and testing
 # This setup provides:
 # - Elasticsearch single-node cluster (no authentication for easy testing)
+# - Original Cerebro (Scala version) for comparison
 # - Optional Kibana for additional cluster management
 #
 # Usage:
-#   docker-compose up -d              # Start Elasticsearch in background
+#   docker-compose up -d              # Start all services in background
 #   docker-compose down               # Stop and remove containers
 #   docker-compose down -v            # Stop and remove containers + volumes
 #   docker-compose logs -f es01       # View Elasticsearch logs
+#   docker-compose logs -f cerebro-original  # View original Cerebro logs
 #   docker-compose ps                 # Check container status
 #
 # Access:
-#   Elasticsearch: http://localhost:9200
-#   Kibana:        http://localhost:5601 (if enabled)
-#   Cerebro:       http://localhost:9000 (run backend separately: cargo run)
+#   Elasticsearch:     http://localhost:9200
+#   Original Cerebro:  http://localhost:9000
+#   Cerebro Rewrite:   http://localhost:9001 (run backend separately: cargo run)
+#   Kibana:            http://localhost:5601 (if enabled)
 #
-# Note: Run Cerebro backend separately with `cargo run` in the backend/ directory.
-#       The backend is configured to connect to http://localhost:9200 by default.
+# Note: Run Cerebro rewrite backend separately with `cargo run` in the backend/ directory.
+#       Configure it to run on port 9001 to avoid conflict with original Cerebro.
+#       Both versions can connect to the same Elasticsearch at http://localhost:9200.
 
 volumes:
   esdata01:
@@ -67,6 +71,25 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+
+  # Original Cerebro (Scala version)
+  # Runs on port 9000 for comparison with the rewrite
+  cerebro-original:
+    image: lmenezes/cerebro:latest
+    container_name: cerebro-original
+    depends_on:
+      es01:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+    networks:
+      - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   # Kibana (optional, for additional cluster management)
   # Uncomment if you want to use Kibana alongside Cerebro
