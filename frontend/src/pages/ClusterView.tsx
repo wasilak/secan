@@ -19,6 +19,8 @@ import {
   MultiSelect,
   Checkbox,
   Tooltip,
+  Modal,
+  Code,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,6 +45,7 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
+import { useState } from 'react';
 
 /**
  * Get color for health status badge
@@ -1070,6 +1073,36 @@ function IndicesList({
 }
 
 /**
+ * ShardDetailsModal component displays detailed shard information as JSON
+ */
+function ShardDetailsModal({
+  shard,
+  opened,
+  onClose,
+}: {
+  shard: ShardInfo | null;
+  opened: boolean;
+  onClose: () => void;
+}) {
+  if (!shard) return null;
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={`Shard Details: ${shard.index} / ${shard.shard}`}
+      size="lg"
+    >
+      <ScrollArea h={500}>
+        <Code block>
+          {JSON.stringify(shard, null, 2)}
+        </Code>
+      </ScrollArea>
+    </Modal>
+  );
+}
+
+/**
  * ShardAllocationGrid component displays visual shard allocation across nodes and indices
  * This is the main "overview" visualization showing how shards are distributed
  * Requirements: 4.8
@@ -1092,6 +1125,10 @@ function ShardAllocationGrid({
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   
+  // Modal state for shard details
+  const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
+  const [modalOpened, setModalOpened] = useState(false);
+  
   // Get UI state from URL
   const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
@@ -1100,6 +1137,12 @@ function ShardAllocationGrid({
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Handler to open shard details modal
+  const handleShardClick = (shard: ShardInfo) => {
+    setSelectedShard(shard);
+    setModalOpened(true);
+  };
 
   // Update URL params
   const updateParam = (key: string, value: string | boolean) => {
@@ -1288,6 +1331,13 @@ function ShardAllocationGrid({
 
   return (
     <Stack gap="md">
+      {/* Shard Details Modal */}
+      <ShardDetailsModal
+        shard={selectedShard}
+        opened={modalOpened}
+        onClose={() => setModalOpened(false)}
+      />
+
       {/* Toolbar with convenience actions */}
       <Group justify="space-between" wrap="wrap">
         <Group>
@@ -1494,7 +1544,7 @@ function ShardAllocationGrid({
                                   <div>
                                     <div>Shard: {shard.shard}</div>
                                     <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
-                                    <div>State: UNASSIGNED</div>
+                                    <div>State: {shard.state}</div>
                                   </div>
                                 }
                               >
@@ -1513,7 +1563,9 @@ function ShardAllocationGrid({
                                     border: shard.primary 
                                       ? '2px solid var(--mantine-color-red-9)' 
                                       : '2px dashed var(--mantine-color-red-9)',
+                                    cursor: 'pointer',
                                   }}
+                                  onClick={() => handleShardClick(shard)}
                                 >
                                   {shard.shard}
                                 </div>
@@ -1593,31 +1645,45 @@ function ShardAllocationGrid({
                           {indexShards.length > 0 ? (
                             <Group gap={2} justify="center" wrap="wrap">
                               {indexShards.map((shard, idx) => (
-                                <div
+                                <Tooltip
                                   key={`${shard.shard}-${shard.primary}-${idx}`}
-                                  style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: shard.state === 'STARTED' 
-                                      ? (shard.primary ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-green-7)')
-                                      : shard.state === 'RELOCATING'
-                                      ? 'var(--mantine-color-yellow-6)'
-                                      : 'var(--mantine-color-red-6)',
-                                    color: 'white',
-                                    fontSize: '10px',
-                                    fontWeight: 600,
-                                    borderRadius: '2px',
-                                    border: shard.primary 
-                                      ? '2px solid var(--mantine-color-green-9)' 
-                                      : '2px dashed var(--mantine-color-green-9)',
-                                  }}
-                                  title={`Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) - ${shard.state}`}
+                                  label={
+                                    <div>
+                                      <div>Shard: {shard.shard}</div>
+                                      <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+                                      <div>State: {shard.state}</div>
+                                      <div>Node: {shard.node || 'N/A'}</div>
+                                      {shard.docs !== undefined && <div>Docs: {shard.docs.toLocaleString()}</div>}
+                                      {shard.store !== undefined && <div>Size: {formatBytes(shard.store)}</div>}
+                                    </div>
+                                  }
                                 >
-                                  {shard.shard}
-                                </div>
+                                  <div
+                                    style={{
+                                      width: '24px',
+                                      height: '24px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      backgroundColor: shard.state === 'STARTED' 
+                                        ? (shard.primary ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-green-7)')
+                                        : shard.state === 'RELOCATING'
+                                        ? 'var(--mantine-color-yellow-6)'
+                                        : 'var(--mantine-color-red-6)',
+                                      color: 'white',
+                                      fontSize: '10px',
+                                      fontWeight: 600,
+                                      borderRadius: '2px',
+                                      border: shard.primary 
+                                        ? '2px solid var(--mantine-color-green-9)' 
+                                        : '2px dashed var(--mantine-color-green-9)',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => handleShardClick(shard)}
+                                  >
+                                    {shard.shard}
+                                  </div>
+                                </Tooltip>
                               ))}
                             </Group>
                           ) : (
