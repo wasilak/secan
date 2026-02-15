@@ -134,6 +134,25 @@ export function AppShell() {
   const [isPinned, setIsPinned] = useLocalStorage({ key: 'nav-pinned', defaultValue: false });
   const [shortcutsOpened, { open: openShortcuts, close: closeShortcuts }] = useDisclosure(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Determine refresh scope based on current route
+  const getRefreshScope = (): string | string[] | undefined => {
+    // Dashboard - only refresh clusters list
+    if (location.pathname === '/') {
+      return 'clusters';
+    }
+    
+    // Cluster view - only refresh data for that specific cluster
+    const clusterMatch = location.pathname.match(/^\/cluster\/([^/]+)/);
+    if (clusterMatch) {
+      const clusterId = clusterMatch[1];
+      return ['cluster', clusterId];
+    }
+    
+    // Default: refresh all (for other pages)
+    return undefined;
+  };
 
   // Keyboard shortcut to open help
   useHotkeys([
@@ -195,7 +214,7 @@ export function AppShell() {
             </Group>
 
             <Group gap="xs" wrap="nowrap">
-              <RefreshControl />
+              <RefreshControl scope={getRefreshScope()} />
               <ThemeSelector />
               
               {/* Keyboard shortcuts button - hidden on mobile */}
