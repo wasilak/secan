@@ -303,16 +303,46 @@ pub async fn get_shard_stats(
         }
     })?;
 
+    // Log the full indices_stats structure for debugging
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        shard = %shard_num,
+        "Full indices_stats structure: {:?}",
+        indices_stats
+    );
+
     // Extract the specific shard stats
+    // The structure is: indices_stats["indices"][index_name]["shards"][shard_num]
     let shard_stats = &indices_stats["indices"][&index_name]["shards"][&shard_num];
+    
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        shard = %shard_num,
+        "Extracted shard_stats: {:?}",
+        shard_stats
+    );
     
     if let Some(shard_array) = shard_stats.as_array() {
         if let Some(first_shard) = shard_array.first() {
+            tracing::debug!(
+                cluster_id = %cluster_id,
+                index = %index_name,
+                shard = %shard_num,
+                "Returning first shard from array"
+            );
             return Ok(Json(first_shard.clone()));
         }
     }
 
-    // Return empty object if not found
+    // If not found, log and return empty object
+    tracing::warn!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        shard = %shard_num,
+        "Shard stats not found in expected structure"
+    );
     Ok(Json(serde_json::json!({})))
 }
 
