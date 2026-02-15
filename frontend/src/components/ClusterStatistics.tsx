@@ -5,11 +5,8 @@ import {
   PieChart,
   Pie,
   Cell,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
+  BarChart,
+  Bar,
   ResponsiveContainer,
   Tooltip,
   Legend,
@@ -92,39 +89,16 @@ export function ClusterStatistics({
     { name: 'Relocating', value: stats?.relocatingShards || 0, color: 'var(--mantine-color-yellow-6)' },
   ].filter(item => item.value > 0);
 
-  // Prepare radar chart data for cluster health overview
-  const maxNodes = Math.max(...nodesHistory.map(d => d.value), 1);
-  const maxIndices = Math.max(...indicesHistory.map(d => d.value), 1);
-  const maxShards = Math.max(...shardsHistory.map(d => d.value), 1);
-  const maxDocs = Math.max(...documentsHistory.map(d => d.value), 1);
-
-  const radarData = [
-    {
-      metric: 'Nodes',
-      value: ((stats?.numberOfNodes || 0) / maxNodes) * 100,
-      fullMark: 100,
-    },
-    {
-      metric: 'Indices',
-      value: ((stats?.numberOfIndices || 0) / maxIndices) * 100,
-      fullMark: 100,
-    },
-    {
-      metric: 'Shards',
-      value: ((stats?.activeShards || 0) / maxShards) * 100,
-      fullMark: 100,
-    },
-    {
-      metric: 'Documents',
-      value: ((stats?.numberOfDocuments || 0) / maxDocs) * 100,
-      fullMark: 100,
-    },
-    {
-      metric: 'Health',
-      value: stats?.unassignedShards === 0 ? 100 : stats?.unassignedShards === undefined ? 0 : Math.max(0, 100 - (stats.unassignedShards * 10)),
-      fullMark: 100,
-    },
-  ];
+  // Prepare resource usage bar chart data
+  // Show trend of key metrics over time (last 5 data points)
+  const recentDataPoints = Math.min(5, nodesHistory.length);
+  const resourceTrendData = nodesHistory.slice(-recentDataPoints).map((nodePoint, index) => ({
+    time: formatTime(nodePoint.timestamp),
+    Nodes: nodePoint.value,
+    Indices: indicesHistory.slice(-recentDataPoints)[index]?.value || 0,
+    'Active Shards': shardsHistory.slice(-recentDataPoints)[index]?.value || 0,
+    'Unassigned': unassignedHistory.slice(-recentDataPoints)[index]?.value || 0,
+  }));
 
   return (
     <Stack gap="md">
@@ -312,7 +286,7 @@ export function ClusterStatistics({
         </Stack>
       </Card>
 
-      {/* Donut Charts and Radar Chart */}
+      {/* Donut Charts and Resource Trend Bar Chart */}
       <Grid>
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
@@ -383,21 +357,22 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Cluster Health Overview</Text>
+              <Text size="sm" fw={500}>Recent Metrics Snapshot</Text>
               <ResponsiveContainer width="100%" height={200}>
-                <RadarChart data={radarData}>
-                  <PolarGrid stroke="var(--mantine-color-dark-4)" />
-                  <PolarAngleAxis
-                    dataKey="metric"
-                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 12 }}
+                <BarChart data={resourceTrendData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
+                  <XAxis 
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 9 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={50}
                   />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} />
-                  <Radar
-                    name="Current"
-                    dataKey="value"
-                    stroke="var(--mantine-color-blue-6)"
-                    fill="var(--mantine-color-blue-6)"
-                    fillOpacity={0.6}
+                  <YAxis 
+                    stroke="var(--mantine-color-gray-6)" 
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    width={30}
                   />
                   <Tooltip
                     contentStyle={{
@@ -405,9 +380,16 @@ export function ClusterStatistics({
                       border: '1px solid var(--mantine-color-dark-4)',
                       borderRadius: '4px',
                     }}
-                    formatter={(value: number | undefined) => `${(value || 0).toFixed(1)}%`}
                   />
-                </RadarChart>
+                  <Legend 
+                    wrapperStyle={{ fontSize: '10px' }}
+                    iconSize={8}
+                  />
+                  <Bar dataKey="Nodes" fill="var(--mantine-color-blue-6)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Indices" fill="var(--mantine-color-green-6)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Active Shards" fill="var(--mantine-color-violet-6)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Unassigned" fill="var(--mantine-color-red-6)" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </Stack>
           </Card>
