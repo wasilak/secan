@@ -35,7 +35,6 @@ import {
   IconMinimize,
   IconSortAscending,
   IconSortDescending,
-  IconRefresh,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -858,21 +857,6 @@ function IndicesList({
               {sortAscending ? <IconSortAscending size={20} /> : <IconSortDescending size={20} />}
             </ActionIcon>
           </Tooltip>
-
-          {/* Refresh */}
-          <Tooltip label="Refresh data">
-            <ActionIcon
-              size="lg"
-              variant="subtle"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
-              }}
-            >
-              <IconRefresh size={20} />
-            </ActionIcon>
-          </Tooltip>
         </Group>
 
         <Group style={{ flex: 1 }}>
@@ -1385,22 +1369,6 @@ function ShardAllocationGrid({
               onClick={() => updateParam('overviewExpanded', !expandedView)}
             >
               {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
-            </ActionIcon>
-          </Tooltip>
-
-          {/* Refresh */}
-          <Tooltip label="Refresh data">
-            <ActionIcon
-              size="lg"
-              variant="subtle"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
-                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
-              }}
-            >
-              <IconRefresh size={20} />
             </ActionIcon>
           </Tooltip>
         </Group>
