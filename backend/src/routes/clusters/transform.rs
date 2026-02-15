@@ -1,6 +1,30 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Format uptime in milliseconds to human-readable string
+///
+/// # Examples
+/// - 5 days, 3 hours -> "5d 3h"
+/// - 2 hours, 45 minutes -> "2h 45m"
+/// - 30 minutes -> "30m"
+/// - 45 seconds -> "45s"
+fn format_uptime(uptime_millis: u64) -> String {
+    let seconds = uptime_millis / 1000;
+    let minutes = seconds / 60;
+    let hours = minutes / 60;
+    let days = hours / 24;
+
+    if days > 0 {
+        format!("{}d {}h", days, hours % 24)
+    } else if hours > 0 {
+        format!("{}h {}m", hours, minutes % 60)
+    } else if minutes > 0 {
+        format!("{}m", minutes)
+    } else {
+        format!("{}s", seconds)
+    }
+}
+
 /// Transform cluster stats from SDK response to frontend format
 pub fn transform_cluster_stats(
     stats: &Value,
@@ -97,6 +121,10 @@ pub fn transform_nodes(
                 .as_f64()
                 .or_else(|| node_stats["os"]["load_average"].as_f64());
 
+            // Extract and format uptime
+            let uptime_millis = node_stats["jvm"]["uptime_in_millis"].as_u64();
+            let uptime = uptime_millis.map(format_uptime);
+
             result.push(NodeInfoResponse {
                 id: node_id.clone(),
                 name: node_info["name"].as_str().unwrap_or("").to_string(),
@@ -111,6 +139,8 @@ pub fn transform_nodes(
                 is_master,
                 is_master_eligible,
                 load_average,
+                uptime,
+                uptime_millis,
             });
         }
     }
@@ -271,6 +301,10 @@ pub struct NodeInfoResponse {
     pub is_master_eligible: bool,
     #[serde(rename = "loadAverage", skip_serializing_if = "Option::is_none")]
     pub load_average: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uptime: Option<String>,
+    #[serde(rename = "uptimeMillis", skip_serializing_if = "Option::is_none")]
+    pub uptime_millis: Option<u64>,
 }
 
 /// Index info response for frontend
@@ -306,6 +340,39 @@ pub struct ShardInfoResponse {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_format_uptime_days() {
+        // 5 days, 3 hours, 24 minutes
+        let millis = (5 * 24 * 60 * 60 * 1000) + (3 * 60 * 60 * 1000) + (24 * 60 * 1000);
+        assert_eq!(format_uptime(millis), "5d 3h");
+    }
+
+    #[test]
+    fn test_format_uptime_hours() {
+        // 2 hours, 45 minutes
+        let millis = (2 * 60 * 60 * 1000) + (45 * 60 * 1000);
+        assert_eq!(format_uptime(millis), "2h 45m");
+    }
+
+    #[test]
+    fn test_format_uptime_minutes() {
+        // 30 minutes
+        let millis = 30 * 60 * 1000;
+        assert_eq!(format_uptime(millis), "30m");
+    }
+
+    #[test]
+    fn test_format_uptime_seconds() {
+        // 45 seconds
+        let millis = 45 * 1000;
+        assert_eq!(format_uptime(millis), "45s");
+    }
+
+    #[test]
+    fn test_format_uptime_zero() {
+        assert_eq!(format_uptime(0), "0s");
+    }
 
     #[test]
     fn test_transform_cluster_stats() {
@@ -360,7 +427,8 @@ mod tests {
                         "mem": {
                             "heap_used_in_bytes": 1000000,
                             "heap_max_in_bytes": 2000000
-                        }
+                        },
+                        "uptime_in_millis": 3600000
                     },
                     "fs": {
                         "total": {
@@ -390,6 +458,8 @@ mod tests {
         assert_eq!(result[0].is_master, true);
         assert_eq!(result[0].is_master_eligible, true);
         assert_eq!(result[0].load_average, Some(1.5));
+        assert_eq!(result[0].uptime, Some("1h 0m".to_string()));
+        assert_eq!(result[0].uptime_millis, Some(3600000));
     }
 
     #[test]
@@ -412,7 +482,8 @@ mod tests {
                         "mem": {
                             "heap_used_in_bytes": 1000000,
                             "heap_max_in_bytes": 2000000
-                        }
+                        },
+                        "uptime_in_millis": 86400000
                     },
                     "fs": {
                         "total": {
@@ -439,6 +510,8 @@ mod tests {
         assert_eq!(result[0].is_master, false);
         assert_eq!(result[0].is_master_eligible, false);
         assert_eq!(result[0].load_average, Some(0.75));
+        assert_eq!(result[0].uptime, Some("1d 0h".to_string()));
+        assert_eq!(result[0].uptime_millis, Some(86400000));
     }
 
     #[test]
@@ -483,5 +556,7 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
         assert_eq!(result[0].load_average, None);
+        assert_eq!(result[0].uptime, None);
+        assert_eq!(result[0].uptime_millis, None);
     }
 }
