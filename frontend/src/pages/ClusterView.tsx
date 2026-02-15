@@ -50,7 +50,7 @@ import { Sparkline } from '../components/Sparkline';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
-import { RoleIcons, RoleLegend } from '../components/RoleIcons';
+import { RoleIcons, RoleLegend, RoleOption } from '../components/RoleIcons';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
@@ -705,6 +705,7 @@ function NodesList({
             clearable
             searchable
             style={{ flex: 1, maxWidth: 300 }}
+            renderOption={({ option }) => <RoleOption role={option.value} />}
           />
         </Group>
         
