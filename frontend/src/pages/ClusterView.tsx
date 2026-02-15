@@ -48,6 +48,7 @@ import { useSparklineData } from '../hooks/useSparklineData';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
+import { ClusterStatistics } from '../components/ClusterStatistics';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { useState, useEffect } from 'react';
 
@@ -297,6 +298,7 @@ export function ClusterView() {
       <Tabs value={activeTab} onChange={handleTabChange}>
         <Tabs.List>
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
+          <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
           <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
           <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
           <Tabs.Tab value="shards">Shards ({shards?.length || 0})</Tabs.Tab>
@@ -510,6 +512,18 @@ export function ClusterView() {
               />
             </Card>
           </Stack>
+        </Tabs.Panel>
+
+        {/* Statistics Tab */}
+        <Tabs.Panel value="statistics" pt="md">
+          <ClusterStatistics
+            nodesHistory={nodesHistory}
+            indicesHistory={indicesHistory}
+            documentsHistory={documentsHistory}
+            shardsHistory={shardsHistory}
+            unassignedHistory={unassignedHistory}
+            stats={stats}
+          />
         </Tabs.Panel>
 
         {/* Nodes Tab */}
