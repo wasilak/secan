@@ -259,28 +259,28 @@ export function NodeDetail() {
             Queue sizes indicate pending work, and rejected counts show when pools are overloaded.
           </Text>
 
-          <ScrollArea>
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Pool Name</Table.Th>
-                  <Table.Th>Threads</Table.Th>
-                  <Table.Th>Active</Table.Th>
-                  <Table.Th>Queue</Table.Th>
-                  <Table.Th>Largest</Table.Th>
-                  <Table.Th>Completed</Table.Th>
-                  <Table.Th>Rejected</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {Object.entries(nodeStats.threadPools).map(([poolName, stats]) => (
-                  <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-
-          {Object.keys(nodeStats.threadPools).length === 0 && (
+          {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
+            <ScrollArea>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Pool Name</Table.Th>
+                    <Table.Th>Threads</Table.Th>
+                    <Table.Th>Active</Table.Th>
+                    <Table.Th>Queue</Table.Th>
+                    <Table.Th>Largest</Table.Th>
+                    <Table.Th>Completed</Table.Th>
+                    <Table.Th>Rejected</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {Object.entries(nodeStats.threadPools).map(([poolName, stats]) => (
+                    <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          ) : (
             <Text c="dimmed" ta="center" py="xl">
               No thread pool statistics available
             </Text>
