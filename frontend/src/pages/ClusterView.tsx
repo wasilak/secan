@@ -203,14 +203,10 @@ export function ClusterView() {
       <Progress
         value={100}
         color={getHealthColor(stats?.health || 'red')}
-        size="xl"
-        radius="xl"
-        style={{ marginBottom: '1rem' }}
+        size="sm"
+        radius="xs"
         aria-label={`Cluster health: ${stats?.health || 'unknown'}`}
       />
-      <Text ta="center" size="xl" fw={700} c={getHealthColor(stats?.health || 'red')} mb="md">
-        {stats?.health?.toUpperCase() || 'UNKNOWN'}
-      </Text>
 
       {/* Cluster Statistics Cards */}
       <Grid>
