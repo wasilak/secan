@@ -15,11 +15,11 @@ export interface MasterIndicatorProps {
 }
 
 /**
- * MasterIndicator component displays a star indicator for master and master-eligible nodes.
+ * MasterIndicator component displays a crown indicator for master and master-eligible nodes.
  * 
  * Features:
- * - Filled star (★) for current master node (yellow)
- * - Hollow star (☆) for master-eligible nodes (gray)
+ * - Filled crown (♛) for current master node (yellow)
+ * - Hollow crown (♔) for master-eligible nodes (gray)
  * - No indicator for non-master nodes
  * - Configurable size (sm, md, lg)
  * - Optional tooltip with status description
@@ -42,7 +42,7 @@ export function MasterIndicator({
   }
 
   // Determine icon, color, and tooltip text
-  const icon = isMaster ? '★' : '☆';
+  const icon = isMaster ? '♛' : '♔';
   const color = isMaster ? 'yellow.6' : 'gray.6';
   const tooltipText = isMaster ? 'Current Master' : 'Master Eligible';
 
