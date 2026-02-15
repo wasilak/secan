@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -299,29 +299,6 @@ export function IndexSettings() {
       </Group>
 
       <Stack gap="md">
-        <Alert icon={<IconInfoCircle size={16} />} color="blue" title="Static and Read-Only Settings Filtered">
-          <Text size="sm">
-            The following settings have been automatically filtered out because they cannot be modified on an open index:
-            <br />
-            <br />
-            <strong>System-Managed (Never Modifiable):</strong>
-            <br />
-            • creation_date, provided_name, uuid, version
-            <br />
-            <br />
-            <strong>Static Settings (Require Closed Index):</strong>
-            <br />
-            • number_of_shards, number_of_routing_shards, codec, mode
-            <br />
-            • routing_partition_size, soft_deletes, shard, sort, store
-            <br />
-            • time_series, routing_path, load_fixed_bitset_filters_eagerly
-            <br />
-            <br />
-            To modify static settings, you must close the index first, update the settings, then reopen it.
-          </Text>
-        </Alert>
-
         <Card shadow="sm" padding="lg">
           <Stack gap="md">
             <div>
