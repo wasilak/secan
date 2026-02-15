@@ -682,7 +682,7 @@ function IndicesList({
                 <Table.Tr 
                   key={index.name}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`)}
+                  onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
                 >
                   <Table.Td>
                     <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
@@ -724,7 +724,7 @@ function IndicesList({
                             leftSection={<IconSettings size={14} />}
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`);
+                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=settings`);
                             }}
                           >
                             Settings
@@ -733,7 +733,7 @@ function IndicesList({
                             leftSection={<IconMap size={14} />}
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/mappings`);
+                              navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=mappings`);
                             }}
                           >
                             Mappings
@@ -929,7 +929,7 @@ function ShardAllocationGrid({
                         style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/settings`);
+                          navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`);
                         }}
                       >
                         {index.name}
