@@ -710,7 +710,7 @@ function NodesList({
         
         <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
           <ActionIcon
-            variant="light"
+            variant="subtle"
             size="lg"
             onClick={() => updateFilters(undefined, undefined, !expandedView)}
           >
@@ -719,7 +719,9 @@ function NodesList({
         </Tooltip>
       </Group>
 
-      {!expandedView && <RoleLegend roles={allRoles} />}
+      {!expandedView && filteredNodes && filteredNodes.length > 0 && (
+        <RoleLegend roles={Array.from(new Set(filteredNodes.flatMap(n => n.roles)))} />
+      )}
 
       {filteredNodes && filteredNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
