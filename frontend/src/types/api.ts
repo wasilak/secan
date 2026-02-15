@@ -124,7 +124,7 @@ export interface ThreadPoolStats {
 export interface NodeDetailStats {
   id: string;
   name: string;
-  roles: NodeRole[];
+  roles?: NodeRole[];
   ip?: string;
   version: string;
   jvmVersion: string;
