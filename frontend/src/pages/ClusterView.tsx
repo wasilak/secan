@@ -45,6 +45,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { IndexOperations } from '../components/IndexOperations';
+import { IndexEdit } from './IndexEdit';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { useState, useEffect } from 'react';
 
@@ -119,17 +120,67 @@ export function ClusterView() {
   
   // Get active tab from URL, default to 'overview'
   const activeTab = searchParams.get('tab') || 'overview';
+  
+  // Get index name from URL for modal
+  const indexNameParam = searchParams.get('index');
+  const indexTabParam = searchParams.get('indexTab');
+
+  // Index modal state
+  const [indexModalOpen, setIndexModalOpen] = useState(false);
+  const [selectedIndexName, setSelectedIndexName] = useState<string | null>(null);
+
+  // Open index modal when URL param changes
+  useEffect(() => {
+    if (indexNameParam) {
+      setSelectedIndexName(decodeURIComponent(indexNameParam));
+      setIndexModalOpen(true);
+    } else {
+      setIndexModalOpen(false);
+      setSelectedIndexName(null);
+    }
+  }, [indexNameParam]);
+
+  // Handle opening index modal
+  const openIndexModal = (indexName: string, tab?: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('index', encodeURIComponent(indexName));
+    if (tab) {
+      params.set('indexTab', tab);
+    } else {
+      params.delete('indexTab');
+    }
+    setSearchParams(params);
+  };
+
+  // Handle closing index modal
+  const closeIndexModal = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('index');
+    params.delete('indexTab');
+    setSearchParams(params);
+  };
 
   // Update URL when tab changes
   const handleTabChange = (value: string | null) => {
     if (value) {
-      setSearchParams({ tab: value });
+      const params = new URLSearchParams(searchParams);
+      params.set('tab', value);
+      // Preserve index params if they exist
+      if (indexNameParam) {
+        params.set('index', indexNameParam);
+      }
+      if (indexTabParam) {
+        params.set('indexTab', indexTabParam);
+      }
+      setSearchParams(params);
     }
   };
 
   // Navigate to a specific tab
   const navigateToTab = (tab: string) => {
-    setSearchParams({ tab });
+    const params = new URLSearchParams();
+    params.set('tab', tab);
+    setSearchParams(params);
   };
 
   // Fetch cluster statistics with auto-refresh
@@ -367,6 +418,7 @@ export function ClusterView() {
               shards={shards}
               loading={nodesLoading || indicesLoading || shardsLoading}
               error={nodesError || indicesError || shardsError}
+              openIndexModal={openIndexModal}
             />
           </Tabs.Panel>
 
@@ -375,7 +427,12 @@ export function ClusterView() {
           </Tabs.Panel>
 
           <Tabs.Panel value="indices" pt="md">
-            <IndicesList indices={indices} loading={indicesLoading} error={indicesError} />
+            <IndicesList 
+              indices={indices} 
+              loading={indicesLoading} 
+              error={indicesError}
+              openIndexModal={openIndexModal}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="shards" pt="md">
@@ -383,6 +440,33 @@ export function ClusterView() {
           </Tabs.Panel>
         </Tabs>
       </Card>
+
+      {/* Index Edit Modal */}
+      {selectedIndexName && (
+        <Modal
+          opened={indexModalOpen}
+          onClose={closeIndexModal}
+          size="90%"
+          fullScreen={false}
+          styles={{
+            body: {
+              height: 'calc(100vh - 120px)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+            },
+            content: {
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          }}
+          withCloseButton={true}
+        >
+          <div style={{ flex: 1, overflow: 'auto', padding: 'var(--mantine-spacing-md)' }}>
+            <IndexEdit />
+          </div>
+        </Modal>
+      )}
     </Stack>
   );
 }
@@ -577,10 +661,12 @@ function IndicesList({
   indices,
   loading,
   error,
+  openIndexModal,
 }: {
   indices?: IndexInfo[];
   loading: boolean;
   error: Error | null;
+  openIndexModal: (indexName: string, tab?: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -976,7 +1062,7 @@ function IndicesList({
                       cursor: 'pointer',
                       backgroundColor: hasUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
                     }}
-                    onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
+                    onClick={() => openIndexModal(index.name)}
                   >
                     <Table.Td>
                       <Stack gap={2}>
@@ -1044,7 +1130,7 @@ function IndicesList({
                               leftSection={<IconSettings size={14} />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=settings`);
+                                openIndexModal(index.name, 'settings');
                               }}
                             >
                               Settings
@@ -1053,7 +1139,7 @@ function IndicesList({
                               leftSection={<IconMap size={14} />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit?tab=mappings`);
+                                openIndexModal(index.name, 'mappings');
                               }}
                             >
                               Mappings
@@ -1184,15 +1270,16 @@ function ShardAllocationGrid({
   shards,
   loading,
   error,
+  openIndexModal,
 }: {
   nodes?: NodeInfo[];
   indices?: IndexInfo[];
   shards?: ShardInfo[];
   loading: boolean;
   error: Error | null;
+  openIndexModal: (indexName: string, tab?: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -1563,7 +1650,7 @@ function ShardAllocationGrid({
                         style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`);
+                          openIndexModal(index.name);
                         }}
                       >
                         {index.name}

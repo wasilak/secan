@@ -1,7 +1,18 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { LazyRoute } from './components/LazyRoute';
+
+// Redirect component for index edit URLs
+function IndexEditRedirect() {
+  const { id, indexName } = useParams<{ id: string; indexName: string }>();
+  const searchParams = new URLSearchParams();
+  searchParams.set('tab', 'indices');
+  if (indexName) {
+    searchParams.set('index', indexName);
+  }
+  return <Navigate to={`/cluster/${id}?${searchParams.toString()}`} replace />;
+}
 
 // Lazy-load page components for better performance
 // Requirements: 31.4 - Lazy-load components to reduce initial bundle size
@@ -10,7 +21,6 @@ const ClusterView = lazy(() => import('./pages/ClusterView').then(m => ({ defaul
 const RestConsole = lazy(() => import('./pages/RestConsole').then(m => ({ default: m.RestConsole })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const IndexCreate = lazy(() => import('./pages/IndexCreate').then(m => ({ default: m.IndexCreate })));
-const IndexEdit = lazy(() => import('./pages/IndexEdit').then(m => ({ default: m.IndexEdit })));
 const Aliases = lazy(() => import('./pages/Aliases').then(m => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
 const ClusterSettingsPage = lazy(() => import('./pages/ClusterSettings').then(m => ({ default: m.ClusterSettingsPage })));
@@ -102,11 +112,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'cluster/:id/indices/:indexName/edit',
-        element: (
-          <LazyRoute>
-            <IndexEdit />
-          </LazyRoute>
-        ),
+        element: <IndexEditRedirect />,
       },
       {
         path: 'cluster/:id/indices/:indexName/settings',
