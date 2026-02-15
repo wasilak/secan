@@ -36,6 +36,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { useWatermarks } from '../hooks/useWatermarks';
 import type { ShardInfo, NodeInfo } from '../types/api';
 
 /**
@@ -57,6 +58,9 @@ export function ShardManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [relocateModalOpen, setRelocateModalOpen] = useState(false);
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
+  
+  // Fetch watermark thresholds for disk/memory coloring
+  const { getColor } = useWatermarks(id);
   
   // UI state from URL params
   const expandedView = searchParams.get('expanded') === 'true';
@@ -599,7 +603,7 @@ export function ShardManagement() {
                         <Text size="xs" c="dimmed">Heap</Text>
                         <Progress
                           value={Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100)}
-                          color={nodeInfo.heapUsed / nodeInfo.heapMax > 0.9 ? 'red' : 'blue'}
+                          color={getColor(Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100))}
                           size="sm"
                           radius="xs"
                         />
@@ -613,7 +617,7 @@ export function ShardManagement() {
                         <Text size="xs" c="dimmed">Disk</Text>
                         <Progress
                           value={Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100)}
-                          color={nodeInfo.diskUsed / nodeInfo.diskTotal > 0.9 ? 'red' : 'blue'}
+                          color={getColor(Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100))}
                           size="sm"
                           radius="xs"
                         />

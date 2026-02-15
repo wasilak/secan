@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import { useWatermarks } from '../hooks/useWatermarks';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 
 /**
@@ -54,6 +55,9 @@ export function NodeDetail() {
   const { id: clusterId, nodeId } = useParams<{ id: string; nodeId: string }>();
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
+  
+  // Fetch watermark thresholds for disk/memory coloring
+  const { getColor } = useWatermarks(clusterId);
 
   // Fetch node statistics with auto-refresh
   const {
@@ -213,7 +217,7 @@ export function NodeDetail() {
               <Text size="sm" fw={500}>Heap Memory Usage</Text>
               <Progress
                 value={nodeStats.heapPercent}
-                color={nodeStats.heapPercent > 90 ? 'red' : nodeStats.heapPercent > 75 ? 'yellow' : 'blue'}
+                color={getColor(nodeStats.heapPercent)}
                 size="sm"
                 radius="xs"
               />
@@ -231,7 +235,7 @@ export function NodeDetail() {
               <Text size="sm" fw={500}>Disk Usage</Text>
               <Progress
                 value={nodeStats.diskPercent}
-                color={nodeStats.diskPercent > 90 ? 'red' : nodeStats.diskPercent > 75 ? 'yellow' : 'blue'}
+                color={getColor(nodeStats.diskPercent)}
                 size="sm"
                 radius="xs"
               />
