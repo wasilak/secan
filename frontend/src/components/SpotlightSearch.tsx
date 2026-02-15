@@ -116,7 +116,7 @@ export function SpotlightSearch() {
             id: `index-${index.name}`,
             label: `Index: ${index.name}`,
             description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
-            onClick: () => navigate(`/cluster/${currentClusterId}/indices/${index.name}`),
+            onClick: () => navigate(`/cluster/${currentClusterId}?tab=indices&index=${encodeURIComponent(index.name)}`),
             leftSection: <IconDatabase size={20} />,
             keywords: ['index', index.name, clusterName],
           });
