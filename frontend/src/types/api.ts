@@ -104,6 +104,7 @@ export interface NodeInfo {
   cpuPercent?: number;
   ip?: string;
   version?: string;
+  tags?: string[];
 }
 
 /**

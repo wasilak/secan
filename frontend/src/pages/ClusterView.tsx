@@ -707,6 +707,7 @@ function NodesList({
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Node ID</Table.Th>
                 <Table.Th>Roles</Table.Th>
+                <Table.Th>Tags</Table.Th>
                 <Table.Th>Heap Usage</Table.Th>
                 <Table.Th>Disk Usage</Table.Th>
                 <Table.Th>CPU</Table.Th>
@@ -732,10 +733,23 @@ function NodesList({
                     <Group gap="xs">
                       {node.roles.map((role) => (
                         <Badge key={role} size="sm" variant="light">
-                          {role}
+                          {role.toLowerCase()}
                         </Badge>
                       ))}
                     </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    {node.tags && node.tags.length > 0 ? (
+                      <Group gap="xs">
+                        {node.tags.map((tag) => (
+                          <Badge key={tag} size="sm" variant="outline" color="gray">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </Group>
+                    ) : (
+                      <Text size="xs" c="dimmed">-</Text>
+                    )}
                   </Table.Td>
                   <Table.Td>
                     <Stack gap={4}>
@@ -764,7 +778,21 @@ function NodesList({
                     </Stack>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="sm">{node.cpuPercent !== undefined ? `${node.cpuPercent}%` : 'N/A'}</Text>
+                    {node.cpuPercent !== undefined ? (
+                      <Stack gap={4}>
+                        <Progress
+                          value={node.cpuPercent}
+                          color={getColor(node.cpuPercent)}
+                          size="sm"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed">
+                          {node.cpuPercent}%
+                        </Text>
+                      </Stack>
+                    ) : (
+                      <Text size="sm" c="dimmed">N/A</Text>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               ))}
