@@ -479,6 +479,7 @@ export function ShardManagement() {
                 label="Show only affected"
                 checked={showOnlyAffected}
                 onChange={(e) => setShowOnlyAffected(e.currentTarget.checked)}
+                size="sm"
               />
             )}
           </Group>
