@@ -51,6 +51,7 @@ import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
+import { formatLoadAverage, getLoadColor } from '../utils/formatters';
 import { useState, useEffect } from 'react';
 
 /**
@@ -709,6 +710,7 @@ function NodesList({
                 <Table.Th>Node ID</Table.Th>
                 <Table.Th>Roles</Table.Th>
                 <Table.Th>Tags</Table.Th>
+                <Table.Th>Load</Table.Th>
                 <Table.Th>Heap Usage</Table.Th>
                 <Table.Th>Disk Usage</Table.Th>
                 <Table.Th>CPU</Table.Th>
@@ -759,6 +761,19 @@ function NodesList({
                       </Group>
                     ) : (
                       <Text size="xs" c="dimmed">-</Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {node.loadAverage !== undefined ? (
+                      <Text 
+                        size="sm" 
+                        c={getLoadColor(node.loadAverage)}
+                        style={{ fontFamily: 'monospace' }}
+                      >
+                        {formatLoadAverage(node.loadAverage)}
+                      </Text>
+                    ) : (
+                      <Text size="sm" c="dimmed">N/A</Text>
                     )}
                   </Table.Td>
                   <Table.Td>
