@@ -17,7 +17,7 @@ docker-compose logs -f cerebro
 docker-compose down
 ```
 
-Access Cerebro at `http://localhost:9000`
+Access Cerebro at `http://localhost:9001`
 
 ### Using Docker CLI
 
@@ -53,7 +53,7 @@ services:
     environment:
       # Server configuration
       - CEREBRO_SERVER_HOST=0.0.0.0
-      - CEREBRO_SERVER_PORT=9000
+      - CEREBRO_SERVER_PORT=9001
       
       # Authentication
       - CEREBRO_AUTH_MODE=open  # or local_users, oidc
@@ -72,7 +72,7 @@ Mount a configuration file for more complex setups:
 cat > config.yaml <<EOF
 server:
   host: "0.0.0.0"
-  port: 9000
+  port: 9001
 
 auth:
   mode: "local_users"
@@ -303,7 +303,7 @@ auth:
     discovery_url: "https://auth.example.com/.well-known/openid-configuration"
     client_id: "cerebro"
     client_secret: "secret"
-    redirect_uri: "http://localhost:9000/api/auth/oidc/callback"
+    redirect_uri: "http://localhost:9001/api/auth/oidc/callback"
 ```
 
 ## Health Checks
@@ -312,7 +312,7 @@ The Docker image includes a health check endpoint:
 
 ```bash
 # Check health
-curl http://localhost:9000/health
+curl http://localhost:9001/health
 
 # Docker health status
 docker inspect --format='{{.State.Health.Status}}' cerebro
@@ -322,7 +322,7 @@ Health check configuration in `docker-compose.yml`:
 
 ```yaml
 healthcheck:
-  test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/health"]
+  test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9001/health"]
   interval: 30s
   timeout: 3s
   start_period: 5s
@@ -415,7 +415,7 @@ server {
     server_name cerebro.example.com;
     
     location / {
-        proxy_pass http://localhost:9000;
+        proxy_pass http://localhost:9001;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
