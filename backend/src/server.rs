@@ -106,6 +106,10 @@ impl Server {
                 "/api/clusters/:id/shards",
                 get(crate::routes::clusters::get_shards),
             )
+            .route(
+                "/api/clusters/:id/shards/:index/:shard",
+                get(crate::routes::clusters::get_shard_stats),
+            )
             // Generic proxy route - must be last to avoid conflicts
             .route(
                 "/api/clusters/:id/*path",

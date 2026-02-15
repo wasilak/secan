@@ -6,6 +6,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::sync::Arc;
 
 mod transform;
@@ -257,6 +258,65 @@ pub async fn get_indices(
 /// Get shards information using SDK typed methods
 ///
 /// Returns shards info in frontend-compatible format
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.8
+pub async fn get_shard_stats(
+    State(state): State<ClusterState>,
+    Path((cluster_id, index_name, shard_num)): Path<(String, String, String)>,
+) -> Result<Json<Value>, ClusterErrorResponse> {
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        shard = %shard_num,
+        "Getting detailed shard stats"
+    );
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get indices stats for the specific index
+    let indices_stats = cluster.indices_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get indices stats"
+        );
+        ClusterErrorResponse {
+            error: "indices_stats_failed".to_string(),
+            message: format!("Failed to get indices stats: {}", e),
+        }
+    })?;
+
+    // Extract the specific shard stats
+    let shard_stats = &indices_stats["indices"][&index_name]["shards"][&shard_num];
+    
+    if let Some(shard_array) = shard_stats.as_array() {
+        if let Some(first_shard) = shard_array.first() {
+            return Ok(Json(first_shard.clone()));
+        }
+    }
+
+    // Return empty object if not found
+    Ok(Json(serde_json::json!({})))
+}
+
+/// Get shards information for a cluster
 ///
 /// # Requirements
 ///

@@ -45,7 +45,7 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Get color for health status badge
@@ -1079,11 +1079,35 @@ function ShardDetailsModal({
   shard,
   opened,
   onClose,
+  clusterId,
 }: {
   shard: ShardInfo | null;
   opened: boolean;
   onClose: () => void;
+  clusterId: string;
 }) {
+  const [detailedStats, setDetailedStats] = useState<unknown>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch detailed stats when modal opens
+  useEffect(() => {
+    if (opened && shard) {
+      setLoading(true);
+      apiClient
+        .getShardStats(clusterId, shard.index, shard.shard)
+        .then((stats) => {
+          setDetailedStats(stats);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch shard stats:', error);
+          setDetailedStats(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [opened, shard, clusterId]);
+
   if (!shard) return null;
 
   return (
@@ -1094,9 +1118,15 @@ function ShardDetailsModal({
       size="lg"
     >
       <ScrollArea h={500}>
-        <Code block>
-          {JSON.stringify(shard, null, 2)}
-        </Code>
+        {loading ? (
+          <Group justify="center" py="xl">
+            <Loader />
+          </Group>
+        ) : (
+          <Code block>
+            {JSON.stringify(detailedStats || shard, null, 2)}
+          </Code>
+        )}
       </ScrollArea>
     </Modal>
   );
@@ -1336,6 +1366,7 @@ function ShardAllocationGrid({
         shard={selectedShard}
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
+        clusterId={id!}
       />
 
       {/* Toolbar with convenience actions */}
