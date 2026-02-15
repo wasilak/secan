@@ -525,6 +525,7 @@ export function ClusterView() {
             shardsHistory={shardsHistory}
             unassignedHistory={unassignedHistory}
             stats={stats}
+            nodes={nodes}
           />
         </Tabs.Panel>
 
