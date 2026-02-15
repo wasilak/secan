@@ -332,7 +332,7 @@ export function ClusterView() {
                   {stats?.numberOfDataNodes || 0} data
                 </Text>
               </Group>
-              {nodesHistory.length > 1 && (
+              {nodesHistory.length > 0 && (
                 <div style={{ marginTop: 4 }}>
                   <Sparkline data={nodesHistory} color="var(--mantine-color-blue-6)" height={25} />
                 </div>
@@ -358,7 +358,7 @@ export function ClusterView() {
                   {stats?.numberOfDataNodes || 0} data
                 </Text>
               </Group>
-              {indicesHistory.length > 1 && (
+              {indicesHistory.length > 0 && (
                 <div style={{ marginTop: 4 }}>
                   <Sparkline data={indicesHistory} color="var(--mantine-color-green-6)" height={25} />
                 </div>
@@ -384,7 +384,7 @@ export function ClusterView() {
                   total
                 </Text>
               </Group>
-              {documentsHistory.length > 1 && (
+              {documentsHistory.length > 0 && (
                 <div style={{ marginTop: 4 }}>
                   <Sparkline data={documentsHistory} color="var(--mantine-color-cyan-6)" height={25} />
                 </div>
@@ -410,7 +410,7 @@ export function ClusterView() {
                   {stats?.activePrimaryShards || 0} primary
                 </Text>
               </Group>
-              {shardsHistory.length > 1 && (
+              {shardsHistory.length > 0 && (
                 <div style={{ marginTop: 4 }}>
                   <Sparkline data={shardsHistory} color="var(--mantine-color-violet-6)" height={25} />
                 </div>
@@ -438,7 +438,7 @@ export function ClusterView() {
                   {stats?.relocatingShards || 0} moving
                 </Text>
               </Group>
-              {unassignedHistory.length > 1 && (
+              {unassignedHistory.length > 0 && (
                 <div style={{ marginTop: 4 }}>
                   <Sparkline 
                     data={unassignedHistory} 
