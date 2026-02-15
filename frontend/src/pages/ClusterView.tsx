@@ -708,16 +708,18 @@ function NodesList({
           />
         </Group>
         
-        <Button
-          variant="light"
-          leftSection={expandedView ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
-          onClick={() => updateFilters(undefined, undefined, !expandedView)}
-        >
-          {expandedView ? 'Collapse' : 'Expand'}
-        </Button>
+        <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
+          <ActionIcon
+            variant="light"
+            size="lg"
+            onClick={() => updateFilters(undefined, undefined, !expandedView)}
+          >
+            {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+          </ActionIcon>
+        </Tooltip>
       </Group>
 
-      {!expandedView && <RoleLegend />}
+      {!expandedView && <RoleLegend roles={allRoles} />}
 
       {filteredNodes && filteredNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
