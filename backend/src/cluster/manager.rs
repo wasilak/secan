@@ -209,6 +209,11 @@ impl ClusterConnection {
     pub async fn cluster_state(&self) -> Result<Value> {
         self.client.cluster_state().await
     }
+
+    /// Get indices stats with shard-level details using SDK typed method
+    pub async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
+        self.client.indices_stats_with_shards(index).await
+    }
 }
 
 #[cfg(test)]

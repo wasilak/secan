@@ -55,6 +55,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get indices stats
     async fn indices_stats(&self) -> Result<Value>;
 
+    /// Get indices stats with shard-level details using SDK typed method
+    async fn indices_stats_with_shards(&self, index: &str) -> Result<Value>;
+
     /// Get cluster state
     async fn cluster_state(&self) -> Result<Value>;
 }
@@ -346,6 +349,30 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse indices stats response")
+    }
+
+    /// Get indices stats with shard-level details using SDK typed method
+    async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
+        let response = self
+            .client
+            .indices()
+            .stats(elasticsearch::indices::IndicesStatsParts::Index(&[index]))
+            .level(elasticsearch::params::Level::Shards)
+            .send()
+            .await
+            .context("Indices stats with shards request failed")?;
+
+        if !response.status_code().is_success() {
+            anyhow::bail!(
+                "Indices stats with shards failed with status: {}",
+                response.status_code()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse indices stats with shards response")
     }
 
     /// Get cluster state for shard information using SDK typed method
