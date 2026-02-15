@@ -21,6 +21,7 @@ import {
   Modal,
   Code,
   Skeleton,
+  Pagination,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,8 +44,10 @@ import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
+import { useSparklineData } from '../hooks/useSparklineData';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
+import { Sparkline } from '../components/Sparkline';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { useState, useEffect } from 'react';
 
@@ -194,6 +197,13 @@ export function ClusterView() {
     enabled: !!id,
   });
 
+  // Track historical data for sparklines
+  const nodesHistory = useSparklineData(stats?.numberOfNodes, refreshInterval || 0);
+  const indicesHistory = useSparklineData(stats?.numberOfIndices, refreshInterval || 0);
+  const documentsHistory = useSparklineData(stats?.numberOfDocuments, refreshInterval || 0);
+  const shardsHistory = useSparklineData(stats?.activeShards, refreshInterval || 0);
+  const unassignedHistory = useSparklineData(stats?.unassignedShards, refreshInterval || 0);
+
   // Fetch nodes with auto-refresh
   const {
     data: nodes,
@@ -305,72 +315,138 @@ export function ClusterView() {
 
       {/* Cluster Statistics Cards */}
       <Grid>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
           <Card 
             shadow="sm" 
-            padding="lg" 
-            style={{ cursor: 'pointer' }}
+            padding="md" 
+            style={{ cursor: 'pointer', height: '100%' }}
             onClick={() => navigateToTab('nodes')}
           >
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">Nodes</Text>
-              <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
-              <Text size="xs" c="dimmed">
-                {stats?.numberOfDataNodes || 0} data nodes
-              </Text>
+            <Stack gap={4}>
+              <Group justify="space-between" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed">Nodes</Text>
+                  <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {stats?.numberOfDataNodes || 0} data
+                </Text>
+              </Group>
+              {nodesHistory.length > 1 && (
+                <div style={{ marginTop: 4 }}>
+                  <Sparkline data={nodesHistory} color="var(--mantine-color-blue-6)" height={25} />
+                </div>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
           <Card 
             shadow="sm" 
-            padding="lg"
-            style={{ cursor: 'pointer' }}
+            padding="md"
+            style={{ cursor: 'pointer', height: '100%' }}
             onClick={() => navigateToTab('indices')}
           >
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">Indices</Text>
-              <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
-              <Text size="xs" c="dimmed">
-                {stats?.numberOfDocuments?.toLocaleString() || 0} documents
-              </Text>
+            <Stack gap={4}>
+              <Group justify="space-between" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed">Indices</Text>
+                  <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {stats?.numberOfDataNodes || 0} data
+                </Text>
+              </Group>
+              {indicesHistory.length > 1 && (
+                <div style={{ marginTop: 4 }}>
+                  <Sparkline data={indicesHistory} color="var(--mantine-color-green-6)" height={25} />
+                </div>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
           <Card 
             shadow="sm" 
-            padding="lg"
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigateToTab('shards')}
+            padding="md"
+            style={{ cursor: 'pointer', height: '100%' }}
+            onClick={() => navigateToTab('indices')}
           >
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">Shards</Text>
-              <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
-              <Text size="xs" c="dimmed">
-                {stats?.activePrimaryShards || 0} primary
-              </Text>
+            <Stack gap={4}>
+              <Group justify="space-between" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed">Documents</Text>
+                  <Text size="xl" fw={700}>{(stats?.numberOfDocuments || 0).toLocaleString()}</Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  total
+                </Text>
+              </Group>
+              {documentsHistory.length > 1 && (
+                <div style={{ marginTop: 4 }}>
+                  <Sparkline data={documentsHistory} color="var(--mantine-color-cyan-6)" height={25} />
+                </div>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
           <Card 
             shadow="sm" 
-            padding="lg"
-            style={{ cursor: 'pointer' }}
+            padding="md"
+            style={{ cursor: 'pointer', height: '100%' }}
             onClick={() => navigateToTab('shards')}
           >
-            <Stack gap="xs">
-              <Text size="sm" c="dimmed">Unassigned</Text>
-              <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
-                {stats?.unassignedShards || 0}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {stats?.relocatingShards || 0} relocating
-              </Text>
+            <Stack gap={4}>
+              <Group justify="space-between" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed">Shards</Text>
+                  <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {stats?.activePrimaryShards || 0} primary
+                </Text>
+              </Group>
+              {shardsHistory.length > 1 && (
+                <div style={{ marginTop: 4 }}>
+                  <Sparkline data={shardsHistory} color="var(--mantine-color-violet-6)" height={25} />
+                </div>
+              )}
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+          <Card 
+            shadow="sm" 
+            padding="md"
+            style={{ cursor: 'pointer', height: '100%' }}
+            onClick={() => navigateToTab('shards')}
+          >
+            <Stack gap={4}>
+              <Group justify="space-between" wrap="nowrap">
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed">Unassigned</Text>
+                  <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
+                    {stats?.unassignedShards || 0}
+                  </Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {stats?.relocatingShards || 0} moving
+                </Text>
+              </Group>
+              {unassignedHistory.length > 1 && (
+                <div style={{ marginTop: 4 }}>
+                  <Sparkline 
+                    data={unassignedHistory} 
+                    color={stats?.unassignedShards ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)'} 
+                    height={25} 
+                  />
+                </div>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
@@ -703,6 +779,10 @@ function IndicesList({
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
   
+  // Pagination state
+  const currentPage = parseInt(searchParams.get('indicesPage') || '1', 10);
+  const pageSize = 50; // Items per page
+  
   // Debounce search query to avoid excessive filtering
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -888,6 +968,19 @@ function IndicesList({
       return sortAscending ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
     });
   }
+
+  // Pagination
+  const totalPages = Math.ceil((filteredIndices?.length || 0) / pageSize);
+  const paginatedIndices = filteredIndices?.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('indicesPage', String(page));
+    setSearchParams(params);
+  };
 
   if (loading) {
     return (
@@ -1076,7 +1169,7 @@ function IndicesList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredIndices?.map((index) => {
+              {paginatedIndices?.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
                 const hasUnassigned = unassignedCount > 0;
                 
@@ -1179,6 +1272,21 @@ function IndicesList({
             </Table.Tbody>
           </Table>
         </ScrollArea>
+      )}
+      
+      {/* Pagination */}
+      {filteredIndices && filteredIndices.length > pageSize && (
+        <Group justify="center" mt="md">
+          <Pagination
+            total={totalPages}
+            value={currentPage}
+            onChange={handlePageChange}
+            size="sm"
+          />
+          <Text size="sm" c="dimmed">
+            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIndices.length)} of {filteredIndices.length}
+          </Text>
+        </Group>
       )}
     </Stack>
   );
@@ -1318,6 +1426,10 @@ function ShardAllocationGrid({
   const showSpecial = searchParams.get('showSpecial') === 'true';
   const expandedView = searchParams.get('overviewExpanded') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
+  
+  // Pagination state
+  const currentPage = parseInt(searchParams.get('overviewPage') || '1', 10);
+  const pageSize = 20; // Indices per page
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
@@ -1477,6 +1589,19 @@ function ShardAllocationGrid({
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
     return matchesSearch && matchesClosed && matchesSpecial && matchesAffected;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredIndices.length / pageSize);
+  const paginatedIndices = filteredIndices.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('overviewPage', String(page));
+    setSearchParams(params);
+  };
 
   // Group shards by node and index
   // Build a map of node identifiers (id, name, ip) to node name for matching
@@ -1656,7 +1781,7 @@ function ShardAllocationGrid({
                 <Table.Th style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
                   Node
                 </Table.Th>
-                {filteredIndices.map((index) => (
+                {paginatedIndices.map((index) => (
                   <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
                     <Stack gap={4}>
                       <Text 
@@ -1699,7 +1824,7 @@ function ShardAllocationGrid({
                       </Badge>
                     </Stack>
                   </Table.Td>
-                  {filteredIndices.map((index) => {
+                  {paginatedIndices.map((index) => {
                     const indexUnassigned = unassignedByIndex[index.name] || [];
                     
                     return (
@@ -1806,7 +1931,7 @@ function ShardAllocationGrid({
                         )}
                       </Stack>
                     </Table.Td>
-                    {filteredIndices.map((index) => {
+                    {paginatedIndices.map((index) => {
                       const indexShards = nodeShards?.get(index.name) || [];
                       
                       return (
@@ -1875,6 +2000,21 @@ function ShardAllocationGrid({
           </Table>
         </div>
       </ScrollArea>
+      
+      {/* Pagination */}
+      {filteredIndices.length > pageSize && (
+        <Group justify="center" mt="md">
+          <Pagination
+            total={totalPages}
+            value={currentPage}
+            onChange={handlePageChange}
+            size="sm"
+          />
+          <Text size="sm" c="dimmed">
+            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredIndices.length)} of {filteredIndices.length} indices
+          </Text>
+        </Group>
+      )}
     </Stack>
   );
 }
@@ -1904,6 +2044,10 @@ function ShardsList({
   const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
   const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
   const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
+  
+  // Pagination state
+  const currentPage = parseInt(searchParams.get('shardsPage') || '1', 10);
+  const pageSize = 100; // Items per page
   
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -1998,6 +2142,19 @@ function ShardsList({
     return acc;
   }, {} as Record<string, ShardInfo[]>);
 
+  // Pagination
+  const totalPages = Math.ceil((filteredShards?.length || 0) / pageSize);
+  const paginatedShards = filteredShards?.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const handlePageChange = (page: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('shardsPage', String(page));
+    setSearchParams(params);
+  };
+
   return (
     <Stack gap="md">
       {/* Filters */}
@@ -2068,7 +2225,7 @@ function ShardsList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredShards?.slice(0, 100).map((shard, idx) => {
+              {paginatedShards?.map((shard, idx) => {
                 const isUnassigned = shard.state === 'UNASSIGNED';
                 
                 return (
@@ -2123,12 +2280,22 @@ function ShardsList({
               })}
             </Table.Tbody>
           </Table>
-          {filteredShards && filteredShards.length > 100 && (
-            <Text size="sm" c="dimmed" ta="center" mt="md">
-              Showing first 100 of {filteredShards.length} shards
-            </Text>
-          )}
         </ScrollArea>
+      )}
+      
+      {/* Pagination */}
+      {filteredShards && filteredShards.length > pageSize && (
+        <Group justify="center" mt="md">
+          <Pagination
+            total={totalPages}
+            value={currentPage}
+            onChange={handlePageChange}
+            size="sm"
+          />
+          <Text size="sm" c="dimmed">
+            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredShards.length)} of {filteredShards.length}
+          </Text>
+        </Group>
       )}
 
       {/* Shard Details Modal */}
