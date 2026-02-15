@@ -360,15 +360,17 @@ export function NodeDetail() {
       </Grid>
 
       {/* Performance Metrics - Time Series Charts */}
-      <Stack gap="md" mb="md">
-        <Title order={3}>Performance Metrics</Title>
-        <NodeCharts
-          heapHistory={heapHistory}
-          diskHistory={diskHistory}
-          cpuHistory={cpuHistory}
-          loadHistory={loadHistory}
-        />
-      </Stack>
+      <Card shadow="sm" padding="lg" mb="md">
+        <Stack gap="md">
+          <Title order={3}>Performance Metrics</Title>
+          <NodeCharts
+            heapHistory={heapHistory}
+            diskHistory={diskHistory}
+            cpuHistory={cpuHistory}
+            loadHistory={loadHistory}
+          />
+        </Stack>
+      </Card>
 
       {/* Data Node Section - Only show for data nodes */}
       {nodeStats.roles?.includes('data') && (
