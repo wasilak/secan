@@ -14,7 +14,6 @@ import {
 } from '@mantine/core';
 import {
   IconAlertCircle,
-  IconRefresh,
   IconChevronUp,
   IconChevronDown,
   IconSelector,
@@ -22,7 +21,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { HealthStatus } from '../types/api';
-import { usePreferences } from '../hooks/usePreferences';
+import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useScreenReader } from '../lib/accessibility';
 
 /**
@@ -187,7 +186,7 @@ function SortableHeader({
  */
 export function Dashboard() {
   const navigate = useNavigate();
-  const { preferences } = usePreferences();
+  const refreshInterval = useRefreshInterval();
   const { announce, announceError } = useScreenReader();
   const [clusterSummaries, setClusterSummaries] = useState<ClusterSummary[]>([]);
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
@@ -201,7 +200,7 @@ export function Dashboard() {
   } = useQuery({
     queryKey: ['clusters'],
     queryFn: () => apiClient.getClusters(),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
   });
 
   // Announce loading and error states to screen readers
@@ -261,12 +260,7 @@ export function Dashboard() {
     };
 
     fetchClusterHealth();
-
-    // Set up auto-refresh interval
-    const intervalId = setInterval(fetchClusterHealth, preferences.refreshInterval);
-
-    return () => clearInterval(intervalId);
-  }, [clusters, preferences.refreshInterval]);
+  }, [clusters]);
 
   // Handle sort column click
   const handleSort = (column: SortableColumn) => {
@@ -355,12 +349,6 @@ export function Dashboard() {
     <Stack gap="md" p="md">
       <Group justify="space-between" wrap="wrap">
         <Title order={1} className="text-responsive-xl">Dashboard</Title>
-        <Group gap="xs">
-          <IconRefresh size={16} aria-hidden="true" />
-          <Text size="sm" c="dimmed" aria-live="polite">
-            Auto-refresh: {preferences.refreshInterval / 1000}s
-          </Text>
-        </Group>
       </Group>
 
       {/* Responsive table with horizontal scroll on mobile */}

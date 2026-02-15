@@ -85,7 +85,7 @@ services:
     networks:
       - elastic
     environment:
-      CEREBRO_PORT: 9091
+      CEREBRO_PORT: 9001
 
   # Kibana (optional, for additional cluster management)
   # Uncomment if you want to use Kibana alongside Cerebro

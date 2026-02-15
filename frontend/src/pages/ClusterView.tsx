@@ -24,8 +24,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots, IconSearch } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
-import { usePreferences } from '../hooks/usePreferences';
 import { useDebounce } from '../hooks/useDebounce';
+import { useRefreshInterval } from '../contexts/RefreshContext';
 import { IndexOperations } from '../components/IndexOperations';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 
@@ -76,7 +76,7 @@ function formatPercent(used: number, total: number): number {
  */
 export function ClusterView() {
   const { id } = useParams<{ id: string }>();
-  const { preferences } = usePreferences();
+  const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Get active tab from URL, default to 'overview'
@@ -102,7 +102,7 @@ export function ClusterView() {
   } = useQuery({
     queryKey: ['cluster', id, 'stats'],
     queryFn: () => apiClient.getClusterStats(id!),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
@@ -114,7 +114,7 @@ export function ClusterView() {
   } = useQuery({
     queryKey: ['cluster', id, 'nodes'],
     queryFn: () => apiClient.getNodes(id!),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
@@ -126,7 +126,7 @@ export function ClusterView() {
   } = useQuery({
     queryKey: ['cluster', id, 'indices'],
     queryFn: () => apiClient.getIndices(id!),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
@@ -138,7 +138,7 @@ export function ClusterView() {
   } = useQuery({
     queryKey: ['cluster', id, 'shards'],
     queryFn: () => apiClient.getShards(id!),
-    refetchInterval: preferences.refreshInterval,
+    refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
