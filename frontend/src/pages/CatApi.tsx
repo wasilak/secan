@@ -304,7 +304,7 @@ export function CatApiPage() {
                   placeholder="Filter results..."
                   value={filterText}
                   onChange={(e) => setFilterText(e.currentTarget.value)}
-                  style={{ width: 300 }}
+                  w={300}
                   leftSection={<IconSearch size={16} />}
                 />
               </Group>
@@ -317,8 +317,8 @@ export function CatApiPage() {
                       {columns.map((column) => (
                         <Table.Th
                           key={column}
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort(column)}
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
                         >
                           <Group gap="xs">
                             <Text size="sm" fw={500}>

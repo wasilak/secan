@@ -302,10 +302,14 @@ function ThreadPoolRow({
   // Highlight pools with high queue sizes or rejections
   const hasHighQueue = stats.queue > 100;
   const hasRejections = stats.rejected > 0;
-  const rowColor = hasRejections ? 'red' : hasHighQueue ? 'yellow' : undefined;
+  const rowBg = hasRejections 
+    ? 'var(--mantine-color-red-light)' 
+    : hasHighQueue 
+    ? 'var(--mantine-color-yellow-light)' 
+    : undefined;
 
   return (
-    <Table.Tr style={{ backgroundColor: rowColor ? `var(--mantine-color-${rowColor}-light)` : undefined }}>
+    <Table.Tr style={{ backgroundColor: rowBg }}>
       <Table.Td>
         <Text size="sm" fw={500}>{poolName}</Text>
       </Table.Td>

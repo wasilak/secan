@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { Anchor } from '@mantine/core';
 
 /**
  * Calculate relative luminance of a color
@@ -249,7 +250,7 @@ export const visuallyHiddenStyle: React.CSSProperties = {
  */
 export function SkipToMainContent() {
   return (
-    <a
+    <Anchor
       href="#main-content"
       style={{
         position: 'absolute',
@@ -279,6 +280,6 @@ export function SkipToMainContent() {
       }}
     >
       Skip to main content
-    </a>
+    </Anchor>
   );
 }

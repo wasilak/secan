@@ -434,8 +434,8 @@ export function RestConsole() {
                       key={index}
                       p="xs"
                       withBorder
-                      style={{ cursor: 'pointer' }}
                       onClick={() => loadFromHistory(item)}
+                      style={{ cursor: 'pointer' }}
                     >
                       <Group justify="space-between" gap="xs">
                         <Badge size="sm" variant="light">
