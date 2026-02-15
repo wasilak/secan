@@ -2171,9 +2171,6 @@ function ShardsList({
     setSearchParams(params);
   };
   
-  // Debounce search query
-  const debouncedSearch = useDebounce(searchQuery, 300);
-
   // Handle shard click to open details modal
   const handleShardClick = (shard: ShardInfo) => {
     setSelectedShard(shard);
@@ -2221,10 +2218,10 @@ function ShardsList({
     setSearchParams(params);
   };
 
-  // Filter shards
+  // Filter shards - use searchQuery directly, not debounced, for immediate filtering
   const filteredShards = shards?.filter((shard) => {
-    const matchesSearch = shard.index.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      shard.node?.toLowerCase().includes(debouncedSearch.toLowerCase());
+    const matchesSearch = shard.index.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      shard.node?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesState = selectedStates.length === 0 || selectedStates.includes(shard.state);
     
