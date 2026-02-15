@@ -308,7 +308,8 @@ export function ClusterView() {
                   <Progress
                     value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
                     color={formatPercent(stats.memoryUsed || 0, stats.memoryTotal) > 90 ? 'red' : 'blue'}
-                    size="lg"
+                    size="sm"
+                    radius="xs"
                   />
                   <Text size="xs" c="dimmed">
                     {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
@@ -327,7 +328,8 @@ export function ClusterView() {
                   <Progress
                     value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
                     color={formatPercent(stats.diskUsed || 0, stats.diskTotal) > 90 ? 'red' : 'blue'}
-                    size="lg"
+                    size="sm"
+                    radius="xs"
                   />
                   <Text size="xs" c="dimmed">
                     {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
@@ -523,6 +525,7 @@ function NodesList({
                         value={formatPercent(node.heapUsed, node.heapMax)}
                         color={formatPercent(node.heapUsed, node.heapMax) > 90 ? 'red' : 'blue'}
                         size="sm"
+                        radius="xs"
                       />
                       <Text size="xs" c="dimmed">
                         {formatBytes(node.heapUsed)} / {formatBytes(node.heapMax)}
@@ -535,6 +538,7 @@ function NodesList({
                         value={formatPercent(node.diskUsed, node.diskTotal)}
                         color={formatPercent(node.diskUsed, node.diskTotal) > 90 ? 'red' : 'blue'}
                         size="sm"
+                        radius="xs"
                       />
                       <Text size="xs" c="dimmed">
                         {formatBytes(node.diskUsed)} / {formatBytes(node.diskTotal)}

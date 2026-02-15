@@ -254,7 +254,8 @@ export function Snapshots() {
                       {snapshot.state === 'IN_PROGRESS' && snapshot.shards && (
                         <Progress
                           value={(snapshot.shards.successful / snapshot.shards.total) * 100}
-                          size="xs"
+                          size="sm"
+                          radius="xs"
                           mt="xs"
                         />
                       )}

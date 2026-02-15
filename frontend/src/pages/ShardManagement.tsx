@@ -601,6 +601,7 @@ export function ShardManagement() {
                           value={Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100)}
                           color={nodeInfo.heapUsed / nodeInfo.heapMax > 0.9 ? 'red' : 'blue'}
                           size="sm"
+                          radius="xs"
                         />
                         {expandedView && (
                           <Text size="xs" c="dimmed">
@@ -614,6 +615,7 @@ export function ShardManagement() {
                           value={Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100)}
                           color={nodeInfo.diskUsed / nodeInfo.diskTotal > 0.9 ? 'red' : 'blue'}
                           size="sm"
+                          radius="xs"
                         />
                         {expandedView && (
                           <Text size="xs" c="dimmed">

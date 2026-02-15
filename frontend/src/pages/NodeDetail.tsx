@@ -214,7 +214,8 @@ export function NodeDetail() {
               <Progress
                 value={nodeStats.heapPercent}
                 color={nodeStats.heapPercent > 90 ? 'red' : nodeStats.heapPercent > 75 ? 'yellow' : 'blue'}
-                size="lg"
+                size="sm"
+                radius="xs"
               />
               <Text size="xs" c="dimmed">
                 {formatBytes(nodeStats.heapUsed)} / {formatBytes(nodeStats.heapMax)} (
@@ -231,7 +232,8 @@ export function NodeDetail() {
               <Progress
                 value={nodeStats.diskPercent}
                 color={nodeStats.diskPercent > 90 ? 'red' : nodeStats.diskPercent > 75 ? 'yellow' : 'blue'}
-                size="lg"
+                size="sm"
+                radius="xs"
               />
               <Text size="xs" c="dimmed">
                 {formatBytes(nodeStats.diskUsed)} / {formatBytes(nodeStats.diskTotal)} (
