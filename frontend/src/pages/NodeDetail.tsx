@@ -14,6 +14,7 @@ import {
   ScrollArea,
   Button,
   ThemeIcon,
+  Anchor,
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -25,13 +26,13 @@ import {
   IconClock,
   IconCpu,
   IconActivity,
+  IconExternalLink,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { NodeCharts } from '../components/NodeCharts';
-import { ShardList } from '../components/ShardList';
 import { useSparklineData } from '../hooks/useSparklineData';
 import { formatRate } from '../utils/formatters';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
@@ -382,40 +383,60 @@ export function NodeDetail() {
 
             {/* Shard Statistics Summary */}
             {nodeStats.shards && (
-              <Grid>
-                <Grid.Col span={{ base: 12, sm: 4 }}>
-                  <Card withBorder>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">Total Shards</Text>
-                      <Text size="xl" fw={700}>{nodeStats.shards.total}</Text>
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 4 }}>
-                  <Card withBorder>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">Primary Shards</Text>
-                      <Text size="xl" fw={700} c="blue">{nodeStats.shards.primary}</Text>
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 4 }}>
-                  <Card withBorder>
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">Replica Shards</Text>
-                      <Text size="xl" fw={700} c="gray">{nodeStats.shards.replica}</Text>
-                    </Stack>
-                  </Card>
-                </Grid.Col>
-              </Grid>
-            )}
+              <>
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Total Shards</Text>
+                        <Text size="xl" fw={700}>{nodeStats.shards.total}</Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Primary Shards</Text>
+                        <Text size="xl" fw={700} c="blue">{nodeStats.shards.primary}</Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 4 }}>
+                    <Card withBorder>
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Replica Shards</Text>
+                        <Text size="xl" fw={700} c="gray">{nodeStats.shards.replica}</Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
 
-            {/* Shard List Table */}
-            {nodeStats.shards && nodeStats.shards.list && (
-              <div>
-                <Title order={4} mb="sm">Allocated Shards</Title>
-                <ShardList shards={nodeStats.shards.list} loading={false} />
-              </div>
+                {/* Link to Shards Tab */}
+                <Card withBorder>
+                  <Group justify="space-between" align="center">
+                    <div>
+                      <Text size="sm" fw={500} mb={4}>View Allocated Shards</Text>
+                      <Text size="xs" c="dimmed">
+                        See all {nodeStats.shards.total} shards allocated to this node in the cluster shards view
+                      </Text>
+                    </div>
+                    <Anchor
+                      href={`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate(`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`);
+                      }}
+                    >
+                      <Button
+                        variant="light"
+                        rightSection={<IconExternalLink size={16} />}
+                      >
+                        View Shards
+                      </Button>
+                    </Anchor>
+                  </Group>
+                </Card>
+              </>
             )}
 
             {/* Indexing Metrics */}

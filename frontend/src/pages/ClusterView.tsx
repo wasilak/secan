@@ -2139,9 +2139,20 @@ function ShardsList({
   
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
+  const nodeFilter = searchParams.get('nodeFilter') || '';
   const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
   const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
   const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
+  
+  // Initialize search with nodeFilter if present
+  useEffect(() => {
+    if (nodeFilter && !searchQuery) {
+      const params = new URLSearchParams(searchParams);
+      params.set('shardsSearch', nodeFilter);
+      params.delete('nodeFilter'); // Remove nodeFilter after applying it
+      setSearchParams(params, { replace: true });
+    }
+  }, [nodeFilter, searchQuery, searchParams, setSearchParams]);
   
   // Pagination state
   const currentPage = parseInt(searchParams.get('shardsPage') || '1', 10);
