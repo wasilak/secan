@@ -19,10 +19,26 @@ import {
   TextInput,
   MultiSelect,
   Checkbox,
+  Tooltip,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { IconAlertCircle, IconPlus, IconSettings, IconMap, IconDots, IconSearch } from '@tabler/icons-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  IconAlertCircle, 
+  IconPlus, 
+  IconSettings, 
+  IconMap, 
+  IconDots, 
+  IconSearch,
+  IconLock,
+  IconLockOpen,
+  IconMaximize,
+  IconMinimize,
+  IconSortAscending,
+  IconSortDescending,
+  IconRefresh,
+} from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
@@ -535,16 +551,115 @@ function IndicesList({
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Get filters from URL
   const searchQuery = searchParams.get('indicesSearch') || '';
   const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [];
   const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [];
+  const expandedView = searchParams.get('expanded') === 'true';
+  const sortAscending = searchParams.get('sort') !== 'desc';
+  const showOnlyAffected = searchParams.get('affected') === 'true';
   
   // Debounce search query to avoid excessive filtering
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Fetch shards to identify unassigned/problem shards
+  const {
+    data: shards,
+  } = useQuery({
+    queryKey: ['cluster', id, 'shards'],
+    queryFn: () => apiClient.getShards(id!),
+    enabled: !!id,
+  });
+
+  // Fetch cluster settings to check allocation status
+  const {
+    data: clusterSettings,
+  } = useQuery({
+    queryKey: ['cluster', id, 'settings'],
+    queryFn: async () => {
+      const response = await apiClient.proxyRequest<Record<string, unknown>>(
+        id!,
+        'GET',
+        '/_cluster/settings'
+      );
+      return response;
+    },
+    enabled: !!id,
+  });
+
+  // Check if shard allocation is enabled
+  const shardAllocationEnabled = (() => {
+    if (!clusterSettings) return true;
+    
+    const transient = clusterSettings.transient as Record<string, unknown> | undefined;
+    const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
+    
+    const transientAllocation = transient?.cluster as Record<string, unknown> | undefined;
+    const persistentAllocation = persistent?.cluster as Record<string, unknown> | undefined;
+    
+    const transientRouting = transientAllocation?.routing as Record<string, unknown> | undefined;
+    const persistentRouting = persistentAllocation?.routing as Record<string, unknown> | undefined;
+    
+    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
+    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
+    
+    const enableValue = transientEnable || persistentEnable || 'all';
+    return enableValue === 'all';
+  })();
+
+  // Enable shard allocation mutation
+  const enableAllocationMutation = useMutation({
+    mutationFn: () =>
+      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+        transient: {
+          'cluster.routing.allocation.enable': 'all',
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({
+        title: 'Success',
+        message: 'Shard allocation enabled',
+        color: 'green',
+      });
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to enable shard allocation: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  // Disable shard allocation mutation
+  const disableAllocationMutation = useMutation({
+    mutationFn: (mode: string) =>
+      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+        transient: {
+          'cluster.routing.allocation.enable': mode,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({
+        title: 'Success',
+        message: 'Shard allocation disabled',
+        color: 'green',
+      });
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to disable shard allocation: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
 
   // Update URL when filters change
   const updateFilters = (newSearch?: string, newHealth?: string[], newStatus?: string[]) => {
@@ -577,14 +692,61 @@ function IndicesList({
     setSearchParams(params);
   };
 
+  const updateParam = (key: string, value: string | boolean) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === '' || value === false) {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, String(value));
+    }
+    setSearchParams(newParams);
+  };
+
+  // Group shards by index to identify problem indices
+  const shardsByIndex = shards?.reduce((acc, shard) => {
+    if (!acc[shard.index]) {
+      acc[shard.index] = [];
+    }
+    acc[shard.index].push(shard);
+    return acc;
+  }, {} as Record<string, ShardInfo[]>) || {};
+
+  // Identify unassigned shards
+  const unassignedShards = shards?.filter(s => s.state === 'UNASSIGNED') || [];
+  const unassignedByIndex = unassignedShards.reduce((acc, shard) => {
+    if (!acc[shard.index]) {
+      acc[shard.index] = [];
+    }
+    acc[shard.index].push(shard);
+    return acc;
+  }, {} as Record<string, ShardInfo[]>);
+
+  // Check if an index has problems
+  const hasProblems = (indexName: string) => {
+    const indexShards = shardsByIndex[indexName] || [];
+    return indexShards.some(s => 
+      s.state === 'UNASSIGNED' || 
+      s.state === 'RELOCATING' || 
+      s.state === 'INITIALIZING'
+    );
+  };
+
   // Filter indices based on debounced search query and filters
-  const filteredIndices = indices?.filter((index) => {
+  let filteredIndices = indices?.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesHealth = selectedHealth.length === 0 || selectedHealth.includes(index.health);
     const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
+    const matchesAffected = !showOnlyAffected || hasProblems(index.name);
     
-    return matchesSearch && matchesHealth && matchesStatus;
+    return matchesSearch && matchesHealth && matchesStatus && matchesAffected;
   });
+
+  // Sort indices
+  if (filteredIndices) {
+    filteredIndices = [...filteredIndices].sort((a, b) => {
+      return sortAscending ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+    });
+  }
 
   if (loading) {
     return (
@@ -618,9 +780,102 @@ function IndicesList({
     );
   }
 
+  const hasAnyProblems = unassignedShards.length > 0;
+
   return (
     <Stack gap="md">
+      {/* Toolbar with convenience actions */}
       <Group justify="space-between" wrap="wrap">
+        <Group>
+          {/* Shard allocation lock/unlock */}
+          {shardAllocationEnabled ? (
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Tooltip label="Disable shard allocation">
+                  <ActionIcon
+                    size="lg"
+                    variant="subtle"
+                    color="green"
+                    loading={disableAllocationMutation.isPending}
+                  >
+                    <IconLockOpen size={20} />
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Disable Allocation</Menu.Label>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">None (default)</Text>
+                  </Group>
+                </Menu.Item>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">Primaries only</Text>
+                  </Group>
+                </Menu.Item>
+                <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
+                  <Group gap="xs">
+                    <IconLock size={14} />
+                    <Text size="sm">New primaries only</Text>
+                  </Group>
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          ) : (
+            <Tooltip label="Enable shard allocation">
+              <ActionIcon
+                size="lg"
+                variant="subtle"
+                color="red"
+                onClick={() => enableAllocationMutation.mutate()}
+                loading={enableAllocationMutation.isPending}
+              >
+                <IconLock size={20} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+
+          {/* Expand/compress view */}
+          <Tooltip label={expandedView ? 'Compress view' : 'Expand view'}>
+            <ActionIcon
+              size="lg"
+              variant="subtle"
+              onClick={() => updateParam('expanded', !expandedView)}
+            >
+              {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+            </ActionIcon>
+          </Tooltip>
+
+          {/* Sort ascending/descending */}
+          <Tooltip label={sortAscending ? 'Sort descending' : 'Sort ascending'}>
+            <ActionIcon
+              size="lg"
+              variant="subtle"
+              onClick={() => updateParam('sort', sortAscending ? 'desc' : 'asc')}
+            >
+              {sortAscending ? <IconSortAscending size={20} /> : <IconSortDescending size={20} />}
+            </ActionIcon>
+          </Tooltip>
+
+          {/* Refresh */}
+          <Tooltip label="Refresh data">
+            <ActionIcon
+              size="lg"
+              variant="subtle"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+                queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+              }}
+            >
+              <IconRefresh size={20} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+
         <Group style={{ flex: 1 }}>
           <TextInput
             placeholder="Search indices..."
@@ -647,6 +902,15 @@ function IndicesList({
             clearable
             style={{ maxWidth: 150 }}
           />
+
+          {/* Show only affected checkbox */}
+          {hasAnyProblems && (
+            <Checkbox
+              label="Show only affected"
+              checked={showOnlyAffected}
+              onChange={(e) => updateParam('affected', e.currentTarget.checked)}
+            />
+          )}
         </Group>
         
         {id && (
@@ -658,6 +922,76 @@ function IndicesList({
           </Button>
         )}
       </Group>
+
+      {/* Unassigned shards section */}
+      {unassignedShards.length > 0 && (
+        <Card shadow="sm" padding="lg" style={{ backgroundColor: 'var(--mantine-color-red-0)', border: '2px solid var(--mantine-color-red-3)' }}>
+          <Group justify="space-between" mb="md">
+            <div>
+              <Title order={4}>Unassigned Shards</Title>
+              <Text size="sm" c="dimmed">
+                {unassignedShards.length} shard{unassignedShards.length > 1 ? 's' : ''} not allocated to any node
+              </Text>
+            </div>
+            <Badge size="lg" color="red" variant="filled">
+              {unassignedShards.length}
+            </Badge>
+          </Group>
+          
+          <Stack gap="md">
+            {Object.entries(unassignedByIndex)
+              .filter(([indexName]) => {
+                // Apply search filter
+                if (debouncedSearch && !indexName.toLowerCase().includes(debouncedSearch.toLowerCase())) {
+                  return false;
+                }
+                return true;
+              })
+              .sort(([a], [b]) => sortAscending ? a.localeCompare(b) : b.localeCompare(a))
+              .map(([indexName, indexShards]) => (
+                <Card key={indexName} shadow="xs" padding="sm" withBorder style={{ backgroundColor: 'white' }}>
+                  <Stack gap="xs">
+                    <Group justify="space-between">
+                      <Text 
+                        size="sm" 
+                        fw={500}
+                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(indexName)}/edit`)}
+                      >
+                        {indexName}
+                      </Text>
+                      <Badge size="sm" color="red" variant="light">
+                        {indexShards.length} unassigned
+                      </Badge>
+                    </Group>
+                    <Group gap="xs">
+                      {indexShards.map((shard, idx) => (
+                        <Tooltip
+                          key={`unassigned-${shard.index}-${shard.shard}-${idx}`}
+                          label={
+                            <div>
+                              <div>Shard: {shard.shard}</div>
+                              <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+                              <div>State: UNASSIGNED</div>
+                            </div>
+                          }
+                        >
+                          <Badge
+                            size="lg"
+                            variant={shard.primary ? 'filled' : 'light'}
+                            color="red"
+                          >
+                            {shard.shard}
+                          </Badge>
+                        </Tooltip>
+                      ))}
+                    </Group>
+                  </Stack>
+                </Card>
+              ))}
+          </Stack>
+        </Card>
+      )}
 
       {filteredIndices && filteredIndices.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
@@ -674,6 +1008,8 @@ function IndicesList({
                 <Table.Th>Documents</Table.Th>
                 <Table.Th>Size</Table.Th>
                 <Table.Th>Shards</Table.Th>
+                {expandedView && <Table.Th>Primaries</Table.Th>}
+                {expandedView && <Table.Th>Replicas</Table.Th>}
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -685,7 +1021,14 @@ function IndicesList({
                   onClick={() => navigate(`/cluster/${id}/indices/${encodeURIComponent(index.name)}/edit`)}
                 >
                   <Table.Td>
-                    <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
+                    <Stack gap={2}>
+                      <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
+                      {expandedView && hasProblems(index.name) && (
+                        <Badge size="xs" color="yellow" variant="light">
+                          Has Issues
+                        </Badge>
+                      )}
+                    </Stack>
                   </Table.Td>
                   <Table.Td>
                     <Badge size="sm" color={getHealthColor(index.health)}>
@@ -705,9 +1048,19 @@ function IndicesList({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">
-                      {index.primaryShards}p / {index.replicaShards}r
+                      {expandedView ? `${index.primaryShards + index.replicaShards}` : `${index.primaryShards}p / ${index.replicaShards}r`}
                     </Text>
                   </Table.Td>
+                  {expandedView && (
+                    <Table.Td>
+                      <Text size="sm">{index.primaryShards}</Text>
+                    </Table.Td>
+                  )}
+                  {expandedView && (
+                    <Table.Td>
+                      <Text size="sm">{index.replicaShards}</Text>
+                    </Table.Td>
+                  )}
                   <Table.Td onClick={(e) => e.stopPropagation()}>
                     <Group gap="xs">
                       {id && <IndexOperations clusterId={id} index={index} />}
