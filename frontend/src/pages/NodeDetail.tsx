@@ -608,9 +608,11 @@ export function NodeDetail() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {Object.entries(nodeStats.threadPools).map(([poolName, stats]) => (
-                    <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
-                  ))}
+                  {Object.entries(nodeStats.threadPools)
+                    .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                    .map(([poolName, stats]) => (
+                      <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
+                    ))}
                 </Table.Tbody>
               </Table>
             </ScrollArea>
