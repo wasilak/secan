@@ -125,6 +125,14 @@ pub fn transform_nodes(
             let uptime_millis = node_stats["jvm"]["uptime_in_millis"].as_u64();
             let uptime = uptime_millis.map(format_uptime);
 
+            // Extract tags/attributes from node info
+            let tags = node_info["attributes"].as_object().map(|attrs| {
+                attrs
+                    .iter()
+                    .map(|(k, v)| format!("{}:{}", k, v.as_str().unwrap_or("")))
+                    .collect()
+            });
+
             result.push(NodeInfoResponse {
                 id: node_id.clone(),
                 name: node_info["name"].as_str().unwrap_or("").to_string(),
@@ -141,6 +149,7 @@ pub fn transform_nodes(
                 load_average,
                 uptime,
                 uptime_millis,
+                tags,
             });
         }
     }
@@ -305,6 +314,8 @@ pub struct NodeInfoResponse {
     pub uptime: Option<String>,
     #[serde(rename = "uptimeMillis", skip_serializing_if = "Option::is_none")]
     pub uptime_millis: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
 }
 
 /// Index info response for frontend
@@ -558,5 +569,108 @@ mod tests {
         assert_eq!(result[0].load_average, None);
         assert_eq!(result[0].uptime, None);
         assert_eq!(result[0].uptime_millis, None);
+    }
+
+    #[test]
+    fn test_transform_nodes_with_tags() {
+        let nodes_info = json!({
+            "nodes": {
+                "node1": {
+                    "name": "test-node",
+                    "roles": ["data"],
+                    "ip": "127.0.0.1",
+                    "version": "8.0.0",
+                    "attributes": {
+                        "rack": "rack1",
+                        "zone": "us-east-1a",
+                        "instance_type": "m5.large"
+                    }
+                }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "node1": {
+                    "jvm": {
+                        "mem": {
+                            "heap_used_in_bytes": 1000000,
+                            "heap_max_in_bytes": 2000000
+                        },
+                        "uptime_in_millis": 3600000
+                    },
+                    "fs": {
+                        "total": {
+                            "total_in_bytes": 10000000,
+                            "available_in_bytes": 5000000
+                        }
+                    },
+                    "os": {
+                        "cpu": {
+                            "percent": 50,
+                            "load_average": {
+                                "1m": 1.5
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "test-node");
+        assert!(result[0].tags.is_some());
+
+        let tags = result[0].tags.as_ref().unwrap();
+        assert_eq!(tags.len(), 3);
+        assert!(tags.contains(&"rack:rack1".to_string()));
+        assert!(tags.contains(&"zone:us-east-1a".to_string()));
+        assert!(tags.contains(&"instance_type:m5.large".to_string()));
+    }
+
+    #[test]
+    fn test_transform_nodes_no_tags() {
+        let nodes_info = json!({
+            "nodes": {
+                "node1": {
+                    "name": "test-node",
+                    "roles": ["data"],
+                    "ip": "127.0.0.1",
+                    "version": "8.0.0"
+                }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "node1": {
+                    "jvm": {
+                        "mem": {
+                            "heap_used_in_bytes": 1000000,
+                            "heap_max_in_bytes": 2000000
+                        }
+                    },
+                    "fs": {
+                        "total": {
+                            "total_in_bytes": 10000000,
+                            "available_in_bytes": 5000000
+                        }
+                    },
+                    "os": {
+                        "cpu": {
+                            "percent": 50
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "test-node");
+        assert_eq!(result[0].tags, None);
     }
 }
