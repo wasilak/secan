@@ -7,16 +7,25 @@ object Node extends NodeInfo {
 
   def apply(id: String, currentMaster: Boolean, info: JsValue, stats: JsValue): JsValue = {
     val jvmVersion = (info \ "jvm" \ "version").asOpt[JsString].getOrElse(JsNull)
+    val uptimeMillis = (stats \ "jvm" \ "uptime_in_millis").asOpt[Long].getOrElse(0L)
+    val loadAverage = (stats \ "os" \ "cpu" \ "load_average" \ "1m").asOpt[Double].getOrElse(
+      (stats \ "os" \ "load_average").asOpt[Double].getOrElse(0.0)
+    )
+    val nodeRoles = NodeRoles(info)
 
     Json.obj(
       "id" -> JsString(id),
       "current_master" -> JsBoolean(currentMaster),
+      "isMaster" -> JsBoolean(currentMaster),
+      "isMasterEligible" -> JsBoolean(nodeRoles.master),
       "name" -> (stats \ "name").as[JsValue],
       "host" -> (stats \ "host").asOpt[JsValue],
       "heap" -> heap(stats),
       "disk" -> disk(stats),
       "cpu" -> cpu(stats),
-      "uptime" -> (stats \ "jvm" \ "uptime_in_millis").as[JsValue],
+      "uptime" -> JsString(formatUptime(uptimeMillis)),
+      "uptimeMillis" -> JsNumber(uptimeMillis),
+      "loadAverage" -> JsNumber(loadAverage),
       "jvm" -> jvmVersion,
       "attributes" -> attrs(info),
       "version" -> (info \ "version").as[JsValue]
@@ -68,5 +77,22 @@ object Node extends NodeInfo {
       "used" -> (stats \ "jvm" \ "mem" \ "heap_used").as[JsValue],
       "percent" -> (stats \ "jvm" \ "mem" \ "heap_used_percent").as[JsValue]
     )
+
+  private def formatUptime(uptimeMillis: Long): String = {
+    val seconds = uptimeMillis / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    val days = hours / 24
+
+    if (days > 0) {
+      s"${days}d ${hours % 24}h"
+    } else if (hours > 0) {
+      s"${hours}h ${minutes % 60}m"
+    } else if (minutes > 0) {
+      s"${minutes}m"
+    } else {
+      s"${seconds}s"
+    }
+  }
 
 }
