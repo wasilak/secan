@@ -706,6 +706,8 @@ pub struct NodeDetailStatsResponse {
     pub cpu_percent: u32,
     pub ip: Option<String>,
     pub version: Option<String>,
+    #[serde(rename = "jvmVersion", skip_serializing_if = "Option::is_none")]
+    pub jvm_version: Option<String>,
     #[serde(rename = "threadPools", skip_serializing_if = "Option::is_none")]
     pub thread_pools: Option<std::collections::HashMap<String, ThreadPoolStats>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1111,6 +1113,7 @@ pub fn transform_node_detail_stats(
         cpu_percent,
         ip: node_info["ip"].as_str().map(|s| s.to_string()),
         version: node_info["version"].as_str().map(|s| s.to_string()),
+        jvm_version: node_info["jvm"]["version"].as_str().map(|s| s.to_string()),
         thread_pools,
         shards: shard_stats,
         indexing,
