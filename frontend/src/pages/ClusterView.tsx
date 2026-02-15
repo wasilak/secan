@@ -178,13 +178,6 @@ export function ClusterView() {
     }
   };
 
-  // Navigate to a specific tab
-  const navigateToTab = (tab: string) => {
-    const params = new URLSearchParams();
-    params.set('tab', tab);
-    setSearchParams(params);
-  };
-
   // Fetch cluster statistics with auto-refresh
   const {
     data: stats,
@@ -293,249 +286,258 @@ export function ClusterView() {
 
   return (
     <Stack gap="md" p="md">
-      <Group justify="space-between" wrap="wrap">
-        <div>
-          <Title order={1} className="text-responsive-xl">
-            {stats?.clusterName || id}
-          </Title>
-          <Text size="sm" c="dimmed">
-            Cluster Overview
-          </Text>
-        </div>
-      </Group>
+      {/* Cluster Name */}
+      <div>
+        <Title order={1} className="text-responsive-xl">
+          {stats?.clusterName || id}
+        </Title>
+      </div>
 
-      {/* Health Status Progress Bar */}
-      <Progress
-        value={100}
-        color={getHealthColor(stats?.health || 'red')}
-        size="sm"
-        radius="xs"
-        aria-label={`Cluster health: ${stats?.health || 'unknown'}`}
-      />
+      {/* Tabs at the top */}
+      <Tabs value={activeTab} onChange={handleTabChange}>
+        <Tabs.List>
+          <Tabs.Tab value="overview">Overview</Tabs.Tab>
+          <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
+          <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
+          <Tabs.Tab value="shards">Shards ({shards?.length || 0})</Tabs.Tab>
+        </Tabs.List>
 
-      {/* Cluster Statistics Cards */}
-      <Grid>
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card 
-            shadow="sm" 
-            padding="md" 
-            style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => navigateToTab('nodes')}
-          >
-            <Stack gap={4}>
-              <Group justify="space-between" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed">Nodes</Text>
-                  <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
-                </div>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {stats?.numberOfDataNodes || 0} data
-                </Text>
-              </Group>
-              {nodesHistory.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline data={nodesHistory} color="var(--mantine-color-blue-6)" height={25} />
-                </div>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card 
-            shadow="sm" 
-            padding="md"
-            style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => navigateToTab('indices')}
-          >
-            <Stack gap={4}>
-              <Group justify="space-between" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed">Indices</Text>
-                  <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
-                </div>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {stats?.numberOfDataNodes || 0} data
-                </Text>
-              </Group>
-              {indicesHistory.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline data={indicesHistory} color="var(--mantine-color-green-6)" height={25} />
-                </div>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card 
-            shadow="sm" 
-            padding="md"
-            style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => navigateToTab('indices')}
-          >
-            <Stack gap={4}>
-              <Group justify="space-between" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed">Documents</Text>
-                  <Text size="xl" fw={700}>{(stats?.numberOfDocuments || 0).toLocaleString()}</Text>
-                </div>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  total
-                </Text>
-              </Group>
-              {documentsHistory.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline data={documentsHistory} color="var(--mantine-color-cyan-6)" height={25} />
-                </div>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card 
-            shadow="sm" 
-            padding="md"
-            style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => navigateToTab('shards')}
-          >
-            <Stack gap={4}>
-              <Group justify="space-between" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed">Shards</Text>
-                  <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
-                </div>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {stats?.activePrimaryShards || 0} primary
-                </Text>
-              </Group>
-              {shardsHistory.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline data={shardsHistory} color="var(--mantine-color-violet-6)" height={25} />
-                </div>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card 
-            shadow="sm" 
-            padding="md"
-            style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => navigateToTab('shards')}
-          >
-            <Stack gap={4}>
-              <Group justify="space-between" wrap="nowrap">
-                <div style={{ flex: 1 }}>
-                  <Text size="xs" c="dimmed">Unassigned</Text>
-                  <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
-                    {stats?.unassignedShards || 0}
-                  </Text>
-                </div>
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {stats?.relocatingShards || 0} moving
-                </Text>
-              </Group>
-              {unassignedHistory.length > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline 
-                    data={unassignedHistory} 
-                    color={stats?.unassignedShards ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)'} 
-                    height={25} 
-                  />
-                </div>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-      </Grid>
-
-      {/* Memory and Disk Usage */}
-      {(stats?.memoryTotal || stats?.diskTotal) && (
-        <Grid>
-          {stats?.memoryTotal && (
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Card shadow="sm" padding="lg">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">Memory Usage</Text>
-                  <Progress
-                    value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
-                    color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
-                    {formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}%)
-                  </Text>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          )}
-
-          {stats?.diskTotal && (
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Card shadow="sm" padding="lg">
-                <Stack gap="xs">
-                  <Text size="sm" c="dimmed">Disk Usage</Text>
-                  <Progress
-                    value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
-                    color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
-                    {formatPercent(stats.diskUsed || 0, stats.diskTotal)}%)
-                  </Text>
-                </Stack>
-              </Card>
-            </Grid.Col>
-          )}
-        </Grid>
-      )}
-
-      {/* Tabs for Nodes, Indices, and Shards */}
-      <Card shadow="sm" padding="lg">
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tabs.List>
-            <Tabs.Tab value="overview">Overview</Tabs.Tab>
-            <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
-            <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
-            <Tabs.Tab value="shards">Shards ({shards?.length || 0})</Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value="overview" pt="md">
-            <ShardAllocationGrid 
-              nodes={nodes} 
-              indices={indices} 
-              shards={shards}
-              loading={nodesLoading || indicesLoading || shardsLoading}
-              error={nodesError || indicesError || shardsError}
-              openIndexModal={openIndexModal}
+        {/* Overview Tab */}
+        <Tabs.Panel value="overview" pt="md">
+          <Stack gap="md">
+            {/* Health Status Progress Bar */}
+            <Progress
+              value={100}
+              color={getHealthColor(stats?.health || 'red')}
+              size="sm"
+              radius="xs"
+              aria-label={`Cluster health: ${stats?.health || 'unknown'}`}
             />
-          </Tabs.Panel>
 
-          <Tabs.Panel value="nodes" pt="md">
+            {/* Cluster Statistics Cards */}
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card 
+                  shadow="sm" 
+                  padding="md" 
+                  style={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleTabChange('nodes')}
+                >
+                  <Stack gap={4}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <div style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed">Nodes</Text>
+                        <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
+                      </div>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                        {stats?.numberOfDataNodes || 0} data
+                      </Text>
+                    </Group>
+                    {nodesHistory.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Sparkline data={nodesHistory} color="var(--mantine-color-blue-6)" height={25} />
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card 
+                  shadow="sm" 
+                  padding="md"
+                  style={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleTabChange('indices')}
+                >
+                  <Stack gap={4}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <div style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed">Indices</Text>
+                        <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
+                      </div>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                        {stats?.numberOfDataNodes || 0} data
+                      </Text>
+                    </Group>
+                    {indicesHistory.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Sparkline data={indicesHistory} color="var(--mantine-color-green-6)" height={25} />
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card 
+                  shadow="sm" 
+                  padding="md"
+                  style={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleTabChange('indices')}
+                >
+                  <Stack gap={4}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <div style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed">Documents</Text>
+                        <Text size="xl" fw={700}>{(stats?.numberOfDocuments || 0).toLocaleString()}</Text>
+                      </div>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                        total
+                      </Text>
+                    </Group>
+                    {documentsHistory.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Sparkline data={documentsHistory} color="var(--mantine-color-cyan-6)" height={25} />
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card 
+                  shadow="sm" 
+                  padding="md"
+                  style={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleTabChange('shards')}
+                >
+                  <Stack gap={4}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <div style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed">Shards</Text>
+                        <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
+                      </div>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                        {stats?.activePrimaryShards || 0} primary
+                      </Text>
+                    </Group>
+                    {shardsHistory.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Sparkline data={shardsHistory} color="var(--mantine-color-violet-6)" height={25} />
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card 
+                  shadow="sm" 
+                  padding="md"
+                  style={{ cursor: 'pointer', height: '100%' }}
+                  onClick={() => handleTabChange('shards')}
+                >
+                  <Stack gap={4}>
+                    <Group justify="space-between" wrap="nowrap">
+                      <div style={{ flex: 1 }}>
+                        <Text size="xs" c="dimmed">Unassigned</Text>
+                        <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
+                          {stats?.unassignedShards || 0}
+                        </Text>
+                      </div>
+                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                        {stats?.relocatingShards || 0} moving
+                      </Text>
+                    </Group>
+                    {unassignedHistory.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Sparkline 
+                          data={unassignedHistory} 
+                          color={stats?.unassignedShards ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)'} 
+                          height={25} 
+                        />
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            {/* Memory and Disk Usage */}
+            {(stats?.memoryTotal || stats?.diskTotal) && (
+              <Grid>
+                {stats?.memoryTotal && (
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <Card shadow="sm" padding="lg">
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Memory Usage</Text>
+                        <Progress
+                          value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
+                          color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
+                          size="sm"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed">
+                          {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
+                          {formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}%)
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                )}
+
+                {stats?.diskTotal && (
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <Card shadow="sm" padding="lg">
+                      <Stack gap="xs">
+                        <Text size="sm" c="dimmed">Disk Usage</Text>
+                        <Progress
+                          value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
+                          color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
+                          size="sm"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed">
+                          {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
+                          {formatPercent(stats.diskUsed || 0, stats.diskTotal)}%)
+                        </Text>
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                )}
+              </Grid>
+            )}
+
+            {/* Shard Allocation Grid */}
+            <Card shadow="sm" padding="lg">
+              <ShardAllocationGrid 
+                nodes={nodes} 
+                indices={indices} 
+                shards={shards}
+                loading={nodesLoading || indicesLoading || shardsLoading}
+                error={nodesError || indicesError || shardsError}
+                openIndexModal={openIndexModal}
+              />
+            </Card>
+          </Stack>
+        </Tabs.Panel>
+
+        {/* Nodes Tab */}
+        <Tabs.Panel value="nodes" pt="md">
+          <Card shadow="sm" padding="lg">
             <NodesList nodes={nodes} loading={nodesLoading} error={nodesError} />
-          </Tabs.Panel>
+          </Card>
+        </Tabs.Panel>
 
-          <Tabs.Panel value="indices" pt="md">
+        {/* Indices Tab */}
+        <Tabs.Panel value="indices" pt="md">
+          <Card shadow="sm" padding="lg">
             <IndicesList 
               indices={indices} 
               loading={indicesLoading} 
               error={indicesError}
               openIndexModal={openIndexModal}
             />
-          </Tabs.Panel>
+          </Card>
+        </Tabs.Panel>
 
-          <Tabs.Panel value="shards" pt="md">
+        {/* Shards Tab */}
+        <Tabs.Panel value="shards" pt="md">
+          <Card shadow="sm" padding="lg">
             <ShardsList shards={shards} loading={shardsLoading} error={shardsError} />
-          </Tabs.Panel>
-        </Tabs>
-      </Card>
+          </Card>
+        </Tabs.Panel>
+      </Tabs>
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
