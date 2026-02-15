@@ -1096,9 +1096,12 @@ function ShardDetailsModal({
       setLoading(true);
       setDetailedStats(null); // Reset previous data
       
+      console.log('Fetching shard stats:', { clusterId, index: shard.index, shard: shard.shard });
+      
       apiClient
         .getShardStats(clusterId, shard.index, shard.shard)
         .then((stats) => {
+          console.log('Received shard stats:', stats);
           setDetailedStats(stats);
         })
         .catch((error) => {
@@ -1113,7 +1116,7 @@ function ShardDetailsModal({
       setDetailedStats(null);
       setLoading(false);
     }
-  }, [opened, shard, clusterId]);
+  }, [opened, shard?.index, shard?.shard, clusterId]);
 
   if (!shard) return null;
 
