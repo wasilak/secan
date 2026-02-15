@@ -174,45 +174,48 @@ export function NodeDetail() {
 
   return (
     <Container size="xl" py="md">
-      <Group justify="space-between" mb="md">
-        <div>
-          <Group gap="xs" mb="xs">
-            <Button
-              variant="subtle"
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={() => navigate(`/cluster/${clusterId}`)}
-            >
-              Back to Cluster
-            </Button>
-          </Group>
-          <Group gap="xs" align="center">
-            <MasterIndicator
-              isMaster={nodeStats.isMaster}
-              isMasterEligible={nodeStats.isMasterEligible}
-              size="lg"
-              showTooltip={true}
-            />
-            <Title order={1}>{nodeStats.name}</Title>
-          </Group>
-          <Text size="sm" c="dimmed">
-            Node ID: {nodeStats.id}
-          </Text>
-          {nodeStats.ip && (
+      {/* Node Header Card */}
+      <Card shadow="sm" padding="lg" mb="md">
+        <Group justify="space-between">
+          <div>
+            <Group gap="xs" mb="xs">
+              <Button
+                variant="subtle"
+                leftSection={<IconArrowLeft size={16} />}
+                onClick={() => navigate(`/cluster/${clusterId}?tab=nodes`)}
+              >
+                Back to Nodes List
+              </Button>
+            </Group>
+            <Group gap="xs" align="center">
+              <MasterIndicator
+                isMaster={nodeStats.isMaster}
+                isMasterEligible={nodeStats.isMasterEligible}
+                size="lg"
+                showTooltip={true}
+              />
+              <Title order={1}>{nodeStats.name}</Title>
+            </Group>
             <Text size="sm" c="dimmed">
-              IP: {nodeStats.ip}
+              Node ID: {nodeStats.id}
             </Text>
+            {nodeStats.ip && (
+              <Text size="sm" c="dimmed">
+                IP: {nodeStats.ip}
+              </Text>
+            )}
+          </div>
+          {nodeStats.roles && nodeStats.roles.length > 0 && (
+            <Group>
+              {nodeStats.roles.map((role) => (
+                <Badge key={role} size="lg" variant="light">
+                  {role}
+                </Badge>
+              ))}
+            </Group>
           )}
-        </div>
-        {nodeStats.roles && nodeStats.roles.length > 0 && (
-          <Group>
-            {nodeStats.roles.map((role) => (
-              <Badge key={role} size="lg" variant="light">
-                {role}
-              </Badge>
-            ))}
-          </Group>
-        )}
-      </Group>
+        </Group>
+      </Card>
 
       {/* Node Information Cards */}
       <Grid mb="md">
