@@ -290,110 +290,74 @@ pub async fn get_shard_stats(
             }
         })?;
 
-    // Get indices stats for the specific index - this includes shard-level stats
-    // We need to use the _stats API with level=shards parameter
-    let response = cluster
-        .request(
-            reqwest::Method::GET,
-            &format!("/{}/{}/_stats", index_name, "_all"),
-            None::<serde_json::Value>,
-        )
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Failed to get index stats with shards"
-            );
-            ClusterErrorResponse {
-                error: "index_stats_failed".to_string(),
-                message: format!("Failed to get index stats: {}", e),
-            }
-        })?;
-
-    let indices_stats: Value = response.json().await.map_err(|e| {
+    // Get cluster state and indices stats to build comprehensive shard info
+    let cluster_state = cluster.cluster_state().await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,
-            "Failed to parse index stats response"
+            "Failed to get cluster state"
         );
         ClusterErrorResponse {
-            error: "parse_failed".to_string(),
-            message: format!("Failed to parse response: {}", e),
+            error: "cluster_state_failed".to_string(),
+            message: format!("Failed to get cluster state: {}", e),
         }
     })?;
 
-    // Log the indices keys to understand structure
-    if let Some(indices_obj) = indices_stats.get("indices") {
-        if let Some(indices_map) = indices_obj.as_object() {
-            tracing::info!(
-                cluster_id = %cluster_id,
-                "Available indices in stats: {:?}",
-                indices_map.keys().collect::<Vec<_>>()
-            );
-            
-            // Check if our index exists
-            if let Some(index_obj) = indices_map.get(&index_name) {
-                tracing::info!(
-                    cluster_id = %cluster_id,
-                    index = %index_name,
-                    "Found index, checking shards structure"
-                );
-                
+    let indices_stats = cluster.indices_stats().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get indices stats"
+        );
+        ClusterErrorResponse {
+            error: "indices_stats_failed".to_string(),
+            message: format!("Failed to get indices stats: {}", e),
+        }
+    })?;
+
+    // Find the specific shard in routing table
+    if let Some(routing_table) = cluster_state.get("routing_table") {
+        if let Some(indices_obj) = routing_table.get("indices") {
+            if let Some(index_obj) = indices_obj.get(&index_name) {
                 if let Some(shards_obj) = index_obj.get("shards") {
-                    if let Some(shards_map) = shards_obj.as_object() {
-                        tracing::info!(
-                            cluster_id = %cluster_id,
-                            index = %index_name,
-                            "Available shard numbers: {:?}",
-                            shards_map.keys().collect::<Vec<_>>()
-                        );
-                        
-                        // Try to get the shard
-                        if let Some(shard_array) = shards_map.get(&shard_num) {
-                            if let Some(arr) = shard_array.as_array() {
-                                if let Some(first_shard) = arr.first() {
-                                    tracing::info!(
-                                        cluster_id = %cluster_id,
-                                        index = %index_name,
-                                        shard = %shard_num,
-                                        "Successfully found shard stats"
-                                    );
-                                    return Ok(Json(first_shard.clone()));
+                    if let Some(shard_array) = shards_obj.get(&shard_num) {
+                        if let Some(arr) = shard_array.as_array() {
+                            // Get the first shard (primary or replica)
+                            if let Some(shard_info) = arr.first() {
+                                // Enhance with stats from indices_stats if available
+                                let mut enhanced_shard = shard_info.clone();
+                                
+                                // Try to add index-level stats
+                                if let Some(indices) = indices_stats.get("indices") {
+                                    if let Some(index_stats) = indices.get(&index_name) {
+                                        if let Some(obj) = enhanced_shard.as_object_mut() {
+                                            obj.insert("index_stats".to_string(), index_stats.clone());
+                                        }
+                                    }
                                 }
+                                
+                                tracing::info!(
+                                    cluster_id = %cluster_id,
+                                    index = %index_name,
+                                    shard = %shard_num,
+                                    "Successfully found and enhanced shard stats"
+                                );
+                                
+                                return Ok(Json(enhanced_shard));
                             }
-                        } else {
-                            tracing::warn!(
-                                cluster_id = %cluster_id,
-                                index = %index_name,
-                                shard = %shard_num,
-                                "Shard number not found in shards map"
-                            );
                         }
                     }
-                } else {
-                    tracing::warn!(
-                        cluster_id = %cluster_id,
-                        index = %index_name,
-                        "No 'shards' key found in index object"
-                    );
                 }
-            } else {
-                tracing::warn!(
-                    cluster_id = %cluster_id,
-                    index = %index_name,
-                    "Index not found in indices map"
-                );
             }
         }
     }
 
-    // If not found, log and return empty object
+    // If not found, return empty object
     tracing::warn!(
         cluster_id = %cluster_id,
         index = %index_name,
         shard = %shard_num,
-        "Shard stats not found in expected structure"
+        "Shard not found in cluster state"
     );
     Ok(Json(serde_json::json!({})))
 }
