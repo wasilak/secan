@@ -329,6 +329,11 @@ export class ApiClient {
   /**
    * Get list of nodes in a cluster
    * 
+   * Handles optional fields with default values:
+   * - loadAverage defaults to undefined if not provided
+   * - uptime defaults to undefined if not provided
+   * - tags defaults to empty array if not provided
+   * 
    * Requirements: 4.6, 14.1, 14.2
    */
   async getNodes(clusterId: string): Promise<NodeInfo[]> {
@@ -336,12 +341,32 @@ export class ApiClient {
       const response = await this.client.get<NodeInfo[]>(
         `/clusters/${clusterId}/nodes`
       );
-      return response.data;
+      
+      // Ensure optional fields have proper defaults
+      return response.data.map(node => ({
+        ...node,
+        tags: node.tags ?? [],
+        loadAverage: node.loadAverage ?? undefined,
+        uptime: node.uptime ?? undefined,
+        uptimeMillis: node.uptimeMillis ?? undefined,
+      }));
     });
   }
 
   /**
    * Get detailed statistics for a specific node
+   * 
+   * Handles optional fields with default values:
+   * - loadAverage defaults to undefined if not provided
+   * - uptime defaults to undefined if not provided
+   * - threadPools defaults to undefined if not provided
+   * - shards defaults to undefined if not provided
+   * - indexing defaults to undefined if not provided
+   * - search defaults to undefined if not provided
+   * - fs defaults to undefined if not provided
+   * - network defaults to undefined if not provided
+   * - jvm defaults to undefined if not provided
+   * 
    * Requirements: 14.7, 14.8
    */
   async getNodeStats(clusterId: string, nodeId: string): Promise<NodeDetailStats> {
@@ -349,7 +374,34 @@ export class ApiClient {
       const response = await this.client.get<NodeDetailStats>(
         `/clusters/${clusterId}/_nodes/${nodeId}/stats`
       );
-      return response.data;
+      
+      // Ensure optional fields have proper defaults and validate numeric fields
+      const data = response.data;
+      
+      // Validate that numeric fields are not NaN
+      const validateNumber = (value: number | undefined, fieldName: string): number | undefined => {
+        if (value === undefined) return undefined;
+        if (isNaN(value)) {
+          console.warn(`Invalid numeric value for ${fieldName}: NaN`);
+          return undefined;
+        }
+        return value;
+      };
+      
+      return {
+        ...data,
+        cpuPercent: validateNumber(data.cpuPercent, 'cpuPercent'),
+        loadAverage: data.loadAverage ?? undefined,
+        uptime: data.uptime ?? undefined,
+        uptimeMillis: validateNumber(data.uptimeMillis, 'uptimeMillis'),
+        threadPools: data.threadPools ?? undefined,
+        shards: data.shards ?? undefined,
+        indexing: data.indexing ?? undefined,
+        search: data.search ?? undefined,
+        fs: data.fs ?? undefined,
+        network: data.network ?? undefined,
+        jvm: data.jvm ?? undefined,
+      };
     });
   }
 
