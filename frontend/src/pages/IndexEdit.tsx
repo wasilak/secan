@@ -63,6 +63,9 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
     'store',
     'time_series',
     'routing_path',
+    'analysis', // All analysis settings (analyzers, tokenizers, filters, etc.)
+    'similarity', // Similarity algorithms
+    'mapping', // Mapping settings
   ];
 
   const allFilteredFields = [...systemReadOnlyFields, ...staticFields];
@@ -421,7 +424,7 @@ export function IndexEdit() {
                         <Text size="xs" mt="xs">
                           <strong>Static (require closed index):</strong>
                           <br />
-                          number_of_shards, codec, sort, store, routing_path, and others
+                          number_of_shards, codec, sort, store, routing_path, analysis (analyzers, tokenizers, filters), similarity, mapping, and others
                         </Text>
                       </HoverCard.Dropdown>
                     </HoverCard>
