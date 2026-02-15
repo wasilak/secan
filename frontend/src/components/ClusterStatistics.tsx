@@ -92,7 +92,7 @@ export function ClusterStatistics({
   });
 
   const nodeRolesData = Array.from(roleCount.entries()).map(([role, count]) => ({
-    role: role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, ' '),
+    role: role, // Use actual role name from Elasticsearch
     count,
     fullMark: Math.max(...Array.from(roleCount.values())) + 2, // Add padding for better visualization
   }));
