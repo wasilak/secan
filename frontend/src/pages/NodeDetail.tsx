@@ -134,13 +134,15 @@ export function NodeDetail() {
             </Text>
           )}
         </div>
-        <Group>
-          {nodeStats.roles.map((role) => (
-            <Badge key={role} size="lg" variant="light">
-              {role}
-            </Badge>
-          ))}
-        </Group>
+        {nodeStats.roles && nodeStats.roles.length > 0 && (
+          <Group>
+            {nodeStats.roles.map((role) => (
+              <Badge key={role} size="lg" variant="light">
+                {role}
+              </Badge>
+            ))}
+          </Group>
+        )}
       </Group>
 
       {/* Node Information Cards */}
