@@ -50,7 +50,7 @@ import { Sparkline } from '../components/Sparkline';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
-import { RoleIcons, RoleLegend, RoleOption } from '../components/RoleIcons';
+import { RoleIcons, RoleLegend, RoleOption, getRoleIcon } from '../components/RoleIcons';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
@@ -2032,15 +2032,24 @@ function ShardAllocationGrid({
                         <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
                           {node.ip}
                         </Text>
+                        {expandedView ? (
+                          <Group gap="md" wrap="wrap">
+                            {node.roles.map((role) => {
+                              const roleInfo = getRoleIcon(role);
+                              const Icon = roleInfo.icon;
+                              return (
+                                <Group key={role} gap={4}>
+                                  <Icon size={14} color={`var(--mantine-color-${roleInfo.color}-6)`} />
+                                  <Text size="xs">{roleInfo.label}</Text>
+                                </Group>
+                              );
+                            })}
+                          </Group>
+                        ) : (
+                          <RoleIcons roles={node.roles} size={14} />
+                        )}
                         {expandedView && (
                           <>
-                            <Group gap={4} wrap="wrap">
-                              {node.roles.map((role) => (
-                                <Badge key={role} size="xs" variant="light" color="gray">
-                                  {role}
-                                </Badge>
-                              ))}
-                            </Group>
                             {/* Node stats badges - similar to original Cerebro */}
                             <Group gap={4} wrap="wrap">
                               <Badge size="xs" color="teal" variant="filled">
