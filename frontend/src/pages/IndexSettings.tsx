@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -85,22 +85,13 @@ export function IndexSettings() {
     enabled: !!clusterId && !!indexName,
   });
 
-  // Initialize settings editor when data is loaded
-  useEffect(() => {
-    if (currentSettings) {
-      setSettings(JSON.stringify(currentSettings, null, 2));
-      setIsModified(false);
-    }
-  }, [currentSettings]);
-
   // Filter out read-only settings that cannot be updated
   const filterReadOnlySettings = (settings: Record<string, unknown>): Record<string, unknown> => {
     const readOnlyFields = [
-      'index.creation_date',
-      'index.provided_name',
-      'index.uuid',
-      'index.version.created',
-      'index.version.upgraded',
+      'creation_date',
+      'provided_name',
+      'uuid',
+      'version',
     ];
 
     const filtered: Record<string, unknown> = {};
@@ -112,8 +103,8 @@ export function IndexSettings() {
         const filteredIndex: Record<string, unknown> = {};
         
         for (const [indexKey, indexValue] of Object.entries(indexSettings)) {
-          const fullKey = `index.${indexKey}`;
-          if (!readOnlyFields.includes(fullKey)) {
+          // Skip read-only fields
+          if (!readOnlyFields.includes(indexKey)) {
             filteredIndex[indexKey] = indexValue;
           }
         }
@@ -128,6 +119,16 @@ export function IndexSettings() {
     
     return filtered;
   };
+
+  // Initialize settings editor when data is loaded
+  useEffect(() => {
+    if (currentSettings) {
+      // Filter out read-only settings before displaying
+      const filteredSettings = filterReadOnlySettings(currentSettings);
+      setSettings(JSON.stringify(filteredSettings, null, 2));
+      setIsModified(false);
+    }
+  }, [currentSettings]);
 
   // Update settings mutation
   const updateMutation = useMutation({
@@ -198,7 +199,9 @@ export function IndexSettings() {
 
   const handleReset = () => {
     if (currentSettings) {
-      setSettings(JSON.stringify(currentSettings, null, 2));
+      // Filter out read-only settings before displaying
+      const filteredSettings = filterReadOnlySettings(currentSettings);
+      setSettings(JSON.stringify(filteredSettings, null, 2));
       setSettingsError(null);
       setUpdateError(null);
       setIsModified(false);
@@ -277,6 +280,23 @@ export function IndexSettings() {
       </Group>
 
       <Stack gap="md">
+        <Alert icon={<IconInfoCircle size={16} />} color="blue" title="Read-Only Settings Filtered">
+          <Text size="sm">
+            System-managed read-only settings have been automatically filtered out and will not appear in the editor:
+            <br />
+            • <strong>creation_date</strong>: Index creation timestamp
+            <br />
+            • <strong>provided_name</strong>: Original index name
+            <br />
+            • <strong>uuid</strong>: Unique index identifier
+            <br />
+            • <strong>version</strong>: Elasticsearch version information
+            <br />
+            <br />
+            These settings are managed by Elasticsearch and cannot be modified.
+          </Text>
+        </Alert>
+
         <Card shadow="sm" padding="lg">
           <Stack gap="md">
             <div>
