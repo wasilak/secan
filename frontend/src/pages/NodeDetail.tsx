@@ -206,13 +206,16 @@ export function NodeDetail() {
             )}
           </div>
           {nodeStats.roles && nodeStats.roles.length > 0 && (
-            <Group>
-              {nodeStats.roles.map((role) => (
-                <Badge key={role} size="lg" variant="light">
-                  {role}
-                </Badge>
-              ))}
-            </Group>
+            <div>
+              <Text size="sm" c="dimmed" mb="xs">Roles</Text>
+              <Group>
+                {nodeStats.roles.map((role) => (
+                  <Badge key={role} size="lg" variant="light">
+                    {role.toLowerCase()}
+                  </Badge>
+                ))}
+              </Group>
+            </div>
           )}
         </Group>
       </Card>

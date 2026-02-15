@@ -50,6 +50,7 @@ import { Sparkline } from '../components/Sparkline';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
+import { RoleIcons, RoleLegend } from '../components/RoleIcons';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
@@ -611,13 +612,14 @@ function NodesList({
   // Get filters from URL
   const searchQuery = searchParams.get('nodesSearch') || '';
   const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || [];
+  const expandedView = searchParams.get('nodesExpanded') === 'true';
   
   // Debounce search query
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Update URL when filters change
-  const updateFilters = (newSearch?: string, newRoles?: string[]) => {
+  const updateFilters = (newSearch?: string, newRoles?: string[], newExpanded?: boolean) => {
     const params = new URLSearchParams(searchParams);
     
     if (newSearch !== undefined) {
@@ -633,6 +635,14 @@ function NodesList({
         params.set('roles', newRoles.join(','));
       } else {
         params.delete('roles');
+      }
+    }
+    
+    if (newExpanded !== undefined) {
+      if (newExpanded) {
+        params.set('nodesExpanded', 'true');
+      } else {
+        params.delete('nodesExpanded');
       }
     }
     
@@ -677,25 +687,37 @@ function NodesList({
 
   return (
     <Stack gap="md">
-      <Group>
-        <TextInput
-          placeholder="Search nodes..."
-          leftSection={<IconSearch size={16} />}
-          value={searchQuery}
-          onChange={(e) => updateFilters(e.currentTarget.value, undefined)}
-          style={{ flex: 1, maxWidth: 400 }}
-        />
+      <Group justify="space-between">
+        <Group style={{ flex: 1 }}>
+          <TextInput
+            placeholder="Search nodes..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
+            style={{ flex: 1, maxWidth: 400 }}
+          />
+          
+          <MultiSelect
+            placeholder="Filter by roles"
+            data={allRoles}
+            value={selectedRoles}
+            onChange={(values) => updateFilters(undefined, values, undefined)}
+            clearable
+            searchable
+            style={{ flex: 1, maxWidth: 300 }}
+          />
+        </Group>
         
-        <MultiSelect
-          placeholder="Filter by roles"
-          data={allRoles}
-          value={selectedRoles}
-          onChange={(values) => updateFilters(undefined, values)}
-          clearable
-          searchable
-          style={{ flex: 1, maxWidth: 300 }}
-        />
+        <Button
+          variant="light"
+          leftSection={expandedView ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
+          onClick={() => updateFilters(undefined, undefined, !expandedView)}
+        >
+          {expandedView ? 'Collapse' : 'Expand'}
+        </Button>
       </Group>
+
+      {!expandedView && <RoleLegend />}
 
       {filteredNodes && filteredNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
@@ -709,7 +731,7 @@ function NodesList({
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Node ID</Table.Th>
                 <Table.Th>Roles</Table.Th>
-                <Table.Th>Tags</Table.Th>
+                {expandedView && <Table.Th>Tags</Table.Th>}
                 <Table.Th>Load</Table.Th>
                 <Table.Th>Uptime</Table.Th>
                 <Table.Th>Heap Usage</Table.Th>
@@ -743,27 +765,33 @@ function NodesList({
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
-                      {node.roles.map((role) => (
-                        <Badge key={role} size="sm" variant="light">
-                          {role.toLowerCase()}
-                        </Badge>
-                      ))}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    {node.tags && node.tags.length > 0 ? (
+                    {expandedView ? (
                       <Group gap="xs">
-                        {node.tags.map((tag) => (
-                          <Badge key={tag} size="sm" variant="outline" color="gray">
-                            {tag}
+                        {node.roles.map((role) => (
+                          <Badge key={role} size="sm" variant="light">
+                            {role.toLowerCase()}
                           </Badge>
                         ))}
                       </Group>
                     ) : (
-                      <Text size="xs" c="dimmed">-</Text>
+                      <RoleIcons roles={node.roles} />
                     )}
                   </Table.Td>
+                  {expandedView && (
+                    <Table.Td>
+                      {node.tags && node.tags.length > 0 ? (
+                        <Group gap="xs">
+                          {node.tags.map((tag) => (
+                            <Badge key={tag} size="sm" variant="outline" color="gray">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </Group>
+                      ) : (
+                        <Text size="xs" c="dimmed">-</Text>
+                      )}
+                    </Table.Td>
+                  )}
                   <Table.Td>
                     {node.loadAverage !== undefined ? (
                       <Text 
