@@ -11,20 +11,21 @@ import {
 
 /**
  * Role icon mapping
+ * Using official Elasticsearch role names: https://www.elastic.co/docs/deploy-manage/distributed-architecture/clusters-nodes-shards/node-roles
  */
 const ROLE_ICONS: Record<string, { icon: typeof IconDatabase; color: string; label: string }> = {
-  master: { icon: IconCrown, color: 'yellow', label: 'Master' },
-  data: { icon: IconDatabase, color: 'blue', label: 'Data' },
-  ingest: { icon: IconTransform, color: 'grape', label: 'Ingest' },
-  ml: { icon: IconBolt, color: 'orange', label: 'ML' },
-  remote_cluster_client: { icon: IconCloud, color: 'cyan', label: 'Remote Client' },
-  transform: { icon: IconTransform, color: 'teal', label: 'Transform' },
-  data_content: { icon: IconFileText, color: 'indigo', label: 'Data Content' },
-  data_hot: { icon: IconDatabase, color: 'red', label: 'Data Hot' },
-  data_warm: { icon: IconDatabase, color: 'orange', label: 'Data Warm' },
-  data_cold: { icon: IconDatabase, color: 'blue', label: 'Data Cold' },
-  data_frozen: { icon: IconDatabase, color: 'cyan', label: 'Data Frozen' },
-  voting_only: { icon: IconCrown, color: 'gray', label: 'Voting Only' },
+  master: { icon: IconCrown, color: 'yellow', label: 'master' },
+  data: { icon: IconDatabase, color: 'blue', label: 'data' },
+  ingest: { icon: IconTransform, color: 'grape', label: 'ingest' },
+  ml: { icon: IconBolt, color: 'orange', label: 'ml' },
+  remote_cluster_client: { icon: IconCloud, color: 'cyan', label: 'remote_cluster_client' },
+  transform: { icon: IconTransform, color: 'teal', label: 'transform' },
+  data_content: { icon: IconFileText, color: 'indigo', label: 'data_content' },
+  data_hot: { icon: IconDatabase, color: 'red', label: 'data_hot' },
+  data_warm: { icon: IconDatabase, color: 'orange', label: 'data_warm' },
+  data_cold: { icon: IconDatabase, color: 'blue', label: 'data_cold' },
+  data_frozen: { icon: IconDatabase, color: 'cyan', label: 'data_frozen' },
+  voting_only: { icon: IconCrown, color: 'gray', label: 'voting_only' },
 };
 
 /**
@@ -82,6 +83,21 @@ export function RoleLegend({ roles }: { roles: string[] }) {
           </Group>
         );
       })}
+    </Group>
+  );
+}
+
+/**
+ * RoleOption component for rendering role options in MultiSelect
+ */
+export function RoleOption({ role }: { role: string }) {
+  const roleInfo = getRoleIcon(role);
+  const Icon = roleInfo.icon;
+  
+  return (
+    <Group gap="xs">
+      <Icon size={16} color={`var(--mantine-color-${roleInfo.color}-6)`} />
+      <Text size="sm">{roleInfo.label}</Text>
     </Group>
   );
 }
