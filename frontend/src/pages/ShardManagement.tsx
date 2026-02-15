@@ -787,9 +787,17 @@ export function ShardManagement() {
             setShardDetailsData(null);
           }}
           title={selectedShard ? `Shard Details: ${selectedShard.index} / ${selectedShard.shard}` : 'Shard Details'}
-          size="lg"
+          size="80%"
+          fullScreen={false}
+          styles={{
+            body: {
+              height: 'calc(100vh - 120px)',
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          }}
         >
-          <ScrollArea h={500}>
+          <ScrollArea style={{ flex: 1 }}>
             {shardDetailsLoading ? (
               <Stack gap="xs">
                 <Skeleton height={20} radius="xs" />
