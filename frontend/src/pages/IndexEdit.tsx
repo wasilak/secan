@@ -14,6 +14,7 @@ import {
   Code,
   ScrollArea,
   Loader,
+  Box,
 } from '@mantine/core';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -447,7 +448,7 @@ export function IndexEdit() {
           <Tabs.Panel value="settings" pt="md">
             <Card shadow="sm" padding="lg">
               <Stack gap="md">
-                <div>
+                <Box>
                   <Group gap="xs" mb="xs">
                     <Text size="sm" fw={500}>
                       Index Settings (JSON)
@@ -479,7 +480,7 @@ export function IndexEdit() {
                   <Text size="xs" c="dimmed" mb="sm">
                     Edit the dynamic settings below
                   </Text>
-                  <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                  <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
                     <Editor
                       height="500px"
                       defaultLanguage="json"
@@ -494,13 +495,13 @@ export function IndexEdit() {
                         automaticLayout: true,
                       }}
                     />
-                  </div>
+                  </Box>
                   {settingsError && (
                     <Text size="sm" c="red" mt="xs">
                       {settingsError}
                     </Text>
                   )}
-                </div>
+                </Box>
               </Stack>
             </Card>
           </Tabs.Panel>
@@ -516,14 +517,14 @@ export function IndexEdit() {
 
               <Card shadow="sm" padding="lg">
                 <Stack gap="md">
-                  <div>
+                  <Box>
                     <Text size="sm" fw={500} mb="xs">
                       Index Mappings (JSON)
                     </Text>
                     <Text size="xs" c="dimmed" mb="sm">
                       Add new fields to the mappings below
                     </Text>
-                    <div style={{ border: '1px solid #dee2e6', borderRadius: '4px' }}>
+                    <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
                       <Editor
                         height="500px"
                         defaultLanguage="json"
@@ -538,13 +539,13 @@ export function IndexEdit() {
                           automaticLayout: true,
                         }}
                       />
-                    </div>
+                    </Box>
                     {mappingsError && (
                       <Text size="sm" c="red" mt="xs">
                         {mappingsError}
                       </Text>
                     )}
-                  </div>
+                  </Box>
                 </Stack>
               </Card>
             </Stack>
