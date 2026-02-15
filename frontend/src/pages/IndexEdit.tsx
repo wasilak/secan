@@ -112,14 +112,17 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
  * Requirements: 7.1-7.8, 8.1-8.8
  */
 export function IndexEdit() {
-  const { id: clusterId, indexName } = useParams<{ id: string; indexName: string }>();
+  const { id: clusterId, indexName: indexNameFromRoute } = useParams<{ id: string; indexName: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   
+  // Get index name from URL params (for modal mode) or route params (for standalone mode)
+  const indexName = searchParams.get('index') || indexNameFromRoute;
+  
   // Get active tab from URL or default to 'settings'
-  const activeTab = searchParams.get('tab') || 'settings';
+  const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'settings';
 
   const [settings, setSettings] = useState('');
   const [mappings, setMappings] = useState('');
@@ -344,7 +347,14 @@ export function IndexEdit() {
 
   const handleTabChange = (value: string | null) => {
     if (value) {
-      setSearchParams({ tab: value });
+      const params = new URLSearchParams(searchParams);
+      // Use indexTab for modal mode, tab for standalone mode
+      if (searchParams.has('index')) {
+        params.set('indexTab', value);
+      } else {
+        params.set('tab', value);
+      }
+      setSearchParams(params);
     }
   };
 
@@ -402,7 +412,7 @@ export function IndexEdit() {
   }
 
   return (
-    <Container size="xl" py="md">
+    <Container size="xl" py="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={1}>Edit Index</Title>
@@ -410,15 +420,17 @@ export function IndexEdit() {
             {indexName}
           </Text>
         </div>
-        <Button
-          variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-        >
-          Back to Indices
-        </Button>
+        {!searchParams.has('index') && (
+          <Button
+            variant="default"
+            onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
+          >
+            Back to Indices
+          </Button>
+        )}
       </Group>
 
-      <Stack gap="md">
+      <Stack gap="md" style={{ flex: 1, overflow: 'auto' }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tabs.List>
             <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
