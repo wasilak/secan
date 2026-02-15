@@ -1,5 +1,3 @@
-version: "3.8"
-
 # Docker Compose configuration for Cerebro development and testing
 # This setup provides:
 # - Elasticsearch single-node cluster (no authentication for easy testing)
@@ -17,11 +15,11 @@ version: "3.8"
 # Access:
 #   Elasticsearch:     http://localhost:9200
 #   Original Cerebro:  http://localhost:9000
-#   Cerebro Rewrite:   http://localhost:9001 (run backend separately: cargo run)
+#   Cerebro Rewrite:   http://localhost:27182 (run backend separately: cargo run)
 #   Kibana:            http://localhost:5601 (if enabled)
 #
 # Note: Run Cerebro rewrite backend separately with `cargo run` in the backend/ directory.
-#       Configure it to run on port 9001 to avoid conflict with original Cerebro.
+#       The rewrite uses port 27182 (Euler's number - e ≈ 2.7182) by default.
 #       Both versions can connect to the same Elasticsearch at http://localhost:9200.
 
 volumes:
@@ -74,6 +72,7 @@ services:
 
   # Original Cerebro (Scala version)
   # Runs on port 9000 for comparison with the rewrite
+  # Pre-configured to connect to Elasticsearch
   cerebro-original:
     image: lmenezes/cerebro:latest
     container_name: cerebro-original
@@ -81,11 +80,14 @@ services:
       es01:
         condition: service_healthy
     ports:
-      - "9001:9001"
+      - "9000:9000"
     networks:
       - elastic
     environment:
-      CEREBRO_PORT: 9001
+      - CEREBRO_PORT=9000
+    volumes:
+      - ./cerebro-config:/opt/cerebro/conf:ro
+    command: ["-Dconfig.file=/opt/cerebro/conf/application.conf"]
 
   # Kibana (optional, for additional cluster management)
   # Uncomment if you want to use Kibana alongside Cerebro
