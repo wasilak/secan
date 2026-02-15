@@ -17,7 +17,7 @@ import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
-import { showErrorNotification, parseError } from '../lib/errorHandling';
+import { parseError } from '../lib/errorHandling';
 
 /**
  * Validate JSON string
@@ -56,6 +56,7 @@ export function IndexSettings() {
 
   const [settings, setSettings] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
 
   // Fetch current index settings
@@ -173,21 +174,25 @@ export function IndexSettings() {
       });
 
       setIsModified(false);
+      setUpdateError(null);
     },
     onError: (error: Error) => {
-      // Show error notification with Elasticsearch error details
-      showErrorNotification(error, 'Failed to Update Settings');
+      // Extract and display full error message
+      const errorDetails = parseError(error);
+      setUpdateError(errorDetails.message);
     },
   });
 
   const handleSettingsChange = (value: string | undefined) => {
     setSettings(value || '');
     setSettingsError(null);
+    setUpdateError(null);
     setIsModified(true);
   };
 
   const handleSubmit = () => {
     setSettingsError(null);
+    setUpdateError(null);
     updateMutation.mutate();
   };
 
@@ -195,6 +200,7 @@ export function IndexSettings() {
     if (currentSettings) {
       setSettings(JSON.stringify(currentSettings, null, 2));
       setSettingsError(null);
+      setUpdateError(null);
       setIsModified(false);
     }
   };
@@ -302,6 +308,20 @@ export function IndexSettings() {
                 </Text>
               )}
             </div>
+
+            {updateError && (
+              <Alert
+                icon={<IconAlertCircle size={16} />}
+                title="Failed to Update Settings"
+                color="red"
+                withCloseButton
+                onClose={() => setUpdateError(null)}
+              >
+                <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {updateError}
+                </Text>
+              </Alert>
+            )}
 
             <Group justify="flex-end">
               <Button

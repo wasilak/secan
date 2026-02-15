@@ -17,6 +17,7 @@ import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
+import { parseError } from '../lib/errorHandling';
 
 /**
  * Validate JSON string
@@ -55,6 +56,7 @@ export function IndexMappings() {
 
   const [mappings, setMappings] = useState('');
   const [mappingsError, setMappingsError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
 
   // Fetch current index mappings
@@ -133,26 +135,25 @@ export function IndexMappings() {
       });
 
       setIsModified(false);
+      setUpdateError(null);
     },
     onError: (error: Error) => {
-      // Show error notification
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to update mappings',
-        color: 'red',
-        icon: <IconAlertCircle size={16} />,
-      });
+      // Extract and display full error message
+      const errorDetails = parseError(error);
+      setUpdateError(errorDetails.message);
     },
   });
 
   const handleMappingsChange = (value: string | undefined) => {
     setMappings(value || '');
     setMappingsError(null);
+    setUpdateError(null);
     setIsModified(true);
   };
 
   const handleSubmit = () => {
     setMappingsError(null);
+    setUpdateError(null);
     updateMutation.mutate();
   };
 
@@ -160,6 +161,7 @@ export function IndexMappings() {
     if (currentMappings) {
       setMappings(JSON.stringify(currentMappings, null, 2));
       setMappingsError(null);
+      setUpdateError(null);
       setIsModified(false);
     }
   };
@@ -257,6 +259,20 @@ export function IndexMappings() {
                 </Text>
               )}
             </div>
+
+            {updateError && (
+              <Alert
+                icon={<IconAlertCircle size={16} />}
+                title="Failed to Update Mappings"
+                color="red"
+                withCloseButton
+                onClose={() => setUpdateError(null)}
+              >
+                <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {updateError}
+                </Text>
+              </Alert>
+            )}
 
             <Alert color="blue" title="Common Field Types">
               <Text size="sm">
