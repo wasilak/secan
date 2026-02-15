@@ -6,7 +6,6 @@ import {
   Stack,
   Badge,
   Grid,
-  Loader,
   Alert,
   Tabs,
   Table,
@@ -243,10 +242,31 @@ export function ClusterView() {
 
   if (statsLoading) {
     return (
-      <Stack p="md">
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
+      <Stack p="md" gap="md">
+        <Skeleton height={40} radius="sm" />
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 3 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={80} radius="md" />
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 3 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={80} radius="md" />
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 3 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={80} radius="md" />
+            </Card>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 3 }}>
+            <Card shadow="sm" padding="lg">
+              <Skeleton height={80} radius="md" />
+            </Card>
+          </Grid.Col>
+        </Grid>
+        <Skeleton height={400} radius="md" />
       </Stack>
     );
   }
@@ -538,9 +558,11 @@ function NodesList({
 
   if (loading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack gap="xs">
+        <Skeleton height={60} radius="sm" />
+        <Skeleton height={60} radius="sm" />
+        <Skeleton height={60} radius="sm" />
+      </Stack>
     );
   }
 
@@ -869,9 +891,11 @@ function IndicesList({
 
   if (loading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack gap="xs">
+        <Skeleton height={60} radius="sm" />
+        <Skeleton height={60} radius="sm" />
+        <Skeleton height={60} radius="sm" />
+      </Stack>
     );
   }
 
@@ -1402,9 +1426,10 @@ function ShardAllocationGrid({
 
   if (loading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack gap="xs">
+        <Skeleton height={40} radius="sm" />
+        <Skeleton height={200} radius="sm" />
+      </Stack>
     );
   }
 
@@ -1945,9 +1970,10 @@ function ShardsList({
   });
   if (loading) {
     return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
+      <Stack gap="xs">
+        <Skeleton height={40} radius="sm" />
+        <Skeleton height={200} radius="sm" />
+      </Stack>
     );
   }
 
