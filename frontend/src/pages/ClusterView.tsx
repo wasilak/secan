@@ -198,11 +198,11 @@ export function ClusterView() {
   });
 
   // Track historical data for sparklines
-  const nodesHistory = useSparklineData(stats?.numberOfNodes, refreshInterval || 0);
-  const indicesHistory = useSparklineData(stats?.numberOfIndices, refreshInterval || 0);
-  const documentsHistory = useSparklineData(stats?.numberOfDocuments, refreshInterval || 0);
-  const shardsHistory = useSparklineData(stats?.activeShards, refreshInterval || 0);
-  const unassignedHistory = useSparklineData(stats?.unassignedShards, refreshInterval || 0);
+  const nodesHistory = useSparklineData(stats?.numberOfNodes);
+  const indicesHistory = useSparklineData(stats?.numberOfIndices);
+  const documentsHistory = useSparklineData(stats?.numberOfDocuments);
+  const shardsHistory = useSparklineData(stats?.activeShards);
+  const unassignedHistory = useSparklineData(stats?.unassignedShards);
 
   // Fetch nodes with auto-refresh
   const {
