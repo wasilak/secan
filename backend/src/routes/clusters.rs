@@ -290,61 +290,43 @@ pub async fn get_shard_stats(
             }
         })?;
 
-    // Get cluster state and indices stats to build comprehensive shard info
-    let cluster_state = cluster.cluster_state().await.map_err(|e| {
+    // Use the SDK method to get shard-level stats
+    let indices_stats = cluster.indices_stats_with_shards(&index_name).await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
+            index = %index_name,
             error = %e,
-            "Failed to get cluster state"
-        );
-        ClusterErrorResponse {
-            error: "cluster_state_failed".to_string(),
-            message: format!("Failed to get cluster state: {}", e),
-        }
-    })?;
-
-    let indices_stats = cluster.indices_stats().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to get indices stats"
+            "Failed to get indices stats with shards"
         );
         ClusterErrorResponse {
             error: "indices_stats_failed".to_string(),
-            message: format!("Failed to get indices stats: {}", e),
+            message: format!("Failed to get indices stats with shards: {}", e),
         }
     })?;
 
-    // Find the specific shard in routing table
-    if let Some(routing_table) = cluster_state.get("routing_table") {
-        if let Some(indices_obj) = routing_table.get("indices") {
-            if let Some(index_obj) = indices_obj.get(&index_name) {
-                if let Some(shards_obj) = index_obj.get("shards") {
-                    if let Some(shard_array) = shards_obj.get(&shard_num) {
-                        if let Some(arr) = shard_array.as_array() {
-                            // Get the first shard (primary or replica)
-                            if let Some(shard_info) = arr.first() {
-                                // Enhance with stats from indices_stats if available
-                                let mut enhanced_shard = shard_info.clone();
-                                
-                                // Try to add index-level stats
-                                if let Some(indices) = indices_stats.get("indices") {
-                                    if let Some(index_stats) = indices.get(&index_name) {
-                                        if let Some(obj) = enhanced_shard.as_object_mut() {
-                                            obj.insert("index_stats".to_string(), index_stats.clone());
-                                        }
-                                    }
-                                }
-                                
-                                tracing::info!(
-                                    cluster_id = %cluster_id,
-                                    index = %index_name,
-                                    shard = %shard_num,
-                                    "Successfully found and enhanced shard stats"
-                                );
-                                
-                                return Ok(Json(enhanced_shard));
-                            }
+    tracing::info!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        "Raw indices_stats response: {}",
+        serde_json::to_string_pretty(&indices_stats).unwrap_or_else(|_| "failed to serialize".to_string())
+    );
+
+    // Navigate to the specific shard in the response
+    // Structure: indices -> {index_name} -> shards -> {shard_num} -> [array of shard copies]
+    if let Some(indices) = indices_stats.get("indices") {
+        if let Some(index_obj) = indices.get(&index_name) {
+            if let Some(shards_obj) = index_obj.get("shards") {
+                if let Some(shard_array) = shards_obj.get(&shard_num) {
+                    if let Some(arr) = shard_array.as_array() {
+                        // Return the first shard (primary or replica)
+                        if let Some(shard_stats) = arr.first() {
+                            tracing::info!(
+                                cluster_id = %cluster_id,
+                                index = %index_name,
+                                shard = %shard_num,
+                                "Successfully found shard stats"
+                            );
+                            return Ok(Json(shard_stats.clone()));
                         }
                     }
                 }
@@ -357,7 +339,7 @@ pub async fn get_shard_stats(
         cluster_id = %cluster_id,
         index = %index_name,
         shard = %shard_num,
-        "Shard not found in cluster state"
+        "Shard stats not found in expected structure"
     );
     Ok(Json(serde_json::json!({})))
 }
