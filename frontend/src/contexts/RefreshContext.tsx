@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 /**
  * Refresh interval options in milliseconds
@@ -59,6 +60,7 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
     return defaultInterval;
   };
 
+  const queryClient = useQueryClient();
   const [interval, setIntervalState] = useState<RefreshInterval>(loadInterval);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(null);
@@ -73,11 +75,14 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
     setIsRefreshing(true);
     setLastRefreshTime(Date.now());
     
+    // Invalidate all queries to trigger refetch
+    queryClient.invalidateQueries();
+    
     // Reset refreshing state after a short delay
     setTimeout(() => {
       setIsRefreshing(false);
     }, 500);
-  }, []);
+  }, [queryClient]);
 
   return (
     <RefreshContext.Provider
