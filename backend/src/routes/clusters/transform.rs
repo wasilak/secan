@@ -41,7 +41,16 @@ pub fn transform_cluster_stats(
 }
 
 /// Transform nodes info and stats from SDK response to frontend format
-pub fn transform_nodes(nodes_info: &Value, nodes_stats: &Value) -> Vec<NodeInfoResponse> {
+///
+/// # Parameters
+/// * `nodes_info` - Node information from /_nodes API
+/// * `nodes_stats` - Node statistics from /_nodes/stats API
+/// * `master_node_id` - Optional master node ID from /_cat/master or cluster state
+pub fn transform_nodes(
+    nodes_info: &Value,
+    nodes_stats: &Value,
+    master_node_id: Option<&str>,
+) -> Vec<NodeInfoResponse> {
     let mut result = Vec::new();
 
     if let Some(nodes_obj) = nodes_info["nodes"].as_object() {
@@ -58,6 +67,10 @@ pub fn transform_nodes(nodes_info: &Value, nodes_stats: &Value) -> Vec<NodeInfoR
             } else {
                 Vec::new()
             };
+
+            // Determine master status
+            let is_master_eligible = roles.contains(&"master".to_string());
+            let is_master = master_node_id.is_some_and(|mid| mid == node_id);
 
             // Parse heap stats
             let heap_used = node_stats["jvm"]["mem"]["heap_used_in_bytes"]
@@ -90,6 +103,8 @@ pub fn transform_nodes(nodes_info: &Value, nodes_stats: &Value) -> Vec<NodeInfoR
                 cpu_percent: Some(cpu_percent),
                 ip: node_info["ip"].as_str().map(|s| s.to_string()),
                 version: node_info["version"].as_str().map(|s| s.to_string()),
+                is_master,
+                is_master_eligible,
             });
         }
     }
@@ -244,6 +259,10 @@ pub struct NodeInfoResponse {
     pub cpu_percent: Option<u32>,
     pub ip: Option<String>,
     pub version: Option<String>,
+    #[serde(rename = "isMaster")]
+    pub is_master: bool,
+    #[serde(rename = "isMasterEligible")]
+    pub is_master_eligible: bool,
 }
 
 /// Index info response for frontend
@@ -350,12 +369,59 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats);
+        let result = transform_nodes(&nodes_info, &nodes_stats, Some("node1"));
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
         assert_eq!(result[0].roles, vec!["master", "data"]);
         assert_eq!(result[0].heap_used, 1000000);
         assert_eq!(result[0].disk_used, 5000000);
+        assert_eq!(result[0].is_master, true);
+        assert_eq!(result[0].is_master_eligible, true);
+    }
+
+    #[test]
+    fn test_transform_nodes_non_master() {
+        let nodes_info = json!({
+            "nodes": {
+                "node1": {
+                    "name": "data-node",
+                    "roles": ["data"],
+                    "ip": "127.0.0.1",
+                    "version": "8.0.0"
+                }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "node1": {
+                    "jvm": {
+                        "mem": {
+                            "heap_used_in_bytes": 1000000,
+                            "heap_max_in_bytes": 2000000
+                        }
+                    },
+                    "fs": {
+                        "total": {
+                            "total_in_bytes": 10000000,
+                            "available_in_bytes": 5000000
+                        }
+                    },
+                    "os": {
+                        "cpu": {
+                            "percent": 50
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = transform_nodes(&nodes_info, &nodes_stats, Some("other-node"));
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "data-node");
+        assert_eq!(result[0].is_master, false);
+        assert_eq!(result[0].is_master_eligible, false);
     }
 }

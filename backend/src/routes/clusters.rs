@@ -188,12 +188,29 @@ pub async fn get_nodes(
         }
     })?;
 
+    // Get cluster state to determine master node
+    let master_node_id = match cluster.cluster_state().await {
+        Ok(cluster_state) => cluster_state
+            .get("master_node")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        Err(e) => {
+            tracing::warn!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to get cluster state for master node detection"
+            );
+            None
+        }
+    };
+
     // Transform to frontend format
-    let response = transform_nodes(&nodes_info, &nodes_stats);
+    let response = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref());
 
     tracing::debug!(
         cluster_id = %cluster_id,
         node_count = response.len(),
+        master_node = ?master_node_id,
         "Nodes info retrieved successfully"
     );
 
@@ -291,18 +308,21 @@ pub async fn get_shard_stats(
         })?;
 
     // Use the SDK method to get shard-level stats
-    let indices_stats = cluster.indices_stats_with_shards(&index_name).await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            index = %index_name,
-            error = %e,
-            "Failed to get indices stats with shards"
-        );
-        ClusterErrorResponse {
-            error: "indices_stats_failed".to_string(),
-            message: format!("Failed to get indices stats with shards: {}", e),
-        }
-    })?;
+    let indices_stats = cluster
+        .indices_stats_with_shards(&index_name)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                index = %index_name,
+                error = %e,
+                "Failed to get indices stats with shards"
+            );
+            ClusterErrorResponse {
+                error: "indices_stats_failed".to_string(),
+                message: format!("Failed to get indices stats with shards: {}", e),
+            }
+        })?;
 
     tracing::info!(
         cluster_id = %cluster_id,
@@ -430,7 +450,7 @@ pub async fn proxy_request(
     } else {
         format!("/{}", path)
     };
-    
+
     let full_path = if let Some(q) = query {
         format!("{}?{}", normalized_path, q)
     } else {
