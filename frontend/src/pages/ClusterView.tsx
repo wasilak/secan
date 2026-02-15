@@ -21,6 +21,7 @@ import {
   Tooltip,
   Modal,
   Code,
+  Skeleton,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -1093,6 +1094,8 @@ function ShardDetailsModal({
   useEffect(() => {
     if (opened && shard) {
       setLoading(true);
+      setDetailedStats(null); // Reset previous data
+      
       apiClient
         .getShardStats(clusterId, shard.index, shard.shard)
         .then((stats) => {
@@ -1100,11 +1103,15 @@ function ShardDetailsModal({
         })
         .catch((error) => {
           console.error('Failed to fetch shard stats:', error);
-          setDetailedStats(null);
+          setDetailedStats(shard); // Fallback to basic shard info
         })
         .finally(() => {
           setLoading(false);
         });
+    } else if (!opened) {
+      // Reset when modal closes
+      setDetailedStats(null);
+      setLoading(false);
     }
   }, [opened, shard, clusterId]);
 
@@ -1119,9 +1126,18 @@ function ShardDetailsModal({
     >
       <ScrollArea h={500}>
         {loading ? (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
+          <Stack gap="xs">
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} width="70%" radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} width="50%" radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} radius="xs" />
+            <Skeleton height={20} width="80%" radius="xs" />
+          </Stack>
         ) : (
           <Code block>
             {JSON.stringify(detailedStats || shard, null, 2)}
