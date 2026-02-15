@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   Container,
-  Title,
   Text,
   Card,
   Button,
@@ -15,6 +14,7 @@ import {
   ScrollArea,
   Loader,
   Box,
+  Badge,
 } from '@mantine/core';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -418,12 +418,9 @@ export function IndexEdit() {
   return (
     <Container size="xl" py="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
-        <Box>
-          <Title order={1}>Edit Index</Title>
-          <Text size="sm" c="dimmed">
-            {indexName}
-          </Text>
-        </Box>
+        <Group gap="xs">
+          <Badge size="lg" variant="light" color="blue">{indexName}</Badge>
+        </Group>
         {!searchParams.has('index') && (
           <Button
             variant="default"
