@@ -74,10 +74,10 @@ export function ShardList({ shards, loading }: ShardListProps) {
                 </Badge>
               </Table.Td>
               <Table.Td>
-                {shard.docs !== undefined ? shard.docs.toLocaleString() : 'N/A'}
+                {shard.docs !== undefined && shard.docs !== null ? shard.docs.toLocaleString() : 'N/A'}
               </Table.Td>
               <Table.Td>
-                {shard.store !== undefined ? formatBytes(shard.store) : 'N/A'}
+                {shard.store !== undefined && shard.store !== null ? formatBytes(shard.store) : 'N/A'}
               </Table.Td>
             </Table.Tr>
           ))}
