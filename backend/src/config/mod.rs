@@ -29,7 +29,7 @@ fn default_host() -> String {
 }
 
 fn default_port() -> u16 {
-    9000
+    27182
 }
 
 /// Cache configuration
@@ -447,7 +447,7 @@ impl Config {
         let builder = config::Config::builder()
             // Start with default values
             .set_default("server.host", "0.0.0.0")?
-            .set_default("server.port", 9000)?
+            .set_default("server.port", 27182)?
             .set_default("auth.session_timeout_minutes", 60)?;
 
         // Add file source if it exists
@@ -461,7 +461,7 @@ impl Config {
         // Add environment variable overrides
         // Environment variables should be prefixed with CEREBRO_
         // and use double underscore for nested fields
-        // Example: CEREBRO_SERVER__PORT=9000
+        // Example: CEREBRO_SERVER__PORT=27182
         let builder = builder.add_source(
             Environment::with_prefix("CEREBRO")
                 .separator("__")
@@ -506,7 +506,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             host: "0.0.0.0".to_string(),
-            port: 9000,
+            port: 27182,
             tls: None,
         }
     }
@@ -724,7 +724,7 @@ clusters:
 
         // Check defaults are applied
         assert_eq!(config.server.host, "0.0.0.0");
-        assert_eq!(config.server.port, 9000);
+        assert_eq!(config.server.port, 27182);
         assert_eq!(config.auth.session_timeout_minutes, 60);
     }
 

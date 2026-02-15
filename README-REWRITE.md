@@ -182,7 +182,7 @@ cargo clippy
 cargo fmt
 ```
 
-The backend will start on `http://localhost:9000` by default.
+The backend will start on `http://localhost:9001` by default.
 
 ### 3. Frontend Setup
 
@@ -275,7 +275,7 @@ Create a `config.yaml` file:
 ```yaml
 server:
   host: "0.0.0.0"
-  port: 9000
+  port: 9001
 
 auth:
   mode: "open"  # or "local_users" or "oidc"
@@ -333,7 +333,7 @@ CEREBRO_SERVER_PORT=8080 ./target/release/cerebro-backend
 docker build -t cerebro:latest .
 
 # Run container
-docker run -p 9000:9000 \
+docker run -p 9001:9001 \
   -v $(pwd)/config.yaml:/config.yaml:ro \
   cerebro:latest
 ```

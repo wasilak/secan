@@ -202,7 +202,7 @@ mod tests {
         Config {
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
-                port: 9000,
+                port: 27182,
                 tls: None,
             },
             auth: AuthConfig {
@@ -241,7 +241,7 @@ mod tests {
 
         let server = Server::new(config, cluster_manager, session_manager);
 
-        assert_eq!(server.config.server.port, 9000);
+        assert_eq!(server.config.server.port, 27182);
     }
 
     #[test]
