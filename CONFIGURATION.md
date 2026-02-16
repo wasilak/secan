@@ -176,6 +176,71 @@ clusters:
     version_hint: "8"
 ```
 
+## Shard Relocation Configuration
+
+Shard relocation behavior can be controlled through Elasticsearch cluster settings. While Secan provides the UI for manual relocation, you may want to configure Elasticsearch allocation settings:
+
+### Elasticsearch Allocation Settings
+
+These settings control how Elasticsearch allocates and rebalances shards. You can configure them via Secan's REST Console or directly through Elasticsearch:
+
+```json
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.enable": "all",
+    "cluster.routing.rebalance.enable": "all",
+    "cluster.routing.allocation.cluster_concurrent_rebalance": 2,
+    "cluster.routing.allocation.node_concurrent_recoveries": 2,
+    "cluster.routing.allocation.disk.threshold_enabled": true,
+    "cluster.routing.allocation.disk.watermark.low": "85%",
+    "cluster.routing.allocation.disk.watermark.high": "90%"
+  }
+}
+```
+
+### Allocation Settings Explained
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `cluster.routing.allocation.enable` | Controls shard allocation: `all`, `primaries`, `new_primaries`, `none` | `all` |
+| `cluster.routing.rebalance.enable` | Controls shard rebalancing: `all`, `primaries`, `replicas`, `none` | `all` |
+| `cluster.routing.allocation.cluster_concurrent_rebalance` | Max concurrent shard rebalances | `2` |
+| `cluster.routing.allocation.node_concurrent_recoveries` | Max concurrent recoveries per node | `2` |
+| `cluster.routing.allocation.disk.watermark.low` | Disk usage threshold to stop allocating to node | `85%` |
+| `cluster.routing.allocation.disk.watermark.high` | Disk usage threshold to relocate shards away | `90%` |
+
+### Disabling Automatic Rebalancing
+
+If you want to manually control all shard placement using Secan:
+
+```json
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.routing.rebalance.enable": "none"
+  }
+}
+```
+
+This prevents Elasticsearch from automatically rebalancing shards, giving you full manual control through Secan's shard relocation feature.
+
+### Throttling Relocations
+
+To prevent overwhelming the cluster during manual relocations:
+
+```json
+PUT /_cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.cluster_concurrent_rebalance": 1,
+    "indices.recovery.max_bytes_per_sec": "40mb"
+  }
+}
+```
+
+This limits concurrent relocations and recovery speed.
+
 ## Environment Variable Overrides
 
 You can override any configuration value with environment variables:
