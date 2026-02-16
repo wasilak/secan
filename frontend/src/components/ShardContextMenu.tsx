@@ -1,5 +1,6 @@
-import { Menu } from '@mantine/core';
+import { Menu, Portal } from '@mantine/core';
 import { IconInfoCircle, IconArrowsMove } from '@tabler/icons-react';
+import { useEffect, useRef } from 'react';
 import type { ShardInfo } from '../types/api';
 
 /**
@@ -34,7 +35,9 @@ export function ShardContextMenu({
   onClose,
   onShowStats,
   onSelectForRelocation,
-}: ShardContextMenuProps): JSX.Element {
+}: ShardContextMenuProps): JSX.Element | null {
+  const targetRef = useRef<HTMLDivElement>(null);
+  
   // Determine if relocation should be disabled
   // Requirements: 4.10
   const isRelocationDisabled = 
@@ -59,63 +62,95 @@ export function ShardContextMenu({
   // Handle menu item clicks
   const handleShowStats = () => {
     onShowStats(shard);
-    onClose();
   };
   
   const handleSelectForRelocation = () => {
     if (!isRelocationDisabled) {
       onSelectForRelocation(shard);
-      onClose();
     }
   };
   
+  // Handle Escape key to close menu - Requirements: 4.8
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && opened) {
+        onClose();
+      }
+    };
+    
+    if (opened) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [opened, onClose]);
+  
+  if (!opened) {
+    return null;
+  }
+  
   return (
-    <Menu
-      opened={opened}
-      onClose={onClose}
-      position="right-start"
-      withArrow
-      shadow="md"
-      closeOnClickOutside
-      closeOnEscape
-      // Position the menu near the clicked shard
-      // Requirements: 4.9
-      styles={{
-        dropdown: {
+    <>
+      {/* Invisible target positioned at click location */}
+      <div
+        ref={targetRef}
+        style={{
           position: 'fixed',
           left: `${position.x}px`,
           top: `${position.y}px`,
-        },
-      }}
-    >
-      <Menu.Target>
-        {/* Hidden target - menu is positioned manually */}
-        <div style={{ display: 'none' }} />
-      </Menu.Target>
+          width: '1px',
+          height: '1px',
+          pointerEvents: 'none',
+        }}
+      />
       
-      <Menu.Dropdown>
-        <Menu.Label>
-          Shard {shard.shard} ({shard.primary ? 'Primary' : 'Replica'})
-        </Menu.Label>
-        
-        {/* Display shard stats option - Requirements: 4.3 */}
-        <Menu.Item
-          leftSection={<IconInfoCircle size={16} />}
-          onClick={handleShowStats}
+      {/* Menu with Portal to render at document root */}
+      <Portal>
+        <Menu
+          opened={opened}
+          onChange={onClose}
+          position="right-start"
+          withArrow
+          shadow="md"
+          closeOnClickOutside
+          closeOnEscape
         >
-          Display shard stats
-        </Menu.Item>
-        
-        {/* Select for relocation option - Requirements: 4.4, 4.10 */}
-        <Menu.Item
-          leftSection={<IconArrowsMove size={16} />}
-          onClick={handleSelectForRelocation}
-          disabled={isRelocationDisabled}
-          title={isRelocationDisabled ? getDisabledReason() : undefined}
-        >
-          Select for relocation
-        </Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
+          <Menu.Target>
+            <div
+              style={{
+                position: 'fixed',
+                left: `${position.x}px`,
+                top: `${position.y}px`,
+                width: '1px',
+                height: '1px',
+              }}
+            />
+          </Menu.Target>
+          
+          <Menu.Dropdown>
+            <Menu.Label>
+              Shard {shard.shard} ({shard.primary ? 'Primary' : 'Replica'})
+            </Menu.Label>
+            
+            {/* Display shard stats option - Requirements: 4.3 */}
+            <Menu.Item
+              leftSection={<IconInfoCircle size={16} />}
+              onClick={handleShowStats}
+            >
+              Display shard stats
+            </Menu.Item>
+            
+            {/* Select for relocation option - Requirements: 4.4, 4.10 */}
+            <Menu.Item
+              leftSection={<IconArrowsMove size={16} />}
+              onClick={handleSelectForRelocation}
+              disabled={isRelocationDisabled}
+              title={isRelocationDisabled ? getDisabledReason() : undefined}
+            >
+              Select for relocation
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </Portal>
+    </>
   );
 }

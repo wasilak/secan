@@ -324,7 +324,7 @@ The tasks are organized into phases for incremental delivery.
     - Test modal close
     - _Requirements: 4.5, 4.6_
 
-- [-] 14. Checkpoint - Shard selection complete
+- [x] 14. Checkpoint - Shard selection complete
   - Test shard selection workflow
   - Verify context menu works
   - Verify shard stats display correctly
