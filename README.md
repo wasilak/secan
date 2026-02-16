@@ -1,106 +1,268 @@
-Cerebro
+Secan
 ------------
-[![Docker Pulls](https://img.shields.io/docker/pulls/lmenezes/cerebro.svg)](https://hub.docker.com/r/lmenezes/cerebro)
 ![build](https://github.com/lmenezes/cerebro/workflows/build/badge.svg?branch=master)
 
-cerebro is an open source(MIT License) elasticsearch web admin tool built using Scala, Play Framework, AngularJS and Bootstrap.
+**Secan** (Old English: *sēcan* - to seek, to inquire)
 
-### Requirements
+Heavily inspired by Cerebro, a now few years out of date Elasticsearch admin tool.
 
-cerebro needs Java 11 or newer to run.
+Secan is a modern, lightweight Elasticsearch cluster management tool built with Rust and React. It provides a full-width, responsive interface for managing Elasticsearch clusters with features including cluster monitoring, index management, shard visualization, and interactive shard reallocation.
 
-### Installation
-- Download from [https://github.com/lmenezes/cerebro/releases](https://github.com/lmenezes/cerebro/releases)
-- Extract files
-- Run bin/cerebro(or bin/cerebro.bat if on Windows)
-- Access on http://localhost:9000
+## Features
 
-### Chocolatey (Windows)
+- **Modern Architecture**: Built with Rust (backend) and React + TypeScript (frontend)
+- **Full-Width Interface**: Optimized for modern wide screens with responsive design
+- **Interactive Shard Management**: Visual grid-based shard allocation with click-to-relocate
+- **Multiple Authentication Modes**: Open mode, local users, and OIDC support
+- **Cluster Monitoring**: Real-time cluster health, node statistics, and index metrics
+- **REST Console**: Execute Elasticsearch queries directly from the UI
+- **Single Binary**: Embedded frontend assets for easy deployment
+- **Docker Support**: Ready-to-use Docker images for containerized deployments
 
-You can install `cerebro` using [Chocolatey](https://chocolatey.org/):
+## Requirements
 
-```sh
-choco install cerebro-es
-```
+- No runtime dependencies (single binary includes everything)
+- Supports Elasticsearch 7.x, 8.x, 9.x and OpenSearch
 
-Package creates windows service ```cerebro```.
-Access on http://localhost:9000
+## Quick Start
+
+### Binary Installation
+
+1. Download the latest release for your platform from [Releases](https://github.com/lmenezes/cerebro/releases)
+2. Extract the archive
+3. Run the binary:
+   ```bash
+   # Linux/macOS
+   ./secan
+   
+   # Windows
+   secan.exe
+   ```
+4. Access the UI at http://localhost:8080
 
 ### Docker
 
-You can find the official docker images in the official [docker hub repo](https://hub.docker.com/r/lmenezes/cerebro/).
+```bash
+# Run with Docker
+docker run -p 8080:8080 ghcr.io/lmenezes/cerebro:latest
 
-Visit [cerebro-docker](https://github.com/lmenezes/cerebro-docker) for further information. 
-
-### Configuration
-
-#### HTTP server address and port
-You can run cerebro listening on a different host and port(defaults to 0.0.0.0:9000):
-
-```
-bin/cerebro -Dhttp.port=1234 -Dhttp.address=127.0.0.1
+# Or use Docker Compose
+docker-compose up -d
 ```
 
-#### LDAP config
+Access Secan at http://localhost:8080
 
-LDAP can be configured using environment variables. If you typically run cerebro using docker,
-you can pass a file with all the env vars. The file would look like:
+### Building from Source
 
 ```bash
-# Set it to ldap to activate ldap authorization
-AUTH_TYPE=ldap
+# Build frontend
+cd frontend
+npm install
+npm run build
 
-# Your ldap url
-LDAP_URL=ldap://exammple.com:389
+# Build backend (includes embedded frontend)
+cd ../backend
+cargo build --release
 
-LDAP_BASE_DN=OU=users,DC=example,DC=com
-
-# Usually method should  be "simple" otherwise, set it to the SASL mechanisms
-LDAP_METHOD=simple
-
-# user-template executes a string.format() operation where
-# username is passed in first, followed by base-dn. Some examples
-#  - %s => leave user untouched
-#  - %s@domain.com => append "@domain.com" to username
-#  - uid=%s,%s => usual case of OpenLDAP
-LDAP_USER_TEMPLATE=%s@example.com
-
-# User identifier that can perform searches
-LDAP_BIND_DN=admin@example.com
-LDAP_BIND_PWD=adminpass
-
-# Group membership settings (optional)
-
-# If left unset LDAP_BASE_DN will be used
-# LDAP_GROUP_BASE_DN=OU=users,DC=example,DC=com
-
-# Attribute that represent the user, for example uid or mail
-# LDAP_USER_ATTR=mail
-
-# If left unset LDAP_USER_TEMPLATE will be used
-# LDAP_USER_ATTR_TEMPLATE=%s
-
-# Filter that tests membership of the group. If this property is empty then there is no group membership check
-# AD example => memberOf=CN=mygroup,ou=ouofthegroup,DC=domain,DC=com
-# OpenLDAP example => CN=mygroup
-# LDAP_GROUP=memberOf=memberOf=CN=mygroup,ou=ouofthegroup,DC=domain,DC=com
-
+# Run
+./target/release/secan
 ```
 
-You can the pass this file as argument using:
+## Configuration
+
+Secan uses a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
+
+### Basic Configuration
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+auth:
+  mode: "open"  # No authentication required
+  session_timeout_minutes: 30
+
+clusters:
+  - id: "local"
+    name: "Local Development"
+    nodes:
+      - "http://localhost:9200"
+    auth:
+      type: "none"
+    tls:
+      verify: false
+```
+
+### Authentication Modes
+
+#### Open Mode (No Authentication)
+Perfect for development and testing:
+
+```yaml
+auth:
+  mode: "open"
+```
+
+#### Local Users
+Authenticate with username/password:
+
+```yaml
+auth:
+  mode: "local_users"
+  local_users:
+    - username: "admin"
+      password_hash: "$2b$12$..."  # bcrypt hash
+      roles: ["admin"]
+  roles:
+    - name: "admin"
+      cluster_patterns: ["*"]
+```
+
+#### OIDC (OpenID Connect)
+Integrate with identity providers:
+
+```yaml
+auth:
+  mode: "oidc"
+  oidc:
+    discovery_url: "https://accounts.google.com/.well-known/openid-configuration"
+    client_id: "your-client-id"
+    client_secret: "your-client-secret"
+    redirect_uri: "http://localhost:8080/api/auth/oidc/callback"
+```
+
+### Cluster Configuration
+
+Connect to multiple Elasticsearch clusters:
+
+```yaml
+clusters:
+  - id: "production"
+    name: "Production Cluster"
+    nodes:
+      - "https://es-prod-1.example.com:9200"
+      - "https://es-prod-2.example.com:9200"
+    auth:
+      type: "basic"
+      username: "elastic"
+      password: "your-password"
+    tls:
+      verify: true
+      ca_cert_file: "/path/to/ca.crt"
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
+
+## Environment Variables
+
+Override configuration with environment variables:
 
 ```bash
- docker run -p 9000:9000 --env-file env-ldap  lmenezes/cerebro
+# Server settings
+export SERVER_HOST=0.0.0.0
+export SERVER_PORT=9000
+
+# Authentication
+export AUTH_MODE=open
+
+# Cluster configuration
+export CLUSTERS_0_NODES_0=http://elasticsearch:9200
+
+# Run Secan
+./secan
 ```
 
-There are some examples of configuration in the [examples folder](./examples).
+## Docker Deployment
 
-#### Other settings
+See [DOCKER.md](DOCKER.md) for comprehensive Docker deployment guide including:
+- Docker Compose setup
+- Environment variable configuration
+- TLS certificate mounting
+- Kubernetes deployment examples
+- Production best practices
 
-Other settings are exposed through the **conf/application.conf** file found on the application directory.
+## Development
 
-It is also possible to use an alternate configuration file defined on a different location:
+### Prerequisites
+- Rust 1.75 or newer
+- Node.js 18 or newer
+- npm or yarn
 
+### Development Workflow
+
+```bash
+# Start Elasticsearch (optional)
+docker-compose up -d elasticsearch
+
+# Terminal 1: Run backend in watch mode
+cd backend
+cargo watch -x run
+
+# Terminal 2: Run frontend in dev mode
+cd frontend
+npm run dev
 ```
-bin/cerebro -Dconfig.file=/some/other/dir/alternate.conf
+
+Frontend dev server runs on http://localhost:5173 and proxies API requests to the backend.
+
+### Running Tests
+
+```bash
+# Backend tests
+cd backend
+cargo test
+
+# Frontend tests
+cd frontend
+npm test
+
+# Run all tests
+task test
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## Task Automation
+
+Secan uses [Task](https://taskfile.dev) for build automation:
+
+```bash
+# Install Task (if not already installed)
+# macOS
+brew install go-task/tap/go-task
+
+# Linux
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+# Run development server
+task dev
+
+# Build everything
+task build-frontend
+task build-backend
+
+# Run tests
+task test
+
+# Clean build artifacts
+task clean
+```
+
+See [Taskfile.yml](Taskfile.yml) for all available tasks.
+
+## Architecture
+
+- **Backend**: Rust with Axum web framework, async/await with Tokio
+- **Frontend**: React 18 + TypeScript with Vite build system
+- **UI Framework**: Mantine UI components
+- **State Management**: Zustand for client state, TanStack Query for server state
+- **Deployment**: Single binary with embedded frontend assets via rust-embed
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+Secan is heavily inspired by [Cerebro](https://github.com/lmenezes/cerebro), the original Elasticsearch web admin tool. We're grateful to the Cerebro project and its contributors for pioneering this space.
