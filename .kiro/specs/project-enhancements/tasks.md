@@ -666,7 +666,7 @@ The tasks are organized into phases for incremental delivery.
     - Test on mobile (375px)
     - _Requirements: 11.1, 11.5, 11.9_
 
-- [-] 27. Final polish and testing
+- [x] 27. Final polish and testing
   - [x] 27.1 Add validation feedback
     - Show validation errors in UI
     - Prevent invalid operations
@@ -682,7 +682,7 @@ The tasks are organized into phases for incremental delivery.
     - Show progress during operations
     - _Requirements: 9.9_
   
-  - [ ] 27.4 Test edge cases
+  - [x] 27.4 Test edge cases
     - Test with no shards
     - Test with all unassigned shards
     - Test with relocating shards
