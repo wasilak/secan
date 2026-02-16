@@ -2046,7 +2046,7 @@ function ShardAllocationGrid({
                             })}
                           </Group>
                         ) : (
-                          <RoleIcons roles={node.roles} size={24} />
+                          <RoleIcons roles={node.roles} size={16} />
                         )}
                         {expandedView && (
                           <>
