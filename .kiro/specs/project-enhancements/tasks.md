@@ -173,9 +173,9 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 3: Shard Grid Foundation
 
-- [ ] 8. Implement shard grid data structures
+- [-] 8. Implement shard grid data structures
   - **Note**: Build upon existing overview table in cluster details (1st tab)
-  - [ ] 8.1 Create shard grid TypeScript types
+  - [x] 8.1 Create shard grid TypeScript types
     - Define ShardInfo interface
     - Define NodeWithShards interface
     - Define IndexMetadata interface

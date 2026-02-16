@@ -245,8 +245,37 @@ export interface ShardInfo {
   primary: boolean;
   state: 'STARTED' | 'INITIALIZING' | 'RELOCATING' | 'UNASSIGNED';
   node?: string;
+  relocatingNode?: string;
   docs?: number;
   store?: number;
+}
+
+/**
+ * Node with shards for shard grid visualization
+ * Extends NodeInfo with shard allocation map
+ */
+export interface NodeWithShards extends NodeInfo {
+  shards: Map<string, ShardInfo[]>; // index name -> shards on this node
+}
+
+/**
+ * Index metadata for shard grid
+ * Extends IndexInfo with additional metadata
+ */
+export interface IndexMetadata extends IndexInfo {
+  shardCount: number; // Total number of shards (primary + replicas)
+  docsCount: number;  // Total document count
+  size: number;       // Total size in bytes
+}
+
+/**
+ * Shard grid data structure
+ * Contains all data needed for shard grid visualization
+ */
+export interface ShardGridData {
+  nodes: NodeWithShards[];
+  indices: IndexMetadata[];
+  unassignedShards: ShardInfo[];
 }
 
 /**
