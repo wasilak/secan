@@ -1,4 +1,5 @@
 import { Box } from '@mantine/core';
+import { memo } from 'react';
 import type { ShardInfo } from '../types/api';
 
 /**
@@ -68,10 +69,11 @@ function getShardBackgroundColor(primary: boolean, state: ShardInfo['state']): s
  * - Click handling for shard selection
  * - Support for destination indicators (dashed border)
  * - Pulsing animation for selected shards
+ * - Memoized for performance optimization
  * 
- * Requirements: 3.4, 3.5, 3.6, 3.7, 4.1
+ * Requirements: 3.4, 3.5, 3.6, 3.7, 4.1, 9.3
  */
-export function ShardCell({
+export const ShardCell = memo(function ShardCell({
   shard,
   isSelected = false,
   isDestinationIndicator = false,
@@ -179,4 +181,15 @@ export function ShardCell({
       </Box>
     </>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison for optimal re-rendering - Requirements: 9.3
+  // Only re-render if these specific props change
+  return (
+    prevProps.shard.state === nextProps.shard.state &&
+    prevProps.shard.shard === nextProps.shard.shard &&
+    prevProps.shard.index === nextProps.shard.index &&
+    prevProps.shard.primary === nextProps.shard.primary &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isDestinationIndicator === nextProps.isDestinationIndicator
+  );
+});

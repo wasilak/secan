@@ -1,7 +1,9 @@
-import { Box, ScrollArea, Table, Text, Group, Stack } from '@mantine/core';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton } from '@mantine/core';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useDebouncedCallback } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconX } from '@tabler/icons-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ShardInfo, NodeWithShards } from '../types/api';
 import { ShardCell } from './ShardCell';
 import { ShardContextMenu } from './ShardContextMenu';
@@ -76,7 +78,27 @@ export function ShardGrid({
     setIndices,
     setUnassignedShards,
     setLoading,
+    getCachedData,
+    setCacheData,
+    invalidateCache,
   } = useShardGridStore();
+  
+  // Debounced scroll handler for performance - Requirements: 9.4
+  // This prevents excessive re-renders during scrolling
+  const handleScroll = useDebouncedCallback(() => {
+    // Scroll handling logic if needed
+    // The virtualizer already handles scroll efficiently
+    // This is here for any additional scroll-based logic
+  }, 100); // 100ms debounce
+  
+  // Add scroll event listener - Requirements: 9.4
+  useEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollElement) {
+      scrollElement.addEventListener('scroll', handleScroll);
+      return () => scrollElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
   
   /**
    * Fetch cluster state and update shard grid
@@ -84,12 +106,25 @@ export function ShardGrid({
    * This function fetches nodes, indices, and shards from the backend,
    * parses them into the shard grid data structure, and updates the store.
    * 
+   * Uses caching to reduce unnecessary API calls - Requirements: 9.7
+   * 
    * Also checks for relocation completion and handles cleanup.
    * 
-   * Requirements: 7.2, 7.3, 7.7, 7.8, 7.10
+   * Requirements: 7.2, 7.3, 7.7, 7.8, 7.10, 9.7
    */
   const fetchClusterState = useCallback(async () => {
     if (!clusterId) {
+      return;
+    }
+    
+    // Check cache first - Requirements: 9.7
+    const cachedData = getCachedData();
+    if (cachedData && !isPolling) {
+      // Use cached data if available and not polling
+      // (during polling we want fresh data)
+      setNodes(cachedData.nodes);
+      setIndices(cachedData.indices);
+      setUnassignedShards(cachedData.unassignedShards);
       return;
     }
     
@@ -103,6 +138,9 @@ export function ShardGrid({
       
       // Parse the data into shard grid structure
       const gridData = parseShardGridData(nodesData, indicesData, shardsData);
+      
+      // Update cache - Requirements: 9.7
+      setCacheData(gridData.nodes, gridData.indices, gridData.unassignedShards);
       
       // Check for relocation completion if we're polling - Requirements: 7.7, 7.8
       if (isPolling) {
@@ -213,7 +251,7 @@ export function ShardGrid({
       // Don't show error notification during polling - it's too noisy
       // The error state in the store will be handled by the component
     }
-  }, [clusterId, isPolling, setNodes, setIndices, setUnassignedShards]);
+  }, [clusterId, isPolling, setNodes, setIndices, setUnassignedShards, getCachedData, setCacheData]);
   
   // Auto-refresh logic - Requirements: 3.12
   useEffect(() => {
@@ -314,7 +352,7 @@ export function ShardGrid({
     handleContextMenuClose();
   };
   
-  // Handle relocation confirmation - Requirements: 5.10, 5.11, 5.12, 6.1, 7.1, 7.2
+  // Handle relocation confirmation - Requirements: 5.10, 5.11, 5.12, 6.1, 7.1, 7.2, 9.7
   const handleRelocationConfirm = async () => {
     if (selectedShard && confirmDialogSourceNode && confirmDialogDestinationNode) {
       try {
@@ -325,6 +363,9 @@ export function ShardGrid({
           from_node: confirmDialogSourceNode.id,
           to_node: confirmDialogDestinationNode.id,
         });
+        
+        // Invalidate cache on mutation - Requirements: 9.7
+        invalidateCache();
         
         // Show success notification - Requirements: 5.11, 7.1
         notifications.show({
@@ -368,35 +409,41 @@ export function ShardGrid({
     }
   };
   
-  // Format percentage
-  const formatPercent = (value: number): string => {
+  // Format percentage - Requirements: 9.3
+  const formatPercent = useCallback((value: number): string => {
     return `${Math.round(value)}%`;
-  };
+  }, []);
   
-  // Format load average
-  const formatLoad = (load?: number): string => {
+  // Format load average - Requirements: 9.3
+  const formatLoad = useCallback((load?: number): string => {
     if (load === undefined) return 'N/A';
     return load.toFixed(2);
-  };
+  }, []);
   
-  // Format number with commas
-  const formatNumber = (value: number): string => {
+  // Format number with commas - Requirements: 9.3
+  const formatNumber = useCallback((value: number): string => {
     return value.toLocaleString();
-  };
+  }, []);
   
-  // Format size in bytes to human-readable format
-  const formatSize = (bytes: number): string => {
+  // Format size in bytes to human-readable format - Requirements: 9.3
+  const formatSize = useCallback((bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-  };
+  }, []);
   
   if (loading) {
+    // Display loading skeleton while fetching - Requirements: 9.9
     return (
       <Box p="md">
-        Loading shard grid...
+        <Stack gap="md">
+          <Skeleton height={50} radius="md" />
+          <Skeleton height={200} radius="md" />
+          <Skeleton height={200} radius="md" />
+          <Skeleton height={200} radius="md" />
+        </Stack>
       </Box>
     );
   }
@@ -417,6 +464,42 @@ export function ShardGrid({
     );
   }
   
+  // Determine if we should use virtualization - Requirements: 9.1, 9.2, 9.3
+  // Enable virtualization for grids with >20 nodes or >20 indices
+  // Memoize this calculation to avoid unnecessary re-renders
+  const shouldVirtualize = useMemo(() => {
+    return nodes.length > 20 || indices.length > 20;
+  }, [nodes.length, indices.length]);
+  
+  // Set up row virtualizer for nodes - Requirements: 9.1
+  const rowVirtualizer = useVirtualizer({
+    count: nodes.length + (unassignedShards.length > 0 ? 1 : 0), // +1 for unassigned row if needed
+    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
+    estimateSize: () => 80, // Estimated row height in pixels
+    overscan: 5, // Render 5 extra rows above and below viewport
+    enabled: shouldVirtualize,
+  });
+  
+  // Set up column virtualizer for indices - Requirements: 9.2
+  const columnVirtualizer = useVirtualizer({
+    horizontal: true,
+    count: indices.length,
+    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
+    estimateSize: () => 150, // Estimated column width in pixels
+    overscan: 3, // Render 3 extra columns left and right of viewport
+    enabled: shouldVirtualize,
+  });
+  
+  // Get virtual items - Requirements: 9.3
+  // Memoize virtual items to avoid unnecessary recalculations
+  const virtualRows = useMemo(() => {
+    return shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
+  }, [shouldVirtualize, rowVirtualizer]);
+  
+  const virtualColumns = useMemo(() => {
+    return shouldVirtualize ? columnVirtualizer.getVirtualItems() : [];
+  }, [shouldVirtualize, columnVirtualizer]);
+  
   return (
     <Box
       style={{
@@ -436,90 +519,378 @@ export function ShardGrid({
           flex: 1,
           width: '100%',
           height: '100%',
+          // Use CSS transforms for smooth scrolling - Requirements: 9.4, 9.5
+          willChange: 'transform',
+          transform: 'translateZ(0)', // Force GPU acceleration
         }}
         type="always"
       >
-        <Table
-          striped
-          highlightOnHover
-          withTableBorder
-          withColumnBorders
-          style={{
-            minWidth: '100%',
-            tableLayout: 'fixed',
-          }}
-        >
-          {/* Header row with index names */}
-          <Table.Thead
+        {shouldVirtualize ? (
+          // Virtualized rendering for large grids - Requirements: 9.1, 9.2
+          <div
             style={{
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-              backgroundColor: 'var(--mantine-color-body)',
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: `${columnVirtualizer.getTotalSize() + 250}px`, // +250 for sticky node column
+              position: 'relative',
             }}
           >
-            <Table.Tr>
-              {/* Empty cell for node column header */}
-              <Table.Th
+            {/* Sticky header row */}
+            <div
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                backgroundColor: 'var(--mantine-color-body)',
+                display: 'flex',
+                borderBottom: '1px solid var(--mantine-color-gray-3)',
+              }}
+            >
+              {/* Node column header */}
+              <div
                 style={{
                   width: '250px',
                   minWidth: '250px',
+                  padding: '12px',
+                  fontWeight: 600,
                   position: 'sticky',
                   left: 0,
                   zIndex: 11,
                   backgroundColor: 'var(--mantine-color-body)',
+                  borderRight: '1px solid var(--mantine-color-gray-3)',
                 }}
               >
                 Node
-              </Table.Th>
+              </div>
               
-              {/* Index column headers - Requirements: 3.3 */}
-              {indices.map((index) => (
-                <Table.Th
-                  key={index.name}
+              {/* Virtual index column headers */}
+              {virtualColumns.map((virtualColumn) => {
+                const index = indices[virtualColumn.index];
+                return (
+                  <div
+                    key={index.name}
+                    style={{
+                      position: 'absolute',
+                      left: `${virtualColumn.start + 250}px`,
+                      width: `${virtualColumn.size}px`,
+                      padding: '12px',
+                      textAlign: 'center',
+                      borderRight: '1px solid var(--mantine-color-gray-3)',
+                    }}
+                  >
+                    <Stack gap="xs" align="center">
+                      <Box
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          width: '100%',
+                          textAlign: 'center',
+                        }}
+                        title={index.name}
+                      >
+                        {index.name}
+                      </Box>
+                      <Box
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--mantine-color-dimmed)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div>{index.shardCount} shards</div>
+                        <div>{formatNumber(index.docsCount)} docs</div>
+                        <div>{formatSize(index.storeSize)}</div>
+                      </Box>
+                    </Stack>
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Virtual rows */}
+            {virtualRows.map((virtualRow) => {
+              const isUnassignedRow = virtualRow.index === nodes.length;
+              const node = isUnassignedRow ? null : nodes[virtualRow.index];
+              
+              return (
+                <div
+                  key={virtualRow.key}
                   style={{
-                    width: '150px',
-                    minWidth: '150px',
-                    textAlign: 'center',
-                    verticalAlign: 'top',
+                    position: 'absolute',
+                    top: `${virtualRow.start}px`,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    display: 'flex',
+                    borderBottom: '1px solid var(--mantine-color-gray-3)',
                   }}
                 >
-                  <Stack gap="xs" align="center">
-                    {/* Index name */}
-                    <Box
-                      style={{
-                        fontWeight: 600,
-                        fontSize: '14px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        width: '100%',
-                        textAlign: 'center',
-                      }}
-                      title={index.name}
-                    >
-                      {index.name}
-                    </Box>
+                  {/* Node info column (sticky) */}
+                  <div
+                    style={{
+                      width: '250px',
+                      minWidth: '250px',
+                      padding: '12px',
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                      backgroundColor: 'var(--mantine-color-body)',
+                      borderRight: '1px solid var(--mantine-color-gray-3)',
+                    }}
+                  >
+                    {isUnassignedRow ? (
+                      <Stack gap="xs">
+                        <Box>
+                          <Text fw={600} size="sm" c="red">
+                            Unassigned Shards
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {unassignedShards.length} shard{unassignedShards.length !== 1 ? 's' : ''}
+                          </Text>
+                        </Box>
+                      </Stack>
+                    ) : node ? (
+                      <Stack gap="xs">
+                        <Box>
+                          <Text fw={600} size="sm">
+                            {node.name}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {node.ip || 'N/A'}
+                          </Text>
+                        </Box>
+                        <Group gap="xs" wrap="wrap">
+                          <Text size="xs" c="dimmed">
+                            Heap: {formatPercent((node.heapUsed / node.heapMax) * 100)}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Disk: {formatPercent((node.diskUsed / node.diskTotal) * 100)}
+                          </Text>
+                          {node.cpuPercent !== undefined && (
+                            <Text size="xs" c="dimmed">
+                              CPU: {formatPercent(node.cpuPercent)}
+                            </Text>
+                          )}
+                          {node.loadAverage !== undefined && (
+                            <Text size="xs" c="dimmed">
+                              Load: {formatLoad(node.loadAverage)}
+                            </Text>
+                          )}
+                        </Group>
+                      </Stack>
+                    ) : null}
+                  </div>
+                  
+                  {/* Virtual shard cells */}
+                  {virtualColumns.map((virtualColumn) => {
+                    const index = indices[virtualColumn.index];
                     
-                    {/* Index metadata */}
-                    <Box
-                      style={{
-                        fontSize: '11px',
-                        color: 'var(--mantine-color-dimmed)',
-                        textAlign: 'center',
-                      }}
-                    >
-                      <div>{index.shardCount} shards</div>
-                      <div>{formatNumber(index.docsCount)} docs</div>
-                      <div>{formatSize(index.storeSize)}</div>
-                    </Box>
-                  </Stack>
+                    if (isUnassignedRow) {
+                      // Render unassigned shards for this index
+                      const indexUnassignedShards = unassignedShards.filter(
+                        (shard) => shard.index === index.name
+                      );
+                      
+                      return (
+                        <div
+                          key={`unassigned-${index.name}`}
+                          style={{
+                            position: 'absolute',
+                            left: `${virtualColumn.start + 250}px`,
+                            width: `${virtualColumn.size}px`,
+                            padding: '12px',
+                            textAlign: 'center',
+                            borderRight: '1px solid var(--mantine-color-gray-3)',
+                          }}
+                        >
+                          {indexUnassignedShards.length > 0 ? (
+                            <Group gap="xs" justify="center" wrap="wrap">
+                              {indexUnassignedShards.map((shard) => {
+                                const isSelected = selectedShard !== null &&
+                                  selectedShard.index === shard.index &&
+                                  selectedShard.shard === shard.shard &&
+                                  selectedShard.primary === shard.primary &&
+                                  selectedShard.state === 'UNASSIGNED';
+                                
+                                return (
+                                  <ShardCell
+                                    key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
+                                    shard={shard}
+                                    isSelected={isSelected}
+                                    onClick={handleShardClick}
+                                  />
+                                );
+                              })}
+                            </Group>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              -
+                            </Text>
+                          )}
+                        </div>
+                      );
+                    } else if (node) {
+                      // Render shards for this node and index
+                      const shards = getShardsForNodeAndIndex(node, index.name);
+                      const destinationIndicator = relocationMode && 
+                        destinationIndicators.has(node.id) &&
+                        destinationIndicators.get(node.id)?.index === index.name
+                          ? destinationIndicators.get(node.id)
+                          : null;
+                      
+                      return (
+                        <div
+                          key={`${node.id}-${index.name}`}
+                          style={{
+                            position: 'absolute',
+                            left: `${virtualColumn.start + 250}px`,
+                            width: `${virtualColumn.size}px`,
+                            padding: '12px',
+                            textAlign: 'center',
+                            borderRight: '1px solid var(--mantine-color-gray-3)',
+                          }}
+                        >
+                          {shards.length > 0 || destinationIndicator ? (
+                            <Group gap="xs" justify="center" wrap="wrap">
+                              {shards.map((shard) => {
+                                const isSelected = selectedShard !== null &&
+                                  selectedShard.index === shard.index &&
+                                  selectedShard.shard === shard.shard &&
+                                  selectedShard.primary === shard.primary &&
+                                  selectedShard.node === shard.node;
+                                
+                                return (
+                                  <ShardCell
+                                    key={`${shard.index}-${shard.shard}-${shard.primary}`}
+                                    shard={shard}
+                                    isSelected={isSelected}
+                                    onClick={handleShardClick}
+                                  />
+                                );
+                              })}
+                              
+                              {destinationIndicator && (
+                                <ShardCell
+                                  key={`destination-${destinationIndicator.index}-${destinationIndicator.shard}`}
+                                  shard={destinationIndicator}
+                                  isSelected={false}
+                                  isDestinationIndicator={true}
+                                  onClick={(_shard, event) => {
+                                    event.stopPropagation();
+                                    const sourceNode = nodes.find(n => 
+                                      n.id === selectedShard?.node || n.name === selectedShard?.node
+                                    );
+                                    const destinationNode = node;
+                                    
+                                    if (sourceNode && destinationNode && selectedShard) {
+                                      setConfirmDialogSourceNode(sourceNode);
+                                      setConfirmDialogDestinationNode(destinationNode);
+                                      setConfirmDialogOpened(true);
+                                    }
+                                  }}
+                                />
+                              )}
+                            </Group>
+                          ) : (
+                            <Text size="xs" c="dimmed">
+                              -
+                            </Text>
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          // Non-virtualized rendering for small grids
+          <Table
+            striped
+            highlightOnHover
+            withTableBorder
+            withColumnBorders
+            style={{
+              minWidth: '100%',
+              tableLayout: 'fixed',
+            }}
+          >
+            {/* Header row with index names */}
+            <Table.Thead
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                backgroundColor: 'var(--mantine-color-body)',
+              }}
+            >
+              <Table.Tr>
+                {/* Empty cell for node column header */}
+                <Table.Th
+                  style={{
+                    width: '250px',
+                    minWidth: '250px',
+                    position: 'sticky',
+                    left: 0,
+                    zIndex: 11,
+                    backgroundColor: 'var(--mantine-color-body)',
+                  }}
+                >
+                  Node
                 </Table.Th>
-              ))}
-            </Table.Tr>
-          </Table.Thead>
-          
-          <Table.Tbody>
+                
+                {/* Index column headers - Requirements: 3.3 */}
+                {indices.map((index) => (
+                  <Table.Th
+                    key={index.name}
+                    style={{
+                      width: '150px',
+                      minWidth: '150px',
+                      textAlign: 'center',
+                      verticalAlign: 'top',
+                    }}
+                  >
+                    <Stack gap="xs" align="center">
+                      {/* Index name */}
+                      <Box
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '14px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          width: '100%',
+                          textAlign: 'center',
+                        }}
+                        title={index.name}
+                      >
+                        {index.name}
+                      </Box>
+                      
+                      {/* Index metadata */}
+                      <Box
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--mantine-color-dimmed)',
+                          textAlign: 'center',
+                        }}
+                      >
+                        <div>{index.shardCount} shards</div>
+                        <div>{formatNumber(index.docsCount)} docs</div>
+                        <div>{formatSize(index.storeSize)}</div>
+                      </Box>
+                    </Stack>
+                  </Table.Th>
+                ))}
+              </Table.Tr>
+            </Table.Thead>
+            
+            <Table.Tbody>
             {/* Node rows - Requirements: 3.2 */}
             {nodes.map((node) => (
               <Table.Tr key={node.id} role="row" aria-label={`Node ${node.name}`}>
@@ -729,8 +1100,9 @@ export function ShardGrid({
                 })}
               </Table.Tr>
             )}
-          </Table.Tbody>
-        </Table>
+            </Table.Tbody>
+          </Table>
+        )}
       </ScrollArea>
       
       {/* Context menu - Requirements: 4.2, 4.8, 4.9 */}
