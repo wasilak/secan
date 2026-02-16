@@ -1,5 +1,5 @@
 /**
- * API types for Cerebro backend communication
+ * API types for Secan backend communication
  */
 
 /**

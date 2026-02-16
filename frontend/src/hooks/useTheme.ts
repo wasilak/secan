@@ -9,7 +9,7 @@ export interface ThemeContextValue {
   resolvedTheme: 'light' | 'dark';
 }
 
-const THEME_STORAGE_KEY = 'cerebro-theme';
+const THEME_STORAGE_KEY = 'secan-theme';
 
 /**
  * Hook for managing application theme (light, dark, system)

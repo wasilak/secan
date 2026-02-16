@@ -1,7 +1,8 @@
 {
-  "name": "cerebro-frontend",
+  "name": "secan-frontend",
   "version": "0.1.0",
   "private": true,
+  "description": "Secan - Elasticsearch cluster management tool frontend",
   "type": "module",
   "scripts": {
     "dev": "vite",

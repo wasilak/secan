@@ -47,7 +47,7 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
   // Load interval from localStorage or use default
   const loadInterval = (): RefreshInterval => {
     try {
-      const stored = localStorage.getItem('cerebro-refresh-interval');
+      const stored = localStorage.getItem('secan-refresh-interval');
       if (stored) {
         const parsed = Number(stored);
         // Validate that it's a valid interval
@@ -84,7 +84,7 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
   const setInterval = useCallback((newInterval: RefreshInterval) => {
     setIntervalState(newInterval);
     // Save to localStorage for persistence
-    localStorage.setItem('cerebro-refresh-interval', String(newInterval));
+    localStorage.setItem('secan-refresh-interval', String(newInterval));
   }, []);
 
   const refresh = useCallback((scope?: string | string[]) => {

@@ -10,7 +10,7 @@ describe('App', () => {
       </MantineProvider>
     );
     
-    expect(screen.getByText('Cerebro')).toBeInTheDocument();
+    expect(screen.getByText('Secan')).toBeInTheDocument();
   });
 
   it('renders the subtitle', () => {
@@ -20,6 +20,6 @@ describe('App', () => {
       </MantineProvider>
     );
     
-    expect(screen.getByText('Elasticsearch Web Administration Tool')).toBeInTheDocument();
+    expect(screen.getByText('Elasticsearch Cluster Management Tool')).toBeInTheDocument();
   });
 });

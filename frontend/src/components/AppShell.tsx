@@ -200,7 +200,7 @@ export function AppShell() {
                 component="h1"
                 style={{ whiteSpace: 'nowrap' }}
               >
-                Cerebro
+                Secan
               </Text>
             </Group>
 
@@ -283,7 +283,7 @@ export function AppShell() {
             <MantineAppShell.Section>
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-                Cerebro v0.1.0
+                Secan v0.1.0
               </Text>
             </MantineAppShell.Section>
           </MantineAppShell.Navbar>
@@ -332,7 +332,7 @@ export function AppShell() {
           <div style={{ marginTop: 'auto' }}>
             <Divider my="sm" />
             <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-              Cerebro v0.1.0
+              Secan v0.1.0
             </Text>
           </div>
         </Stack>

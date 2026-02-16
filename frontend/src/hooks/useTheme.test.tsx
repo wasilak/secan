@@ -63,7 +63,7 @@ describe('useTheme', () => {
       result.current.setTheme('light');
     });
     
-    expect(localStorageMock.getItem('cerebro-theme')).toBe('light');
+    expect(localStorageMock.getItem('secan-theme')).toBe('light');
   });
 
   it('should set theme to dark', () => {
@@ -77,11 +77,11 @@ describe('useTheme', () => {
       result.current.setTheme('dark');
     });
     
-    expect(localStorageMock.getItem('cerebro-theme')).toBe('dark');
+    expect(localStorageMock.getItem('secan-theme')).toBe('dark');
   });
 
   it('should restore theme from localStorage', () => {
-    localStorageMock.setItem('cerebro-theme', 'dark');
+    localStorageMock.setItem('secan-theme', 'dark');
     window.matchMedia = createMatchMediaMock(false);
     
     const { result } = renderHook(() => useTheme(), {
@@ -92,7 +92,7 @@ describe('useTheme', () => {
   });
 
   it('should handle corrupted localStorage data', () => {
-    localStorageMock.setItem('cerebro-theme', 'invalid-theme');
+    localStorageMock.setItem('secan-theme', 'invalid-theme');
     window.matchMedia = createMatchMediaMock(false);
     
     const { result } = renderHook(() => useTheme(), {

@@ -15,7 +15,7 @@ export interface RequestHistoryItem {
  * User preferences stored in browser localStorage
  * 
  * These preferences persist across sessions and allow users to
- * customize their Cerebro experience.
+ * customize their Secan experience.
  */
 export interface UserPreferences {
   /** Theme preference (light, dark, or system) */

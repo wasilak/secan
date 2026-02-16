@@ -29,7 +29,7 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe('AppShell', () => {
   it('renders the app title', () => {
     renderWithProviders(<AppShell />);
-    expect(screen.getByText('Cerebro')).toBeInTheDocument();
+    expect(screen.getByText('Secan')).toBeInTheDocument();
   });
 
   it('renders burger menu button', () => {

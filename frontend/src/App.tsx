@@ -7,9 +7,9 @@ function App() {
     <Container size="md" py="xl">
       <Group justify="space-between" mb="xl">
         <div>
-          <Title order={1}>Cerebro</Title>
+          <Title order={1}>Secan</Title>
           <Text size="lg" mt="md">
-            Elasticsearch Web Administration Tool
+            Elasticsearch Cluster Management Tool
           </Text>
           <Text size="sm" c="dimmed" mt="xs">
             Frontend initialization complete. Backend integration coming soon.

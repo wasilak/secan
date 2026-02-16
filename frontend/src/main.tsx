@@ -18,7 +18,7 @@ configureMonaco();
 
 // Create custom theme configuration with responsive design
 const theme = createTheme({
-  /** Cerebro theme customization */
+  /** Secan theme customization */
   primaryColor: 'blue',
   defaultRadius: 'md',
   
