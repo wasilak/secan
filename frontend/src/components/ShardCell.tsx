@@ -8,7 +8,7 @@ interface ShardCellProps {
   shard: ShardInfo;
   isSelected?: boolean;
   isDestinationIndicator?: boolean;
-  onClick?: (shard: ShardInfo) => void;
+  onClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
 }
 
 /**
@@ -96,7 +96,7 @@ export function ShardCell({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     if (onClick) {
-      onClick(shard);
+      onClick(shard, e);
     }
   };
   

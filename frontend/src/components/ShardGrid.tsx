@@ -1,7 +1,8 @@
 import { Box, ScrollArea, Table, Text, Group, Stack } from '@mantine/core';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ShardInfo } from '../types/api';
 import { ShardCell } from './ShardCell';
+import { ShardContextMenu } from './ShardContextMenu';
 import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
 
@@ -33,6 +34,11 @@ export function ShardGrid({
   refreshInterval = 30000,
 }: ShardGridProps): JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Context menu state - Requirements: 4.2, 4.8, 4.9
+  const [contextMenuOpened, setContextMenuOpened] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
   
   // Get state from store
   const {
@@ -70,12 +76,36 @@ export function ShardGrid({
     };
   }, [clusterId, refreshInterval]);
   
-  // Handle shard click - Requirements: 4.1
-  const handleShardClick = (shard: ShardInfo) => {
+  // Handle shard click - Requirements: 4.1, 4.2
+  const handleShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
     // Update selected shard in state
     selectShard(shard);
-    // Context menu will be implemented in task 12.2
-    console.log('Shard clicked:', shard);
+    
+    // Open context menu near the clicked shard - Requirements: 4.2, 4.9
+    setContextMenuShard(shard);
+    setContextMenuPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+    setContextMenuOpened(true);
+  };
+  
+  // Handle context menu close - Requirements: 4.8
+  const handleContextMenuClose = () => {
+    setContextMenuOpened(false);
+    setContextMenuShard(null);
+  };
+  
+  // Handle show shard stats - Requirements: 4.3, 4.5
+  const handleShowStats = (shard: ShardInfo) => {
+    // TODO: Implement ShardStatsModal in task 13
+    console.log('Show stats for shard:', shard);
+  };
+  
+  // Handle select for relocation - Requirements: 4.4, 5.1
+  const handleSelectForRelocation = (shard: ShardInfo) => {
+    // TODO: Implement relocation mode in Phase 5
+    console.log('Select for relocation:', shard);
   };
   
   // Format percentage
@@ -404,6 +434,18 @@ export function ShardGrid({
           </Table.Tbody>
         </Table>
       </ScrollArea>
+      
+      {/* Context menu - Requirements: 4.2, 4.8, 4.9 */}
+      {contextMenuShard && (
+        <ShardContextMenu
+          shard={contextMenuShard}
+          opened={contextMenuOpened}
+          position={contextMenuPosition}
+          onClose={handleContextMenuClose}
+          onShowStats={handleShowStats}
+          onSelectForRelocation={handleSelectForRelocation}
+        />
+      )}
     </Box>
   );
 }

@@ -274,13 +274,13 @@ The tasks are organized into phases for incremental delivery.
 ### Phase 4: Shard Selection and Context Menu
 
 - [-] 12. Implement shard selection
-  - [-] 12.1 Add click handling to ShardCell
+  - [x] 12.1 Add click handling to ShardCell
     - Handle shard click events
     - Update selected shard in state
     - Highlight selected shard
     - _Requirements: 4.1_
   
-  - [ ] 12.2 Implement ShardContextMenu component
+  - [-] 12.2 Implement ShardContextMenu component
     - Create Mantine Menu component
     - Position menu near clicked shard
     - Add "Display shard stats" option
