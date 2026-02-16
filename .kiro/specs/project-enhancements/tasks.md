@@ -374,8 +374,8 @@ The tasks are organized into phases for incremental delivery.
     - Test exiting relocation mode
     - _Requirements: 5.1, 5.3, 5.4, 5.13_
 
-- [ ] 16. Implement relocation confirmation
-  - [ ] 16.1 Create RelocationConfirmDialog component
+- [x] 16. Implement relocation confirmation
+  - [x] 16.1 Create RelocationConfirmDialog component
     - Create Mantine Modal component
     - Display source node details
     - Display destination node details
@@ -384,12 +384,12 @@ The tasks are organized into phases for incremental delivery.
     - Add Cancel and Confirm buttons
     - _Requirements: 5.8, 5.9_
   
-  - [ ] 16.2 Handle destination indicator click
+  - [x] 16.2 Handle destination indicator click
     - Show confirmation dialog
     - Pass source and destination details
     - _Requirements: 5.8_
   
-  - [ ] 16.3 Test confirmation dialog
+  - [x] 16.3 Test confirmation dialog
     - Test dialog displays correct information
     - Test cancel action
     - Test confirm action
