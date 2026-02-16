@@ -672,7 +672,7 @@ The tasks are organized into phases for incremental delivery.
     - Prevent invalid operations
     - _Requirements: 8.7_
   
-  - [ ] 27.2 Improve error messages
+  - [x] 27.2 Improve error messages
     - Make error messages user-friendly
     - Provide actionable guidance
     - _Requirements: 8.10_

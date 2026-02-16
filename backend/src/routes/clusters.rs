@@ -753,7 +753,7 @@ pub async fn relocate_shard(
             );
             ClusterErrorResponse {
                 error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+                message: format!("Cluster '{}' not found. Please verify the cluster ID and ensure the cluster is configured.", cluster_id),
             }
         })?;
 
@@ -787,9 +787,24 @@ pub async fn relocate_shard(
                 error = %e,
                 "Shard relocation failed"
             );
+
+            // Provide actionable error messages based on error type - Requirements: 8.10
+            let error_str = e.to_string();
+            let message = if error_str.contains("timeout") || error_str.contains("timed out") {
+                "Shard relocation request timed out. The cluster may be slow or unreachable. Please check cluster health and try again.".to_string()
+            } else if error_str.contains("connection") || error_str.contains("connect") {
+                "Cannot connect to cluster. Please verify the cluster is running and accessible.".to_string()
+            } else if error_str.contains("unauthorized") || error_str.contains("401") {
+                "Authentication failed. Please check your cluster credentials.".to_string()
+            } else if error_str.contains("forbidden") || error_str.contains("403") {
+                "Permission denied. You may not have the required permissions to relocate shards.".to_string()
+            } else {
+                format!("Failed to relocate shard: {}. Please check cluster logs for more details.", e)
+            };
+
             ClusterErrorResponse {
                 error: "relocation_failed".to_string(),
-                message: format!("Failed to relocate shard: {}", e),
+                message,
             }
         })?;
 
@@ -837,9 +852,35 @@ pub async fn relocate_shard(
             "Elasticsearch rejected shard relocation"
         );
 
+        // Provide actionable error messages - Requirements: 8.10
+        let user_message = if error_msg.contains("no such shard")
+            || error_msg.contains("shard not found")
+        {
+            format!("Shard {} of index '{}' not found. The shard may have been deleted or the index may not exist.", req.shard, req.index)
+        } else if error_msg.contains("node not found") || error_msg.contains("unknown node") {
+            format!(
+                "Node '{}' or '{}' not found. One of the nodes may have left the cluster.",
+                req.from_node, req.to_node
+            )
+        } else if error_msg.contains("already relocating") {
+            format!("Shard {} of index '{}' is already being relocated. Please wait for the current relocation to complete.", req.shard, req.index)
+        } else if error_msg.contains("same node") {
+            "Cannot relocate shard to the same node. Please select a different destination node.".to_string()
+        } else if error_msg.contains("allocation") {
+            format!(
+                "Shard allocation failed: {}. Check cluster allocation settings and node capacity.",
+                error_msg
+            )
+        } else {
+            format!(
+                "Elasticsearch rejected the relocation: {}. Check cluster logs for more details.",
+                error_msg
+            )
+        };
+
         return Err(ClusterErrorResponse {
             error: "elasticsearch_error".to_string(),
-            message: error_msg.to_string(),
+            message: user_message,
         });
     }
 
