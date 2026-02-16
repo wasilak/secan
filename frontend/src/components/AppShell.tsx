@@ -1,4 +1,4 @@
-import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip } from '@mantine/core';
+import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
 import { useDisclosure, useLocalStorage } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -10,6 +10,7 @@ import {
   IconPin,
   IconPinFilled,
   IconAlertCircle,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { ThemeSelector } from './ThemeSelector';
@@ -17,6 +18,101 @@ import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import type { HealthStatus } from '../types/api';
+
+/**
+ * Get color for health status badge
+ */
+function getHealthColor(health: HealthStatus): string {
+  switch (health) {
+    case 'green':
+      return 'green';
+    case 'yellow':
+      return 'yellow';
+    case 'red':
+      return 'red';
+    default:
+      return 'gray';
+  }
+}
+
+/**
+ * Header title component - shows app name or cluster context
+ */
+function HeaderTitle() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const refreshInterval = useRefreshInterval();
+  
+  // Check if we're in a cluster view
+  const clusterMatch = location.pathname.match(/^\/cluster\/([^/]+)/);
+  const clusterId = clusterMatch ? clusterMatch[1] : null;
+  
+  // Fetch cluster stats if we're viewing a cluster
+  const { data: clusterStats } = useQuery({
+    queryKey: ['cluster', clusterId, 'stats'],
+    queryFn: () => apiClient.getClusterStats(clusterId!),
+    enabled: !!clusterId,
+    refetchInterval: refreshInterval,
+  });
+  
+  if (!clusterId) {
+    // Not in a cluster view - show app name
+    return (
+      <Text 
+        size="xl"
+        fw={700} 
+        component="h1"
+        style={{ whiteSpace: 'nowrap' }}
+      >
+        Secan
+      </Text>
+    );
+  }
+  
+  // In cluster view - show breadcrumb with cluster name and health
+  return (
+    <Group gap="xs" wrap="nowrap">
+      <Anchor
+        component="button"
+        onClick={() => navigate('/')}
+        size="lg"
+        fw={700}
+        c="dimmed"
+        style={{ 
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+          '&:hover': {
+            textDecoration: 'underline',
+          }
+        }}
+      >
+        Secan
+      </Anchor>
+      <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)' }} />
+      <Group gap={6} wrap="nowrap">
+        <Text 
+          size="lg"
+          fw={600}
+          component="h1"
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {clusterStats?.clusterName || clusterId}
+        </Text>
+        {clusterStats?.health && (
+          <Badge 
+            size="sm" 
+            color={getHealthColor(clusterStats.health)}
+            variant="dot"
+            style={{ textTransform: 'lowercase' }}
+          >
+            {clusterStats.health}
+          </Badge>
+        )}
+      </Group>
+    </Group>
+  );
+}
 
 /**
  * Navigation content component - shared between drawer and static navbar
@@ -194,14 +290,7 @@ export function AppShell() {
                 size="sm"
                 aria-label={drawerOpened ? 'Close navigation menu' : 'Open navigation menu'}
               />
-              <Text 
-                size="xl"
-                fw={700} 
-                component="h1"
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                Secan
-              </Text>
+              <HeaderTitle />
             </Group>
 
             <Group gap="xs" wrap="nowrap">
