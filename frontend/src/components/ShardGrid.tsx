@@ -1,8 +1,8 @@
-import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton } from '@mantine/core';
+import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton, Collapse, ActionIcon } from '@mantine/core';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useDebouncedCallback } from '@mantine/hooks';
+import { useDebouncedCallback, useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCheck, IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ShardInfo, NodeWithShards } from '../types/api';
 import { ShardCell } from './ShardCell';
@@ -42,6 +42,17 @@ export function ShardGrid({
   refreshInterval = 30000,
 }: ShardGridProps): JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  
+  // Responsive breakpoints - Requirements: 11.1, 11.5, 11.9
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isTablet = useMediaQuery('(min-width: 769px) and (max-width: 1366px)');
+  
+  // Collapsible state for node stats and index metadata - Requirements: 11.6, 11.7
+  const [nodeStatsCollapsed, setNodeStatsCollapsed] = useState<Record<string, boolean>>({});
+  const [indexMetadataCollapsed, setIndexMetadataCollapsed] = useState<Record<string, boolean>>({});
+  
+  // Compact view state - Requirements: 11.10
+  const [compactView, setCompactView] = useState(false);
   
   // Context menu state - Requirements: 4.2, 4.8, 4.9
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
@@ -314,16 +325,34 @@ export function ShardGrid({
     }
   }, [relocationMode, exitRelocationMode]);
   
-  // Handle shard click - Requirements: 4.1, 4.2
-  const handleShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
+  // Handle shard click - Requirements: 4.1, 4.2, 11.4
+  const handleShardClick = (shard: ShardInfo, event: React.MouseEvent | React.TouchEvent) => {
     // Update selected shard in state
     selectShard(shard);
+    
+    // Get position from mouse or touch event - Requirements: 11.4
+    let clientX: number;
+    let clientY: number;
+    
+    if ('touches' in event && event.touches.length > 0) {
+      // Touch event
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else if ('clientX' in event) {
+      // Mouse event
+      clientX = event.clientX;
+      clientY = event.clientY;
+    } else {
+      // Fallback
+      clientX = 0;
+      clientY = 0;
+    }
     
     // Open context menu near the clicked shard - Requirements: 4.2, 4.9
     setContextMenuShard(shard);
     setContextMenuPosition({
-      x: event.clientX,
-      y: event.clientY,
+      x: clientX,
+      y: clientY,
     });
     setContextMenuOpened(true);
   };
@@ -434,6 +463,22 @@ export function ShardGrid({
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   }, []);
   
+  // Toggle node stats collapse - Requirements: 11.6
+  const toggleNodeStats = useCallback((nodeId: string) => {
+    setNodeStatsCollapsed(prev => ({
+      ...prev,
+      [nodeId]: !prev[nodeId],
+    }));
+  }, []);
+  
+  // Toggle index metadata collapse - Requirements: 11.7
+  const toggleIndexMetadata = useCallback((indexName: string) => {
+    setIndexMetadataCollapsed(prev => ({
+      ...prev,
+      [indexName]: !prev[indexName],
+    }));
+  }, []);
+  
   if (loading) {
     // Display loading skeleton while fetching - Requirements: 9.9
     return (
@@ -471,11 +516,32 @@ export function ShardGrid({
     return nodes.length > 20 || indices.length > 20;
   }, [nodes.length, indices.length]);
   
+  // Calculate responsive sizes - Requirements: 11.1, 11.3, 11.10
+  // Adjust column width and row height based on screen size and compact view
+  const columnWidth = useMemo(() => {
+    if (compactView) return isMobile ? 100 : 120; // Smaller in compact view
+    if (isMobile) return 120; // Smaller columns on mobile
+    if (isTablet) return 140; // Medium columns on tablet
+    return 150; // Full columns on desktop
+  }, [isMobile, isTablet, compactView]);
+  
+  const rowHeight = useMemo(() => {
+    if (compactView) return isMobile ? 80 : 60; // Shorter in compact view
+    if (isMobile) return 100; // Taller rows on mobile for better touch targets
+    return 80; // Standard height on larger screens
+  }, [isMobile, compactView]);
+  
+  const nodeColumnWidth = useMemo(() => {
+    if (compactView) return isMobile ? 160 : 200; // Narrower in compact view
+    if (isMobile) return 200; // Narrower node column on mobile
+    return 250; // Full width on larger screens
+  }, [isMobile, compactView]);
+  
   // Set up row virtualizer for nodes - Requirements: 9.1
   const rowVirtualizer = useVirtualizer({
     count: nodes.length + (unassignedShards.length > 0 ? 1 : 0), // +1 for unassigned row if needed
     getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
-    estimateSize: () => 80, // Estimated row height in pixels
+    estimateSize: () => rowHeight, // Use responsive row height
     overscan: 5, // Render 5 extra rows above and below viewport
     enabled: shouldVirtualize,
   });
@@ -485,7 +551,7 @@ export function ShardGrid({
     horizontal: true,
     count: indices.length,
     getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
-    estimateSize: () => 150, // Estimated column width in pixels
+    estimateSize: () => columnWidth, // Use responsive column width
     overscan: 3, // Render 3 extra columns left and right of viewport
     enabled: shouldVirtualize,
   });
@@ -512,6 +578,21 @@ export function ShardGrid({
       role="grid"
       aria-label="Shard allocation grid"
     >
+      {/* Compact view toggle - Requirements: 11.10 */}
+      <Group gap="xs" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+        <ActionIcon
+          variant={compactView ? 'filled' : 'light'}
+          onClick={() => setCompactView(!compactView)}
+          aria-label={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+          title={compactView ? 'Normal view' : 'Compact view'}
+        >
+          <IconChevronDown size={18} />
+        </ActionIcon>
+        <Text size="sm" c="dimmed">
+          {compactView ? 'Compact view' : 'Normal view'}
+        </Text>
+      </Group>
+      
       {/* Grid container with scrolling */}
       <ScrollArea
         ref={scrollAreaRef}
@@ -522,6 +603,8 @@ export function ShardGrid({
           // Use CSS transforms for smooth scrolling - Requirements: 9.4, 9.5
           willChange: 'transform',
           transform: 'translateZ(0)', // Force GPU acceleration
+          // Enable pinch-to-zoom on touch devices - Requirements: 11.8
+          touchAction: isMobile ? 'pinch-zoom' : 'auto',
         }}
         type="always"
       >
@@ -530,7 +613,7 @@ export function ShardGrid({
           <div
             style={{
               height: `${rowVirtualizer.getTotalSize()}px`,
-              width: `${columnVirtualizer.getTotalSize() + 250}px`, // +250 for sticky node column
+              width: `${columnVirtualizer.getTotalSize() + nodeColumnWidth}px`, // Use responsive node column width
               position: 'relative',
             }}
           >
@@ -548,8 +631,8 @@ export function ShardGrid({
               {/* Node column header */}
               <div
                 style={{
-                  width: '250px',
-                  minWidth: '250px',
+                  width: `${nodeColumnWidth}px`,
+                  minWidth: `${nodeColumnWidth}px`,
                   padding: '12px',
                   fontWeight: 600,
                   position: 'sticky',
@@ -570,7 +653,7 @@ export function ShardGrid({
                     key={index.name}
                     style={{
                       position: 'absolute',
-                      left: `${virtualColumn.start + 250}px`,
+                      left: `${virtualColumn.start + nodeColumnWidth}px`,
                       width: `${virtualColumn.size}px`,
                       padding: '12px',
                       textAlign: 'center',
@@ -630,8 +713,8 @@ export function ShardGrid({
                   {/* Node info column (sticky) */}
                   <div
                     style={{
-                      width: '250px',
-                      minWidth: '250px',
+                      width: `${nodeColumnWidth}px`,
+                      minWidth: `${nodeColumnWidth}px`,
                       padding: '12px',
                       position: 'sticky',
                       left: 0,
@@ -698,7 +781,7 @@ export function ShardGrid({
                           key={`unassigned-${index.name}`}
                           style={{
                             position: 'absolute',
-                            left: `${virtualColumn.start + 250}px`,
+                            left: `${virtualColumn.start + nodeColumnWidth}px`,
                             width: `${virtualColumn.size}px`,
                             padding: '12px',
                             textAlign: 'center',
@@ -745,7 +828,7 @@ export function ShardGrid({
                           key={`${node.id}-${index.name}`}
                           style={{
                             position: 'absolute',
-                            left: `${virtualColumn.start + 250}px`,
+                            left: `${virtualColumn.start + nodeColumnWidth}px`,
                             width: `${virtualColumn.size}px`,
                             padding: '12px',
                             textAlign: 'center',
@@ -818,6 +901,8 @@ export function ShardGrid({
             style={{
               minWidth: '100%',
               tableLayout: 'fixed',
+              // Ensure touch targets are large enough on mobile - Requirements: 11.3
+              fontSize: isMobile ? '14px' : compactView ? '12px' : '13px',
             }}
           >
             {/* Header row with index names */}
@@ -833,8 +918,8 @@ export function ShardGrid({
                 {/* Empty cell for node column header */}
                 <Table.Th
                   style={{
-                    width: '250px',
-                    minWidth: '250px',
+                    width: `${nodeColumnWidth}px`,
+                    minWidth: `${nodeColumnWidth}px`,
                     position: 'sticky',
                     left: 0,
                     zIndex: 11,
@@ -849,41 +934,71 @@ export function ShardGrid({
                   <Table.Th
                     key={index.name}
                     style={{
-                      width: '150px',
-                      minWidth: '150px',
+                      width: `${columnWidth}px`,
+                      minWidth: `${columnWidth}px`,
                       textAlign: 'center',
                       verticalAlign: 'top',
                     }}
                   >
                     <Stack gap="xs" align="center">
-                      {/* Index name */}
-                      <Box
-                        style={{
-                          fontWeight: 600,
-                          fontSize: '14px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          width: '100%',
-                          textAlign: 'center',
-                        }}
-                        title={index.name}
-                      >
-                        {index.name}
-                      </Box>
+                      {/* Index name with collapse toggle on small screens */}
+                      <Group gap="xs" justify="center" wrap="nowrap">
+                        <Box
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: (isMobile || isTablet) ? '80px' : '100%',
+                            textAlign: 'center',
+                          }}
+                          title={index.name}
+                        >
+                          {index.name}
+                        </Box>
+                        
+                        {/* Collapse toggle button on small screens - Requirements: 11.7 */}
+                        {(isMobile || isTablet) && (
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            onClick={() => toggleIndexMetadata(index.name)}
+                            aria-label={indexMetadataCollapsed[index.name] ? 'Show index metadata' : 'Hide index metadata'}
+                          >
+                            {indexMetadataCollapsed[index.name] ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+                          </ActionIcon>
+                        )}
+                      </Group>
                       
-                      {/* Index metadata */}
-                      <Box
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--mantine-color-dimmed)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <div>{index.shardCount} shards</div>
-                        <div>{formatNumber(index.docsCount)} docs</div>
-                        <div>{formatSize(index.storeSize)}</div>
-                      </Box>
+                      {/* Index metadata - collapsible on small screens */}
+                      {(isMobile || isTablet) ? (
+                        <Collapse in={!indexMetadataCollapsed[index.name]}>
+                          <Box
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--mantine-color-dimmed)',
+                              textAlign: 'center',
+                            }}
+                          >
+                            <div>{index.shardCount} shards</div>
+                            <div>{formatNumber(index.docsCount)} docs</div>
+                            <div>{formatSize(index.storeSize)}</div>
+                          </Box>
+                        </Collapse>
+                      ) : (
+                        <Box
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--mantine-color-dimmed)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <div>{index.shardCount} shards</div>
+                          <div>{formatNumber(index.docsCount)} docs</div>
+                          <div>{formatSize(index.storeSize)}</div>
+                        </Box>
+                      )}
                     </Stack>
                   </Table.Th>
                 ))}
@@ -897,8 +1012,8 @@ export function ShardGrid({
                 {/* Node information column (sticky) */}
                 <Table.Td
                   style={{
-                    width: '250px',
-                    minWidth: '250px',
+                    width: `${nodeColumnWidth}px`,
+                    minWidth: `${nodeColumnWidth}px`,
                     position: 'sticky',
                     left: 0,
                     zIndex: 1,
@@ -906,42 +1021,86 @@ export function ShardGrid({
                   }}
                 >
                   <Stack gap="xs">
-                    {/* Node name and IP */}
-                    <Box>
-                      <Text fw={600} size="sm">
-                        {node.name}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {node.ip || 'N/A'}
-                      </Text>
-                    </Box>
-                    
-                    {/* Node statistics */}
-                    <Group gap="xs" wrap="wrap">
-                      {/* Heap usage */}
-                      <Text size="xs" c="dimmed">
-                        Heap: {formatPercent((node.heapUsed / node.heapMax) * 100)}
-                      </Text>
-                      
-                      {/* Disk usage */}
-                      <Text size="xs" c="dimmed">
-                        Disk: {formatPercent((node.diskUsed / node.diskTotal) * 100)}
-                      </Text>
-                      
-                      {/* CPU usage */}
-                      {node.cpuPercent !== undefined && (
-                        <Text size="xs" c="dimmed">
-                          CPU: {formatPercent(node.cpuPercent)}
+                    {/* Node name and IP with collapse toggle on small screens */}
+                    <Group gap="xs" justify="space-between" wrap="nowrap">
+                      <Box style={{ flex: 1, minWidth: 0 }}>
+                        <Text fw={600} size="sm">
+                          {node.name}
                         </Text>
-                      )}
-                      
-                      {/* Load average */}
-                      {node.loadAverage !== undefined && (
                         <Text size="xs" c="dimmed">
-                          Load: {formatLoad(node.loadAverage)}
+                          {node.ip || 'N/A'}
                         </Text>
+                      </Box>
+                      
+                      {/* Collapse toggle button on small screens - Requirements: 11.6 */}
+                      {(isMobile || isTablet) && (
+                        <ActionIcon
+                          size="sm"
+                          variant="subtle"
+                          onClick={() => toggleNodeStats(node.id)}
+                          aria-label={nodeStatsCollapsed[node.id] ? 'Show node stats' : 'Hide node stats'}
+                        >
+                          {nodeStatsCollapsed[node.id] ? <IconChevronDown size={16} /> : <IconChevronUp size={16} />}
+                        </ActionIcon>
                       )}
                     </Group>
+                    
+                    {/* Node statistics - collapsible on small screens */}
+                    {(isMobile || isTablet) ? (
+                      <Collapse in={!nodeStatsCollapsed[node.id]}>
+                        <Group gap="xs" wrap="wrap">
+                          {/* Heap usage */}
+                          <Text size="xs" c="dimmed">
+                            Heap: {formatPercent((node.heapUsed / node.heapMax) * 100)}
+                          </Text>
+                          
+                          {/* Disk usage */}
+                          <Text size="xs" c="dimmed">
+                            Disk: {formatPercent((node.diskUsed / node.diskTotal) * 100)}
+                          </Text>
+                          
+                          {/* CPU usage */}
+                          {node.cpuPercent !== undefined && (
+                            <Text size="xs" c="dimmed">
+                              CPU: {formatPercent(node.cpuPercent)}
+                            </Text>
+                          )}
+                          
+                          {/* Load average */}
+                          {node.loadAverage !== undefined && (
+                            <Text size="xs" c="dimmed">
+                              Load: {formatLoad(node.loadAverage)}
+                            </Text>
+                          )}
+                        </Group>
+                      </Collapse>
+                    ) : (
+                      <Group gap="xs" wrap="wrap">
+                        {/* Heap usage */}
+                        <Text size="xs" c="dimmed">
+                          Heap: {formatPercent((node.heapUsed / node.heapMax) * 100)}
+                        </Text>
+                        
+                        {/* Disk usage */}
+                        <Text size="xs" c="dimmed">
+                          Disk: {formatPercent((node.diskUsed / node.diskTotal) * 100)}
+                        </Text>
+                        
+                        {/* CPU usage */}
+                        {node.cpuPercent !== undefined && (
+                          <Text size="xs" c="dimmed">
+                            CPU: {formatPercent(node.cpuPercent)}
+                          </Text>
+                        )}
+                        
+                        {/* Load average */}
+                        {node.loadAverage !== undefined && (
+                          <Text size="xs" c="dimmed">
+                            Load: {formatLoad(node.loadAverage)}
+                          </Text>
+                        )}
+                      </Group>
+                    )}
                   </Stack>
                 </Table.Td>
                 
@@ -961,10 +1120,12 @@ export function ShardGrid({
                     <Table.Td
                       key={`${node.id}-${index.name}`}
                       style={{
-                        width: '150px',
-                        minWidth: '150px',
+                        width: `${columnWidth}px`,
+                        minWidth: `${columnWidth}px`,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        // Ensure adequate padding for touch targets on mobile - Requirements: 11.3, 11.10
+                        padding: isMobile ? '16px 8px' : compactView ? '6px' : '12px',
                       }}
                     >
                       {shards.length > 0 || destinationIndicator ? (
@@ -1034,8 +1195,8 @@ export function ShardGrid({
                 {/* Unassigned label column (sticky) */}
                 <Table.Td
                   style={{
-                    width: '250px',
-                    minWidth: '250px',
+                    width: `${nodeColumnWidth}px`,
+                    minWidth: `${nodeColumnWidth}px`,
                     position: 'sticky',
                     left: 0,
                     zIndex: 1,
@@ -1064,10 +1225,12 @@ export function ShardGrid({
                     <Table.Td
                       key={`unassigned-${index.name}`}
                       style={{
-                        width: '150px',
-                        minWidth: '150px',
+                        width: `${columnWidth}px`,
+                        minWidth: `${columnWidth}px`,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        // Ensure adequate padding for touch targets on mobile - Requirements: 11.3, 11.10
+                        padding: isMobile ? '16px 8px' : compactView ? '6px' : '12px',
                       }}
                     >
                       {indexUnassignedShards.length > 0 ? (

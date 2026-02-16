@@ -1,4 +1,5 @@
 import { Menu, Portal } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconInfoCircle, IconArrowsMove } from '@tabler/icons-react';
 import { useEffect, useRef } from 'react';
 import type { ShardInfo } from '../types/api';
@@ -37,6 +38,9 @@ export function ShardContextMenu({
   onSelectForRelocation,
 }: ShardContextMenuProps): JSX.Element | null {
   const targetRef = useRef<HTMLDivElement>(null);
+  
+  // Responsive sizing for touch-friendly menu - Requirements: 11.4
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   // Determine if relocation should be disabled
   // Requirements: 4.10
@@ -126,25 +130,45 @@ export function ShardContextMenu({
             />
           </Menu.Target>
           
-          <Menu.Dropdown>
-            <Menu.Label>
+          <Menu.Dropdown
+            style={{
+              // Make menu items larger and more touch-friendly on mobile - Requirements: 11.4
+              minWidth: isMobile ? '200px' : '180px',
+            }}
+          >
+            <Menu.Label
+              style={{
+                fontSize: isMobile ? '14px' : '12px',
+                padding: isMobile ? '12px' : '8px',
+              }}
+            >
               Shard {shard.shard} ({shard.primary ? 'Primary' : 'Replica'})
             </Menu.Label>
             
             {/* Display shard stats option - Requirements: 4.3 */}
             <Menu.Item
-              leftSection={<IconInfoCircle size={16} />}
+              leftSection={<IconInfoCircle size={isMobile ? 20 : 16} />}
               onClick={handleShowStats}
+              style={{
+                fontSize: isMobile ? '16px' : '14px',
+                padding: isMobile ? '14px 16px' : '10px 12px',
+                minHeight: isMobile ? '48px' : 'auto', // Ensure touch target size
+              }}
             >
               Display shard stats
             </Menu.Item>
             
             {/* Select for relocation option - Requirements: 4.4, 4.10 */}
             <Menu.Item
-              leftSection={<IconArrowsMove size={16} />}
+              leftSection={<IconArrowsMove size={isMobile ? 20 : 16} />}
               onClick={handleSelectForRelocation}
               disabled={isRelocationDisabled}
               title={isRelocationDisabled ? getDisabledReason() : undefined}
+              style={{
+                fontSize: isMobile ? '16px' : '14px',
+                padding: isMobile ? '14px 16px' : '10px 12px',
+                minHeight: isMobile ? '48px' : 'auto', // Ensure touch target size
+              }}
             >
               Select for relocation
             </Menu.Item>
