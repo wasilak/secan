@@ -868,7 +868,7 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
         tracing::warn!("Validation failed: index name is empty");
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Index name is required".to_string(),
+            message: "Index name is required. Please provide a valid index name.".to_string(),
         });
     }
 
@@ -878,17 +878,23 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
         tracing::warn!(index = %req.index, "Validation failed: index name contains uppercase characters");
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Index name must be lowercase".to_string(),
+            message: format!(
+                "Index name '{}' contains uppercase characters. Elasticsearch index names must be lowercase.",
+                req.index
+            ),
         });
     }
 
     // Check for invalid characters in index name
     let invalid_chars = ['\\', '/', '*', '?', '"', '<', '>', '|', ' ', ',', '#'];
-    if req.index.chars().any(|c| invalid_chars.contains(&c)) {
+    if let Some(invalid_char) = req.index.chars().find(|c| invalid_chars.contains(c)) {
         tracing::warn!(index = %req.index, "Validation failed: index name contains invalid characters");
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Index name contains invalid characters".to_string(),
+            message: format!(
+                "Index name '{}' contains invalid character '{}'. Index names cannot contain: \\ / * ? \" < > | space , #",
+                req.index, invalid_char
+            ),
         });
     }
 
@@ -897,7 +903,7 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
         tracing::warn!("Validation failed: from_node is empty");
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Source node ID is required".to_string(),
+            message: "Source node ID is required. Please select a source node.".to_string(),
         });
     }
 
@@ -906,7 +912,8 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
         tracing::warn!("Validation failed: to_node is empty");
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Destination node ID is required".to_string(),
+            message: "Destination node ID is required. Please select a destination node."
+                .to_string(),
         });
     }
 
@@ -919,7 +926,10 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
         );
         return Err(ClusterErrorResponse {
             error: "validation_failed".to_string(),
-            message: "Source and destination nodes must be different".to_string(),
+            message: format!(
+                "Source and destination nodes must be different (both are {}). Please select a different destination node.",
+                req.from_node
+            ),
         });
     }
 

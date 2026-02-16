@@ -666,8 +666,8 @@ The tasks are organized into phases for incremental delivery.
     - Test on mobile (375px)
     - _Requirements: 11.1, 11.5, 11.9_
 
-- [ ] 27. Final polish and testing
-  - [ ] 27.1 Add validation feedback
+- [-] 27. Final polish and testing
+  - [x] 27.1 Add validation feedback
     - Show validation errors in UI
     - Prevent invalid operations
     - _Requirements: 8.7_
