@@ -170,9 +170,9 @@ export function ShardGrid({
             notifications.show({
               color: 'yellow',
               icon: <IconX size={18} />,
-              title: 'Relocation Timeout',
-              message: `Polling stopped after 5 minutes. ${relocatingShards.size} shard(s) still relocating. Check cluster health.`,
-              autoClose: 10000,
+              title: 'Relocation Monitoring Timeout',
+              message: `Stopped monitoring after 5 minutes. ${relocatingShards.size} shard(s) may still be relocating. Please refresh the page to check current status or view cluster health for more details.`,
+              autoClose: 15000,
             });
           }
           
@@ -231,8 +231,9 @@ export function ShardGrid({
           notifications.show({
             color: 'green',
             icon: <IconCheck size={18} />,
-            title: 'Relocation Complete',
-            message: `Shard ${shard.shard} of index "${shard.index}" has been successfully relocated`,
+            title: 'Relocation Successful',
+            message: `Shard ${shard.shard} of index "${shard.index}" has been successfully relocated and is now active on the destination node.`,
+            autoClose: 5000,
           });
         }
         
@@ -242,7 +243,8 @@ export function ShardGrid({
             color: 'red',
             icon: <IconX size={18} />,
             title: 'Relocation Failed',
-            message: `Shard ${shard.shard} of index "${shard.index}" relocation failed - shard is now unassigned`,
+            message: `Shard ${shard.shard} of index "${shard.index}" could not be relocated and is now unassigned. Check cluster logs for details or try relocating again.`,
+            autoClose: false, // Don't auto-close error messages
           });
         }
         
@@ -400,8 +402,9 @@ export function ShardGrid({
         notifications.show({
           color: 'green',
           icon: <IconCheck size={18} />,
-          title: 'Relocation Initiated',
-          message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${confirmDialogSourceNode.name} to ${confirmDialogDestinationNode.name}`,
+          title: 'Relocation Started',
+          message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${confirmDialogSourceNode.name} to ${confirmDialogDestinationNode.name}. Progress will be tracked automatically.`,
+          autoClose: 5000,
         });
         
         // Add shard to relocating set for tracking
@@ -423,13 +426,33 @@ export function ShardGrid({
         setConfirmDialogSourceNode(null);
         setConfirmDialogDestinationNode(null);
       } catch (error) {
-        // Show error notification - Requirements: 5.12
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        // Show error notification - Requirements: 5.12, 8.10
+        let errorMessage = 'An unexpected error occurred';
+        let actionableGuidance = 'Please try again or contact support if the problem persists.';
+        
+        if (error instanceof Error) {
+          errorMessage = error.message;
+          
+          // Provide actionable guidance based on error type
+          if (errorMessage.includes('validation_failed')) {
+            actionableGuidance = 'Please check that the source and destination nodes are valid and different.';
+          } else if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+            actionableGuidance = 'Check your network connection and try again.';
+          } else if (errorMessage.includes('unauthorized') || errorMessage.includes('forbidden')) {
+            actionableGuidance = 'You may not have permission to relocate shards. Contact your administrator.';
+          } else if (errorMessage.includes('not found')) {
+            actionableGuidance = 'The shard or node may have been removed. Refresh the page and try again.';
+          } else if (errorMessage.includes('already relocating')) {
+            actionableGuidance = 'This shard is already being relocated. Wait for the current relocation to complete.';
+          }
+        }
+        
         notifications.show({
           color: 'red',
           icon: <IconX size={18} />,
           title: 'Relocation Failed',
-          message: `Failed to relocate shard: ${errorMessage}`,
+          message: `${errorMessage}. ${actionableGuidance}`,
+          autoClose: false, // Don't auto-close error messages
         });
         
         // Re-throw to let the dialog handle loading state
