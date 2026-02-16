@@ -1,4 +1,4 @@
-import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton, Collapse, ActionIcon } from '@mantine/core';
+import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton, Collapse, ActionIcon, Loader } from '@mantine/core';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useDebouncedCallback, useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -507,6 +507,7 @@ export function ShardGrid({
     return (
       <Box p="md">
         <Stack gap="md">
+          <Text size="sm" c="dimmed">Loading shard grid...</Text>
           <Skeleton height={50} radius="md" />
           <Skeleton height={200} radius="md" />
           <Skeleton height={200} radius="md" />
@@ -601,19 +602,31 @@ export function ShardGrid({
       role="grid"
       aria-label="Shard allocation grid"
     >
-      {/* Compact view toggle - Requirements: 11.10 */}
-      <Group gap="xs" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-        <ActionIcon
-          variant={compactView ? 'filled' : 'light'}
-          onClick={() => setCompactView(!compactView)}
-          aria-label={compactView ? 'Switch to normal view' : 'Switch to compact view'}
-          title={compactView ? 'Normal view' : 'Compact view'}
-        >
-          <IconChevronDown size={18} />
-        </ActionIcon>
-        <Text size="sm" c="dimmed">
-          {compactView ? 'Compact view' : 'Normal view'}
-        </Text>
+      {/* Compact view toggle and polling indicator - Requirements: 11.10, 9.9 */}
+      <Group gap="xs" p="xs" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }} justify="space-between">
+        <Group gap="xs">
+          <ActionIcon
+            variant={compactView ? 'filled' : 'light'}
+            onClick={() => setCompactView(!compactView)}
+            aria-label={compactView ? 'Switch to normal view' : 'Switch to compact view'}
+            title={compactView ? 'Normal view' : 'Compact view'}
+          >
+            <IconChevronDown size={18} />
+          </ActionIcon>
+          <Text size="sm" c="dimmed">
+            {compactView ? 'Compact view' : 'Normal view'}
+          </Text>
+        </Group>
+        
+        {/* Polling indicator - Requirements: 9.9 */}
+        {isPolling && (
+          <Group gap="xs">
+            <Loader size="xs" color="blue" />
+            <Text size="sm" c="blue">
+              Tracking relocation progress...
+            </Text>
+          </Group>
+        )}
       </Group>
       
       {/* Grid container with scrolling */}
