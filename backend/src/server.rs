@@ -114,6 +114,11 @@ impl Server {
                 "/api/clusters/:id/shards/:index/:shard",
                 get(crate::routes::clusters::get_shard_stats),
             )
+            // Shard relocation endpoint
+            .route(
+                "/api/clusters/:id/shards/relocate",
+                post(crate::routes::clusters::relocate_shard),
+            )
             // Generic proxy route - must be last to avoid conflicts
             .route(
                 "/api/clusters/:id/*path",

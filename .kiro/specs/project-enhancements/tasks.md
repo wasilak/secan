@@ -403,39 +403,39 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 6: Shard Relocation Backend
 
-- [ ] 18. Implement shard relocation API
-  - [ ] 18.1 Create shard relocation endpoint
+- [-] 18. Implement shard relocation API
+  - [x] 18.1 Create shard relocation endpoint
     - Add POST /api/clusters/:id/shards/relocate route
     - Define RelocateShardRequest struct
     - Parse request body
     - _Requirements: 6.1, 6.2_
   
-  - [ ] 18.2 Implement request validation
+  - [x] 18.2 Implement request validation
     - Validate all required parameters present
     - Validate cluster ID exists
     - Validate source and destination are different
     - Validate index name format
     - _Requirements: 6.3, 6.4, 8.1, 8.2, 8.3, 8.4_
   
-  - [ ] 18.3 Implement reroute API call
+  - [x] 18.3 Implement reroute API call
     - Build Elasticsearch reroute command JSON
     - Execute POST /_cluster/reroute
     - Parse response
     - Return response to frontend
     - _Requirements: 6.5, 6.6, 6.7_
   
-  - [ ] 18.4 Add error handling
+  - [x] 18.4 Add error handling
     - Handle Elasticsearch errors
     - Return descriptive error messages
     - Log all relocation attempts
     - _Requirements: 6.8, 6.9_
   
-  - [ ] 18.5 Add authentication and authorization
+  - [x] 18.5 Add authentication and authorization
     - Require authentication for endpoint
     - Enforce RBAC for cluster access
     - _Requirements: 6.10, 6.11_
   
-  - [ ] 18.6 Test shard relocation API
+  - [x] 18.6 Test shard relocation API
     - Test with valid request
     - Test with invalid requests
     - Test error handling
