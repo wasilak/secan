@@ -48,6 +48,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
+import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
@@ -669,6 +670,10 @@ function NodesList({
     return matchesSearch && matchesRoles;
   });
 
+  // Apply default master-first sorting
+  // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
+  const sortedNodes = filteredNodes ? sortNodesMasterFirst(filteredNodes) : undefined;
+
   if (loading) {
     return (
       <Stack gap="xs">
@@ -726,11 +731,11 @@ function NodesList({
         </Tooltip>
       </Group>
 
-      {!expandedView && filteredNodes && filteredNodes.length > 0 && (
-        <RoleLegend roles={Array.from(new Set(filteredNodes.flatMap(n => n.roles)))} />
+      {!expandedView && sortedNodes && sortedNodes.length > 0 && (
+        <RoleLegend roles={Array.from(new Set(sortedNodes.flatMap(n => n.roles)))} />
       )}
 
-      {filteredNodes && filteredNodes.length === 0 ? (
+      {sortedNodes && sortedNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
           No nodes match your filters
         </Text>
@@ -740,8 +745,10 @@ function NodesList({
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
-                <Table.Th>Node ID</Table.Th>
+                {expandedView && <Table.Th>Node ID</Table.Th>}
                 <Table.Th>Roles</Table.Th>
+                {expandedView && <Table.Th>IP Address</Table.Th>}
+                {expandedView && <Table.Th>Version</Table.Th>}
                 {expandedView && <Table.Th>Tags</Table.Th>}
                 <Table.Th>Load</Table.Th>
                 <Table.Th>Uptime</Table.Th>
@@ -751,7 +758,7 @@ function NodesList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filteredNodes?.map((node) => (
+              {sortedNodes?.map((node) => (
                 <Table.Tr
                   key={node.id}
                   style={{ cursor: 'pointer' }}
@@ -766,15 +773,17 @@ function NodesList({
                       />
                       <div>
                         <Text size="sm" fw={500}>{node.name}</Text>
-                        {node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                        {!expandedView && node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
                       </div>
                     </Group>
                   </Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
-                      {node.id}
-                    </Text>
-                  </Table.Td>
+                  {expandedView && (
+                    <Table.Td>
+                      <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
+                        {node.id}
+                      </Text>
+                    </Table.Td>
+                  )}
                   <Table.Td>
                     {expandedView ? (
                       <Group gap="xs">
@@ -788,6 +797,20 @@ function NodesList({
                       <RoleIcons roles={node.roles} size={16} />
                     )}
                   </Table.Td>
+                  {expandedView && (
+                    <Table.Td>
+                      <Text size="sm" c="dimmed">
+                        {node.ip || '-'}
+                      </Text>
+                    </Table.Td>
+                  )}
+                  {expandedView && (
+                    <Table.Td>
+                      <Text size="sm" c="dimmed">
+                        {node.version || '-'}
+                      </Text>
+                    </Table.Td>
+                  )}
                   {expandedView && (
                     <Table.Td>
                       {node.tags && node.tags.length > 0 ? (
