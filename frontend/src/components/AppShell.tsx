@@ -373,15 +373,29 @@ export function AppShell() {
         size="280px"
         styles={{
           title: { width: '100%' },
-          body: { display: 'flex', flexDirection: 'column', height: '100%' },
+          body: { 
+            display: 'flex', 
+            flexDirection: 'column', 
+            height: '100%',
+            padding: 0,
+          },
+          content: {
+            display: 'flex',
+            flexDirection: 'column',
+          }
         }}
       >
-        <Stack gap="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          height: '100%',
+          padding: 'var(--mantine-spacing-md)',
+        }}>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <NavigationContent onNavigate={closeDrawer} />
           </div>
           
-          <div style={{ marginTop: 'auto' }}>
+          <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: 'var(--mantine-spacing-md)' }}>
             <DrawerControls 
               collapsed={false} 
               user={user} 
@@ -392,7 +406,7 @@ export function AppShell() {
               Secan v0.1.0
             </Text>
           </div>
-        </Stack>
+        </div>
       </Drawer>
     </>
   );
