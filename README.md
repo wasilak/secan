@@ -12,7 +12,7 @@ Secan is a modern, lightweight Elasticsearch cluster management tool built with 
 
 - **Modern Architecture**: Built with Rust (backend) and React + TypeScript (frontend)
 - **Full-Width Interface**: Optimized for modern wide screens with responsive design
-- **Interactive Shard Management**: Visual grid-based shard allocation with click-to-relocate
+- **Interactive Shard Management**: Visual grid-based shard allocation with click-to-relocate ([User Guide](SHARD_RELOCATION.md))
 - **Multiple Authentication Modes**: Open mode, local users, and OIDC support
 - **Cluster Monitoring**: Real-time cluster health, node statistics, and index metrics
 - **REST Console**: Execute Elasticsearch queries directly from the UI
@@ -154,6 +154,30 @@ clusters:
 
 See [CONFIGURATION.md](CONFIGURATION.md) for detailed configuration options.
 
+## Shard Relocation
+
+Secan provides an interactive visual interface for manually relocating Elasticsearch shards between nodes.
+
+### Quick Start
+
+1. Navigate to a cluster and click the "Shards" tab
+2. Click on any green (STARTED) shard
+3. Select "Select for relocation" from the context menu
+4. Click on a purple destination indicator
+5. Confirm the relocation
+
+The grid updates in real-time to show relocation progress.
+
+### Features
+
+- **Visual Grid**: See all shards organized by node and index
+- **Color-Coded States**: Green (healthy), yellow (initializing), orange (relocating), red (unassigned)
+- **Smart Validation**: Only valid destinations are shown
+- **Real-Time Progress**: Watch shards relocate with auto-refresh
+- **Keyboard Navigation**: Full keyboard support for accessibility
+
+See [SHARD_RELOCATION.md](SHARD_RELOCATION.md) for the complete user guide.
+
 ## Environment Variables
 
 Override configuration with environment variables:
@@ -250,6 +274,16 @@ task clean
 ```
 
 See [Taskfile.yml](Taskfile.yml) for all available tasks.
+
+## API
+
+Secan provides a RESTful API for programmatic cluster management. See [API.md](API.md) for complete API reference including:
+
+- Cluster statistics and health
+- Node information and metrics
+- Index management
+- Shard relocation
+- Elasticsearch proxy endpoint
 
 ## Architecture
 
