@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -29,6 +28,7 @@ import {
   IconSortDescending,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Cat API endpoint descriptions
@@ -192,16 +192,16 @@ export function CatApiPage() {
 
   if (!id) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Cat API</Title>
@@ -378,6 +378,6 @@ export function CatApiPage() {
           </Card>
         )}
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }

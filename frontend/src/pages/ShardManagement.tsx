@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -41,6 +40,7 @@ import {
 import { apiClient } from '../api/client';
 import { useWatermarks } from '../hooks/useWatermarks';
 import type { ShardInfo, NodeInfo } from '../types/api';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * ShardManagement component displays and manages shard allocation
@@ -268,63 +268,20 @@ export function ShardManagement() {
       setShardDetailsData(null);
       setShardDetailsLoading(false);
     }
-  }, [detailsModalOpen, selectedShard?.index, selectedShard?.shard, id]);
+  }, [detailsModalOpen, selectedShard, id]);
 
-  if (!id) {
-    return (
-      <Container size="xl">
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID is required
-        </Alert>
-      </Container>
-    );
-  }
+  // Group shards by index - must be before early returns
+  const shardsByIndex = useMemo(() => {
+    return shards?.reduce((acc, shard) => {
+      if (!acc[shard.index]) {
+        acc[shard.index] = [];
+      }
+      acc[shard.index].push(shard);
+      return acc;
+    }, {} as Record<string, ShardInfo[]>) || {};
+  }, [shards]);
 
-  if (shardsLoading || nodesLoading || settingsLoading) {
-    return (
-      <Container size="xl">
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </Container>
-    );
-  }
-
-  if (shardsError) {
-    return (
-      <Container size="xl">
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load shards: {(shardsError as Error).message}
-        </Alert>
-      </Container>
-    );
-  }
-
-  // Group shards by state
-  const shardsByState = shards?.reduce((acc, shard) => {
-    if (!acc[shard.state]) {
-      acc[shard.state] = [];
-    }
-    acc[shard.state].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>) || {};
-
-  // Count problem shards
-  const unassignedCount = shardsByState['UNASSIGNED']?.length || 0;
-  const relocatingCount = shardsByState['RELOCATING']?.length || 0;
-  const initializingCount = shardsByState['INITIALIZING']?.length || 0;
-  const hasProblems = unassignedCount > 0 || relocatingCount > 0 || initializingCount > 0;
-
-  // Group shards by index
-  const shardsByIndex = shards?.reduce((acc, shard) => {
-    if (!acc[shard.index]) {
-      acc[shard.index] = [];
-    }
-    acc[shard.index].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>) || {};
-
-  // Filter and sort indices
+  // Filter and sort indices - must be before early returns
   const filteredIndices = useMemo(() => {
     let indices = Object.keys(shardsByIndex);
 
@@ -355,6 +312,51 @@ export function ShardManagement() {
     return indices;
   }, [shardsByIndex, indexFilter, showOnlyAffected, sortAscending]);
 
+  if (!id) {
+    return (
+      <FullWidthContainer>
+        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+          Cluster ID is required
+        </Alert>
+      </FullWidthContainer>
+    );
+  }
+
+  if (shardsLoading || nodesLoading || settingsLoading) {
+    return (
+      <FullWidthContainer>
+        <Group justify="center" mt="xl">
+          <Loader size="lg" />
+        </Group>
+      </FullWidthContainer>
+    );
+  }
+
+  if (shardsError) {
+    return (
+      <FullWidthContainer>
+        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+          Failed to load shards: {(shardsError as Error).message}
+        </Alert>
+      </FullWidthContainer>
+    );
+  }
+
+  // Group shards by state
+  const shardsByState = shards?.reduce((acc, shard) => {
+    if (!acc[shard.state]) {
+      acc[shard.state] = [];
+    }
+    acc[shard.state].push(shard);
+    return acc;
+  }, {} as Record<string, ShardInfo[]>) || {};
+
+  // Count problem shards
+  const unassignedCount = shardsByState['UNASSIGNED']?.length || 0;
+  const relocatingCount = shardsByState['RELOCATING']?.length || 0;
+  const initializingCount = shardsByState['INITIALIZING']?.length || 0;
+  const hasProblems = unassignedCount > 0 || relocatingCount > 0 || initializingCount > 0;
+
   // Group shards by node
   const shardsByNode = shards?.reduce((acc, shard) => {
     const node = shard.node || 'UNASSIGNED';
@@ -370,7 +372,7 @@ export function ShardManagement() {
   const assignedNodes = Object.keys(shardsByNode).filter(node => node !== 'UNASSIGNED');
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Shard Management</Title>
@@ -840,7 +842,7 @@ export function ShardManagement() {
         </Modal>
       </>
       )}
-    </Container>
+    </FullWidthContainer>
   );
 }
 

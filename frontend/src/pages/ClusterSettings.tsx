@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -19,6 +18,7 @@ import { IconAlertCircle, IconDeviceFloppy } from '@tabler/icons-react';
 import { Editor } from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import type { UpdateClusterSettingsRequest } from '../types/api';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * ClusterSettings component displays and manages cluster settings
@@ -108,36 +108,36 @@ export function ClusterSettingsPage() {
 
   if (!id) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load cluster settings: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Cluster Settings</Title>
@@ -271,6 +271,6 @@ export function ClusterSettingsPage() {
           )}
         </Tabs>
       </Card>
-    </Container>
+    </FullWidthContainer>
   );
 }

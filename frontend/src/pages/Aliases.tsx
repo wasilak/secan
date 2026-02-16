@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -26,6 +25,7 @@ import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import type { AliasInfo, CreateAliasRequest } from '../types/api';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Aliases component displays and manages index aliases
@@ -85,31 +85,31 @@ export function Aliases() {
 
   if (!id) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load aliases: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
@@ -123,7 +123,7 @@ export function Aliases() {
   }, {} as Record<string, AliasInfo[]>) || {};
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Index Aliases</Title>
@@ -228,7 +228,7 @@ export function Aliases() {
         clusterId={id}
         availableIndices={indices?.map(i => i.name) || []}
       />
-    </Container>
+    </FullWidthContainer>
   );
 }
 

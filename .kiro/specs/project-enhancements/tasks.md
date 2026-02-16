@@ -99,21 +99,21 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 2: Full-Width Layout
 
-- [ ] 6. Implement full-width layout infrastructure
-  - [ ] 6.1 Update AppShell component for full-width
+- [x] 6. Implement full-width layout infrastructure
+  - [x] 6.1 Update AppShell component for full-width
     - Remove Container max-width constraints
     - Use Box with 100% width
     - Add minimal horizontal padding (1rem)
     - Maintain responsive breakpoints
     - _Requirements: 2.13, 2.14, 2.15_
   
-  - [ ] 6.2 Create full-width layout utility
+  - [x] 6.2 Create full-width layout utility
     - Create FullWidthContainer component
     - Add responsive padding utilities
     - Add breakpoint-aware spacing
     - _Requirements: 2.14, 2.15_
   
-  - [ ] 6.3 Test AppShell full-width layout
+  - [x] 6.3 Test AppShell full-width layout
     - Test on desktop (1920px+)
     - Test on laptop (1366px)
     - Test on tablet (768px)
@@ -138,25 +138,25 @@ The tasks are organized into phases for incremental delivery.
     - Test table responsiveness
     - _Requirements: 2.3_
   
-  - [ ] 6.4 Update Indices list view
+  - [x] 6.4 Update Indices list view
     - Remove width constraints
     - Apply full-width layout
     - Test table responsiveness
     - _Requirements: 2.4_
   
-  - [ ] 6.5 Update Shards visualization view
+  - [x] 6.5 Update Shards visualization view
     - Remove width constraints
     - Apply full-width layout (critical for shard grid)
     - Test grid responsiveness
     - _Requirements: 2.5_
   
-  - [ ] 6.6 Update REST console view
+  - [x] 6.6 Update REST console view
     - Remove width constraints
     - Apply full-width layout
     - Test editor responsiveness
     - _Requirements: 2.6_
   
-  - [ ] 6.7 Update remaining views
+  - [x] 6.7 Update remaining views
     - Update Aliases management view
     - Update Templates management view
     - Update Cluster settings view

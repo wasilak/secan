@@ -175,7 +175,7 @@ export function AppShell() {
           width: { base: 250, md: 280 },
           breakpoint: 'sm',
         } : undefined}
-        padding={{ base: 'sm', sm: 'md', lg: 'lg' }}
+        padding={0}
       >
         {/* Header */}
         <MantineAppShell.Header>
@@ -290,7 +290,7 @@ export function AppShell() {
         )}
 
         {/* Main Content */}
-        <MantineAppShell.Main component="main" role="main">
+        <MantineAppShell.Main component="main" role="main" style={{ padding: 0 }}>
           <Outlet />
         </MantineAppShell.Main>
 
