@@ -43,7 +43,7 @@ import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
-import { useSparklineData } from '../hooks/useSparklineData';
+import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
@@ -51,7 +51,7 @@ import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons, RoleLegend, RoleOption, getRoleIcon } from '../components/RoleIcons';
-import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus } from '../types/api';
+import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus, NodeRole } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
 
@@ -197,11 +197,11 @@ export function ClusterView() {
   // Track historical data for sparklines
   // Pass activeTab as resetKey so data resets when switching to statistics tab
   // For statistics tab, request timestamps; for sparklines, just values
-  const nodesHistory = useSparklineData(stats?.numberOfNodes, 20, activeTab, activeTab === 'statistics') as any;
-  const indicesHistory = useSparklineData(stats?.numberOfIndices, 20, activeTab, activeTab === 'statistics') as any;
-  const documentsHistory = useSparklineData(stats?.numberOfDocuments, 20, activeTab, activeTab === 'statistics') as any;
-  const shardsHistory = useSparklineData(stats?.activeShards, 20, activeTab, activeTab === 'statistics') as any;
-  const unassignedHistory = useSparklineData(stats?.unassignedShards, 20, activeTab, activeTab === 'statistics') as any;
+  const nodesHistory = useSparklineData(stats?.numberOfNodes, 20, activeTab, activeTab === 'statistics');
+  const indicesHistory = useSparklineData(stats?.numberOfIndices, 20, activeTab, activeTab === 'statistics');
+  const documentsHistory = useSparklineData(stats?.numberOfDocuments, 20, activeTab, activeTab === 'statistics');
+  const shardsHistory = useSparklineData(stats?.activeShards, 20, activeTab, activeTab === 'statistics');
+  const unassignedHistory = useSparklineData(stats?.unassignedShards, 20, activeTab, activeTab === 'statistics');
 
   // Fetch nodes with auto-refresh
   const {
@@ -342,7 +342,7 @@ export function ClusterView() {
                     </Group>
                     {nodesHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={nodesHistory} color="var(--mantine-color-blue-6)" height={25} />
+                        <Sparkline data={nodesHistory as number[]} color="var(--mantine-color-blue-6)" height={25} />
                       </div>
                     )}
                   </Stack>
@@ -368,7 +368,7 @@ export function ClusterView() {
                     </Group>
                     {indicesHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={indicesHistory} color="var(--mantine-color-green-6)" height={25} />
+                        <Sparkline data={indicesHistory as number[]} color="var(--mantine-color-green-6)" height={25} />
                       </div>
                     )}
                   </Stack>
@@ -394,7 +394,7 @@ export function ClusterView() {
                     </Group>
                     {documentsHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={documentsHistory} color="var(--mantine-color-cyan-6)" height={25} />
+                        <Sparkline data={documentsHistory as number[]} color="var(--mantine-color-cyan-6)" height={25} />
                       </div>
                     )}
                   </Stack>
@@ -420,7 +420,7 @@ export function ClusterView() {
                     </Group>
                     {shardsHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={shardsHistory} color="var(--mantine-color-violet-6)" height={25} />
+                        <Sparkline data={shardsHistory as number[]} color="var(--mantine-color-violet-6)" height={25} />
                       </div>
                     )}
                   </Stack>
@@ -449,7 +449,7 @@ export function ClusterView() {
                     {unassignedHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline 
-                          data={unassignedHistory} 
+                          data={unassignedHistory as number[]} 
                           color={stats?.unassignedShards ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)'} 
                           height={25} 
                         />
@@ -522,11 +522,11 @@ export function ClusterView() {
         {/* Statistics Tab */}
         <Tabs.Panel value="statistics" pt="md">
           <ClusterStatistics
-            nodesHistory={nodesHistory}
-            indicesHistory={indicesHistory}
-            documentsHistory={documentsHistory}
-            shardsHistory={shardsHistory}
-            unassignedHistory={unassignedHistory}
+            nodesHistory={nodesHistory as DataPoint[]}
+            indicesHistory={indicesHistory as DataPoint[]}
+            documentsHistory={documentsHistory as DataPoint[]}
+            shardsHistory={shardsHistory as DataPoint[]}
+            unassignedHistory={unassignedHistory as DataPoint[]}
             stats={stats}
             nodes={nodes}
           />
@@ -658,7 +658,7 @@ function NodesList({
       node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase());
     
     const matchesRoles = selectedRoles.length === 0 || 
-      selectedRoles.some(role => node.roles.includes(role as any));
+      selectedRoles.some(role => node.roles.includes(role as NodeRole));
     
     return matchesSearch && matchesRoles;
   });
@@ -1462,7 +1462,7 @@ function ShardDetailsModal({
       setDetailedStats(null);
       setLoading(false);
     }
-  }, [opened, shard?.index, shard?.shard, clusterId]);
+  }, [opened, shard, clusterId]);
 
   if (!shard) return null;
 
@@ -1722,7 +1722,7 @@ function ShardAllocationGrid({
   };
 
   // Filter indices based on search and filters
-  let filteredIndices = indices.filter((index) => {
+  const filteredIndices = indices.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesClosed = showClosed || index.status === 'open';
     const matchesSpecial = showSpecial || !index.name.startsWith('.');

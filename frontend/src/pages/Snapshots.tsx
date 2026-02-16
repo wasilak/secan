@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -40,6 +39,7 @@ import type {
   SnapshotInfo,
   SnapshotState,
 } from '../types/api';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Snapshots component displays and manages snapshots in a repository
@@ -109,31 +109,31 @@ export function Snapshots() {
 
   if (!id || !repository) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and repository name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load snapshots: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
@@ -183,7 +183,7 @@ export function Snapshots() {
   };
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Group gap="xs" mb="xs">
@@ -338,7 +338,7 @@ export function Snapshots() {
           snapshot={selectedSnapshot}
         />
       )}
-    </Container>
+    </FullWidthContainer>
   );
 }
 

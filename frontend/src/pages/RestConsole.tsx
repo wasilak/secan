@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import {
-  Container,
   Title,
   Grid,
   Paper,
@@ -29,6 +28,7 @@ import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import { usePreferences } from '../hooks/usePreferences';
 import { RequestHistoryItem } from '../types/preferences';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Parse REST console request format: "METHOD endpoint"
@@ -291,7 +291,7 @@ export function RestConsole() {
   }, [preferences.restConsoleHistory, updatePreference]);
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Title order={2} mb="md">
         REST Console - Cluster: {id}
       </Title>
@@ -459,6 +459,6 @@ export function RestConsole() {
           </Paper>
         </Grid.Col>
       </Grid>
-    </Container>
+    </FullWidthContainer>
   );
 }

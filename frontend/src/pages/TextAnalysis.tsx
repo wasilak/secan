@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -23,6 +22,7 @@ import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconSearch, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import type { AnalyzeTextRequest, AnalysisToken } from '../types/api';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Built-in Elasticsearch analyzers
@@ -137,16 +137,16 @@ export function TextAnalysisPage() {
 
   if (!id) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Text Analysis</Title>
@@ -361,6 +361,6 @@ export function TextAnalysisPage() {
           </Card>
         )}
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }
