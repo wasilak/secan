@@ -183,7 +183,7 @@ The tasks are organized into phases for incremental delivery.
     - Review existing overview table types and extend as needed
     - _Requirements: 3.1, 3.2, 3.3_
   
-  - [ ] 8.2 Create shard grid state management
+  - [x] 8.2 Create shard grid state management
     - Create Zustand store for shard grid
     - Add state for nodes, indices, shards
     - Add state for selection and relocation mode
