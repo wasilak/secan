@@ -446,13 +446,6 @@ pub async fn get_shard_stats(
             }
         })?;
 
-    tracing::info!(
-        cluster_id = %cluster_id,
-        index = %index_name,
-        "Raw indices_stats response: {}",
-        serde_json::to_string_pretty(&indices_stats).unwrap_or_else(|_| "failed to serialize".to_string())
-    );
-
     // Navigate to the specific shard in the response
     // Structure: indices -> {index_name} -> shards -> {shard_num} -> [array of shard copies]
     if let Some(indices) = indices_stats.get("indices") {

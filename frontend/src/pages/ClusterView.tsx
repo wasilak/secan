@@ -51,6 +51,7 @@ import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons, RoleLegend, RoleOption, getRoleIcon } from '../components/RoleIcons';
+import { ShardContextMenu } from '../components/ShardContextMenu';
 import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus, NodeRole } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { useState, useEffect } from 'react';
@@ -1547,6 +1548,11 @@ function ShardAllocationGrid({
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
   const [modalOpened, setModalOpened] = useState(false);
   
+  // Context menu state
+  const [contextMenuOpened, setContextMenuOpened] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
+  
   // Get UI state from URL
   const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
@@ -1573,10 +1579,36 @@ function ShardAllocationGrid({
   
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Handler to open shard details modal
-  const handleShardClick = (shard: ShardInfo) => {
+  // Handler to open shard context menu
+  const handleShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setSelectedShard(shard);
+    setContextMenuShard(shard);
+    setContextMenuPosition({
+      x: event.clientX,
+      y: event.clientY,
+    });
+    setContextMenuOpened(true);
+  };
+  
+  // Handle context menu close
+  const handleContextMenuClose = () => {
+    setContextMenuOpened(false);
+    setContextMenuShard(null);
+  };
+  
+  // Handle show shard stats
+  const handleShowStats = (shard: ShardInfo) => {
     setSelectedShard(shard);
     setModalOpened(true);
+    handleContextMenuClose();
+  };
+  
+  // Handle select for relocation
+  const handleSelectForRelocation = (shard: ShardInfo) => {
+    // TODO: Implement relocation mode in Phase 5
+    console.log('Select for relocation:', shard);
+    handleContextMenuClose();
   };
 
   // Update URL params
@@ -1774,6 +1806,18 @@ function ShardAllocationGrid({
 
   return (
     <Stack gap="md">
+      {/* Context menu for shard actions */}
+      {contextMenuShard && (
+        <ShardContextMenu
+          shard={contextMenuShard}
+          opened={contextMenuOpened}
+          position={contextMenuPosition}
+          onClose={handleContextMenuClose}
+          onShowStats={handleShowStats}
+          onSelectForRelocation={handleSelectForRelocation}
+        />
+      )}
+      
       {/* Shard Details Modal */}
       <ShardDetailsModal
         shard={selectedShard}
@@ -2000,7 +2044,7 @@ function ShardAllocationGrid({
                                       : '2px dashed var(--mantine-color-red-9)',
                                     cursor: 'pointer',
                                   }}
-                                  onClick={() => handleShardClick(shard)}
+                                  onClick={(e) => handleShardClick(shard, e)}
                                 >
                                   {shard.shard}
                                 </div>
@@ -2123,7 +2167,7 @@ function ShardAllocationGrid({
                                         : '2px dashed var(--mantine-color-green-9)',
                                       cursor: 'pointer',
                                     }}
-                                    onClick={() => handleShardClick(shard)}
+                                    onClick={(e) => handleShardClick(shard, e)}
                                   >
                                     {shard.shard}
                                   </div>
