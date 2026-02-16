@@ -1,9 +1,10 @@
 import { Box, ScrollArea, Table, Text, Group, Stack } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
-import type { ShardInfo } from '../types/api';
+import type { ShardInfo, NodeWithShards } from '../types/api';
 import { ShardCell } from './ShardCell';
 import { ShardContextMenu } from './ShardContextMenu';
 import { ShardStatsModal } from './ShardStatsModal';
+import { RelocationConfirmDialog } from './RelocationConfirmDialog';
 import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
 
@@ -44,6 +45,11 @@ export function ShardGrid({
   // Shard stats modal state - Requirements: 4.5
   const [statsModalOpened, setStatsModalOpened] = useState(false);
   const [statsModalShard, setStatsModalShard] = useState<ShardInfo | null>(null);
+  
+  // Relocation confirmation dialog state - Requirements: 5.8
+  const [confirmDialogOpened, setConfirmDialogOpened] = useState(false);
+  const [confirmDialogSourceNode, setConfirmDialogSourceNode] = useState<NodeWithShards | null>(null);
+  const [confirmDialogDestinationNode, setConfirmDialogDestinationNode] = useState<NodeWithShards | null>(null);
   
   // Get state from store
   const {
@@ -153,6 +159,28 @@ export function ShardGrid({
     // 3. Calculate valid destinations
     enterRelocationMode(shard);
     handleContextMenuClose();
+  };
+  
+  // Handle relocation confirmation - Requirements: 5.10
+  const handleRelocationConfirm = async () => {
+    // TODO: This will be implemented in Phase 6 when the backend API is ready
+    // For now, we just log the relocation request
+    if (selectedShard && confirmDialogSourceNode && confirmDialogDestinationNode) {
+      console.log('Relocating shard:', {
+        index: selectedShard.index,
+        shard: selectedShard.shard,
+        fromNode: confirmDialogSourceNode.id,
+        toNode: confirmDialogDestinationNode.id,
+      });
+      
+      // Exit relocation mode after confirmation
+      exitRelocationMode();
+      
+      // Close confirmation dialog
+      setConfirmDialogOpened(false);
+      setConfirmDialogSourceNode(null);
+      setConfirmDialogDestinationNode(null);
+    }
   };
   
   // Format percentage
@@ -411,11 +439,24 @@ export function ShardGrid({
                               shard={destinationIndicator}
                               isSelected={false}
                               isDestinationIndicator={true}
-                              onClick={(shard, event) => {
-                                // Handle destination indicator click
-                                // This will trigger the confirmation dialog in Phase 5
-                                console.log('Destination indicator clicked:', shard);
+                              onClick={(_shard, event) => {
+                                // Handle destination indicator click - Requirements: 5.8
                                 event.stopPropagation();
+                                
+                                // Find source node (the node where the selected shard currently is)
+                                const sourceNode = nodes.find(n => 
+                                  n.id === selectedShard?.node || n.name === selectedShard?.node
+                                );
+                                
+                                // Destination node is the current node in the loop
+                                const destinationNode = node;
+                                
+                                if (sourceNode && destinationNode && selectedShard) {
+                                  // Set state for confirmation dialog
+                                  setConfirmDialogSourceNode(sourceNode);
+                                  setConfirmDialogDestinationNode(destinationNode);
+                                  setConfirmDialogOpened(true);
+                                }
                               }}
                             />
                           )}
@@ -525,6 +566,20 @@ export function ShardGrid({
         opened={statsModalOpened}
         onClose={() => setStatsModalOpened(false)}
         clusterId={clusterId}
+      />
+      
+      {/* Relocation confirmation dialog - Requirements: 5.8, 5.9 */}
+      <RelocationConfirmDialog
+        shard={selectedShard}
+        sourceNode={confirmDialogSourceNode}
+        destinationNode={confirmDialogDestinationNode}
+        opened={confirmDialogOpened}
+        onClose={() => {
+          setConfirmDialogOpened(false);
+          setConfirmDialogSourceNode(null);
+          setConfirmDialogDestinationNode(null);
+        }}
+        onConfirm={handleRelocationConfirm}
       />
     </Box>
   );
