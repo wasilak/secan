@@ -1,5 +1,5 @@
 import { Box, ScrollArea, Table, Text, Group, Stack } from '@mantine/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import type { ShardInfo, NodeWithShards } from '../types/api';
@@ -9,6 +9,7 @@ import { ShardStatsModal } from './ShardStatsModal';
 import { RelocationConfirmDialog } from './RelocationConfirmDialog';
 import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
+import { parseShardGridData } from '../utils/shard-grid-parser';
 import { apiClient } from '../api/client';
 
 /**
@@ -64,35 +65,184 @@ export function ShardGrid({
     selectedShard,
     relocationMode,
     destinationIndicators,
+    isPolling,
     selectShard,
     enterRelocationMode,
     exitRelocationMode,
+    startPolling,
+    stopPolling,
+    addRelocatingShard,
+    setNodes,
+    setIndices,
+    setUnassignedShards,
+    setLoading,
   } = useShardGridStore();
   
-  // Auto-refresh logic - Requirements: 3.12
-  useEffect(() => {
-    // TODO: This will be fully implemented when the cluster state API is available
-    // For now, we set up the polling infrastructure
-    
+  /**
+   * Fetch cluster state and update shard grid
+   * 
+   * This function fetches nodes, indices, and shards from the backend,
+   * parses them into the shard grid data structure, and updates the store.
+   * 
+   * Also checks for relocation completion and handles cleanup.
+   * 
+   * Requirements: 7.2, 7.3, 7.7, 7.8, 7.10
+   */
+  const fetchClusterState = useCallback(async () => {
     if (!clusterId) {
       return;
     }
     
-    // Initial fetch would go here
-    // fetchClusterState(clusterId);
+    try {
+      // Fetch nodes, indices, and shards in parallel
+      const [nodesData, indicesData, shardsData] = await Promise.all([
+        apiClient.getNodes(clusterId),
+        apiClient.getIndices(clusterId),
+        apiClient.getShards(clusterId),
+      ]);
+      
+      // Parse the data into shard grid structure
+      const gridData = parseShardGridData(nodesData, indicesData, shardsData);
+      
+      // Check for relocation completion if we're polling - Requirements: 7.7, 7.8
+      if (isPolling) {
+        // Get the current relocating shards from the store
+        const { relocatingShards, removeRelocatingShard, stopPolling: stopPollingAction, pollingStartTime } = useShardGridStore.getState();
+        
+        // Check for polling timeout - Requirements: 7.12
+        // Timeout is 5 minutes (300000 milliseconds)
+        const POLLING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        if (pollingStartTime && Date.now() - pollingStartTime > POLLING_TIMEOUT_MS) {
+          // Stop polling due to timeout
+          stopPollingAction();
+          
+          // Show timeout notification for any remaining relocating shards
+          if (relocatingShards.size > 0) {
+            notifications.show({
+              color: 'yellow',
+              icon: <IconX size={18} />,
+              title: 'Relocation Timeout',
+              message: `Polling stopped after 5 minutes. ${relocatingShards.size} shard(s) still relocating. Check cluster health.`,
+              autoClose: 10000,
+            });
+          }
+          
+          // Don't process relocation checks if we've timed out
+          return;
+        }
+        
+        // Check each relocating shard to see if it's completed
+        const completedShards: ShardInfo[] = [];
+        const failedShards: ShardInfo[] = [];
+        
+        for (const shardKey of relocatingShards) {
+          // Parse the shard key (format: "index:shard:primary")
+          const [index, shardNumStr, primaryStr] = shardKey.split(':');
+          const shardNum = parseInt(shardNumStr, 10);
+          const primary = primaryStr === 'true';
+          
+          // Find this shard in the new data
+          const shard = shardsData.find(s => 
+            s.index === index && 
+            s.shard === shardNum && 
+            s.primary === primary
+          );
+          
+          if (shard) {
+            // Check if relocation is complete - Requirements: 7.7, 7.8
+            // Relocation is complete when:
+            // 1. Shard is no longer in RELOCATING state
+            // 2. Shard is in STARTED state (healthy)
+            if (shard.state === 'STARTED' && !shard.relocatingNode) {
+              completedShards.push(shard);
+              removeRelocatingShard(shard);
+            }
+            // Check if relocation failed - Requirements: 7.9
+            // Relocation fails when:
+            // 1. Shard goes back to UNASSIGNED state
+            else if (shard.state === 'UNASSIGNED') {
+              failedShards.push(shard);
+              removeRelocatingShard(shard);
+            }
+          } else {
+            // If we can't find the shard at all, it might have been deleted
+            // Remove it from tracking
+            const dummyShard: ShardInfo = {
+              index,
+              shard: shardNum,
+              primary,
+              state: 'UNASSIGNED',
+            };
+            removeRelocatingShard(dummyShard);
+          }
+        }
+        
+        // Show success notifications for completed relocations - Requirements: 7.7
+        for (const shard of completedShards) {
+          notifications.show({
+            color: 'green',
+            icon: <IconCheck size={18} />,
+            title: 'Relocation Complete',
+            message: `Shard ${shard.shard} of index "${shard.index}" has been successfully relocated`,
+          });
+        }
+        
+        // Show error notifications for failed relocations - Requirements: 7.9
+        for (const shard of failedShards) {
+          notifications.show({
+            color: 'red',
+            icon: <IconX size={18} />,
+            title: 'Relocation Failed',
+            message: `Shard ${shard.shard} of index "${shard.index}" relocation failed - shard is now unassigned`,
+          });
+        }
+        
+        // Stop polling if no more shards are relocating - Requirements: 7.10
+        const remainingRelocatingShards = useShardGridStore.getState().relocatingShards;
+        if (remainingRelocatingShards.size === 0) {
+          stopPollingAction();
+        }
+      }
+      
+      // Update store with new data
+      setNodes(gridData.nodes);
+      setIndices(gridData.indices);
+      setUnassignedShards(gridData.unassignedShards);
+    } catch (err) {
+      console.error('Failed to fetch cluster state:', err);
+      // Don't show error notification during polling - it's too noisy
+      // The error state in the store will be handled by the component
+    }
+  }, [clusterId, isPolling, setNodes, setIndices, setUnassignedShards]);
+  
+  // Auto-refresh logic - Requirements: 3.12
+  useEffect(() => {
+    if (!clusterId) {
+      return;
+    }
     
-    // Set up polling interval
+    // Initial fetch
+    setLoading(true);
+    fetchClusterState().finally(() => setLoading(false));
+    
+    // Set up polling interval for regular refresh
     const intervalId = setInterval(() => {
-      // Poll cluster state API
-      // fetchClusterState(clusterId);
-      console.log(`Polling cluster state for ${clusterId} (interval: ${refreshInterval}ms)`);
+      fetchClusterState();
     }, refreshInterval);
     
     // Cleanup interval on unmount or when dependencies change
     return () => {
       clearInterval(intervalId);
     };
-  }, [clusterId, refreshInterval]);
+  }, [clusterId, refreshInterval, fetchClusterState, setLoading]);
+  
+  // Cleanup polling on unmount - Requirements: 7.10
+  useEffect(() => {
+    return () => {
+      // Stop polling when component unmounts
+      stopPolling();
+    };
+  }, [stopPolling]);
   
   // Handle Escape key to exit relocation mode - Requirements: 5.13
   useEffect(() => {
@@ -164,7 +314,7 @@ export function ShardGrid({
     handleContextMenuClose();
   };
   
-  // Handle relocation confirmation - Requirements: 5.10, 5.11, 5.12, 6.1
+  // Handle relocation confirmation - Requirements: 5.10, 5.11, 5.12, 6.1, 7.1, 7.2
   const handleRelocationConfirm = async () => {
     if (selectedShard && confirmDialogSourceNode && confirmDialogDestinationNode) {
       try {
@@ -176,13 +326,24 @@ export function ShardGrid({
           to_node: confirmDialogDestinationNode.id,
         });
         
-        // Show success notification - Requirements: 5.11
+        // Show success notification - Requirements: 5.11, 7.1
         notifications.show({
           color: 'green',
           icon: <IconCheck size={18} />,
           title: 'Relocation Initiated',
           message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${confirmDialogSourceNode.name} to ${confirmDialogDestinationNode.name}`,
         });
+        
+        // Add shard to relocating set for tracking
+        addRelocatingShard(selectedShard);
+        
+        // Start polling for relocation progress - Requirements: 7.2, 7.3
+        // Poll every 2 seconds to track relocation progress
+        const pollingIntervalId = window.setInterval(() => {
+          fetchClusterState();
+        }, 2000);
+        
+        startPolling(pollingIntervalId);
         
         // Exit relocation mode after successful relocation
         exitRelocationMode();

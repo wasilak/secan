@@ -466,7 +466,7 @@ The tasks are organized into phases for incremental delivery.
     - Test error handling
     - _Requirements: 5.10, 5.11, 5.12_
 
-- [-] 20. Checkpoint - Backend integration complete
+- [x] 20. Checkpoint - Backend integration complete
   - Test end-to-end relocation flow
   - Verify API calls succeed
   - Verify error handling works
@@ -474,37 +474,37 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 7: Relocation Progress Tracking
 
-- [ ] 21. Implement relocation progress tracking
-  - [ ] 21.1 Add polling for relocation progress
+- [x] 21. Implement relocation progress tracking
+  - [x] 21.1 Add polling for relocation progress
     - Start polling after relocation initiated
     - Poll cluster state every 2 seconds
     - Update shard grid with new data
     - _Requirements: 7.2, 7.3_
   
-  - [ ] 21.2 Display relocating shard state
+  - [x] 21.2 Display relocating shard state
     - Show shard in RELOCATING state on source node
     - Show shard in INITIALIZING state on destination node
     - _Requirements: 7.4, 7.5, 7.6_
   
-  - [ ] 21.3 Detect relocation completion
+  - [x] 21.3 Detect relocation completion
     - Check if shard is no longer RELOCATING
     - Check if shard is STARTED on destination
     - Stop polling when complete
     - _Requirements: 7.7, 7.8, 7.10_
   
-  - [ ] 21.4 Handle relocation failure
+  - [x] 21.4 Handle relocation failure
     - Detect if relocation fails
     - Display error notification
     - Stop polling
     - _Requirements: 7.9, 7.10_
   
-  - [ ] 21.5 Add polling timeout
+  - [x] 21.5 Add polling timeout
     - Set timeout to 5 minutes
     - Stop polling after timeout
     - Display timeout message
     - _Requirements: 7.12_
   
-  - [ ] 21.6 Test progress tracking
+  - [x] 21.6 Test progress tracking
     - Test polling starts after relocation
     - Test grid updates during relocation
     - Test completion detection
