@@ -35,6 +35,23 @@ impl IntoResponse for ClusterErrorResponse {
     }
 }
 
+/// Request body for shard relocation
+///
+/// # Requirements
+///
+/// Validates: Requirements 6.1, 6.2
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RelocateShardRequest {
+    /// Index name
+    pub index: String,
+    /// Shard number
+    pub shard: u32,
+    /// Source node ID
+    pub from_node: String,
+    /// Destination node ID
+    pub to_node: String,
+}
+
 /// List all configured clusters
 ///
 /// Returns a list of all clusters the user has access to
@@ -677,6 +694,246 @@ pub async fn proxy_request(
     Ok(axum_response)
 }
 
+/// Relocate a shard from one node to another
+///
+/// Executes the Elasticsearch cluster reroute API to move a shard
+///
+/// # Requirements
+///
+/// Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.11, 8.1, 8.2, 8.3, 8.4
+pub async fn relocate_shard(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+    user_ext: Option<axum::Extension<crate::auth::middleware::AuthenticatedUser>>,
+    Json(req): Json<RelocateShardRequest>,
+) -> Result<Json<Value>, ClusterErrorResponse> {
+    tracing::info!(
+        cluster_id = %cluster_id,
+        index = %req.index,
+        shard = req.shard,
+        from_node = %req.from_node,
+        to_node = %req.to_node,
+        "Shard relocation requested"
+    );
+
+    // Extract authenticated user (if authentication is enabled)
+    // In Open mode, the middleware provides a default user
+    let user = user_ext.map(|ext| ext.0 .0).ok_or_else(|| {
+        tracing::error!("Authentication required but user not found in request");
+        ClusterErrorResponse {
+            error: "authentication_required".to_string(),
+            message: "Authentication is required for this operation".to_string(),
+        }
+    })?;
+
+    tracing::debug!(
+        user_id = %user.id,
+        username = %user.username,
+        roles = ?user.roles,
+        "User authenticated for shard relocation"
+    );
+
+    // TODO: Check RBAC - verify user has access to this cluster
+    // For now, we log the user info and proceed
+    // Full RBAC implementation will be added when RbacManager is integrated into ClusterState
+
+    // Validate request parameters
+    validate_relocation_request(&req)?;
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Build the reroute command
+    let reroute_command = serde_json::json!({
+        "commands": [{
+            "move": {
+                "index": req.index,
+                "shard": req.shard,
+                "from_node": req.from_node,
+                "to_node": req.to_node
+            }
+        }]
+    });
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        command = ?reroute_command,
+        "Executing cluster reroute"
+    );
+
+    // Execute the reroute command
+    let response = cluster
+        .request(Method::POST, "/_cluster/reroute", Some(reroute_command))
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                index = %req.index,
+                shard = req.shard,
+                error = %e,
+                "Shard relocation failed"
+            );
+            ClusterErrorResponse {
+                error: "relocation_failed".to_string(),
+                message: format!("Failed to relocate shard: {}", e),
+            }
+        })?;
+
+    // Check response status
+    let status = response.status();
+    let body_bytes = response.bytes().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to read reroute response"
+        );
+        ClusterErrorResponse {
+            error: "response_read_failed".to_string(),
+            message: format!("Failed to read response: {}", e),
+        }
+    })?;
+
+    // Parse response body
+    let body: Value = serde_json::from_slice(&body_bytes).map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to parse reroute response"
+        );
+        ClusterErrorResponse {
+            error: "response_parse_failed".to_string(),
+            message: format!("Failed to parse response: {}", e),
+        }
+    })?;
+
+    // Check if the request was successful
+    if !status.is_success() {
+        let error_msg = body
+            .get("error")
+            .and_then(|e| e.get("reason"))
+            .and_then(|r| r.as_str())
+            .unwrap_or("Unknown error");
+
+        tracing::error!(
+            cluster_id = %cluster_id,
+            index = %req.index,
+            shard = req.shard,
+            status = status.as_u16(),
+            error = %error_msg,
+            "Elasticsearch rejected shard relocation"
+        );
+
+        return Err(ClusterErrorResponse {
+            error: "elasticsearch_error".to_string(),
+            message: error_msg.to_string(),
+        });
+    }
+
+    tracing::info!(
+        cluster_id = %cluster_id,
+        index = %req.index,
+        shard = req.shard,
+        from_node = %req.from_node,
+        to_node = %req.to_node,
+        user_id = %user.id,
+        username = %user.username,
+        "Shard relocation initiated successfully"
+    );
+
+    Ok(Json(body))
+}
+
+/// Validate shard relocation request parameters
+///
+/// # Requirements
+///
+/// Validates: Requirements 6.3, 6.4, 8.1, 8.2, 8.3, 8.4
+fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), ClusterErrorResponse> {
+    // Validate index name is not empty
+    if req.index.is_empty() {
+        tracing::warn!("Validation failed: index name is empty");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Index name is required".to_string(),
+        });
+    }
+
+    // Validate index name format (basic validation)
+    // Elasticsearch index names must be lowercase and cannot contain certain characters
+    if req.index.chars().any(|c| c.is_uppercase()) {
+        tracing::warn!(index = %req.index, "Validation failed: index name contains uppercase characters");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Index name must be lowercase".to_string(),
+        });
+    }
+
+    // Check for invalid characters in index name
+    let invalid_chars = ['\\', '/', '*', '?', '"', '<', '>', '|', ' ', ',', '#'];
+    if req.index.chars().any(|c| invalid_chars.contains(&c)) {
+        tracing::warn!(index = %req.index, "Validation failed: index name contains invalid characters");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Index name contains invalid characters".to_string(),
+        });
+    }
+
+    // Validate from_node is not empty
+    if req.from_node.is_empty() {
+        tracing::warn!("Validation failed: from_node is empty");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Source node ID is required".to_string(),
+        });
+    }
+
+    // Validate to_node is not empty
+    if req.to_node.is_empty() {
+        tracing::warn!("Validation failed: to_node is empty");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Destination node ID is required".to_string(),
+        });
+    }
+
+    // Validate source and destination are different
+    if req.from_node == req.to_node {
+        tracing::warn!(
+            from_node = %req.from_node,
+            to_node = %req.to_node,
+            "Validation failed: source and destination nodes are the same"
+        );
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Source and destination nodes must be different".to_string(),
+        });
+    }
+
+    tracing::debug!(
+        index = %req.index,
+        shard = req.shard,
+        from_node = %req.from_node,
+        to_node = %req.to_node,
+        "Request validation passed"
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,5 +957,186 @@ mod tests {
 
         assert_eq!(error.error, "proxy_failed");
         assert_eq!(error.message, "Connection timeout");
+    }
+
+    #[test]
+    fn test_relocate_shard_request_serialization() {
+        let req = RelocateShardRequest {
+            index: "test-index".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "node-2".to_string(),
+        };
+
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"index\":\"test-index\""));
+        assert!(json.contains("\"shard\":0"));
+        assert!(json.contains("\"from_node\":\"node-1\""));
+        assert!(json.contains("\"to_node\":\"node-2\""));
+    }
+
+    #[test]
+    fn test_relocate_shard_request_deserialization() {
+        let json = r#"{"index":"logs-2024","shard":1,"from_node":"node-a","to_node":"node-b"}"#;
+        let req: RelocateShardRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.index, "logs-2024");
+        assert_eq!(req.shard, 1);
+        assert_eq!(req.from_node, "node-a");
+        assert_eq!(req.to_node, "node-b");
+    }
+
+    #[test]
+    fn test_validate_relocation_request_valid() {
+        let req = RelocateShardRequest {
+            index: "test-index".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "node-2".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_relocation_request_empty_index() {
+        let req = RelocateShardRequest {
+            index: "".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "node-2".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "validation_failed");
+        assert!(err.message.contains("Index name is required"));
+    }
+
+    #[test]
+    fn test_validate_relocation_request_uppercase_index() {
+        let req = RelocateShardRequest {
+            index: "Test-Index".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "node-2".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "validation_failed");
+        assert!(err.message.contains("lowercase"));
+    }
+
+    #[test]
+    fn test_validate_relocation_request_invalid_chars() {
+        let invalid_indices = vec![
+            "test index",  // space
+            "test/index",  // slash
+            "test\\index", // backslash
+            "test*index",  // asterisk
+            "test?index",  // question mark
+            "test\"index", // quote
+            "test<index",  // less than
+            "test>index",  // greater than
+            "test|index",  // pipe
+            "test,index",  // comma
+            "test#index",  // hash
+        ];
+
+        for index in invalid_indices {
+            let req = RelocateShardRequest {
+                index: index.to_string(),
+                shard: 0,
+                from_node: "node-1".to_string(),
+                to_node: "node-2".to_string(),
+            };
+
+            let result = validate_relocation_request(&req);
+            assert!(
+                result.is_err(),
+                "Expected validation to fail for index: {}",
+                index
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_relocation_request_empty_from_node() {
+        let req = RelocateShardRequest {
+            index: "test-index".to_string(),
+            shard: 0,
+            from_node: "".to_string(),
+            to_node: "node-2".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "validation_failed");
+        assert!(err.message.contains("Source node ID is required"));
+    }
+
+    #[test]
+    fn test_validate_relocation_request_empty_to_node() {
+        let req = RelocateShardRequest {
+            index: "test-index".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "validation_failed");
+        assert!(err.message.contains("Destination node ID is required"));
+    }
+
+    #[test]
+    fn test_validate_relocation_request_same_nodes() {
+        let req = RelocateShardRequest {
+            index: "test-index".to_string(),
+            shard: 0,
+            from_node: "node-1".to_string(),
+            to_node: "node-1".to_string(),
+        };
+
+        let result = validate_relocation_request(&req);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.error, "validation_failed");
+        assert!(err.message.contains("must be different"));
+    }
+
+    #[test]
+    fn test_validate_relocation_request_valid_index_names() {
+        let valid_indices = vec![
+            "test-index",
+            "logs-2024.01.01",
+            "my_index",
+            "index123",
+            "a",
+            "test.index.name",
+        ];
+
+        for index in valid_indices {
+            let req = RelocateShardRequest {
+                index: index.to_string(),
+                shard: 0,
+                from_node: "node-1".to_string(),
+                to_node: "node-2".to_string(),
+            };
+
+            let result = validate_relocation_request(&req);
+            assert!(
+                result.is_ok(),
+                "Expected validation to pass for index: {}",
+                index
+            );
+        }
     }
 }
