@@ -318,7 +318,7 @@ The tasks are organized into phases for incremental delivery.
     - Display segments, merges, refreshes, flushes
     - _Requirements: 4.6_
   
-  - [ ] 13.3 Test shard stats modal
+  - [x] 13.3 Test shard stats modal
     - Test modal opens on menu selection
     - Test all stats display correctly
     - Test modal close
