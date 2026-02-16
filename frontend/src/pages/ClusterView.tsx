@@ -756,7 +756,7 @@ function NodesList({
                       <MasterIndicator 
                         isMaster={node.isMaster} 
                         isMasterEligible={node.isMasterEligible}
-                        size="sm"
+                        size="md"
                       />
                       <div>
                         <Text size="sm" fw={500}>{node.name}</Text>
@@ -779,7 +779,7 @@ function NodesList({
                         ))}
                       </Group>
                     ) : (
-                      <RoleIcons roles={node.roles} size={24} />
+                      <RoleIcons roles={node.roles} size={16} />
                     )}
                   </Table.Td>
                   {expandedView && (
