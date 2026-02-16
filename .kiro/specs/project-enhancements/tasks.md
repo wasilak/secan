@@ -273,7 +273,7 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 4: Shard Selection and Context Menu
 
-- [-] 12. Implement shard selection
+- [x] 12. Implement shard selection
   - [x] 12.1 Add click handling to ShardCell
     - Handle shard click events
     - Update selected shard in state
@@ -295,15 +295,15 @@ The tasks are organized into phases for incremental delivery.
     - Disable for INITIALIZING shards
     - _Requirements: 4.10_
   
-  - [-] 12.4 Test shard selection
+  - [x] 12.4 Test shard selection
     - Test click handling
     - Test context menu positioning
     - Test menu options
     - Test keyboard navigation
     - _Requirements: 4.1, 4.2, 4.8_
 
-- [ ] 13. Implement shard stats modal
-  - [ ] 13.1 Create ShardStatsModal component
+- [-] 13. Implement shard stats modal
+  - [x] 13.1 Create ShardStatsModal component
     - Create Mantine Modal component
     - Display shard number and type
     - Display index name
