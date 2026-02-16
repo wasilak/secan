@@ -228,37 +228,37 @@ The tasks are organized into phases for incremental delivery.
     - Test color contrast for accessibility
     - _Requirements: 3.5, 3.6_
 
-- [ ] 10. Implement ShardGrid component
-  - [ ] 10.1 Create ShardGrid layout structure
+- [x] 10. Implement ShardGrid component
+  - [x] 10.1 Create ShardGrid layout structure
     - Create grid container with rows and columns
     - Implement sticky headers for nodes and indices
     - Add horizontal and vertical scrolling
     - _Requirements: 3.1, 3.8, 3.9_
   
-  - [ ] 10.2 Render node rows
+  - [x] 10.2 Render node rows
     - Display node name and IP
     - Display node statistics (heap, disk, CPU, load)
     - Render shards for each node
     - _Requirements: 3.2_
   
-  - [ ] 10.3 Render index columns
+  - [x] 10.3 Render index columns
     - Display index name
     - Display shard count, docs, size
     - Align with node rows
     - _Requirements: 3.3_
   
-  - [ ] 10.4 Render unassigned shards row
+  - [x] 10.4 Render unassigned shards row
     - Create separate row for unassigned shards
     - Display all unassigned shards
     - _Requirements: 3.10_
   
-  - [ ] 10.5 Implement grid refresh
+  - [x] 10.5 Implement grid refresh
     - Add auto-refresh with configurable interval
     - Poll cluster state API
     - Update grid on data changes
     - _Requirements: 3.12_
   
-  - [ ] 10.6 Test ShardGrid component
+  - [x] 10.6 Test ShardGrid component
     - Test with small cluster (5 nodes, 10 indices)
     - Test with medium cluster (20 nodes, 50 indices)
     - Test scrolling behavior
