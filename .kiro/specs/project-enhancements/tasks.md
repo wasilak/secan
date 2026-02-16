@@ -312,7 +312,7 @@ The tasks are organized into phases for incremental delivery.
     - Display document count and size
     - _Requirements: 4.5, 4.6_
   
-  - [ ] 13.2 Fetch detailed shard stats
+  - [x] 13.2 Fetch detailed shard stats
     - Call shard stats API
     - Parse response
     - Display segments, merges, refreshes, flushes

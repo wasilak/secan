@@ -1,8 +1,16 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MantineProvider } from '@mantine/core';
 import { ShardStatsModal } from './ShardStatsModal';
 import type { ShardInfo } from '../types/api';
+import { apiClient } from '../api/client';
+
+// Mock the API client
+vi.mock('../api/client', () => ({
+  apiClient: {
+    getShardStats: vi.fn(),
+  },
+}));
 
 // Helper to render with Mantine provider
 function renderWithMantine(ui: React.ReactElement) {
@@ -19,6 +27,10 @@ describe('ShardStatsModal', () => {
     docs: 1000,
     store: 1024000,
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders shard number and type', () => {
     renderWithMantine(
@@ -135,5 +147,85 @@ describe('ShardStatsModal', () => {
 
     expect(screen.getByText('N/A')).toBeInTheDocument();
     expect(screen.getByText('0 B')).toBeInTheDocument();
+  });
+
+  it('fetches detailed stats when modal opens with clusterId', async () => {
+    const mockStats = {
+      indices: {
+        'test-index': {
+          shards: {
+            '0': [
+              {
+                segments: { count: 5 },
+                merges: { current: 2 },
+                refresh: { total: 100 },
+                flush: { total: 50 },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    vi.mocked(apiClient.getShardStats).mockResolvedValue(mockStats);
+
+    renderWithMantine(
+      <ShardStatsModal
+        shard={mockShard}
+        opened={true}
+        onClose={vi.fn()}
+        clusterId="test-cluster"
+      />
+    );
+
+    // Should show loading state initially
+    expect(screen.getByText('Loading detailed statistics...')).toBeInTheDocument();
+
+    // Wait for stats to load
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument(); // segments
+      expect(screen.getByText('2')).toBeInTheDocument(); // merges
+      expect(screen.getByText('100')).toBeInTheDocument(); // refreshes
+      expect(screen.getByText('50')).toBeInTheDocument(); // flushes
+    });
+
+    expect(apiClient.getShardStats).toHaveBeenCalledWith('test-cluster', 'test-index', 0);
+  });
+
+  it('does not fetch stats for unassigned shards', () => {
+    const unassignedShard: ShardInfo = {
+      ...mockShard,
+      state: 'UNASSIGNED',
+      node: undefined,
+    };
+
+    renderWithMantine(
+      <ShardStatsModal
+        shard={unassignedShard}
+        opened={true}
+        onClose={vi.fn()}
+        clusterId="test-cluster"
+      />
+    );
+
+    expect(apiClient.getShardStats).not.toHaveBeenCalled();
+    expect(screen.getByText(/Detailed statistics are not available for unassigned shards/)).toBeInTheDocument();
+  });
+
+  it('handles API errors gracefully', async () => {
+    vi.mocked(apiClient.getShardStats).mockRejectedValue(new Error('API Error'));
+
+    renderWithMantine(
+      <ShardStatsModal
+        shard={mockShard}
+        opened={true}
+        onClose={vi.fn()}
+        clusterId="test-cluster"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('API Error')).toBeInTheDocument();
+    });
   });
 });
