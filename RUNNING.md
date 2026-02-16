@@ -1,4 +1,4 @@
-# Running Cerebro - Troubleshooting Guide
+# Running Secan - Troubleshooting Guide
 
 ## Current Issue
 
@@ -11,7 +11,7 @@ You're seeing a 403 Forbidden error ("Nie masz uprawnień dostępu do żądanego
 When you run `cargo run` in the `backend` directory, you should see output like:
 
 ```
-Cerebro - Elasticsearch Web Administration Tool
+Secan - Elasticsearch Web Administration Tool
 Starting backend server...
 Configuration loaded successfully
 Server will listen on 127.0.0.1:8080

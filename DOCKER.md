@@ -345,7 +345,7 @@ docker logs -f secan
 
 ```yaml
 services:
-  cerebro:
+  secan:
     environment:
       - RUST_LOG=debug  # trace, debug, info, warn, error
 ```
@@ -356,7 +356,7 @@ For structured logging:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     environment:
       - RUST_LOG=info
       - RUST_LOG_FORMAT=json
@@ -545,13 +545,13 @@ Common issues:
 1. Check network connectivity:
 
 ```bash
-docker exec cerebro wget -O- http://elasticsearch:9200
+docker exec secan wget -O- http://elasticsearch:9200
 ```
 
 2. Verify cluster configuration:
 
 ```bash
-docker exec cerebro cat /config/config.yaml
+docker exec secan cat /config/config.yaml
 ```
 
 3. Check Elasticsearch is accessible from container network

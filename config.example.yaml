@@ -1,4 +1,4 @@
-# Cerebro Configuration Example
+# Secan Configuration Example
 # Copy this file to config.yaml and customize for your environment
 
 server:
@@ -26,9 +26,9 @@ auth:
   # OIDC configuration (when mode is "oidc")
   # oidc:
   #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
-  #   client_id: "cerebro"
+  #   client_id: "secan"
   #   client_secret: "your-client-secret"
-  #   redirect_uri: "https://cerebro.example.com/api/auth/oidc/redirect"
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
   
   # Role-based access control
   # roles:
@@ -59,7 +59,7 @@ clusters:
   #     - "https://es-node3.example.com:9200"
   #   auth:
   #     type: "basic"
-  #     username: "cerebro"
+  #     username: "secan"
   #     password: "your-password"
   #   tls:
   #     verify: true

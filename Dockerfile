@@ -8,7 +8,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy frontend source
 COPY frontend/ ./
@@ -17,7 +17,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Rust backend
-FROM rust:1.75-alpine AS backend-builder
+FROM rust:alpine AS backend-builder
 
 # Install build dependencies
 RUN apk add --no-cache musl-dev openssl-dev
