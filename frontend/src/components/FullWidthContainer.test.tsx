@@ -1,14 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { FullWidthContainer } from './FullWidthContainer';
+import { DrawerProvider } from '../contexts/DrawerContext';
 
 describe('FullWidthContainer', () => {
   it('renders children correctly', () => {
     render(
       <MantineProvider>
-        <FullWidthContainer>
-          <div>Test Content</div>
-        </FullWidthContainer>
+        <DrawerProvider>
+          <FullWidthContainer>
+            <div>Test Content</div>
+          </FullWidthContainer>
+        </DrawerProvider>
       </MantineProvider>
     );
 
@@ -18,9 +21,11 @@ describe('FullWidthContainer', () => {
   it('applies full width style', () => {
     const { container } = render(
       <MantineProvider>
-        <FullWidthContainer>
-          <div>Test Content</div>
-        </FullWidthContainer>
+        <DrawerProvider>
+          <FullWidthContainer>
+            <div>Test Content</div>
+          </FullWidthContainer>
+        </DrawerProvider>
       </MantineProvider>
     );
 
@@ -31,9 +36,11 @@ describe('FullWidthContainer', () => {
   it('applies custom padding when provided', () => {
     render(
       <MantineProvider>
-        <FullWidthContainer padding="2rem">
-          <div>Test Content</div>
-        </FullWidthContainer>
+        <DrawerProvider>
+          <FullWidthContainer padding="2rem">
+            <div>Test Content</div>
+          </FullWidthContainer>
+        </DrawerProvider>
       </MantineProvider>
     );
 
@@ -44,9 +51,11 @@ describe('FullWidthContainer', () => {
   it('applies custom styles', () => {
     render(
       <MantineProvider>
-        <FullWidthContainer style={{ backgroundColor: 'red' }}>
-          <div>Test Content</div>
-        </FullWidthContainer>
+        <DrawerProvider>
+          <FullWidthContainer style={{ backgroundColor: 'red' }}>
+            <div>Test Content</div>
+          </FullWidthContainer>
+        </DrawerProvider>
       </MantineProvider>
     );
 
@@ -57,9 +66,11 @@ describe('FullWidthContainer', () => {
   it('forwards additional Box props', () => {
     render(
       <MantineProvider>
-        <FullWidthContainer data-testid="custom-container">
-          <div>Test Content</div>
-        </FullWidthContainer>
+        <DrawerProvider>
+          <FullWidthContainer data-testid="custom-container">
+            <div>Test Content</div>
+          </FullWidthContainer>
+        </DrawerProvider>
       </MantineProvider>
     );
 

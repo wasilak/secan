@@ -1,5 +1,5 @@
 import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
-import { useDisclosure, useLocalStorage } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
   IconDashboard, 
@@ -18,6 +18,7 @@ import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import { useDrawer } from '../contexts/DrawerContext';
 import type { HealthStatus } from '../types/api';
 
 /**
@@ -225,7 +226,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
  */
 export function AppShell() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
-  const [isPinned, setIsPinned] = useLocalStorage({ key: 'nav-pinned', defaultValue: false });
+  const { isPinned, setIsPinned, drawerWidth } = useDrawer();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -268,7 +269,7 @@ export function AppShell() {
       <MantineAppShell
         header={{ height: { base: 56, sm: 60 } }}
         navbar={isPinned ? {
-          width: { base: 250, md: 280 },
+          width: { base: drawerWidth.base, md: drawerWidth.md },
           breakpoint: 'sm',
         } : undefined}
         padding={0}

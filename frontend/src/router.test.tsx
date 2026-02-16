@@ -8,6 +8,7 @@ import { Dashboard } from './pages/Dashboard';
 import { ClusterView } from './pages/ClusterView';
 import { RestConsole } from './pages/RestConsole';
 import { Login } from './pages/Login';
+import { DrawerProvider } from './contexts/DrawerContext';
 
 // Helper to render with router and providers
 const renderWithRouter = (initialEntries: string[]) => {
@@ -52,7 +53,9 @@ const renderWithRouter = (initialEntries: string[]) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <RouterProvider router={router} />
+        <DrawerProvider>
+          <RouterProvider router={router} />
+        </DrawerProvider>
       </MantineProvider>
     </QueryClientProvider>
   );
