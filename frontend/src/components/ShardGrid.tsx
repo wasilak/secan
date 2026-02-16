@@ -1,5 +1,7 @@
 import { Box, ScrollArea, Table, Text, Group, Stack } from '@mantine/core';
 import { useEffect, useRef, useState } from 'react';
+import { notifications } from '@mantine/notifications';
+import { IconCheck, IconX } from '@tabler/icons-react';
 import type { ShardInfo, NodeWithShards } from '../types/api';
 import { ShardCell } from './ShardCell';
 import { ShardContextMenu } from './ShardContextMenu';
@@ -7,6 +9,7 @@ import { ShardStatsModal } from './ShardStatsModal';
 import { RelocationConfirmDialog } from './RelocationConfirmDialog';
 import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
+import { apiClient } from '../api/client';
 
 /**
  * Props for ShardGrid component
@@ -161,25 +164,46 @@ export function ShardGrid({
     handleContextMenuClose();
   };
   
-  // Handle relocation confirmation - Requirements: 5.10
+  // Handle relocation confirmation - Requirements: 5.10, 5.11, 5.12, 6.1
   const handleRelocationConfirm = async () => {
-    // TODO: This will be implemented in Phase 6 when the backend API is ready
-    // For now, we just log the relocation request
     if (selectedShard && confirmDialogSourceNode && confirmDialogDestinationNode) {
-      console.log('Relocating shard:', {
-        index: selectedShard.index,
-        shard: selectedShard.shard,
-        fromNode: confirmDialogSourceNode.id,
-        toNode: confirmDialogDestinationNode.id,
-      });
-      
-      // Exit relocation mode after confirmation
-      exitRelocationMode();
-      
-      // Close confirmation dialog
-      setConfirmDialogOpened(false);
-      setConfirmDialogSourceNode(null);
-      setConfirmDialogDestinationNode(null);
+      try {
+        // Call the backend API to relocate the shard - Requirements: 6.1, 6.2
+        await apiClient.relocateShard(clusterId, {
+          index: selectedShard.index,
+          shard: selectedShard.shard,
+          from_node: confirmDialogSourceNode.id,
+          to_node: confirmDialogDestinationNode.id,
+        });
+        
+        // Show success notification - Requirements: 5.11
+        notifications.show({
+          color: 'green',
+          icon: <IconCheck size={18} />,
+          title: 'Relocation Initiated',
+          message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${confirmDialogSourceNode.name} to ${confirmDialogDestinationNode.name}`,
+        });
+        
+        // Exit relocation mode after successful relocation
+        exitRelocationMode();
+        
+        // Close confirmation dialog
+        setConfirmDialogOpened(false);
+        setConfirmDialogSourceNode(null);
+        setConfirmDialogDestinationNode(null);
+      } catch (error) {
+        // Show error notification - Requirements: 5.12
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        notifications.show({
+          color: 'red',
+          icon: <IconX size={18} />,
+          title: 'Relocation Failed',
+          message: `Failed to relocate shard: ${errorMessage}`,
+        });
+        
+        // Re-throw to let the dialog handle loading state
+        throw error;
+      }
     }
   };
   

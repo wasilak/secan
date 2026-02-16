@@ -528,6 +528,30 @@ export interface CatApiResponse {
 }
 
 /**
+ * Relocate shard request
+ * Requirements: 6.1, 6.2
+ */
+export interface RelocateShardRequest {
+  index: string;
+  shard: number;
+  from_node: string;
+  to_node: string;
+}
+
+/**
+ * Relocate shard response
+ * Requirements: 6.7
+ */
+export interface RelocateShardResponse {
+  acknowledged: boolean;
+  state?: {
+    cluster_name: string;
+    version: number;
+    state_uuid: string;
+  };
+}
+
+/**
  * Index statistics
  */
 export interface IndexStats {

@@ -283,4 +283,88 @@ describe('ApiClient', () => {
       expect(client).toBeInstanceOf(ApiClient);
     });
   });
+
+  describe('relocateShard', () => {
+    it('should send shard relocation request', async () => {
+      const request = {
+        index: 'test-index',
+        shard: 0,
+        from_node: 'node-1',
+        to_node: 'node-2',
+      };
+
+      const mockResponse = {
+        acknowledged: true,
+        state: {
+          cluster_name: 'test-cluster',
+          version: 123,
+          state_uuid: 'abc123',
+        },
+      };
+
+      server.use(
+        http.post('/api/clusters/cluster1/shards/relocate', async ({ request: req }) => {
+          const body = await req.json();
+          expect(body).toEqual(request);
+          return HttpResponse.json(mockResponse);
+        })
+      );
+
+      const client = new ApiClient();
+      const response = await client.relocateShard('cluster1', request);
+      expect(response).toEqual(mockResponse);
+    });
+
+    it('should handle relocation errors', async () => {
+      const request = {
+        index: 'test-index',
+        shard: 0,
+        from_node: 'node-1',
+        to_node: 'node-1', // Same node - should fail
+      };
+
+      server.use(
+        http.post('/api/clusters/cluster1/shards/relocate', () => {
+          return HttpResponse.json(
+            {
+              error: 'bad_request',
+              message: 'Source and destination nodes must be different',
+            },
+            { status: 400 }
+          );
+        })
+      );
+
+      const client = new ApiClient();
+      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(
+        ApiClientError
+      );
+    });
+
+    it('should handle Elasticsearch errors during relocation', async () => {
+      const request = {
+        index: 'test-index',
+        shard: 0,
+        from_node: 'node-1',
+        to_node: 'node-2',
+      };
+
+      server.use(
+        http.post('/api/clusters/cluster1/shards/relocate', () => {
+          return HttpResponse.json(
+            {
+              error: 'illegal_argument_exception',
+              message: 'Cannot move shard: shard already exists on target node',
+            },
+            { status: 400 }
+          );
+        })
+      );
+
+      const client = new ApiClient();
+      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(
+        ApiClientError
+      );
+    });
+  });
 });

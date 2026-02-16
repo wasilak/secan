@@ -28,6 +28,8 @@ import {
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
   IndexStats,
+  RelocateShardRequest,
+  RelocateShardResponse,
 } from '../types/api';
 
 /**
@@ -1134,6 +1136,28 @@ export class ApiClient {
       }
 
       return indexData;
+    });
+  }
+
+  /**
+   * Relocate a shard from one node to another
+   * 
+   * Executes the Elasticsearch cluster reroute API to move a shard.
+   * The shard will be copied to the destination node and then removed
+   * from the source node.
+   * 
+   * Requirements: 6.1, 6.2, 6.5, 6.6, 6.7
+   */
+  async relocateShard(
+    clusterId: string,
+    request: RelocateShardRequest
+  ): Promise<RelocateShardResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.post<RelocateShardResponse>(
+        `/clusters/${clusterId}/shards/relocate`,
+        request
+      );
+      return response.data;
     });
   }
 }

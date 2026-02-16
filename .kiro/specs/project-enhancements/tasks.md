@@ -403,7 +403,7 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 6: Shard Relocation Backend
 
-- [-] 18. Implement shard relocation API
+- [x] 18. Implement shard relocation API
   - [x] 18.1 Create shard relocation endpoint
     - Add POST /api/clusters/:id/shards/relocate route
     - Define RelocateShardRequest struct
@@ -442,25 +442,25 @@ The tasks are organized into phases for incremental delivery.
     - Test authentication
     - _Requirements: 6.1, 6.2, 6.3, 6.8_
 
-- [ ] 19. Integrate frontend with backend API
-  - [ ] 19.1 Add API client method
+- [x] 19. Integrate frontend with backend API
+  - [x] 19.1 Add API client method
     - Add relocateShard method to API client
     - Handle request/response
     - Handle errors
     - _Requirements: 6.1_
   
-  - [ ] 19.2 Call API on confirmation
+  - [x] 19.2 Call API on confirmation
     - Call relocateShard when user confirms
     - Handle success response
     - Handle error response
     - _Requirements: 5.10_
   
-  - [ ] 19.3 Display notifications
+  - [x] 19.3 Display notifications
     - Show "Relocation initiated" on success
     - Show error message on failure
     - _Requirements: 5.11, 5.12_
   
-  - [ ] 19.4 Test API integration
+  - [x] 19.4 Test API integration
     - Test successful relocation
     - Test failed relocation
     - Test error handling
