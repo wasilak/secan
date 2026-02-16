@@ -332,42 +332,42 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 5: Shard Relocation Mode
 
-- [ ] 15. Implement relocation mode
-  - [ ] 15.1 Add relocation mode state
+- [x] 15. Implement relocation mode
+  - [x] 15.1 Add relocation mode state
     - Add relocationMode boolean to state
     - Add selectedShard to state
     - Add destinationIndicators map to state
     - _Requirements: 5.1, 5.2_
   
-  - [ ] 15.2 Implement enter relocation mode
+  - [x] 15.2 Implement enter relocation mode
     - Handle "Select for relocation" menu click
     - Set relocationMode to true
     - Store selected shard
     - Calculate valid destinations
     - _Requirements: 5.1, 5.3_
   
-  - [ ] 15.3 Implement destination calculation
+  - [x] 15.3 Implement destination calculation
     - Filter out source node
     - Filter out nodes already hosting the shard
     - Filter out non-data nodes
     - Create destination indicators
     - _Requirements: 5.4, 5.6_
   
-  - [ ] 15.4 Render destination indicators
+  - [x] 15.4 Render destination indicators
     - Display dashed shard boxes in valid cells
     - Use purple/blue color
     - Show shard number
     - Make indicators clickable
     - _Requirements: 5.5, 5.6, 5.7_
   
-  - [ ] 15.5 Implement exit relocation mode
+  - [x] 15.5 Implement exit relocation mode
     - Handle outside click
     - Handle Escape key
     - Clear selected shard
     - Clear destination indicators
     - _Requirements: 5.13_
   
-  - [ ] 15.6 Test relocation mode
+  - [x] 15.6 Test relocation mode
     - Test entering relocation mode
     - Test destination calculation
     - Test destination indicators display

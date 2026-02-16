@@ -53,7 +53,11 @@ export function ShardGrid({
     loading,
     error,
     selectedShard,
+    relocationMode,
+    destinationIndicators,
     selectShard,
+    enterRelocationMode,
+    exitRelocationMode,
   } = useShardGridStore();
   
   // Auto-refresh logic - Requirements: 3.12
@@ -80,6 +84,38 @@ export function ShardGrid({
       clearInterval(intervalId);
     };
   }, [clusterId, refreshInterval]);
+  
+  // Handle Escape key to exit relocation mode - Requirements: 5.13
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && relocationMode) {
+        exitRelocationMode();
+      }
+    };
+    
+    if (relocationMode) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [relocationMode, exitRelocationMode]);
+  
+  // Handle outside click to exit relocation mode - Requirements: 5.13
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (relocationMode && scrollAreaRef.current) {
+        // Check if click is outside the scroll area
+        const target = e.target as Node;
+        if (!scrollAreaRef.current.contains(target)) {
+          exitRelocationMode();
+        }
+      }
+    };
+    
+    if (relocationMode) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [relocationMode, exitRelocationMode]);
   
   // Handle shard click - Requirements: 4.1, 4.2
   const handleShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
@@ -108,10 +144,15 @@ export function ShardGrid({
     handleContextMenuClose();
   };
   
-  // Handle select for relocation - Requirements: 4.4, 5.1
+  // Handle select for relocation - Requirements: 4.4, 5.1, 5.2, 5.3
   const handleSelectForRelocation = (shard: ShardInfo) => {
-    // TODO: Implement relocation mode in Phase 5
-    console.log('Select for relocation:', shard);
+    // Enter relocation mode
+    // This will:
+    // 1. Set relocationMode to true
+    // 2. Store selected shard
+    // 3. Calculate valid destinations
+    enterRelocationMode(shard);
+    handleContextMenuClose();
   };
   
   // Format percentage
@@ -324,6 +365,14 @@ export function ShardGrid({
                 {indices.map((index) => {
                   const shards = getShardsForNodeAndIndex(node, index.name);
                   
+                  // Check if there's a destination indicator for this node and index
+                  // Requirements: 5.5, 5.6, 5.7
+                  const destinationIndicator = relocationMode && 
+                    destinationIndicators.has(node.id) &&
+                    destinationIndicators.get(node.id)?.index === index.name
+                      ? destinationIndicators.get(node.id)
+                      : null;
+                  
                   return (
                     <Table.Td
                       key={`${node.id}-${index.name}`}
@@ -334,8 +383,9 @@ export function ShardGrid({
                         verticalAlign: 'middle',
                       }}
                     >
-                      {shards.length > 0 ? (
+                      {shards.length > 0 || destinationIndicator ? (
                         <Group gap="xs" justify="center" wrap="wrap">
+                          {/* Render actual shards */}
                           {shards.map((shard) => {
                             // Check if this shard is selected - Requirements: 4.1
                             const isSelected = selectedShard !== null &&
@@ -353,6 +403,22 @@ export function ShardGrid({
                               />
                             );
                           })}
+                          
+                          {/* Render destination indicator if in relocation mode */}
+                          {destinationIndicator && (
+                            <ShardCell
+                              key={`destination-${destinationIndicator.index}-${destinationIndicator.shard}`}
+                              shard={destinationIndicator}
+                              isSelected={false}
+                              isDestinationIndicator={true}
+                              onClick={(shard, event) => {
+                                // Handle destination indicator click
+                                // This will trigger the confirmation dialog in Phase 5
+                                console.log('Destination indicator clicked:', shard);
+                                event.stopPropagation();
+                              }}
+                            />
+                          )}
                         </Group>
                       ) : (
                         <Text size="xs" c="dimmed">
