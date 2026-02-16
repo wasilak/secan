@@ -280,7 +280,7 @@ The tasks are organized into phases for incremental delivery.
     - Highlight selected shard
     - _Requirements: 4.1_
   
-  - [-] 12.2 Implement ShardContextMenu component
+  - [x] 12.2 Implement ShardContextMenu component
     - Create Mantine Menu component
     - Position menu near clicked shard
     - Add "Display shard stats" option
@@ -289,13 +289,13 @@ The tasks are organized into phases for incremental delivery.
     - Handle menu close on Escape key
     - _Requirements: 4.2, 4.3, 4.4, 4.8, 4.9_
   
-  - [ ] 12.3 Disable relocation for invalid shards
+  - [x] 12.3 Disable relocation for invalid shards
     - Disable "Select for relocation" for UNASSIGNED shards
     - Disable for RELOCATING shards
     - Disable for INITIALIZING shards
     - _Requirements: 4.10_
   
-  - [ ] 12.4 Test shard selection
+  - [-] 12.4 Test shard selection
     - Test click handling
     - Test context menu positioning
     - Test menu options
