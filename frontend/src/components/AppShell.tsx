@@ -1,21 +1,18 @@
-import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Avatar, Menu, ActionIcon, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
+import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { 
   IconDashboard, 
   IconServer, 
-  IconLogout, 
-  IconUser,
-  IconChevronDown,
   IconPin,
   IconPinFilled,
   IconAlertCircle,
   IconChevronRight,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { ThemeSelector } from './ThemeSelector';
 import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
+import { DrawerControls } from './DrawerControls';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
@@ -214,13 +211,11 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
  * AppShell component provides the main layout structure for the application.
  * 
  * Features:
- * - Header with app title and user controls
+ * - Header with app title
  * - Drawer navigation with burger menu toggle
  * - Pin/unpin drawer to switch between overlay and static modes
  * - Dynamic cluster list from API
- * - User information display
- * - Logout button
- * - Theme selector integration
+ * - User controls and theme selector in drawer bottom
  * - Responsive design with mobile support
  * - Command palette for navigation (Cmd/Ctrl+K)
  */
@@ -296,48 +291,6 @@ export function AppShell() {
 
             <Group gap="xs" wrap="nowrap">
               <RefreshControl scope={getRefreshScope()} />
-              <ThemeSelector />
-              
-              {/* User menu */}
-              <Menu shadow="md" width={200} position="bottom-end">
-                <Menu.Target>
-                  <ActionIcon
-                    variant="subtle"
-                    size="lg"
-                    aria-label="User menu"
-                  >
-                    <Group gap="xs" wrap="nowrap">
-                      <Avatar size="sm" radius="xl" color="blue" aria-hidden="true">
-                        {user.username.charAt(0).toUpperCase()}
-                      </Avatar>
-                      <IconChevronDown size={16} aria-hidden="true" style={{ display: 'none' }} className="hide-mobile" />
-                    </Group>
-                  </ActionIcon>
-                </Menu.Target>
-
-                <Menu.Dropdown>
-                  <Menu.Label>
-                    <Group gap="xs">
-                      <IconUser size={16} aria-hidden="true" />
-                      {user.username}
-                    </Group>
-                  </Menu.Label>
-                  
-                  <Menu.Item c="dimmed" disabled>
-                    Roles: {user.roles.join(', ')}
-                  </Menu.Item>
-
-                  <Menu.Divider />
-
-                  <Menu.Item
-                    leftSection={<IconLogout size={16} aria-hidden="true" />}
-                    onClick={handleLogout}
-                    color="red"
-                  >
-                    Logout
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
             </Group>
           </Group>
         </MantineAppShell.Header>
@@ -349,6 +302,7 @@ export function AppShell() {
             component="nav" 
             role="navigation" 
             aria-label="Main navigation"
+            style={{ display: 'flex', flexDirection: 'column' }}
           >
             <MantineAppShell.Section>
               <Group justify="space-between" mb="md">
@@ -371,6 +325,11 @@ export function AppShell() {
             </MantineAppShell.Section>
 
             <MantineAppShell.Section>
+              <DrawerControls 
+                collapsed={false} 
+                user={user} 
+                onLogout={handleLogout} 
+              />
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
                 Secan v0.1.0
@@ -414,12 +373,20 @@ export function AppShell() {
         size="280px"
         styles={{
           title: { width: '100%' },
+          body: { display: 'flex', flexDirection: 'column', height: '100%' },
         }}
       >
-        <Stack gap="md" style={{ height: '100%' }}>
-          <NavigationContent onNavigate={closeDrawer} />
+        <Stack gap="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <NavigationContent onNavigate={closeDrawer} />
+          </div>
           
           <div style={{ marginTop: 'auto' }}>
+            <DrawerControls 
+              collapsed={false} 
+              user={user} 
+              onLogout={handleLogout} 
+            />
             <Divider my="sm" />
             <Text size="xs" c="dimmed" ta="center" role="contentinfo">
               Secan v0.1.0
