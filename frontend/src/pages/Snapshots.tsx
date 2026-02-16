@@ -7,7 +7,6 @@ import {
   Stack,
   Button,
   Table,
-  Loader,
   Alert,
   Modal,
   TextInput,
@@ -40,6 +39,7 @@ import type {
   SnapshotState,
 } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { ListPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * Snapshots component displays and manages snapshots in a repository
@@ -118,13 +118,7 @@ export function Snapshots() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <ListPageSkeleton rows={5} />;
   }
 
   if (error) {

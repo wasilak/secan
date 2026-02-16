@@ -7,7 +7,6 @@ import {
   Stack,
   Tabs,
   Table,
-  Loader,
   Alert,
   Badge,
   Code,
@@ -16,6 +15,7 @@ import {
   Accordion,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconSearch, IconFilter } from '@tabler/icons-react';
@@ -76,13 +76,7 @@ export function IndexAnalyzersPage() {
   const error = analyzersError || fieldsError;
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   if (error) {

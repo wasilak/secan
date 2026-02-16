@@ -6,7 +6,6 @@ import {
   Stack,
   Badge,
   Grid,
-  Loader,
   Alert,
   Table,
   Progress,
@@ -36,6 +35,7 @@ import { NodeCharts } from '../components/NodeCharts';
 import { getRoleIcon } from '../components/RoleIcons';
 import { useSparklineData } from '../hooks/useSparklineData';
 import { formatRate } from '../utils/formatters';
+import { NodeDetailSkeleton } from '../components/LoadingSkeleton';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
 
@@ -144,13 +144,7 @@ export function NodeDetail() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <NodeDetailSkeleton />;
   }
 
   if (error) {

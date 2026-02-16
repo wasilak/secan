@@ -7,10 +7,10 @@ import {
   Stack,
   Group,
   Alert,
-  Loader,
   Box,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
@@ -178,13 +178,7 @@ export function IndexMappings() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   if (error) {

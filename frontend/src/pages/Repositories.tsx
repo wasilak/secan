@@ -7,7 +7,6 @@ import {
   Stack,
   Button,
   Table,
-  Loader,
   Alert,
   Modal,
   TextInput,
@@ -19,6 +18,7 @@ import {
   Code,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { ListPageSkeleton } from '../components/LoadingSkeleton';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
@@ -85,13 +85,7 @@ export function Repositories() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <ListPageSkeleton rows={5} />;
   }
 
   if (error) {

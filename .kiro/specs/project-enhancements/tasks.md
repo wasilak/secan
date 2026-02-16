@@ -737,7 +737,7 @@ The tasks are organized into phases for incremental delivery.
     - Verify only Rust backend and React frontend code exists
     - _Requirements: 1.1_
 
-- [ ] 30. Checkpoint - Cleanup complete
+- [x] 30. Checkpoint - Cleanup complete
   - Verify all builds succeed after cleanup
   - Verify no references to original Cerebro implementation
   - Verify README reflects Secan with Cerebro attribution
@@ -745,21 +745,21 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 10: Documentation and Deployment
 
+- [x] 31. Update documentation
 - [ ] 31. Update documentation
-- [ ] 31. Update documentation
-  - [ ] 31.1 Document shard relocation feature
+  - [x] 31.1 Document shard relocation feature
     - Add user guide for shard relocation
     - Add screenshots
     - Document keyboard shortcuts
     - _Requirements: 1.9_
   
-  - [ ] 31.2 Document API endpoints
+  - [x] 31.2 Document API endpoints
     - Document POST /api/clusters/:id/shards/relocate
     - Add request/response examples
     - Document error codes
     - _Requirements: 6.1, 6.2_
   
-  - [ ] 31.3 Update configuration documentation
+  - [x] 31.3 Update configuration documentation
     - Document new configuration options
     - Update examples
     - _Requirements: 1.10_

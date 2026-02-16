@@ -6,7 +6,6 @@ import {
   Group,
   Stack,
   Button,
-  Loader,
   Alert,
   Modal,
   Select,
@@ -41,6 +40,7 @@ import { apiClient } from '../api/client';
 import { useWatermarks } from '../hooks/useWatermarks';
 import type { ShardInfo, NodeInfo } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { ShardGridSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * ShardManagement component displays and manages shard allocation
@@ -323,13 +323,7 @@ export function ShardManagement() {
   }
 
   if (shardsLoading || nodesLoading || settingsLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <ShardGridSkeleton />;
   }
 
   if (shardsError) {

@@ -7,7 +7,6 @@ import {
   Stack,
   Button,
   Table,
-  Loader,
   Alert,
   Modal,
   TextInput,
@@ -27,6 +26,7 @@ import { IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import type { CreateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { ListPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * Templates component displays and manages index templates
@@ -87,13 +87,7 @@ export function Templates() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <ListPageSkeleton rows={5} />;
   }
 
   if (error) {

@@ -7,13 +7,13 @@ import {
   Stack,
   Group,
   Alert,
-  Loader,
   Grid,
   Paper,
   Table,
   Select,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { DetailPageSkeleton } from '../components/LoadingSkeleton';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
@@ -122,13 +122,7 @@ export function IndexStatistics() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (error) {

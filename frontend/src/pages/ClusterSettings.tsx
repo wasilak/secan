@@ -6,7 +6,6 @@ import {
   Group,
   Stack,
   Button,
-  Loader,
   Alert,
   Tabs,
   Badge,
@@ -19,6 +18,7 @@ import { Editor } from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import type { UpdateClusterSettingsRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * ClusterSettings component displays and manages cluster settings
@@ -117,13 +117,7 @@ export function ClusterSettingsPage() {
   }
 
   if (isLoading) {
-    return (
-      <FullWidthContainer>
-        <Group justify="center" mt="xl">
-          <Loader size="lg" />
-        </Group>
-      </FullWidthContainer>
-    );
+    return <SettingsPageSkeleton />;
   }
 
   if (error) {
