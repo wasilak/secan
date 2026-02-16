@@ -196,7 +196,8 @@ describe('ShardCell', () => {
       await user.click(cell);
       
       expect(onClick).toHaveBeenCalledTimes(1);
-      expect(onClick).toHaveBeenCalledWith(shard);
+      // onClick receives both shard and event
+      expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
     });
 
     it('calls onClick handler when Enter key is pressed', async () => {
@@ -211,7 +212,8 @@ describe('ShardCell', () => {
       await user.keyboard('{Enter}');
       
       expect(onClick).toHaveBeenCalledTimes(1);
-      expect(onClick).toHaveBeenCalledWith(shard);
+      // onClick receives both shard and event
+      expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
     });
 
     it('calls onClick handler when Space key is pressed', async () => {
@@ -226,7 +228,8 @@ describe('ShardCell', () => {
       await user.keyboard(' ');
       
       expect(onClick).toHaveBeenCalledTimes(1);
-      expect(onClick).toHaveBeenCalledWith(shard);
+      // onClick receives both shard and event
+      expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
     });
 
     it('does not call onClick when no handler is provided', async () => {

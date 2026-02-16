@@ -302,7 +302,7 @@ The tasks are organized into phases for incremental delivery.
     - Test keyboard navigation
     - _Requirements: 4.1, 4.2, 4.8_
 
-- [-] 13. Implement shard stats modal
+- [x] 13. Implement shard stats modal
   - [x] 13.1 Create ShardStatsModal component
     - Create Mantine Modal component
     - Display shard number and type
@@ -324,7 +324,7 @@ The tasks are organized into phases for incremental delivery.
     - Test modal close
     - _Requirements: 4.5, 4.6_
 
-- [ ] 14. Checkpoint - Shard selection complete
+- [-] 14. Checkpoint - Shard selection complete
   - Test shard selection workflow
   - Verify context menu works
   - Verify shard stats display correctly
