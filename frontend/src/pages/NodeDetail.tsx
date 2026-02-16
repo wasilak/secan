@@ -1,5 +1,4 @@
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -16,6 +15,7 @@ import {
   ThemeIcon,
   Anchor,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -135,46 +135,46 @@ export function NodeDetail() {
 
   if (!clusterId || !nodeId) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and Node ID are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load node statistics: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (!nodeStats) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Node statistics not found
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       {/* Node Header Card */}
       <Card shadow="sm" padding="lg" mb="md">
         <Group justify="space-between">
@@ -637,7 +637,7 @@ export function NodeDetail() {
           )}
         </Stack>
       </Card>
-    </Container>
+    </FullWidthContainer>
   );
 }
 

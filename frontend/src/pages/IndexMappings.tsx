@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -11,6 +10,7 @@ import {
   Loader,
   Box,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
@@ -169,36 +169,36 @@ export function IndexMappings() {
 
   if (!clusterId || !indexName) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load index mappings: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={1}>Index Mappings</Title>
@@ -313,6 +313,6 @@ export function IndexMappings() {
           </Stack>
         </Card>
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }

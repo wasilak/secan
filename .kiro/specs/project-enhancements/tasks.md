@@ -120,19 +120,19 @@ The tasks are organized into phases for incremental delivery.
     - Test on mobile (375px)
     - _Requirements: 2.15_
 
-- [ ] 7. Apply full-width layout to all views
-  - [ ] 7.1 Update Dashboard view
+- [x] 7. Apply full-width layout to all views
+  - [x] 7.1 Update Dashboard view
     - Already full-width, verify consistency
     - Test responsive behavior
     - _Requirements: 2.1_
   
-  - [ ] 7.2 Update Cluster overview view
+  - [x] 7.2 Update Cluster overview view
     - Remove width constraints
     - Apply full-width layout
     - Test responsive behavior
     - _Requirements: 2.2_
   
-  - [ ] 7.3 Update Nodes list view
+  - [x] 7.3 Update Nodes list view
     - Remove width constraints
     - Apply full-width layout
     - Test table responsiveness

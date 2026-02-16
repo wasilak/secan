@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -14,6 +13,7 @@ import {
   Table,
   Select,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
@@ -113,48 +113,48 @@ export function IndexStatistics() {
 
   if (!clusterId || !indexName) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load index statistics: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (!stats) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           No statistics available for this index
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   const currentStats = statsLevel === 'total' ? stats.total : stats.primaries;
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={1}>Index Statistics</Title>
@@ -444,6 +444,6 @@ export function IndexStatistics() {
           </Grid>
         </Card>
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }
