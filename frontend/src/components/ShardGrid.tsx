@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ShardInfo } from '../types/api';
 import { ShardCell } from './ShardCell';
 import { ShardContextMenu } from './ShardContextMenu';
+import { ShardStatsModal } from './ShardStatsModal';
 import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
 
@@ -39,6 +40,10 @@ export function ShardGrid({
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
+  
+  // Shard stats modal state - Requirements: 4.5
+  const [statsModalOpened, setStatsModalOpened] = useState(false);
+  const [statsModalShard, setStatsModalShard] = useState<ShardInfo | null>(null);
   
   // Get state from store
   const {
@@ -98,8 +103,9 @@ export function ShardGrid({
   
   // Handle show shard stats - Requirements: 4.3, 4.5
   const handleShowStats = (shard: ShardInfo) => {
-    // TODO: Implement ShardStatsModal in task 13
-    console.log('Show stats for shard:', shard);
+    setStatsModalShard(shard);
+    setStatsModalOpened(true);
+    handleContextMenuClose();
   };
   
   // Handle select for relocation - Requirements: 4.4, 5.1
@@ -446,6 +452,13 @@ export function ShardGrid({
           onSelectForRelocation={handleSelectForRelocation}
         />
       )}
+      
+      {/* Shard stats modal - Requirements: 4.5, 4.6 */}
+      <ShardStatsModal
+        shard={statsModalShard}
+        opened={statsModalOpened}
+        onClose={() => setStatsModalOpened(false)}
+      />
     </Box>
   );
 }
