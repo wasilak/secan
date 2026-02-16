@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Cerebro
+# Multi-stage Dockerfile for Secan
 # Stage 1: Build frontend assets
 FROM node:18-alpine AS frontend-builder
 
@@ -49,23 +49,23 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 
 # Create non-root user
-RUN addgroup -g 1000 cerebro && \
-    adduser -D -u 1000 -G cerebro cerebro
+RUN addgroup -g 1000 secan && \
+    adduser -D -u 1000 -G secan secan
 
 # Create directories
 RUN mkdir -p /app /config && \
-    chown -R cerebro:cerebro /app /config
+    chown -R secan:secan /app /config
 
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=backend-builder /app/target/release/cerebro_backend /app/cerebro
+COPY --from=backend-builder /app/target/release/secan_backend /app/secan
 
 # Change ownership
-RUN chown cerebro:cerebro /app/cerebro
+RUN chown secan:secan /app/secan
 
 # Switch to non-root user
-USER cerebro
+USER secan
 
 # Expose port
 EXPOSE 9000
@@ -75,9 +75,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:9000/health || exit 1
 
 # Set default environment variables
-ENV CEREBRO_SERVER_HOST=0.0.0.0 \
-    CEREBRO_SERVER_PORT=9000 \
+ENV SECAN_SERVER_HOST=0.0.0.0 \
+    SECAN_SERVER_PORT=9000 \
     RUST_LOG=info
 
 # Run the application
-CMD ["/app/cerebro"]
+CMD ["/app/secan"]

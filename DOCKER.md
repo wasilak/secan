@@ -1,63 +1,63 @@
 # Docker Deployment Guide
 
-This guide covers deploying Cerebro using Docker and Docker Compose.
+This guide covers deploying Secan using Docker and Docker Compose.
 
 ## Quick Start
 
 ### Using Docker Compose (Recommended)
 
 ```bash
-# Build and start Cerebro
+# Build and start Secan
 docker-compose up -d
 
 # View logs
-docker-compose logs -f cerebro
+docker-compose logs -f secan
 
-# Stop Cerebro
+# Stop Secan
 docker-compose down
 ```
 
-Access Cerebro at `http://localhost:9001`
+Access Secan at `http://localhost:9001`
 
 ### Using Docker CLI
 
 ```bash
 # Build the image
-docker build -t cerebro:latest .
+docker build -t secan:latest .
 
 # Run the container
 docker run -d \
-  --name cerebro \
+  --name secan \
   -p 9000:9000 \
-  -e CEREBRO_AUTH_MODE=open \
-  cerebro:latest
+  -e SECAN_AUTH_MODE=open \
+  secan:latest
 
 # View logs
-docker logs -f cerebro
+docker logs -f secan
 
 # Stop the container
-docker stop cerebro
-docker rm cerebro
+docker stop secan
+docker rm secan
 ```
 
 ## Configuration
 
 ### Environment Variables
 
-Configure Cerebro using environment variables:
+Configure Secan using environment variables:
 
 ```yaml
 # docker-compose.yml
 services:
-  cerebro:
+  secan:
     environment:
       # Server configuration
-      - CEREBRO_SERVER_HOST=0.0.0.0
-      - CEREBRO_SERVER_PORT=9001
+      - SECAN_SERVER_HOST=0.0.0.0
+      - SECAN_SERVER_PORT=9001
       
       # Authentication
-      - CEREBRO_AUTH_MODE=open  # or local_users, oidc
-      - CEREBRO_AUTH_SESSION_TIMEOUT_MINUTES=60
+      - SECAN_AUTH_MODE=open  # or local_users, oidc
+      - SECAN_AUTH_SESSION_TIMEOUT_MINUTES=60
       
       # Logging
       - RUST_LOG=info  # or debug, warn, error
@@ -98,17 +98,17 @@ EOF
 
 # Run with config file
 docker run -d \
-  --name cerebro \
+  --name secan \
   -p 9000:9000 \
   -v $(pwd)/config.yaml:/config/config.yaml:ro \
-  cerebro:latest
+  secan:latest
 ```
 
 Or with Docker Compose:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     volumes:
       - ./config.yaml:/config/config.yaml:ro
 ```
@@ -119,7 +119,7 @@ Mount TLS certificates for secure cluster connections:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     volumes:
       - ./config.yaml:/config/config.yaml:ro
       - ./certs:/certs:ro
@@ -144,10 +144,10 @@ clusters:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     environment:
-      - CEREBRO_AUTH_MODE=open
-      - CEREBRO_CLUSTERS=[{"id":"local","name":"Local ES","nodes":["http://elasticsearch:9200"],"auth":{"type":"none"},"tls":{"verify":false}}]
+      - SECAN_AUTH_MODE=open
+      - SECAN_CLUSTERS=[{"id":"local","name":"Local ES","nodes":["http://elasticsearch:9200"],"auth":{"type":"none"},"tls":{"verify":false}}]
 ```
 
 ### Multiple Clusters
@@ -198,10 +198,10 @@ Uncomment the Elasticsearch service in `docker-compose.yml`:
 
 ```yaml
 services:
-  cerebro:
-    # ... cerebro config ...
+  secan:
+    # ... secan config ...
     environment:
-      - CEREBRO_CLUSTERS=[{"id":"local","name":"Local ES","nodes":["http://elasticsearch:9200"],"auth":{"type":"none"},"tls":{"verify":false}}]
+      - SECAN_CLUSTERS=[{"id":"local","name":"Local ES","nodes":["http://elasticsearch:9200"],"auth":{"type":"none"},"tls":{"verify":false}}]
   
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -215,7 +215,7 @@ services:
     volumes:
       - es-data:/usr/share/elasticsearch/data
     networks:
-      - cerebro-network
+      - secan-network
 
 volumes:
   es-data:
@@ -235,17 +235,17 @@ If Elasticsearch is running outside Docker:
 ```bash
 # Linux/macOS: Use host.docker.internal
 docker run -d \
-  --name cerebro \
+  --name secan \
   -p 9000:9000 \
-  -e CEREBRO_CLUSTERS='[{"id":"local","name":"Local ES","nodes":["http://host.docker.internal:9200"]}]' \
-  cerebro:latest
+  -e SECAN_CLUSTERS='[{"id":"local","name":"Local ES","nodes":["http://host.docker.internal:9200"]}]' \
+  secan:latest
 
 # Or use host network mode (Linux only)
 docker run -d \
-  --name cerebro \
+  --name secan \
   --network host \
-  -e CEREBRO_CLUSTERS='[{"id":"local","name":"Local ES","nodes":["http://localhost:9200"]}]' \
-  cerebro:latest
+  -e SECAN_CLUSTERS='[{"id":"local","name":"Local ES","nodes":["http://localhost:9200"]}]' \
+  secan:latest
 ```
 
 ## Authentication Modes
@@ -254,18 +254,18 @@ docker run -d \
 
 ```yaml
 services:
-  cerebro:
+  secan:
     environment:
-      - CEREBRO_AUTH_MODE=open
+      - SECAN_AUTH_MODE=open
 ```
 
 ### Local Users
 
 ```yaml
 services:
-  cerebro:
+  secan:
     environment:
-      - CEREBRO_AUTH_MODE=local_users
+      - SECAN_AUTH_MODE=local_users
     volumes:
       - ./config.yaml:/config/config.yaml:ro
 ```
@@ -290,8 +290,8 @@ Generate password hash:
 # Using Python
 python3 -c "import bcrypt; print(bcrypt.hashpw(b'password', bcrypt.gensalt()).decode())"
 
-# Or use the Cerebro CLI (if available)
-./cerebro hash-password mypassword
+# Or use the Secan CLI (if available)
+./secan hash-password mypassword
 ```
 
 ### OIDC Authentication
@@ -301,7 +301,7 @@ auth:
   mode: "oidc"
   oidc:
     discovery_url: "https://auth.example.com/.well-known/openid-configuration"
-    client_id: "cerebro"
+    client_id: "secan"
     client_secret: "secret"
     redirect_uri: "http://localhost:9001/api/auth/oidc/callback"
 ```
@@ -315,7 +315,7 @@ The Docker image includes a health check endpoint:
 curl http://localhost:9001/health
 
 # Docker health status
-docker inspect --format='{{.State.Health.Status}}' cerebro
+docker inspect --format='{{.State.Health.Status}}' secan
 ```
 
 Health check configuration in `docker-compose.yml`:
@@ -335,10 +335,10 @@ healthcheck:
 
 ```bash
 # Docker Compose
-docker-compose logs -f cerebro
+docker-compose logs -f secan
 
 # Docker CLI
-docker logs -f cerebro
+docker logs -f secan
 ```
 
 ### Configure Log Level
@@ -368,7 +368,7 @@ services:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     deploy:
       resources:
         limits:
@@ -383,7 +383,7 @@ services:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     restart: unless-stopped
 ```
 
@@ -392,14 +392,14 @@ services:
 Run as non-root user (already configured in Dockerfile):
 
 ```dockerfile
-USER cerebro
+USER secan
 ```
 
 Use read-only root filesystem:
 
 ```yaml
 services:
-  cerebro:
+  secan:
     read_only: true
     tmpfs:
       - /tmp
@@ -412,7 +412,7 @@ Example Nginx configuration:
 ```nginx
 server {
     listen 80;
-    server_name cerebro.example.com;
+    server_name secan.example.com;
     
     location / {
         proxy_pass http://localhost:9001;
@@ -432,24 +432,24 @@ server {
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cerebro
+  name: secan
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: cerebro
+      app: secan
   template:
     metadata:
       labels:
-        app: cerebro
+        app: secan
     spec:
       containers:
-      - name: cerebro
-        image: cerebro:latest
+      - name: secan
+        image: secan:latest
         ports:
         - containerPort: 9000
         env:
-        - name: CEREBRO_AUTH_MODE
+        - name: SECAN_AUTH_MODE
           value: "open"
         - name: RUST_LOG
           value: "info"
@@ -476,10 +476,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cerebro
+  name: secan
 spec:
   selector:
-    app: cerebro
+    app: secan
   ports:
   - port: 80
     targetPort: 9000
@@ -492,7 +492,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: cerebro-config
+  name: secan-config
 data:
   config.yaml: |
     server:
@@ -509,12 +509,12 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cerebro
+  name: secan
 spec:
   template:
     spec:
       containers:
-      - name: cerebro
+      - name: secan
         volumeMounts:
         - name: config
           mountPath: /config
@@ -522,7 +522,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: cerebro-config
+          name: secan-config
 ```
 
 ## Troubleshooting
@@ -532,7 +532,7 @@ spec:
 Check logs:
 
 ```bash
-docker logs cerebro
+docker logs secan
 ```
 
 Common issues:
@@ -560,10 +560,10 @@ docker exec cerebro cat /config/config.yaml
 
 ```bash
 # Check health endpoint manually
-docker exec cerebro wget -O- http://localhost:9000/health
+docker exec secan wget -O- http://localhost:9000/health
 
 # Check if service is listening
-docker exec cerebro netstat -tlnp
+docker exec secan netstat -tlnp
 ```
 
 ## Building Custom Images
@@ -579,7 +579,7 @@ FROM rust:${RUST_VERSION}-alpine AS backend-builder
 Build with custom args:
 
 ```bash
-docker build --build-arg RUST_VERSION=1.76 -t cerebro:custom .
+docker build --build-arg RUST_VERSION=1.76 -t secan:custom .
 ```
 
 ### Multi-Architecture Builds
@@ -591,13 +591,13 @@ docker buildx create --use
 # Build for multiple platforms
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t cerebro:latest \
+  -t secan:latest \
   --push .
 ```
 
 ## Maintenance
 
-### Updating Cerebro
+### Updating Secan
 
 ```bash
 # Pull latest image
@@ -615,10 +615,10 @@ docker-compose up -d
 
 ```bash
 # Backup config
-docker cp cerebro:/config/config.yaml ./backup-config.yaml
+docker cp secan:/config/config.yaml ./backup-config.yaml
 
 # Backup with docker-compose
-docker-compose exec cerebro cat /config/config.yaml > backup-config.yaml
+docker-compose exec secan cat /config/config.yaml > backup-config.yaml
 ```
 
 ### Cleanup
@@ -631,13 +631,13 @@ docker-compose down
 docker-compose down -v
 
 # Remove images
-docker rmi cerebro:latest
+docker rmi secan:latest
 ```
 
 ## Support
 
 For issues or questions:
-- Check logs: `docker-compose logs -f cerebro`
+- Check logs: `docker-compose logs -f secan`
 - Verify configuration: `docker-compose config`
 - Test health: `curl http://localhost:9000/health`
 - Review documentation: [CONFIGURATION.md](CONFIGURATION.md)

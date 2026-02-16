@@ -64,11 +64,11 @@ jobs:
           echo "## Downloads" >> release_notes.md
           echo "" >> release_notes.md
           echo "### Binaries" >> release_notes.md
-          echo "- **Linux x86_64**: \`cerebro-linux-x86_64\`" >> release_notes.md
-          echo "- **Linux ARM64**: \`cerebro-linux-aarch64\`" >> release_notes.md
-          echo "- **macOS x86_64**: \`cerebro-macos-x86_64\`" >> release_notes.md
-          echo "- **macOS ARM64** (Apple Silicon): \`cerebro-macos-aarch64\`" >> release_notes.md
-          echo "- **Windows x86_64**: \`cerebro-windows-x86_64.exe\`" >> release_notes.md
+          echo "- **Linux x86_64**: \`secan-linux-x86_64\`" >> release_notes.md
+          echo "- **Linux ARM64**: \`secan-linux-aarch64\`" >> release_notes.md
+          echo "- **macOS x86_64**: \`secan-macos-x86_64\`" >> release_notes.md
+          echo "- **macOS ARM64** (Apple Silicon): \`secan-macos-aarch64\`" >> release_notes.md
+          echo "- **Windows x86_64**: \`secan-windows-x86_64.exe\`" >> release_notes.md
           echo "" >> release_notes.md
           echo "### Docker" >> release_notes.md
           echo "\`\`\`bash" >> release_notes.md
@@ -80,8 +80,8 @@ jobs:
           echo "" >> release_notes.md
           echo "### Binary Installation" >> release_notes.md
           echo "1. Download the appropriate binary for your platform" >> release_notes.md
-          echo "2. Make it executable (Unix/macOS): \`chmod +x cerebro-*\`" >> release_notes.md
-          echo "3. Run: \`./cerebro-* --help\`" >> release_notes.md
+          echo "2. Make it executable (Unix/macOS): \`chmod +x secan-*\`" >> release_notes.md
+          echo "3. Run: \`./secan-* --help\`" >> release_notes.md
           echo "" >> release_notes.md
           echo "### Docker Installation" >> release_notes.md
           echo "\`\`\`bash" >> release_notes.md
@@ -97,7 +97,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: Cerebro ${{ steps.get_version.outputs.version }}
+          release_name: Secan ${{ steps.get_version.outputs.version }}
           body_path: release_notes.md
           draft: false
           prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
@@ -113,31 +113,31 @@ jobs:
           # Linux x86_64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: cerebro-linux-x86_64
+            artifact_name: secan-linux-x86_64
             use_cross: false
           
           # Linux ARM64
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            artifact_name: cerebro-linux-aarch64
+            artifact_name: secan-linux-aarch64
             use_cross: true
           
           # macOS x86_64
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: cerebro-macos-x86_64
+            artifact_name: secan-macos-x86_64
             use_cross: false
           
           # macOS ARM64 (Apple Silicon)
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: cerebro-macos-aarch64
+            artifact_name: secan-macos-aarch64
             use_cross: false
           
           # Windows x86_64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: cerebro-windows-x86_64.exe
+            artifact_name: secan-windows-x86_64.exe
             use_cross: false
 
     steps:
@@ -200,7 +200,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifacts
-          cp backend/target/${{ matrix.target }}/release/cerebro-backend artifacts/${{ matrix.artifact_name }}
+          cp backend/target/${{ matrix.target }}/release/secan_backend artifacts/${{ matrix.artifact_name }}
           chmod +x artifacts/${{ matrix.artifact_name }}
           cd artifacts
           tar czf ${{ matrix.artifact_name }}.tar.gz ${{ matrix.artifact_name }}
@@ -210,7 +210,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           mkdir artifacts
-          copy backend\target\${{ matrix.target }}\release\cerebro-backend.exe artifacts\${{ matrix.artifact_name }}
+          copy backend\target\${{ matrix.target }}\release\secan_backend.exe artifacts\${{ matrix.artifact_name }}
           cd artifacts
           7z a ${{ matrix.artifact_name }}.zip ${{ matrix.artifact_name }}
           certutil -hashfile ${{ matrix.artifact_name }}.zip SHA256 > ${{ matrix.artifact_name }}.zip.sha256

@@ -32,7 +32,7 @@ tasks:
       - Cargo.toml
       - Cargo.lock
     generates:
-      - target/debug/cerebro-backend
+      - target/debug/secan_backend
 
   run-backend:
     desc: Run the backend server

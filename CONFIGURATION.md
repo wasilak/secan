@@ -1,8 +1,8 @@
-# Cerebro Configuration Guide
+# Secan Configuration Guide
 
 ## Authentication Modes
 
-Cerebro supports three authentication modes, configured in `backend/config.yaml`:
+Secan supports three authentication modes, configured in `backend/config.yaml`:
 
 ### 1. Open Mode (No Authentication) ✅ **Currently Active**
 
@@ -196,12 +196,12 @@ cargo run
 
 ## Configuration File Locations
 
-Cerebro looks for configuration in this order:
+Secan looks for configuration in this order:
 
 1. `./config.yaml` (current directory)
 2. `./backend/config.yaml`
-3. `/etc/cerebro/config.yaml`
-4. `~/.config/cerebro/config.yaml`
+3. `/etc/secan/config.yaml`
+4. `~/.config/secan/config.yaml`
 
 You can also specify a custom config file:
 

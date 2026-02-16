@@ -1,4 +1,4 @@
-# Docker Compose configuration for Cerebro development and testing
+# Docker Compose configuration for Secan development and testing
 # This setup provides:
 # - Elasticsearch single-node cluster (no authentication for easy testing)
 # - Original Cerebro (Scala version) for comparison
@@ -15,10 +15,10 @@
 # Access:
 #   Elasticsearch:     http://localhost:9200
 #   Original Cerebro:  http://localhost:9000
-#   Cerebro Rewrite:   http://localhost:27182 (run backend separately: cargo run)
+#   Secan Rewrite:     http://localhost:27182 (run backend separately: cargo run)
 #   Kibana:            http://localhost:5601 (if enabled)
 #
-# Note: Run Cerebro rewrite backend separately with `cargo run` in the backend/ directory.
+# Note: Run Secan rewrite backend separately with `cargo run` in the backend/ directory.
 #       The rewrite uses port 27182 (Euler's number - e ≈ 2.7182) by default.
 #       Both versions can connect to the same Elasticsearch at http://localhost:9200.
 
@@ -40,7 +40,7 @@ services:
     container_name: es01
     environment:
       - node.name=es01
-      - cluster.name=cerebro-test-cluster
+      - cluster.name=secan-test-cluster
       - discovery.type=single-node
       - bootstrap.memory_lock=false
       - "ES_JAVA_OPTS=-Xms768m -Xmx768m"
