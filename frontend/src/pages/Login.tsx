@@ -37,10 +37,10 @@ export function Login() {
       <Container size="xs" py="xl">
         <Paper shadow="md" p="xl" radius="md" withBorder w="100%">
           <Title order={2} ta="center" mb="md">
-            Cerebro
+            Secan
           </Title>
           <Text size="sm" c="dimmed" ta="center" mb="xl">
-            Elasticsearch Web Administration Tool
+            Elasticsearch Cluster Management Tool
           </Text>
 
         <form onSubmit={handleSubmit}>

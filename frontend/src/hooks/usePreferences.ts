@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { UserPreferences, DEFAULT_PREFERENCES } from '../types/preferences';
 
-const PREFERENCES_STORAGE_KEY = 'cerebro-preferences';
+const PREFERENCES_STORAGE_KEY = 'secan-preferences';
 
 /**
  * Hook for managing user preferences with localStorage persistence

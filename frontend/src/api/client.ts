@@ -51,7 +51,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 };
 
 /**
- * API client for communicating with the Cerebro backend
+ * API client for communicating with the Secan backend
  * 
  * Handles authentication, error handling, retry logic with exponential backoff,
  * and provides typed methods for all backend API endpoints.

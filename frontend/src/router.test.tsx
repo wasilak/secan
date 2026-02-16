@@ -74,7 +74,7 @@ describe('Router', () => {
     // The component will try to fetch data and show loading or error state
     // Since we don't have a mock server, it will eventually show an error or loading
     // Just check that the ClusterView component is rendered (it's in the AppShell)
-    expect(screen.getByText('Cerebro')).toBeInTheDocument();
+    expect(screen.getByText('Secan')).toBeInTheDocument();
   });
 
   it('renders REST console at /cluster/:id/rest', () => {
@@ -85,7 +85,7 @@ describe('Router', () => {
   it('includes AppShell for authenticated routes', () => {
     renderWithRouter(['/']);
     // AppShell should be present (check for navigation)
-    expect(screen.getByText('Cerebro')).toBeInTheDocument();
+    expect(screen.getByText('Secan')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
   });
 

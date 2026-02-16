@@ -26,7 +26,7 @@ describe('usePreferences', () => {
         restConsoleHistory: [],
       };
 
-      localStorage.setItem('cerebro-preferences', JSON.stringify(storedPreferences));
+      localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
       const { result } = renderHook(() => usePreferences());
 
@@ -34,7 +34,7 @@ describe('usePreferences', () => {
     });
 
     it('should handle corrupted localStorage data gracefully', () => {
-      localStorage.setItem('cerebro-preferences', 'invalid json{');
+      localStorage.setItem('secan-preferences', 'invalid json{');
 
       const { result } = renderHook(() => usePreferences());
 
@@ -48,7 +48,7 @@ describe('usePreferences', () => {
         restConsoleHistory: [],
       };
 
-      localStorage.setItem('cerebro-preferences', JSON.stringify(storedPreferences));
+      localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
       const { result } = renderHook(() => usePreferences());
 
@@ -62,7 +62,7 @@ describe('usePreferences', () => {
         restConsoleHistory: [],
       };
 
-      localStorage.setItem('cerebro-preferences', JSON.stringify(storedPreferences));
+      localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
       const { result } = renderHook(() => usePreferences());
 
@@ -76,7 +76,7 @@ describe('usePreferences', () => {
         restConsoleHistory: 'not an array',
       };
 
-      localStorage.setItem('cerebro-preferences', JSON.stringify(storedPreferences));
+      localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
       const { result } = renderHook(() => usePreferences());
 
@@ -141,7 +141,7 @@ describe('usePreferences', () => {
         result.current.updatePreference('refreshInterval', 60000);
       });
 
-      const stored = localStorage.getItem('cerebro-preferences');
+      const stored = localStorage.getItem('secan-preferences');
       expect(stored).toBeTruthy();
 
       const parsed = JSON.parse(stored!);
@@ -177,7 +177,7 @@ describe('usePreferences', () => {
         result.current.updatePreference('theme', 'dark');
       });
 
-      expect(localStorage.getItem('cerebro-preferences')).toBeTruthy();
+      expect(localStorage.getItem('secan-preferences')).toBeTruthy();
 
       // Reset
       act(() => {
@@ -185,7 +185,7 @@ describe('usePreferences', () => {
       });
 
       // After reset, default preferences should be saved to localStorage
-      const stored = localStorage.getItem('cerebro-preferences');
+      const stored = localStorage.getItem('secan-preferences');
       expect(stored).toBeTruthy();
       const parsed = JSON.parse(stored!);
       expect(parsed).toEqual(DEFAULT_PREFERENCES);

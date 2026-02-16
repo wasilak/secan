@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * Accessibility utilities for Cerebro
+ * Accessibility utilities for Secan
  * 
  * Provides utilities for:
  * - Color contrast verification

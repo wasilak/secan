@@ -237,7 +237,7 @@ export function RestConsole() {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cerebro-rest-history-${Date.now()}.json`;
+    link.download = `secan-rest-history-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
 
