@@ -20,6 +20,12 @@ interface ShardGridState {
   loading: boolean;
   error: Error | null;
   
+  // Polling State - Requirements: 7.2, 7.3
+  isPolling: boolean;
+  pollingIntervalId: number | null;
+  pollingStartTime: number | null;
+  relocatingShards: Set<string>; // Set of "index:shard:primary" keys for tracking
+  
   // Actions
   setNodes: (nodes: NodeWithShards[]) => void;
   setIndices: (indices: IndexMetadata[]) => void;
@@ -31,6 +37,13 @@ interface ShardGridState {
   enterRelocationMode: (shard: ShardInfo) => void;
   exitRelocationMode: () => void;
   calculateDestinations: (shard: ShardInfo, nodes: NodeWithShards[]) => void;
+  
+  // Polling actions - Requirements: 7.2, 7.3
+  startPolling: (intervalId: number) => void;
+  stopPolling: () => void;
+  addRelocatingShard: (shard: ShardInfo) => void;
+  removeRelocatingShard: (shard: ShardInfo) => void;
+  isShardRelocating: (shard: ShardInfo) => boolean;
   
   // Reset state
   reset: () => void;
@@ -48,7 +61,19 @@ const initialState = {
   destinationIndicators: new Map<string, ShardInfo>(),
   loading: false,
   error: null,
+  isPolling: false,
+  pollingIntervalId: null,
+  pollingStartTime: null,
+  relocatingShards: new Set<string>(),
 };
+
+/**
+ * Generate a unique key for a shard
+ * Used for tracking relocating shards
+ */
+function getShardKey(shard: ShardInfo): string {
+  return `${shard.index}:${shard.shard}:${shard.primary}`;
+}
 
 /**
  * Calculate valid destination nodes for shard relocation
@@ -148,6 +173,49 @@ export const useShardGridStore = create<ShardGridState>((set, get) => ({
   calculateDestinations: (shard, nodes) => {
     const destinations = calculateValidDestinations(shard, nodes);
     set({ destinationIndicators: destinations });
+  },
+  
+  // Polling actions - Requirements: 7.2, 7.3
+  startPolling: (intervalId) => {
+    set({
+      isPolling: true,
+      pollingIntervalId: intervalId,
+      pollingStartTime: Date.now(),
+    });
+  },
+  
+  stopPolling: () => {
+    const { pollingIntervalId } = get();
+    if (pollingIntervalId !== null) {
+      clearInterval(pollingIntervalId);
+    }
+    set({
+      isPolling: false,
+      pollingIntervalId: null,
+      pollingStartTime: null,
+    });
+  },
+  
+  addRelocatingShard: (shard) => {
+    const { relocatingShards } = get();
+    const key = getShardKey(shard);
+    const newSet = new Set(relocatingShards);
+    newSet.add(key);
+    set({ relocatingShards: newSet });
+  },
+  
+  removeRelocatingShard: (shard) => {
+    const { relocatingShards } = get();
+    const key = getShardKey(shard);
+    const newSet = new Set(relocatingShards);
+    newSet.delete(key);
+    set({ relocatingShards: newSet });
+  },
+  
+  isShardRelocating: (shard) => {
+    const { relocatingShards } = get();
+    const key = getShardKey(shard);
+    return relocatingShards.has(key);
   },
   
   // Reset all state
