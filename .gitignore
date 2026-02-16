@@ -22,10 +22,10 @@ server.pid
 *.eml
 activator-*.sbt
 node_modules
-cerebro.db
+secan.db
 
 # Docker Compose local config
-cerebro-config/
+secan-config/
 
 # Frontend build artifacts (embedded by rust-embed during backend build)
 backend/assets/
