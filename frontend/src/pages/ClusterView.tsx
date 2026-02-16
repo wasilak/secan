@@ -779,7 +779,7 @@ function NodesList({
                         ))}
                       </Group>
                     ) : (
-                      <RoleIcons roles={node.roles} />
+                      <RoleIcons roles={node.roles} size={24} />
                     )}
                   </Table.Td>
                   {expandedView && (
@@ -2046,7 +2046,7 @@ function ShardAllocationGrid({
                             })}
                           </Group>
                         ) : (
-                          <RoleIcons roles={node.roles} size={14} />
+                          <RoleIcons roles={node.roles} size={24} />
                         )}
                         {expandedView && (
                           <>

@@ -90,7 +90,7 @@ The tasks are organized into phases for incremental delivery.
     - Update release scripts
     - _Requirements: 1.4_
 
-- [-] 5. Checkpoint - Rebranding complete (Phase 1)
+- [x] 5. Checkpoint - Rebranding complete (Phase 1)
   - Verify all builds succeed with new name
   - Test Docker image builds
   - Verify no references to "Cerebro" in user-facing text
