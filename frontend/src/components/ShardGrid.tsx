@@ -458,6 +458,7 @@ export function ShardGrid({
         shard={statsModalShard}
         opened={statsModalOpened}
         onClose={() => setStatsModalOpened(false)}
+        clusterId={clusterId}
       />
     </Box>
   );

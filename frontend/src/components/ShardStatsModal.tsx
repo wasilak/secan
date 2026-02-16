@@ -1,5 +1,8 @@
-import { Modal, Stack, Group, Text, Badge, Table, Box } from '@mantine/core';
-import type { ShardInfo } from '../types/api';
+import { Modal, Stack, Group, Text, Badge, Table, Box, Loader, Alert } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { IconAlertCircle } from '@tabler/icons-react';
+import type { ShardInfo, DetailedShardStats } from '../types/api';
+import { apiClient } from '../api/client';
 
 /**
  * Props for ShardStatsModal component
@@ -8,6 +11,7 @@ interface ShardStatsModalProps {
   shard: ShardInfo | null;
   opened: boolean;
   onClose: () => void;
+  clusterId?: string;
 }
 
 /**
@@ -22,7 +26,151 @@ export function ShardStatsModal({
   shard,
   opened,
   onClose,
+  clusterId,
 }: ShardStatsModalProps): JSX.Element {
+  const [detailedStats, setDetailedStats] = useState<DetailedShardStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch detailed shard stats when modal opens - Requirements: 4.6
+  useEffect(() => {
+    if (!opened || !shard || !clusterId || shard.state === 'UNASSIGNED') {
+      setDetailedStats(null);
+      setError(null);
+      return;
+    }
+    
+    const fetchDetailedStats = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Call shard stats API - Requirements: 4.6
+        const stats = await apiClient.getShardStats(
+          clusterId,
+          shard.index,
+          shard.shard
+        );
+        
+        // Parse response and extract relevant metrics
+        // The response structure depends on the Elasticsearch version
+        // We'll extract segments, merges, refreshes, flushes if available
+        const parsedStats: DetailedShardStats = {
+          ...shard,
+          segments: extractSegmentCount(stats),
+          merges: extractMergeCount(stats),
+          refreshes: extractRefreshCount(stats),
+          flushes: extractFlushCount(stats),
+        };
+        
+        setDetailedStats(parsedStats);
+      } catch (err) {
+        console.error('Failed to fetch detailed shard stats:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch shard statistics');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDetailedStats();
+  }, [opened, shard, clusterId]);
+  
+  // Helper functions to extract metrics from ES response
+  const extractSegmentCount = (stats: unknown): number | undefined => {
+    try {
+      const data = stats as Record<string, unknown>;
+      const indices = data.indices as Record<string, unknown> | undefined;
+      if (!indices) return undefined;
+      
+      const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
+      if (!indexData) return undefined;
+      
+      const shards = indexData.shards as Record<string, unknown[]> | undefined;
+      if (!shards) return undefined;
+      
+      const shardArray = Object.values(shards)[0];
+      if (!shardArray || shardArray.length === 0) return undefined;
+      
+      const shardData = shardArray[0] as Record<string, unknown>;
+      const segments = shardData.segments as Record<string, unknown> | undefined;
+      
+      return segments?.count as number | undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  
+  const extractMergeCount = (stats: unknown): number | undefined => {
+    try {
+      const data = stats as Record<string, unknown>;
+      const indices = data.indices as Record<string, unknown> | undefined;
+      if (!indices) return undefined;
+      
+      const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
+      if (!indexData) return undefined;
+      
+      const shards = indexData.shards as Record<string, unknown[]> | undefined;
+      if (!shards) return undefined;
+      
+      const shardArray = Object.values(shards)[0];
+      if (!shardArray || shardArray.length === 0) return undefined;
+      
+      const shardData = shardArray[0] as Record<string, unknown>;
+      const merges = shardData.merges as Record<string, unknown> | undefined;
+      
+      return merges?.current as number | undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  
+  const extractRefreshCount = (stats: unknown): number | undefined => {
+    try {
+      const data = stats as Record<string, unknown>;
+      const indices = data.indices as Record<string, unknown> | undefined;
+      if (!indices) return undefined;
+      
+      const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
+      if (!indexData) return undefined;
+      
+      const shards = indexData.shards as Record<string, unknown[]> | undefined;
+      if (!shards) return undefined;
+      
+      const shardArray = Object.values(shards)[0];
+      if (!shardArray || shardArray.length === 0) return undefined;
+      
+      const shardData = shardArray[0] as Record<string, unknown>;
+      const refresh = shardData.refresh as Record<string, unknown> | undefined;
+      
+      return refresh?.total as number | undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  
+  const extractFlushCount = (stats: unknown): number | undefined => {
+    try {
+      const data = stats as Record<string, unknown>;
+      const indices = data.indices as Record<string, unknown> | undefined;
+      if (!indices) return undefined;
+      
+      const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
+      if (!indexData) return undefined;
+      
+      const shards = indexData.shards as Record<string, unknown[]> | undefined;
+      if (!shards) return undefined;
+      
+      const shardArray = Object.values(shards)[0];
+      if (!shardArray || shardArray.length === 0) return undefined;
+      
+      const shardData = shardArray[0] as Record<string, unknown>;
+      const flush = shardData.flush as Record<string, unknown> | undefined;
+      
+      return flush?.total as number | undefined;
+    } catch {
+      return undefined;
+    }
+  };
   // Format size in bytes to human-readable format
   const formatSize = (bytes?: number): string => {
     if (bytes === undefined || bytes === 0) return '0 B';
@@ -189,19 +337,98 @@ export function ShardStatsModal({
           </Table>
         </Box>
         
-        {/* Note about detailed stats */}
-        <Box
-          p="sm"
-          style={{
-            backgroundColor: 'var(--mantine-color-blue-light)',
-            borderRadius: 'var(--mantine-radius-sm)',
-          }}
-        >
-          <Text size="sm" c="dimmed">
-            <strong>Note:</strong> Detailed shard statistics (segments, merges, refreshes, flushes) 
-            will be fetched from the Elasticsearch API in the next subtask.
-          </Text>
-        </Box>
+        {/* Detailed statistics - Requirements: 4.6 */}
+        {shard.state !== 'UNASSIGNED' && (
+          <Box>
+            <Text size="sm" fw={600} mb="xs">
+              Detailed Statistics
+            </Text>
+            
+            {loading && (
+              <Box p="md" style={{ textAlign: 'center' }}>
+                <Loader size="sm" />
+                <Text size="sm" c="dimmed" mt="xs">
+                  Loading detailed statistics...
+                </Text>
+              </Box>
+            )}
+            
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light">
+                {error}
+              </Alert>
+            )}
+            
+            {!loading && !error && detailedStats && (
+              <Table withTableBorder withColumnBorders>
+                <Table.Tbody>
+                  {/* Segments count - Requirements: 4.6 */}
+                  <Table.Tr>
+                    <Table.Td fw={500} w="40%">
+                      Segments
+                    </Table.Td>
+                    <Table.Td>
+                      <Text>{formatNumber(detailedStats.segments)}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  
+                  {/* Merges count - Requirements: 4.6 */}
+                  <Table.Tr>
+                    <Table.Td fw={500}>Merges (current)</Table.Td>
+                    <Table.Td>
+                      <Text>{formatNumber(detailedStats.merges)}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  
+                  {/* Refreshes count - Requirements: 4.6 */}
+                  <Table.Tr>
+                    <Table.Td fw={500}>Refreshes (total)</Table.Td>
+                    <Table.Td>
+                      <Text>{formatNumber(detailedStats.refreshes)}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                  
+                  {/* Flushes count - Requirements: 4.6 */}
+                  <Table.Tr>
+                    <Table.Td fw={500}>Flushes (total)</Table.Td>
+                    <Table.Td>
+                      <Text>{formatNumber(detailedStats.flushes)}</Text>
+                    </Table.Td>
+                  </Table.Tr>
+                </Table.Tbody>
+              </Table>
+            )}
+            
+            {!loading && !error && !detailedStats && (
+              <Box
+                p="sm"
+                style={{
+                  backgroundColor: 'var(--mantine-color-gray-light)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                }}
+              >
+                <Text size="sm" c="dimmed">
+                  Detailed statistics are not available for this shard.
+                </Text>
+              </Box>
+            )}
+          </Box>
+        )}
+        
+        {/* Note for unassigned shards */}
+        {shard.state === 'UNASSIGNED' && (
+          <Box
+            p="sm"
+            style={{
+              backgroundColor: 'var(--mantine-color-yellow-light)',
+              borderRadius: 'var(--mantine-radius-sm)',
+            }}
+          >
+            <Text size="sm" c="dimmed">
+              <strong>Note:</strong> Detailed statistics are not available for unassigned shards.
+            </Text>
+          </Box>
+        )}
       </Stack>
     </Modal>
   );

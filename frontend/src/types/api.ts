@@ -251,6 +251,18 @@ export interface ShardInfo {
 }
 
 /**
+ * Detailed shard statistics
+ * Extends ShardInfo with additional metrics from shard stats API
+ * Requirements: 4.6
+ */
+export interface DetailedShardStats extends ShardInfo {
+  segments?: number;
+  merges?: number;
+  refreshes?: number;
+  flushes?: number;
+}
+
+/**
  * Node with shards for shard grid visualization
  * Extends NodeInfo with shard allocation map
  */
