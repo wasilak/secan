@@ -466,7 +466,7 @@ The tasks are organized into phases for incremental delivery.
     - Test error handling
     - _Requirements: 5.10, 5.11, 5.12_
 
-- [ ] 20. Checkpoint - Backend integration complete
+- [-] 20. Checkpoint - Backend integration complete
   - Test end-to-end relocation flow
   - Verify API calls succeed
   - Verify error handling works
