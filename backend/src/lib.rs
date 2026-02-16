@@ -1,4 +1,4 @@
-// Library exports for the Cerebro backend
+// Library exports for the Secan backend
 // This allows other crates to use our modules
 
 pub mod assets;

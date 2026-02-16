@@ -1,4 +1,4 @@
-use cerebro_backend::config::Config;
+use secan::config::Config;
 
 fn main() -> anyhow::Result<()> {
     // Initialize tracing
@@ -27,16 +27,16 @@ fn main() -> anyhow::Result<()> {
     println!("\n✅ Configuration loaded successfully!");
     println!("\nEnvironment variables checked:");
     println!(
-        "  CEREBRO_CONFIG_FILE: {:?}",
-        std::env::var("CEREBRO_CONFIG_FILE").ok()
+        "  SECAN_CONFIG_FILE: {:?}",
+        std::env::var("SECAN_CONFIG_FILE").ok()
     );
     println!(
-        "  CEREBRO_SERVER__PORT: {:?}",
-        std::env::var("CEREBRO_SERVER__PORT").ok()
+        "  SECAN_SERVER__PORT: {:?}",
+        std::env::var("SECAN_SERVER__PORT").ok()
     );
     println!(
-        "  CEREBRO_SERVER__HOST: {:?}",
-        std::env::var("CEREBRO_SERVER__HOST").ok()
+        "  SECAN_SERVER__HOST: {:?}",
+        std::env::var("SECAN_SERVER__HOST").ok()
     );
 
     Ok(())

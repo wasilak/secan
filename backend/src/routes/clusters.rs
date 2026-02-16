@@ -296,9 +296,7 @@ pub async fn get_node_stats(
     // Get shards for data nodes
     let shards = if let Some(node_info) = nodes_info["nodes"][&node_id].as_object() {
         if let Some(roles) = node_info.get("roles").and_then(|r| r.as_array()) {
-            let has_data_role = roles
-                .iter()
-                .any(|r| r.as_str() == Some("data"));
+            let has_data_role = roles.iter().any(|r| r.as_str() == Some("data"));
             if has_data_role {
                 Some(cluster_state.clone())
             } else {

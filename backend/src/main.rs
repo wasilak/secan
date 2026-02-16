@@ -1,7 +1,7 @@
-use cerebro_backend::auth::{SessionConfig, SessionManager};
-use cerebro_backend::cluster::Manager as ClusterManager;
-use cerebro_backend::config::Config;
-use cerebro_backend::Server;
+use secan::auth::{SessionConfig, SessionManager};
+use secan::cluster::Manager as ClusterManager;
+use secan::config::Config;
+use secan::Server;
 use std::sync::Arc;
 use tracing::info;
 
@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
         .with_line_number(true)
         .init();
 
-    info!("Cerebro - Elasticsearch Web Administration Tool");
+    info!("Secan - Elasticsearch Cluster Management Tool");
     info!("Starting backend server...");
 
     // Load configuration

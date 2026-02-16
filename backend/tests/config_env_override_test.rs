@@ -1,4 +1,4 @@
-use cerebro_backend::config::Config;
+use secan::config::Config;
 use std::env;
 use std::fs;
 use tempfile::TempDir;
@@ -26,8 +26,8 @@ clusters:
     fs::write(&config_path, yaml_content).unwrap();
 
     // Set environment variables
-    env::set_var("CEREBRO_SERVER__PORT", "9999");
-    env::set_var("CEREBRO_SERVER__HOST", "0.0.0.0");
+    env::set_var("SECAN_SERVER__PORT", "9999");
+    env::set_var("SECAN_SERVER__HOST", "0.0.0.0");
 
     let config = Config::from_file(config_path.to_str().unwrap()).unwrap();
 
@@ -48,16 +48,16 @@ clusters:
     );
 
     // Clean up
-    env::remove_var("CEREBRO_SERVER__PORT");
-    env::remove_var("CEREBRO_SERVER__HOST");
+    env::remove_var("SECAN_SERVER__PORT");
+    env::remove_var("SECAN_SERVER__HOST");
 }
 
 #[test]
 fn test_missing_config_file_uses_defaults() {
     // Clear any environment variables
-    env::remove_var("CEREBRO_SERVER__PORT");
-    env::remove_var("CEREBRO_SERVER__HOST");
-    env::remove_var("CEREBRO_CONFIG_FILE");
+    env::remove_var("SECAN_SERVER__PORT");
+    env::remove_var("SECAN_SERVER__HOST");
+    env::remove_var("SECAN_CONFIG_FILE");
 
     let result = Config::from_file("nonexistent.yaml");
 

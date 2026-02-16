@@ -338,47 +338,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cerebro-backend"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "argon2",
- "async-trait",
- "axum",
- "base64 0.22.1",
- "bcrypt",
- "chrono",
- "clap",
- "config",
- "elasticsearch",
- "http",
- "jsonwebtoken",
- "mime_guess",
- "proptest",
- "rand 0.8.5",
- "reqwest",
- "rust-embed",
- "rustls 0.22.4",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "tokio-rustls 0.25.0",
- "tokio-test",
- "tower 0.4.13",
- "tower-http 0.5.2",
- "tracing",
- "tracing-subscriber",
- "url",
- "urlencoding",
- "uuid",
- "wiremock",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2443,6 +2402,47 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "secan"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "async-trait",
+ "axum",
+ "base64 0.22.1",
+ "bcrypt",
+ "chrono",
+ "clap",
+ "config",
+ "elasticsearch",
+ "http",
+ "jsonwebtoken",
+ "mime_guess",
+ "proptest",
+ "rand 0.8.5",
+ "reqwest",
+ "rust-embed",
+ "rustls 0.22.4",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-rustls 0.25.0",
+ "tokio-test",
+ "tower 0.4.13",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "urlencoding",
+ "uuid",
+ "wiremock",
+]
 
 [[package]]
 name = "security-framework"
