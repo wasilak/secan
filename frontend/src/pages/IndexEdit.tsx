@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Text,
   Card,
   Button,
@@ -16,6 +15,7 @@ import {
   Box,
   Badge,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck, IconSettings, IconMap, IconInfoCircle, IconChartBar } from '@tabler/icons-react';
@@ -377,17 +377,17 @@ export function IndexEdit() {
 
   if (!clusterId || !indexName) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl" py="md">
+      <FullWidthContainer>
         <Group justify="space-between" mb="md">
           <div>
             <Skeleton height={32} width={200} mb="xs" />
@@ -402,14 +402,14 @@ export function IndexEdit() {
             <Skeleton height={400} />
           </Card>
         </Stack>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (loadError) {
     const errorDetails = parseError(loadError);
     return (
-      <Container size="xl" py="md">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Index" color="red">
           {errorDetails.message}
         </Alert>
@@ -420,12 +420,12 @@ export function IndexEdit() {
         >
           Back to Indices
         </Button>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <FullWidthContainer style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
         <Group gap="xs">
           <Badge size="lg" variant="light" color="blue">{indexName}</Badge>
@@ -624,6 +624,6 @@ export function IndexEdit() {
           </Button>
         </Group>
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }

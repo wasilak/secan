@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -12,6 +11,7 @@ import {
   Alert,
   Box,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
@@ -208,16 +208,16 @@ export function IndexCreate() {
 
   if (!clusterId) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID is required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={1}>Create Index</Title>
@@ -370,6 +370,6 @@ export function IndexCreate() {
           </Button>
         </Group>
       </Card>
-    </Container>
+    </FullWidthContainer>
   );
 }

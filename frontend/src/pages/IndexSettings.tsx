@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -11,6 +10,7 @@ import {
   Skeleton,
   Box,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
@@ -230,17 +230,17 @@ export function IndexSettings() {
 
   if (!clusterId || !indexName) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (isLoading) {
     return (
-      <Container size="xl" py="md">
+      <FullWidthContainer>
         <Group justify="space-between" mb="md">
           <div>
             <Skeleton height={32} width={200} mb="xs" />
@@ -260,14 +260,14 @@ export function IndexSettings() {
             <Skeleton height={20} width="90%" />
           </Card>
         </Stack>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     const errorDetails = parseError(error);
     return (
-      <Container size="xl" py="md">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Settings" color="red">
           {errorDetails.message}
         </Alert>
@@ -278,12 +278,12 @@ export function IndexSettings() {
         >
           Back to Indices
         </Button>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={1}>Index Settings</Title>
@@ -365,6 +365,6 @@ export function IndexSettings() {
           </Stack>
         </Card>
       </Stack>
-    </Container>
+    </FullWidthContainer>
   );
 }

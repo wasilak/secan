@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Card,
@@ -16,6 +15,7 @@ import {
   Select,
   Accordion,
 } from '@mantine/core';
+import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconSearch, IconFilter } from '@tabler/icons-react';
@@ -64,11 +64,11 @@ export function IndexAnalyzersPage() {
 
   if (!id || !indexName) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
@@ -77,21 +77,21 @@ export function IndexAnalyzersPage() {
 
   if (isLoading) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Group justify="center" mt="xl">
           <Loader size="lg" />
         </Group>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
   if (error) {
     return (
-      <Container size="xl">
+      <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load index analyzers: {(error as Error).message}
         </Alert>
-      </Container>
+      </FullWidthContainer>
     );
   }
 
@@ -106,7 +106,7 @@ export function IndexAnalyzersPage() {
   const fieldTypes = Array.from(new Set(fieldsData?.fields.map((f: FieldInfo) => f.type) || [])).sort();
 
   return (
-    <Container size="xl" py="md">
+    <FullWidthContainer>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Index Analyzers & Fields</Title>
@@ -385,6 +385,6 @@ export function IndexAnalyzersPage() {
           </Card>
         </Tabs.Panel>
       </Tabs>
-    </Container>
+    </FullWidthContainer>
   );
 }
