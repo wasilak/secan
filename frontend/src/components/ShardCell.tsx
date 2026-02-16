@@ -69,7 +69,7 @@ function getShardBackgroundColor(primary: boolean, state: ShardInfo['state']): s
  * - Support for destination indicators (dashed border)
  * - Pulsing animation for selected shards
  * 
- * Requirements: 3.4, 3.5, 3.6, 3.7
+ * Requirements: 3.4, 3.5, 3.6, 3.7, 4.1
  */
 export function ShardCell({
   shard,
@@ -88,9 +88,13 @@ export function ShardCell({
     : borderColor;
   
   // Selected shards have thicker border and pulsing animation
+  // Requirements: 4.1
   const borderWidth = isSelected ? '3px' : '2px';
   
-  const handleClick = () => {
+  // Handle click events for shard selection
+  // Requirements: 4.1
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
     if (onClick) {
       onClick(shard);
     }
@@ -150,7 +154,7 @@ export function ShardCell({
         onKeyDown={(e) => {
           if (onClick && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
-            handleClick();
+            handleClick(e as unknown as React.MouseEvent);
           }
         }}
         >

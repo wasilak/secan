@@ -41,6 +41,8 @@ export function ShardGrid({
     unassignedShards,
     loading,
     error,
+    selectedShard,
+    selectShard,
   } = useShardGridStore();
   
   // Auto-refresh logic - Requirements: 3.12
@@ -68,9 +70,11 @@ export function ShardGrid({
     };
   }, [clusterId, refreshInterval]);
   
-  // Handle shard click
+  // Handle shard click - Requirements: 4.1
   const handleShardClick = (shard: ShardInfo) => {
-    // TODO: Implement context menu in Phase 4
+    // Update selected shard in state
+    selectShard(shard);
+    // Context menu will be implemented in task 12.2
     console.log('Shard clicked:', shard);
   };
   
@@ -296,13 +300,23 @@ export function ShardGrid({
                     >
                       {shards.length > 0 ? (
                         <Group gap="xs" justify="center" wrap="wrap">
-                          {shards.map((shard) => (
-                            <ShardCell
-                              key={`${shard.index}-${shard.shard}-${shard.primary}`}
-                              shard={shard}
-                              onClick={handleShardClick}
-                            />
-                          ))}
+                          {shards.map((shard) => {
+                            // Check if this shard is selected - Requirements: 4.1
+                            const isSelected = selectedShard !== null &&
+                              selectedShard.index === shard.index &&
+                              selectedShard.shard === shard.shard &&
+                              selectedShard.primary === shard.primary &&
+                              selectedShard.node === shard.node;
+                            
+                            return (
+                              <ShardCell
+                                key={`${shard.index}-${shard.shard}-${shard.primary}`}
+                                shard={shard}
+                                isSelected={isSelected}
+                                onClick={handleShardClick}
+                              />
+                            );
+                          })}
                         </Group>
                       ) : (
                         <Text size="xs" c="dimmed">
@@ -359,13 +373,23 @@ export function ShardGrid({
                     >
                       {indexUnassignedShards.length > 0 ? (
                         <Group gap="xs" justify="center" wrap="wrap">
-                          {indexUnassignedShards.map((shard) => (
-                            <ShardCell
-                              key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
-                              shard={shard}
-                              onClick={handleShardClick}
-                            />
-                          ))}
+                          {indexUnassignedShards.map((shard) => {
+                            // Check if this shard is selected - Requirements: 4.1
+                            const isSelected = selectedShard !== null &&
+                              selectedShard.index === shard.index &&
+                              selectedShard.shard === shard.shard &&
+                              selectedShard.primary === shard.primary &&
+                              selectedShard.state === 'UNASSIGNED';
+                            
+                            return (
+                              <ShardCell
+                                key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
+                                shard={shard}
+                                isSelected={isSelected}
+                                onClick={handleShardClick}
+                              />
+                            );
+                          })}
                         </Group>
                       ) : (
                         <Text size="xs" c="dimmed">

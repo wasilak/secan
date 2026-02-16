@@ -273,8 +273,8 @@ The tasks are organized into phases for incremental delivery.
 
 ### Phase 4: Shard Selection and Context Menu
 
-- [ ] 12. Implement shard selection
-  - [ ] 12.1 Add click handling to ShardCell
+- [-] 12. Implement shard selection
+  - [-] 12.1 Add click handling to ShardCell
     - Handle shard click events
     - Update selected shard in state
     - Highlight selected shard
