@@ -1,9 +1,9 @@
 [package]
-name = "cerebro-backend"
+name = "secan"
 version = "0.1.0"
 edition = "2021"
-authors = ["Cerebro Contributors"]
-description = "Elasticsearch web administration tool - Backend"
+authors = ["Secan Contributors"]
+description = "Elasticsearch cluster management tool - Backend"
 license = "MIT"
 
 [dependencies]

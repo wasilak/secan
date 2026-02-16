@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cerebro backend is designed to run behind a reverse proxy that handles TLS termination. This is the recommended approach for production deployments of Rust web applications.
+Secan backend is designed to run behind a reverse proxy that handles TLS termination. This is the recommended approach for production deployments of Rust web applications.
 
 ## Why Use a Reverse Proxy?
 
@@ -19,7 +19,7 @@ Cerebro backend is designed to run behind a reverse proxy that handles TLS termi
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name cerebro.example.com;
+    server_name secan.example.com;
 
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
@@ -29,7 +29,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
     
-    # Security headers (in addition to those set by Cerebro)
+    # Security headers (in addition to those set by Secan)
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
     
     location / {
@@ -44,7 +44,7 @@ server {
 # Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name cerebro.example.com;
+    server_name secan.example.com;
     return 301 https://$server_name$request_uri;
 }
 ```
@@ -71,14 +71,14 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./letsencrypt:/letsencrypt"
 
-  cerebro:
-    image: cerebro:latest
+  secan:
+    image: secan:latest
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.cerebro.rule=Host(`cerebro.example.com`)"
-      - "traefik.http.routers.cerebro.entrypoints=websecure"
-      - "traefik.http.routers.cerebro.tls.certresolver=letsencrypt"
-      - "traefik.http.services.cerebro.loadbalancer.server.port=9000"
+      - "traefik.http.routers.secan.rule=Host(`secan.example.com`)"
+      - "traefik.http.routers.secan.entrypoints=websecure"
+      - "traefik.http.routers.secan.tls.certresolver=letsencrypt"
+      - "traefik.http.services.secan.loadbalancer.server.port=9000"
 ```
 
 ### Caddy
@@ -86,7 +86,7 @@ services:
 Caddy automatically handles TLS certificates via Let's Encrypt:
 
 ```caddyfile
-cerebro.example.com {
+secan.example.com {
     reverse_proxy localhost:9000
     
     # Caddy automatically adds security headers
@@ -102,13 +102,13 @@ cerebro.example.com {
 version: '3.8'
 
 services:
-  cerebro:
-    image: cerebro:latest
+  secan:
+    image: secan:latest
     environment:
-      - CEREBRO_SERVER__HOST=0.0.0.0
-      - CEREBRO_SERVER__PORT=9000
+      - SECAN_SERVER__HOST=0.0.0.0
+      - SECAN_SERVER__PORT=9000
     networks:
-      - cerebro-network
+      - secan-network
 
   nginx:
     image: nginx:alpine
@@ -119,12 +119,12 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      - cerebro
+      - secan
     networks:
-      - cerebro-network
+      - secan-network
 
 networks:
-  cerebro-network:
+  secan-network:
     driver: bridge
 ```
 
@@ -134,24 +134,24 @@ networks:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: cerebro-ingress
+  name: secan-ingress
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   tls:
   - hosts:
-    - cerebro.example.com
-    secretName: cerebro-tls
+    - secan.example.com
+    secretName: secan-tls
   rules:
-  - host: cerebro.example.com
+  - host: secan.example.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: cerebro-service
+            name: secan-service
             port:
               number: 9000
 ```
@@ -160,7 +160,7 @@ spec:
 
 ### 1. Security Headers
 
-Cerebro sets the following security headers automatically:
+Secan sets the following security headers automatically:
 - `Content-Security-Policy`
 - `Strict-Transport-Security` (HSTS)
 - `X-Frame-Options`
@@ -188,13 +188,13 @@ Options for certificate management:
 
 ### 4. Network Security
 
-- Run Cerebro on localhost (127.0.0.1) if reverse proxy is on same host
+- Run Secan on localhost (127.0.0.1) if reverse proxy is on same host
 - Use internal network if reverse proxy is on different host
-- Never expose Cerebro directly to the internet without TLS
+- Never expose Secan directly to the internet without TLS
 
 ## Configuration Example
 
-### Cerebro Configuration (config.yaml)
+### Secan Configuration (config.yaml)
 
 ```yaml
 server:
@@ -226,13 +226,13 @@ clusters:
 
 ```bash
 # Test TLS handshake
-openssl s_client -connect cerebro.example.com:443 -servername cerebro.example.com
+openssl s_client -connect secan.example.com:443 -servername secan.example.com
 
 # Check certificate
-curl -vI https://cerebro.example.com
+curl -vI https://secan.example.com
 
 # Test security headers
-curl -I https://cerebro.example.com
+curl -I https://secan.example.com
 ```
 
 ### 2. SSL Labs Test
@@ -262,14 +262,14 @@ openssl verify -CAfile /path/to/ca.pem /path/to/cert.pem
 curl http://localhost:9000/health
 
 # Test through reverse proxy (should work with TLS)
-curl https://cerebro.example.com/health
+curl https://secan.example.com/health
 ```
 
 ### Header Issues
 
 ```bash
 # Check if security headers are present
-curl -I https://cerebro.example.com | grep -i "strict-transport-security\|content-security-policy\|x-frame-options"
+curl -I https://secan.example.com | grep -i "strict-transport-security\|content-security-policy\|x-frame-options"
 ```
 
 ## Requirements Validation
@@ -277,7 +277,7 @@ curl -I https://cerebro.example.com | grep -i "strict-transport-security\|conten
 This deployment approach validates the following requirements:
 
 - **Requirement 30.1**: HTTPS by default (via reverse proxy)
-- **Requirement 30.2**: Secure HTTP headers (set by Cerebro)
+- **Requirement 30.2**: Secure HTTP headers (set by Secan)
 - **Requirement 30.8**: Secure defaults (authentication required, HTTPS recommended)
 
 ## Additional Resources

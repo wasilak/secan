@@ -432,12 +432,12 @@ impl Config {
     /// Load configuration from file and environment variables
     ///
     /// Priority (highest to lowest):
-    /// 1. Environment variables (CEREBRO_*)
+    /// 1. Environment variables (SECAN_*)
     /// 2. Configuration file
     /// 3. Default values
     pub fn load() -> anyhow::Result<Self> {
         let config_path =
-            env::var("CEREBRO_CONFIG_FILE").unwrap_or_else(|_| "config.yaml".to_string());
+            env::var("SECAN_CONFIG_FILE").unwrap_or_else(|_| "config.yaml".to_string());
 
         Self::from_file(&config_path)
     }
@@ -459,11 +459,11 @@ impl Config {
         };
 
         // Add environment variable overrides
-        // Environment variables should be prefixed with CEREBRO_
+        // Environment variables should be prefixed with SECAN_
         // and use double underscore for nested fields
-        // Example: CEREBRO_SERVER__PORT=27182
+        // Example: SECAN_SERVER__PORT=27182
         let builder = builder.add_source(
-            Environment::with_prefix("CEREBRO")
+            Environment::with_prefix("SECAN")
                 .separator("__")
                 .try_parsing(true)
                 .prefix_separator("_"),
@@ -487,7 +487,7 @@ impl Config {
         let builder = config::Config::builder()
             .add_source(File::from_str(&yaml, config::FileFormat::Yaml))
             .add_source(
-                Environment::with_prefix("CEREBRO")
+                Environment::with_prefix("SECAN")
                     .separator("__")
                     .try_parsing(true),
             );
@@ -593,9 +593,9 @@ mod tests {
         // Should succeed with valid OIDC config
         config.oidc = Some(OidcConfig {
             discovery_url: "https://auth.example.com/.well-known/openid-configuration".to_string(),
-            client_id: "cerebro".to_string(),
+            client_id: "secan".to_string(),
             client_secret: "secret".to_string(),
-            redirect_uri: "https://cerebro.example.com/api/auth/oidc/redirect".to_string(),
+            redirect_uri: "https://secan.example.com/api/auth/oidc/redirect".to_string(),
         });
         assert!(config.validate().is_ok());
     }
