@@ -1,4 +1,5 @@
 import { Box } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { memo } from 'react';
 import type { ShardInfo } from '../types/api';
 
@@ -9,7 +10,7 @@ interface ShardCellProps {
   shard: ShardInfo;
   isSelected?: boolean;
   isDestinationIndicator?: boolean;
-  onClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
+  onClick?: (shard: ShardInfo, event: React.MouseEvent | React.TouchEvent) => void;
 }
 
 /**
@@ -79,6 +80,11 @@ export const ShardCell = memo(function ShardCell({
   isDestinationIndicator = false,
   onClick,
 }: ShardCellProps): JSX.Element {
+  // Responsive sizing - Requirements: 11.3
+  // Ensure minimum touch target size of 44x44px on mobile
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const cellSize = isMobile ? 44 : 40; // 44px on mobile for better touch targets
+  
   const borderColor = getShardBorderColor(shard.state);
   const backgroundColor = getShardBackgroundColor(shard.primary, shard.state);
   
@@ -93,9 +99,9 @@ export const ShardCell = memo(function ShardCell({
   // Requirements: 4.1
   const borderWidth = isSelected ? '3px' : '2px';
   
-  // Handle click events for shard selection
-  // Requirements: 4.1
-  const handleClick = (e: React.MouseEvent) => {
+  // Handle click and touch events for shard selection
+  // Requirements: 4.1, 11.4
+  const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation(); // Prevent event bubbling
     if (onClick) {
       onClick(shard, e);
@@ -130,10 +136,13 @@ export const ShardCell = memo(function ShardCell({
       </style>
       <Box
         onClick={handleClick}
+        onTouchEnd={handleClick}
         className={onClick ? 'shard-cell' : 'shard-cell-no-hover'}
         style={{
-          width: '40px',
-          height: '40px',
+          width: `${cellSize}px`,
+          height: `${cellSize}px`,
+          minWidth: `${cellSize}px`,
+          minHeight: `${cellSize}px`,
           border: `${borderWidth} ${borderStyle} ${finalBorderColor}`,
           backgroundColor,
           borderRadius: '4px',
@@ -141,13 +150,16 @@ export const ShardCell = memo(function ShardCell({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: onClick ? 'pointer' : 'default',
-          fontSize: '14px',
+          fontSize: isMobile ? '16px' : '14px',
           fontWeight: 600,
           color: 'var(--mantine-color-gray-9)',
           userSelect: 'none',
           transition: 'all 0.2s ease',
           animation: isSelected ? 'pulse 1.5s ease-in-out infinite' : 'none',
           position: 'relative',
+          // Improve touch responsiveness - Requirements: 11.4
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
         }}
         // Accessibility
         role="gridcell"
