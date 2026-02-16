@@ -395,7 +395,7 @@ The tasks are organized into phases for incremental delivery.
     - Test confirm action
     - _Requirements: 5.8, 5.9_
 
-- [ ] 17. Checkpoint - Relocation mode complete
+- [x] 17. Checkpoint - Relocation mode complete
   - Test relocation mode workflow
   - Verify destination indicators appear correctly
   - Verify confirmation dialog works
