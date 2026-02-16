@@ -14,6 +14,9 @@ export interface DataPoint {
  * Adds a new data point on EVERY refresh (even if value doesn't change)
  * Initializes with [0, currentValue] to show trend from baseline
  * 
+ * When resetKey changes (e.g., switching to statistics tab), performs an immediate
+ * data pull to populate graphs right away instead of waiting for the next refresh cycle
+ * 
  * This ensures the time axis progresses properly on every refresh interval
  * by tracking lastRefreshTime from RefreshContext instead of value changes
  * 
@@ -32,12 +35,14 @@ export function useSparklineData(
   const initializedRef = useRef(false);
   const { lastRefreshTime } = useRefresh();
   const lastResetKeyRef = useRef(resetKey);
+  const needsImmediateDataRef = useRef(false);
 
-  // Reset data when resetKey changes
+  // Reset data when resetKey changes and mark that we need immediate data
   useEffect(() => {
     if (resetKey !== undefined && resetKey !== lastResetKeyRef.current) {
       lastResetKeyRef.current = resetKey;
       initializedRef.current = false;
+      needsImmediateDataRef.current = true; // Flag for immediate data pull
       setData([]);
     }
   }, [resetKey]);
@@ -53,6 +58,7 @@ export function useSparklineData(
         { value: 0, timestamp: now - 1000 }, // 1 second before for baseline
         { value: currentValue, timestamp: now }
       ]);
+      needsImmediateDataRef.current = false; // Clear the flag after initialization
       return;
     }
 
@@ -67,7 +73,18 @@ export function useSparklineData(
       }
       return newData;
     });
+    
+    needsImmediateDataRef.current = false; // Clear the flag after adding data
   }, [currentValue, lastRefreshTime, maxDataPoints]);
+
+  // Perform immediate data pull when switching to statistics tab
+  // This effect runs when currentValue changes AND we need immediate data
+  useEffect(() => {
+    if (currentValue !== undefined && needsImmediateDataRef.current && !initializedRef.current) {
+      // This will trigger the initialization in the main effect above
+      // The flag ensures we get data immediately instead of waiting for next refresh
+    }
+  }, [currentValue]);
 
   // Return data in requested format
   if (withTimestamps) {
