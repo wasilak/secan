@@ -20,14 +20,16 @@ export interface DataPoint {
  * This ensures the time axis progresses properly on every refresh interval
  * by tracking lastRefreshTime from RefreshContext instead of value changes
  * 
+ * Uses FIFO (First In, First Out) approach: when limit is reached, oldest data point is removed
+ * 
  * @param currentValue - The current value to track
- * @param maxDataPoints - Maximum number of data points to keep (default: 20)
+ * @param maxDataPoints - Maximum number of data points to keep (default: 50)
  * @param resetKey - Optional key that when changed, resets the data (useful for tab switching)
  * @param withTimestamps - If true, returns DataPoint[] with timestamps, otherwise returns number[]
  */
 export function useSparklineData(
   currentValue: number | undefined,
-  maxDataPoints: number = 20,
+  maxDataPoints: number = 50,
   resetKey?: string | number,
   withTimestamps: boolean = false
 ): number[] | DataPoint[] {
@@ -64,12 +66,13 @@ export function useSparklineData(
 
     // Add data point on EVERY refresh (tracked by lastRefreshTime)
     // This ensures the time axis progresses even if value doesn't change
+    // FIFO: when limit is reached, remove oldest (first) data point
     setData((prev) => {
       const newData = [...prev, { value: currentValue, timestamp: Date.now() }];
       
-      // Keep only the last maxDataPoints
+      // FIFO: Keep only the last maxDataPoints by removing from the beginning
       if (newData.length > maxDataPoints) {
-        return newData.slice(-maxDataPoints);
+        return newData.slice(newData.length - maxDataPoints);
       }
       return newData;
     });
