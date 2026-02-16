@@ -11,6 +11,15 @@ interface ShardGridState {
   indices: IndexMetadata[];
   unassignedShards: ShardInfo[];
   
+  // Cache state - Requirements: 9.7
+  cachedData: {
+    nodes: NodeWithShards[];
+    indices: IndexMetadata[];
+    unassignedShards: ShardInfo[];
+  } | null;
+  cacheTimestamp: number | null;
+  cacheTTL: number; // Time-to-live in milliseconds
+  
   // UI State
   selectedShard: ShardInfo | null;
   relocationMode: boolean;
@@ -32,6 +41,13 @@ interface ShardGridState {
   setUnassignedShards: (shards: ShardInfo[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: Error | null) => void;
+  
+  // Cache actions - Requirements: 9.7
+  setCacheData: (nodes: NodeWithShards[], indices: IndexMetadata[], unassignedShards: ShardInfo[]) => void;
+  getCachedData: () => { nodes: NodeWithShards[]; indices: IndexMetadata[]; unassignedShards: ShardInfo[] } | null;
+  isCacheValid: () => boolean;
+  invalidateCache: () => void;
+  setCacheTTL: (ttl: number) => void;
   
   selectShard: (shard: ShardInfo | null) => void;
   enterRelocationMode: (shard: ShardInfo) => void;
@@ -56,6 +72,9 @@ const initialState = {
   nodes: [],
   indices: [],
   unassignedShards: [],
+  cachedData: null,
+  cacheTimestamp: null,
+  cacheTTL: 30000, // Default 30 seconds cache TTL - Requirements: 9.7
   selectedShard: null,
   relocationMode: false,
   destinationIndicators: new Map<string, ShardInfo>(),
@@ -141,6 +160,58 @@ export const useShardGridStore = create<ShardGridState>((set, get) => ({
   setUnassignedShards: (shards) => set({ unassignedShards: shards }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
+  
+  // Cache actions - Requirements: 9.7
+  setCacheData: (nodes, indices, unassignedShards) => {
+    set({
+      cachedData: { nodes, indices, unassignedShards },
+      cacheTimestamp: Date.now(),
+    });
+  },
+  
+  getCachedData: () => {
+    const { cachedData, cacheTimestamp, cacheTTL } = get();
+    
+    // Check if cache is valid
+    if (!cachedData || !cacheTimestamp) {
+      return null;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - cacheTimestamp;
+    
+    // Return cached data if still valid
+    if (cacheAge < cacheTTL) {
+      return cachedData;
+    }
+    
+    // Cache expired
+    return null;
+  },
+  
+  isCacheValid: () => {
+    const { cacheTimestamp, cacheTTL } = get();
+    
+    if (!cacheTimestamp) {
+      return false;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - cacheTimestamp;
+    
+    return cacheAge < cacheTTL;
+  },
+  
+  invalidateCache: () => {
+    set({
+      cachedData: null,
+      cacheTimestamp: null,
+    });
+  },
+  
+  setCacheTTL: (ttl) => {
+    set({ cacheTTL: ttl });
+  },
   
   // Shard selection
   selectShard: (shard) => set({ selectedShard: shard }),
