@@ -27,6 +27,7 @@ import { apiClient } from '../api/client';
 import { HealthStatus } from '../types/api';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useScreenReader } from '../lib/accessibility';
+import { useFaviconManager } from '../hooks/useFaviconManager';
 
 /**
  * Cluster summary combining cluster info and health data
@@ -195,6 +196,10 @@ export function Dashboard() {
   const [clusterSummaries, setClusterSummaries] = useState<ClusterSummary[]>([]);
   const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  // Always show neutral favicon on clusters list
+  // Requirements: 12.1, 12.7, 12.8
+  useFaviconManager(null);
 
   // Fetch list of clusters
   const {

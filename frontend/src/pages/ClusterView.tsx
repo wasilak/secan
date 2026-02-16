@@ -44,6 +44,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
+import { useFaviconManager } from '../hooks/useFaviconManager';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
@@ -194,6 +195,10 @@ export function ClusterView() {
     refetchInterval: refreshInterval,
     enabled: !!id,
   });
+
+  // Update favicon based on cluster health
+  // Requirements: 12.2, 12.3, 12.4, 12.5
+  useFaviconManager(stats?.health || null);
 
   // Track historical data for sparklines
   // Pass activeTab as resetKey so data resets when switching to statistics tab
