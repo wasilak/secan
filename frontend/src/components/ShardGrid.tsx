@@ -1259,9 +1259,15 @@ export function ShardGrid({
               </Table.Tr>
             ))}
             
-            {/* Unassigned shards row - Requirements: 3.10 */}
+            {/* Unassigned shards row - Requirements: 3.10, 12.1, 12.2, 12.3 */}
             {unassignedShards.length > 0 && (
-              <Table.Tr role="row" aria-label="Unassigned shards">
+              <Table.Tr 
+                role="row" 
+                aria-label="Unassigned shards"
+                style={{
+                  backgroundColor: 'var(--mantine-color-body)',
+                }}
+              >
                 {/* Unassigned label column (sticky) */}
                 <Table.Td
                   style={{
