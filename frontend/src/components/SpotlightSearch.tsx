@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { useClusterName } from '../hooks/useClusterName';
 import { useMemo } from 'react';
 
 /**
@@ -41,6 +42,9 @@ export function SpotlightSearch() {
     return match ? match[1] : null;
   }, [location.pathname]);
 
+  // Get resolved cluster name for current cluster
+  const currentClusterName = useClusterName(currentClusterId || '');
+
   // Fetch nodes for current cluster (only if in cluster view)
   const { data: nodes } = useQuery({
     queryKey: ['cluster', currentClusterId, 'nodes'],
@@ -71,8 +75,7 @@ export function SpotlightSearch() {
 
     if (currentClusterId) {
       // In cluster view - show nodes, indices, and tabs for current cluster
-      const currentCluster = clusters?.find(c => c.id === currentClusterId);
-      const clusterName = currentCluster?.name || currentClusterId;
+      const clusterName = currentClusterName;
 
       // Cluster tabs
       const tabs = [
@@ -103,7 +106,7 @@ export function SpotlightSearch() {
             description: `${node.ip} - ${node.roles.join(', ')}`,
             onClick: () => navigate(`/cluster/${currentClusterId}?tab=nodes`),
             leftSection: <IconServer size={20} />,
-            keywords: ['node', node.name, node.ip, ...node.roles, clusterName],
+            keywords: ['node', node.name, node.ip, ...node.roles, currentClusterName],
           });
         });
       }
@@ -117,7 +120,7 @@ export function SpotlightSearch() {
             description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
             onClick: () => navigate(`/cluster/${currentClusterId}?tab=indices&index=${encodeURIComponent(index.name)}`),
             leftSection: <IconDatabase size={20} />,
-            keywords: ['index', index.name, clusterName],
+            keywords: ['index', index.name, currentClusterName],
           });
         });
       }
@@ -152,7 +155,7 @@ export function SpotlightSearch() {
     }
 
     return items;
-  }, [clusters, currentClusterId, nodes, indices, navigate]);
+  }, [clusters, currentClusterId, currentClusterName, nodes, indices, navigate]);
 
   return (
     <Spotlight

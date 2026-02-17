@@ -45,6 +45,7 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
 import { useFaviconManager } from '../hooks/useFaviconManager';
+import { useClusterName } from '../hooks/useClusterName';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { Sparkline } from '../components/Sparkline';
@@ -123,6 +124,9 @@ export function ClusterView() {
   const { id } = useParams<{ id: string }>();
   const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get resolved cluster name
+  const clusterName = useClusterName(id || '');
   
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
@@ -302,7 +306,7 @@ export function ClusterView() {
       {/* Cluster Name */}
       <div>
         <Title order={1} className="text-responsive-xl">
-          {stats?.clusterName || id}
+          {clusterName}
         </Title>
       </div>
 

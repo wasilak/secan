@@ -16,6 +16,7 @@ import { DrawerControls } from './DrawerControls';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
+import { useClusterName } from '../hooks/useClusterName';
 import type { HealthStatus } from '../types/api';
 
 /**
@@ -45,6 +46,9 @@ function HeaderTitle() {
   // Check if we're in a cluster view
   const clusterMatch = location.pathname.match(/^\/cluster\/([^/]+)/);
   const clusterId = clusterMatch ? clusterMatch[1] : null;
+  
+  // Get resolved cluster name
+  const clusterName = useClusterName(clusterId || '');
   
   // Fetch cluster stats if we're viewing a cluster
   const { data: clusterStats } = useQuery({
@@ -95,7 +99,7 @@ function HeaderTitle() {
           component="h1"
           style={{ whiteSpace: 'nowrap' }}
         >
-          {clusterStats?.clusterName || clusterId}
+          {clusterName}
         </Text>
         {clusterStats?.health && (
           <Badge 
@@ -109,6 +113,34 @@ function HeaderTitle() {
         )}
       </Group>
     </Group>
+  );
+}
+
+/**
+ * Cluster navigation item with resolved name
+ */
+function ClusterNavItem({ 
+  clusterId, 
+  isActive, 
+  onClick 
+}: { 
+  clusterId: string; 
+  isActive: boolean; 
+  onClick: () => void;
+}) {
+  const clusterName = useClusterName(clusterId);
+  
+  return (
+    <NavLink
+      href={`/cluster/${clusterId}`}
+      label={clusterName}
+      active={isActive}
+      onClick={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      aria-current={isActive ? 'page' : undefined}
+    />
   );
 }
 
@@ -188,16 +220,11 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
         {!clustersLoading && !clustersError && clusters && clusters.length > 0 && (
           <>
             {clusters.map((cluster) => (
-              <NavLink
+              <ClusterNavItem
                 key={cluster.id}
-                href={`/cluster/${cluster.id}`}
-                label={cluster.name}
-                active={location.pathname.startsWith(`/cluster/${cluster.id}`)}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleNavigation(`/cluster/${cluster.id}`);
-                }}
-                aria-current={location.pathname.startsWith(`/cluster/${cluster.id}`) ? 'page' : undefined}
+                clusterId={cluster.id}
+                isActive={location.pathname.startsWith(`/cluster/${cluster.id}`)}
+                onClick={() => handleNavigation(`/cluster/${cluster.id}`)}
               />
             ))}
           </>
