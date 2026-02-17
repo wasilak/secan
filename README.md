@@ -176,8 +176,40 @@ The grid updates in real-time to show relocation progress.
 - **Real-Time Progress**: Watch shards relocate with auto-refresh
 - **Keyboard Navigation**: Full keyboard support for accessibility
 - **Shard Type Indicators**: Easily identify primary (P) and replica (R) shards, especially for unassigned shards
+- **Special Indices Filter**: Hide system/internal indices (starting with ".") by default for cleaner views
+- **Compact Statistics**: View shard statistics in compact cards matching the overview style
+- **Loading Skeletons**: Visual feedback while data loads across all views
 
 See [SHARD_RELOCATION.md](SHARD_RELOCATION.md) for the complete user guide.
+
+## UI Features
+
+### Special Indices Filter
+
+By default, Secan hides system and internal indices (those starting with ".") to reduce clutter and focus on application indices. This includes indices like `.security`, `.kibana`, `.monitoring`, etc.
+
+To view special indices:
+1. Navigate to any view showing indices (Index list, Shards list, or Topology tab)
+2. Check the "Show special indices" checkbox
+3. All indices including system indices will be displayed
+
+This filter is consistent across all views and helps administrators focus on the indices they actively manage.
+
+### Compact Statistics Display
+
+Shard statistics are displayed in compact cards that match the visual style of the overview statistics:
+- Total Shards
+- Primary Shards
+- Replica Shards
+- Unassigned Shards
+- Relocating Shards
+- Initializing Shards
+
+These cards provide quick insights into shard distribution and health at a glance.
+
+### Loading States
+
+All data-loading operations display skeleton screens using Mantine's Skeleton component, providing visual feedback that data is being fetched. This improves perceived performance and user experience across the dashboard, cluster views, and all tabs.
 
 ## Environment Variables
 
