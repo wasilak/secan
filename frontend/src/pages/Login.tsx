@@ -23,7 +23,6 @@ export function Login() {
     setLoading(true);
 
     // TODO: Implement actual authentication
-    console.log('Login attempt:', { username });
     
     // Simulate login
     setTimeout(() => {

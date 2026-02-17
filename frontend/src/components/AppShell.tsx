@@ -278,7 +278,6 @@ export function AppShell() {
 
   const handleLogout = () => {
     // TODO: Implement actual logout logic
-    console.log('Logout clicked');
     navigate('/login');
   };
 

@@ -248,12 +248,9 @@ export function ShardManagement() {
       setShardDetailsLoading(true);
       setShardDetailsData(null); // Reset previous data
       
-      console.log('Fetching shard stats:', { clusterId: id, index: selectedShard.index, shard: selectedShard.shard });
-      
       apiClient
         .getShardStats(id!, selectedShard.index, selectedShard.shard)
         .then((stats) => {
-          console.log('Received shard stats:', stats);
           setShardDetailsData(stats);
         })
         .catch((error) => {
