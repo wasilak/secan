@@ -201,6 +201,10 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
 }
 
 /// Transform cluster state to shard information for frontend
+///
+/// # Requirements
+///
+/// Validates: Requirements 9.1, 9.2, 9.3
 pub fn transform_shards(cluster_state: &Value, indices_stats: &Value) -> Vec<ShardInfoResponse> {
     let mut result = Vec::new();
 
@@ -216,21 +220,24 @@ pub fn transform_shards(cluster_state: &Value, indices_stats: &Value) -> Vec<Sha
                             let node = shard["node"].as_str().map(|s| s.to_string());
 
                             // Get docs and store size from indices stats
+                            // Always return 0 for missing values (not null/undefined) - Requirement 9.3
                             let shard_stats =
                                 &indices_stats["indices"][index_name]["shards"][shard_num.as_str()];
                             let docs = if let Some(shard_array) = shard_stats.as_array() {
                                 shard_array
                                     .first()
                                     .and_then(|s| s["docs"]["count"].as_u64())
+                                    .unwrap_or(0)
                             } else {
-                                None
+                                0
                             };
                             let store = if let Some(shard_array) = shard_stats.as_array() {
                                 shard_array
                                     .first()
                                     .and_then(|s| s["store"]["size_in_bytes"].as_u64())
+                                    .unwrap_or(0)
                             } else {
-                                None
+                                0
                             };
 
                             result.push(ShardInfoResponse {
@@ -336,6 +343,10 @@ pub struct IndexInfoResponse {
 }
 
 /// Shard info response for frontend
+///
+/// # Requirements
+///
+/// Validates: Requirements 9.1, 9.2, 9.3
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ShardInfoResponse {
     pub index: String,
@@ -343,8 +354,10 @@ pub struct ShardInfoResponse {
     pub primary: bool,
     pub state: String,
     pub node: Option<String>,
-    pub docs: Option<u64>,
-    pub store: Option<u64>,
+    /// Document count - always present, 0 if unavailable (Requirement 9.3)
+    pub docs: u64,
+    /// Store size in bytes - always present, 0 if unavailable (Requirement 9.3)
+    pub store: u64,
 }
 
 #[cfg(test)]
@@ -751,8 +764,10 @@ pub struct ShardInfo {
     pub shard: u32,
     pub primary: bool,
     pub state: String,
-    pub docs: Option<u64>,
-    pub store: Option<u64>,
+    /// Document count - always present, 0 if unavailable
+    pub docs: u64,
+    /// Store size in bytes - always present, 0 if unavailable
+    pub store: u64,
 }
 
 /// Indexing statistics
@@ -894,8 +909,8 @@ fn aggregate_shard_stats(node_id: &str, shards: &Value) -> ShardStats {
                                             .as_str()
                                             .unwrap_or("UNASSIGNED")
                                             .to_string(),
-                                        docs: None, // Will be filled from indices stats if available
-                                        store: None, // Will be filled from indices stats if available
+                                        docs: 0,  // Default to 0 if unavailable
+                                        store: 0, // Default to 0 if unavailable
                                     });
                                 }
                             }
