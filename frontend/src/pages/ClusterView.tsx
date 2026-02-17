@@ -48,6 +48,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
 import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
+import { RestConsole } from './RestConsole';
 import { Sparkline } from '../components/Sparkline';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
@@ -318,6 +319,7 @@ export function ClusterView() {
           <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
           <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
           <Tabs.Tab value="shards">Shards ({shards?.length || 0})</Tabs.Tab>
+          <Tabs.Tab value="console">Console</Tabs.Tab>
         </Tabs.List>
 
         {/* Overview Tab */}
@@ -567,6 +569,11 @@ export function ClusterView() {
           <Card shadow="sm" padding="lg">
             <ShardsList shards={shards} loading={shardsLoading} error={shardsError} />
           </Card>
+        </Tabs.Panel>
+
+        {/* Console Tab */}
+        <Tabs.Panel value="console" pt="md">
+          <RestConsole />
         </Tabs.Panel>
       </Tabs>
 
