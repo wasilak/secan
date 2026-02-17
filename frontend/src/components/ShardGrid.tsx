@@ -502,6 +502,69 @@ export function ShardGrid({
     }));
   }, []);
   
+  // Determine if we should use virtualization - Requirements: 9.1, 9.2, 9.3
+  // Enable virtualization for grids with >20 nodes or >20 indices
+  // Memoize this calculation to avoid unnecessary re-renders
+  // IMPORTANT: This must be called before any early returns to comply with React hooks rules
+  const shouldVirtualize = useMemo(() => {
+    return nodes.length > 20 || indices.length > 20;
+  }, [nodes.length, indices.length]);
+  
+  // Calculate responsive sizes - Requirements: 11.1, 11.3, 11.10
+  // Adjust column width and row height based on screen size and compact view
+  // IMPORTANT: These must be called before any early returns to comply with React hooks rules
+  const columnWidth = useMemo(() => {
+    if (compactView) return isMobile ? 100 : 120; // Smaller in compact view
+    if (isMobile) return 120; // Smaller columns on mobile
+    if (isTablet) return 140; // Medium columns on tablet
+    return 150; // Full columns on desktop
+  }, [isMobile, isTablet, compactView]);
+  
+  const rowHeight = useMemo(() => {
+    if (compactView) return isMobile ? 80 : 60; // Shorter in compact view
+    if (isMobile) return 100; // Taller rows on mobile for better touch targets
+    return 80; // Standard height on larger screens
+  }, [isMobile, compactView]);
+  
+  const nodeColumnWidth = useMemo(() => {
+    if (compactView) return isMobile ? 160 : 200; // Narrower in compact view
+    if (isMobile) return 200; // Narrower node column on mobile
+    return 250; // Full width on larger screens
+  }, [isMobile, compactView]);
+  
+  // Set up row virtualizer for nodes - Requirements: 9.1
+  // IMPORTANT: This must be called before any early returns to comply with React hooks rules
+  const rowVirtualizer = useVirtualizer({
+    count: nodes.length + (unassignedShards.length > 0 ? 1 : 0), // +1 for unassigned row if needed
+    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
+    estimateSize: () => rowHeight, // Use responsive row height
+    overscan: 5, // Render 5 extra rows above and below viewport
+    enabled: shouldVirtualize,
+  });
+  
+  // Set up column virtualizer for indices - Requirements: 9.2
+  // IMPORTANT: This must be called before any early returns to comply with React hooks rules
+  const columnVirtualizer = useVirtualizer({
+    horizontal: true,
+    count: indices.length,
+    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
+    estimateSize: () => columnWidth, // Use responsive column width
+    overscan: 3, // Render 3 extra columns left and right of viewport
+    enabled: shouldVirtualize,
+  });
+  
+  // Get virtual items - Requirements: 9.3
+  // Memoize virtual items to avoid unnecessary recalculations
+  // IMPORTANT: These must be called before any early returns to comply with React hooks rules
+  const virtualRows = useMemo(() => {
+    return shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
+  }, [shouldVirtualize, rowVirtualizer]);
+  
+  const virtualColumns = useMemo(() => {
+    return shouldVirtualize ? columnVirtualizer.getVirtualItems() : [];
+  }, [shouldVirtualize, columnVirtualizer]);
+  
+  // Early returns AFTER all hooks have been called
   if (loading) {
     // Display loading skeleton while fetching - Requirements: 9.9
     return (
@@ -532,63 +595,6 @@ export function ShardGrid({
       </Box>
     );
   }
-  
-  // Determine if we should use virtualization - Requirements: 9.1, 9.2, 9.3
-  // Enable virtualization for grids with >20 nodes or >20 indices
-  // Memoize this calculation to avoid unnecessary re-renders
-  const shouldVirtualize = useMemo(() => {
-    return nodes.length > 20 || indices.length > 20;
-  }, [nodes.length, indices.length]);
-  
-  // Calculate responsive sizes - Requirements: 11.1, 11.3, 11.10
-  // Adjust column width and row height based on screen size and compact view
-  const columnWidth = useMemo(() => {
-    if (compactView) return isMobile ? 100 : 120; // Smaller in compact view
-    if (isMobile) return 120; // Smaller columns on mobile
-    if (isTablet) return 140; // Medium columns on tablet
-    return 150; // Full columns on desktop
-  }, [isMobile, isTablet, compactView]);
-  
-  const rowHeight = useMemo(() => {
-    if (compactView) return isMobile ? 80 : 60; // Shorter in compact view
-    if (isMobile) return 100; // Taller rows on mobile for better touch targets
-    return 80; // Standard height on larger screens
-  }, [isMobile, compactView]);
-  
-  const nodeColumnWidth = useMemo(() => {
-    if (compactView) return isMobile ? 160 : 200; // Narrower in compact view
-    if (isMobile) return 200; // Narrower node column on mobile
-    return 250; // Full width on larger screens
-  }, [isMobile, compactView]);
-  
-  // Set up row virtualizer for nodes - Requirements: 9.1
-  const rowVirtualizer = useVirtualizer({
-    count: nodes.length + (unassignedShards.length > 0 ? 1 : 0), // +1 for unassigned row if needed
-    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
-    estimateSize: () => rowHeight, // Use responsive row height
-    overscan: 5, // Render 5 extra rows above and below viewport
-    enabled: shouldVirtualize,
-  });
-  
-  // Set up column virtualizer for indices - Requirements: 9.2
-  const columnVirtualizer = useVirtualizer({
-    horizontal: true,
-    count: indices.length,
-    getScrollElement: () => scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') || null,
-    estimateSize: () => columnWidth, // Use responsive column width
-    overscan: 3, // Render 3 extra columns left and right of viewport
-    enabled: shouldVirtualize,
-  });
-  
-  // Get virtual items - Requirements: 9.3
-  // Memoize virtual items to avoid unnecessary recalculations
-  const virtualRows = useMemo(() => {
-    return shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
-  }, [shouldVirtualize, rowVirtualizer]);
-  
-  const virtualColumns = useMemo(() => {
-    return shouldVirtualize ? columnVirtualizer.getVirtualItems() : [];
-  }, [shouldVirtualize, columnVirtualizer]);
   
   return (
     <Box

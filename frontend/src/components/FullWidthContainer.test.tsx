@@ -30,7 +30,10 @@ describe('FullWidthContainer', () => {
     );
 
     const box = container.firstChild as HTMLElement;
-    expect(box).toHaveStyle({ width: '100%' });
+    // Check that the component renders and has the expected structure
+    expect(box).toBeInTheDocument();
+    // The width style is applied through the style prop
+    expect(box.style.width).toBe('100%');
   });
 
   it('applies custom padding when provided', () => {
@@ -60,7 +63,8 @@ describe('FullWidthContainer', () => {
     );
 
     const box = screen.getByText('Test Content').parentElement;
-    expect(box).toHaveStyle({ backgroundColor: 'red' });
+    // Check that the custom style is applied
+    expect(box?.style.backgroundColor).toBe('red');
   });
 
   it('forwards additional Box props', () => {

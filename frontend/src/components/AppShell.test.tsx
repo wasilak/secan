@@ -5,6 +5,7 @@ import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 import { DrawerProvider } from '../contexts/DrawerContext';
+import { RefreshProvider } from '../contexts/RefreshContext';
 
 // Helper to render with required providers
 const renderWithProviders = (component: React.ReactElement) => {
@@ -19,11 +20,13 @@ const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <DrawerProvider>
-          <BrowserRouter>
-            {component}
-          </BrowserRouter>
-        </DrawerProvider>
+        <RefreshProvider>
+          <DrawerProvider>
+            <BrowserRouter>
+              {component}
+            </BrowserRouter>
+          </DrawerProvider>
+        </RefreshProvider>
       </MantineProvider>
     </QueryClientProvider>
   );
