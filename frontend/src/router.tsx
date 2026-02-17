@@ -103,6 +103,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'cluster/:id/console',
+        element: (
+          <LazyRoute>
+            <RestConsole />
+          </LazyRoute>
+        ),
+      },
+      {
         path: 'cluster/:id/indices/create',
         element: (
           <LazyRoute>
