@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react';
 import { Group, Stack, Menu, ActionIcon, Avatar, Text, Divider, Tooltip } from '@mantine/core';
 import { IconUser, IconLogout, IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
 import { useTheme, type Theme } from '../hooks/useTheme';
@@ -20,24 +21,32 @@ interface DrawerControlsProps {
  * - Shows icons with labels when drawer is expanded
  * - User menu with logout functionality
  * - Theme selector for light/dark/system modes
+ * - Memoized for performance optimization
  * 
  * Requirements: 4.1, 4.2, 4.5, 4.6
  */
-export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProps) {
+export const DrawerControls = memo(function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProps) {
   const { theme, setTheme } = useTheme();
   const { colorScheme } = useMantineColorScheme();
 
-  // Get theme icon based on current resolved theme
-  const getThemeIcon = () => {
+  // Memoize theme icon to avoid recalculation on every render
+  const themeIcon = useMemo(() => {
     if (theme === 'system') {
       return <IconDeviceDesktop size={20} />;
     }
     return colorScheme === 'dark' ? <IconMoon size={20} /> : <IconSun size={20} />;
-  };
+  }, [theme, colorScheme]);
 
-  const handleThemeChange = (newTheme: Theme) => {
+  // Memoize user initial
+  const userInitial = useMemo(() => user.username.charAt(0).toUpperCase(), [user.username]);
+
+  // Memoize roles string
+  const rolesString = useMemo(() => user.roles.join(', '), [user.roles]);
+
+  // Memoize theme change handler
+  const handleThemeChange = useCallback((newTheme: Theme) => {
     setTheme(newTheme);
-  };
+  }, [setTheme]);
 
   if (collapsed) {
     // Icon-only display when drawer is collapsed
@@ -54,7 +63,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
                 size="lg"
                 aria-label="Toggle theme"
               >
-                {getThemeIcon()}
+                {themeIcon}
               </ActionIcon>
             </Tooltip>
           </Menu.Target>
@@ -98,7 +107,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
                 aria-label="User menu"
               >
                 <Avatar size="sm" radius="xl" color="blue">
-                  {user.username.charAt(0).toUpperCase()}
+                  {userInitial}
                 </Avatar>
               </ActionIcon>
             </Tooltip>
@@ -113,7 +122,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
             </Menu.Label>
             
             <Menu.Item c="dimmed" disabled>
-              Roles: {user.roles.join(', ')}
+              Roles: {rolesString}
             </Menu.Item>
 
             <Menu.Divider />
@@ -150,7 +159,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
               }
             }}
           >
-            {getThemeIcon()}
+            {themeIcon}
             <Text size="sm">
               Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
             </Text>
@@ -201,7 +210,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
             }}
           >
             <Avatar size="sm" radius="xl" color="blue">
-              {user.username.charAt(0).toUpperCase()}
+              {userInitial}
             </Avatar>
             <Text size="sm">{user.username}</Text>
           </Group>
@@ -216,7 +225,7 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
           </Menu.Label>
           
           <Menu.Item c="dimmed" disabled>
-            Roles: {user.roles.join(', ')}
+            Roles: {rolesString}
           </Menu.Item>
 
           <Menu.Divider />
@@ -232,4 +241,4 @@ export function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProp
       </Menu>
     </Stack>
   );
-}
+});
