@@ -2322,8 +2322,8 @@ function ShardAllocationGrid({
             <Table.Tbody>
               {/* Unassigned shards row */}
               {unassignedShards.length > 0 && (
-                <Table.Tr style={{ backgroundColor: 'var(--mantine-color-red-0)' }}>
-                  <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-red-0)', zIndex: 1 }}>
+                <Table.Tr>
+                  <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, zIndex: 1 }}>
                     <Stack gap={2}>
                       <Text size="xs" fw={700} c="red">
                         Unassigned
