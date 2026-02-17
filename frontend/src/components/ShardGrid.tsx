@@ -1264,9 +1264,6 @@ export function ShardGrid({
               <Table.Tr 
                 role="row" 
                 aria-label="Unassigned shards"
-                style={{
-                  backgroundColor: 'var(--mantine-color-body)',
-                }}
               >
                 {/* Unassigned label column (sticky) */}
                 <Table.Td
@@ -1276,7 +1273,6 @@ export function ShardGrid({
                     position: 'sticky',
                     left: 0,
                     zIndex: 1,
-                    backgroundColor: 'var(--mantine-color-body)',
                   }}
                 >
                   <Stack gap="xs">
