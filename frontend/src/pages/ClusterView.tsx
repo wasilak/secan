@@ -211,16 +211,26 @@ export function ClusterView() {
     data: stats,
     isLoading: statsLoading,
     error: statsError,
+    refetch: refetchStats,
   } = useQuery({
     queryKey: ['cluster', id, 'stats'],
     queryFn: () => apiClient.getClusterStats(id!),
     refetchInterval: refreshInterval,
     enabled: !!id,
+    refetchOnMount: 'always', // Always refetch when component mounts
   });
 
   // Update favicon based on cluster health
   // Requirements: 12.2, 12.3, 12.4, 12.5
   useFaviconManager(stats?.health || null);
+
+  // Trigger immediate stats refetch when switching to statistics tab
+  // This ensures graphs are populated immediately instead of waiting for the next refresh interval
+  useEffect(() => {
+    if (activeTab === 'statistics' && id) {
+      refetchStats();
+    }
+  }, [activeTab, id, refetchStats]);
 
   // Track historical data for sparklines
   // Pass activeTab as resetKey so data resets when switching to statistics tab
