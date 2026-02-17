@@ -1,4 +1,4 @@
-import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton, Collapse, ActionIcon, Loader } from '@mantine/core';
+import { Box, ScrollArea, Table, Text, Group, Stack, Skeleton, Collapse, ActionIcon, Loader, Anchor } from '@mantine/core';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useDebouncedCallback, useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -20,6 +20,7 @@ import { apiClient } from '../api/client';
 interface ShardGridProps {
   clusterId: string;
   refreshInterval?: number;
+  openNodeModal?: (nodeId: string) => void;
 }
 
 /**
@@ -40,6 +41,7 @@ interface ShardGridProps {
 export function ShardGrid({
   clusterId,
   refreshInterval = 30000,
+  openNodeModal,
 }: ShardGridProps): JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
@@ -1066,9 +1068,33 @@ export function ShardGrid({
                     {/* Node name and IP with collapse toggle on small screens */}
                     <Group gap="xs" justify="space-between" wrap="nowrap">
                       <Box style={{ flex: 1, minWidth: 0 }}>
-                        <Text fw={600} size="sm">
-                          {node.name}
-                        </Text>
+                        {openNodeModal ? (
+                          <Anchor
+                            component="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openNodeModal(node.id);
+                            }}
+                            style={{ 
+                              textDecoration: 'none',
+                              cursor: 'pointer',
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openNodeModal(node.id);
+                              }
+                            }}
+                          >
+                            <Text fw={600} size="sm" style={{ textDecoration: 'inherit' }}>
+                              {node.name}
+                            </Text>
+                          </Anchor>
+                        ) : (
+                          <Text fw={600} size="sm">
+                            {node.name}
+                          </Text>
+                        )}
                         <Text size="xs" c="dimmed">
                           {node.ip || 'N/A'}
                         </Text>

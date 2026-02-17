@@ -21,6 +21,7 @@ import {
   Modal,
   Code,
   Skeleton,
+  Anchor,
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +52,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
 import { IndexEdit } from './IndexEdit';
 import { RestConsole } from './RestConsole';
+import { NodeModal } from '../components/NodeModal';
 import { Sparkline } from '../components/Sparkline';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
@@ -173,6 +175,31 @@ export function ClusterView() {
     const params = new URLSearchParams(searchParams);
     params.delete('index');
     params.delete('indexTab');
+    setSearchParams(params);
+  };
+
+  // Get node ID from URL for modal
+  const nodeIdParam = searchParams.get('node');
+
+  // Node modal state
+  const [nodeModalOpen, setNodeModalOpen] = useState(false);
+
+  // Open node modal when URL param changes
+  useEffect(() => {
+    setNodeModalOpen(!!nodeIdParam);
+  }, [nodeIdParam]);
+
+  // Handle opening node modal
+  const openNodeModal = (nodeId: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('node', nodeId);
+    setSearchParams(params);
+  };
+
+  // Handle closing node modal
+  const closeNodeModal = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('node');
     setSearchParams(params);
   };
 
@@ -533,6 +560,7 @@ export function ClusterView() {
               loading={nodesLoading || indicesLoading || shardsLoading}
               error={nodesError || indicesError || shardsError}
               openIndexModal={openIndexModal}
+              openNodeModal={openNodeModal}
             />
           </Card>
         </Tabs.Panel>
@@ -553,7 +581,7 @@ export function ClusterView() {
         {/* Nodes Tab */}
         <Tabs.Panel value="nodes" pt="md">
           <Card shadow="sm" padding="lg">
-            <NodesList nodes={nodes} loading={nodesLoading} error={nodesError} />
+            <NodesList nodes={nodes} loading={nodesLoading} error={nodesError} openNodeModal={openNodeModal} />
           </Card>
         </Tabs.Panel>
 
@@ -572,7 +600,7 @@ export function ClusterView() {
         {/* Shards Tab */}
         <Tabs.Panel value="shards" pt="md">
           <Card shadow="sm" padding="lg">
-            <ShardsList shards={shards} loading={shardsLoading} error={shardsError} />
+            <ShardsList shards={shards} loading={shardsLoading} error={shardsError} openNodeModal={openNodeModal} />
           </Card>
         </Tabs.Panel>
 
@@ -608,6 +636,15 @@ export function ClusterView() {
           </div>
         </Modal>
       )}
+
+      {/* Node Modal */}
+      <NodeModal
+        clusterId={id!}
+        nodeId={nodeIdParam}
+        opened={nodeModalOpen}
+        onClose={closeNodeModal}
+        context={activeTab === 'topology' ? 'topology' : activeTab === 'nodes' ? 'nodes' : 'shards'}
+      />
     </Stack>
   );
 }
@@ -620,10 +657,12 @@ function NodesList({
   nodes,
   loading,
   error,
+  openNodeModal,
 }: {
   nodes?: NodeInfo[];
   loading: boolean;
   error: Error | null;
+  openNodeModal?: (nodeId: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -777,8 +816,14 @@ function NodesList({
               {sortedNodes?.map((node) => (
                 <Table.Tr
                   key={node.id}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/cluster/${id}/nodes/${node.id}`)}
+                  style={{ cursor: openNodeModal ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    if (openNodeModal) {
+                      openNodeModal(node.id);
+                    } else {
+                      navigate(`/cluster/${id}/nodes/${node.id}`);
+                    }
+                  }}
                 >
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap">
@@ -1678,6 +1723,7 @@ function ShardAllocationGrid({
   loading,
   error,
   openIndexModal,
+  openNodeModal,
 }: {
   nodes?: NodeInfo[];
   indices?: IndexInfo[];
@@ -1685,6 +1731,7 @@ function ShardAllocationGrid({
   loading: boolean;
   error: Error | null;
   openIndexModal: (indexName: string, tab?: string) => void;
+  openNodeModal?: (nodeId: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -2331,9 +2378,33 @@ function ShardAllocationGrid({
                     <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
                       <Stack gap={4}>
                         <Group gap={4}>
-                          <Text size="xs" fw={500} truncate="end" title={node.name}>
-                            {node.name}
-                          </Text>
+                          {openNodeModal ? (
+                            <Anchor
+                              component="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openNodeModal(node.id);
+                              }}
+                              style={{ 
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  openNodeModal(node.id);
+                                }
+                              }}
+                            >
+                              <Text size="xs" fw={500} truncate="end" title={node.name} style={{ textDecoration: 'inherit' }}>
+                                {node.name}
+                              </Text>
+                            </Anchor>
+                          ) : (
+                            <Text size="xs" fw={500} truncate="end" title={node.name}>
+                              {node.name}
+                            </Text>
+                          )}
                         </Group>
                         <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
                           {node.ip}
@@ -2475,10 +2546,12 @@ function ShardsList({
   shards,
   loading,
   error,
+  openNodeModal,
 }: {
   shards?: ShardInfo[];
   loading: boolean;
   error: Error | null;
+  openNodeModal?: (nodeId: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -2727,7 +2800,28 @@ function ShardsList({
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{shard.node || 'N/A'}</Text>
+                      {shard.node && openNodeModal ? (
+                        <Anchor
+                          component="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Pass the node name - the modal will need to look up the node ID
+                            if (shard.node) {
+                              openNodeModal(shard.node);
+                            }
+                          }}
+                          style={{ 
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Text size="sm" style={{ textDecoration: 'inherit' }}>
+                            {shard.node}
+                          </Text>
+                        </Anchor>
+                      ) : (
+                        <Text size="sm">{shard.node || 'N/A'}</Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">

@@ -14,6 +14,17 @@ function IndexEditRedirect() {
   return <Navigate to={`/cluster/${id}?${searchParams.toString()}`} replace />;
 }
 
+// Redirect component for node detail URLs
+function NodeDetailRedirect() {
+  const { id, nodeId } = useParams<{ id: string; nodeId: string }>();
+  const searchParams = new URLSearchParams();
+  searchParams.set('tab', 'nodes');
+  if (nodeId) {
+    searchParams.set('node', nodeId);
+  }
+  return <Navigate to={`/cluster/${id}?${searchParams.toString()}`} replace />;
+}
+
 // Lazy-load page components for better performance
 // Requirements: 31.4 - Lazy-load components to reduce initial bundle size
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -30,7 +41,6 @@ const IndexAnalyzersPage = lazy(() => import('./pages/IndexAnalyzers').then(m =>
 const Repositories = lazy(() => import('./pages/Repositories').then(m => ({ default: m.Repositories })));
 const Snapshots = lazy(() => import('./pages/Snapshots').then(m => ({ default: m.Snapshots })));
 const CatApiPage = lazy(() => import('./pages/CatApi').then(m => ({ default: m.CatApiPage })));
-const NodeDetail = lazy(() => import('./pages/NodeDetail').then(m => ({ default: m.NodeDetail })));
 const IndexStatistics = lazy(() => import('./pages/IndexStatistics').then(m => ({ default: m.IndexStatistics })));
 
 /**
@@ -88,11 +98,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'cluster/:id/nodes/:nodeId',
-        element: (
-          <LazyRoute>
-            <NodeDetail />
-          </LazyRoute>
-        ),
+        element: <NodeDetailRedirect />,
       },
       {
         path: 'cluster/:id/rest',
