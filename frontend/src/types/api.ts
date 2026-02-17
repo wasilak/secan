@@ -238,6 +238,8 @@ export interface IndexInfo {
 
 /**
  * Shard information
+ * 
+ * Requirements: 9.1, 9.2, 9.3
  */
 export interface ShardInfo {
   index: string;
@@ -246,8 +248,10 @@ export interface ShardInfo {
   state: 'STARTED' | 'INITIALIZING' | 'RELOCATING' | 'UNASSIGNED';
   node?: string;
   relocatingNode?: string;
-  docs?: number;
-  store?: number;
+  /** Document count - always present, 0 if unavailable (Requirement 9.3) */
+  docs: number;
+  /** Store size in bytes - always present, 0 if unavailable (Requirement 9.3) */
+  store: number;
 }
 
 /**

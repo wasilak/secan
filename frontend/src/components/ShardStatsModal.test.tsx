@@ -139,13 +139,15 @@ describe('ShardStatsModal', () => {
       primary: true,
       state: 'STARTED',
       node: 'node-1',
+      docs: 0,
+      store: 0,
     };
 
     renderWithMantine(
       <ShardStatsModal shard={shardWithoutStats} opened={true} onClose={vi.fn()} />
     );
 
-    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
     expect(screen.getByText('0 B')).toBeInTheDocument();
   });
 

@@ -223,6 +223,8 @@ export function ShardGrid({
               shard: shardNum,
               primary,
               state: 'UNASSIGNED',
+              docs: 0,
+              store: 0,
             };
             removeRelocatingShard(dummyShard);
           }
