@@ -54,6 +54,7 @@ import { IndexEdit } from './IndexEdit';
 import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { Sparkline } from '../components/Sparkline';
+import { ShardTypeBadge } from '../components/ShardTypeBadge';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
@@ -2786,18 +2787,21 @@ function ShardsList({
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Badge
-                        size="sm"
-                        color={
-                          shard.state === 'STARTED'
-                            ? 'green'
-                            : shard.state === 'UNASSIGNED'
-                            ? 'red'
-                            : 'yellow'
-                        }
-                      >
-                        {shard.state}
-                      </Badge>
+                      <Group gap="xs">
+                        <ShardTypeBadge primary={shard.primary} />
+                        <Badge
+                          size="sm"
+                          color={
+                            shard.state === 'STARTED'
+                              ? 'green'
+                              : shard.state === 'UNASSIGNED'
+                              ? 'red'
+                              : 'yellow'
+                          }
+                        >
+                          {shard.state}
+                        </Badge>
+                      </Group>
                     </Table.Td>
                     <Table.Td>
                       {shard.node && openNodeModal ? (
