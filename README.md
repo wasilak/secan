@@ -160,7 +160,7 @@ Secan provides an interactive visual interface for manually relocating Elasticse
 
 ### Quick Start
 
-1. Navigate to a cluster and click the "Shards" tab
+1. Navigate to a cluster and click the "Topology" tab to see the shard allocation grid
 2. Click on any green (STARTED) shard
 3. Select "Select for relocation" from the context menu
 4. Click on a purple destination indicator
@@ -170,11 +170,12 @@ The grid updates in real-time to show relocation progress.
 
 ### Features
 
-- **Visual Grid**: See all shards organized by node and index
+- **Visual Grid**: See all shards organized by node and index in the Topology tab
 - **Color-Coded States**: Green (healthy), yellow (initializing), orange (relocating), red (unassigned)
 - **Smart Validation**: Only valid destinations are shown
 - **Real-Time Progress**: Watch shards relocate with auto-refresh
 - **Keyboard Navigation**: Full keyboard support for accessibility
+- **Shard Type Indicators**: Easily identify primary (P) and replica (R) shards, especially for unassigned shards
 
 See [SHARD_RELOCATION.md](SHARD_RELOCATION.md) for the complete user guide.
 

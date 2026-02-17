@@ -16,7 +16,7 @@ Secan provides an interactive, visual interface for manually relocating Elastics
 ## Accessing Shard Relocation
 
 1. Navigate to a cluster in Secan
-2. Click on the "Shards" tab in the cluster view
+2. Click on the "Topology" tab in the cluster view
 3. The shard grid displays all shards across all nodes
 
 ## Understanding the Shard Grid
@@ -41,8 +41,8 @@ Shards are color-coded by their state:
 
 ### Primary vs Replica
 
-- **Primary shards**: Solid fill
-- **Replica shards**: Outlined/hollow
+- **Primary shards**: Display a small blue dot in the corner and show "P" badge for unassigned shards
+- **Replica shards**: Show "R" badge for unassigned shards
 
 ### Shard Numbers
 
@@ -255,7 +255,7 @@ grep "Shard relocation" backend.log
 
 **Scenario**: You added a new node to the cluster and want to move some shards to it.
 
-1. Navigate to Shards view
+1. Navigate to Topology tab
 2. Identify heavily loaded nodes (high heap/disk usage)
 3. Click on a shard from a loaded node
 4. Select "Select for relocation"
@@ -267,7 +267,7 @@ grep "Shard relocation" backend.log
 
 **Scenario**: You need to take a node offline for maintenance.
 
-1. Navigate to Shards view
+1. Navigate to Topology tab
 2. Identify all shards on the target node
 3. For each shard:
    - Click the shard
@@ -282,7 +282,7 @@ grep "Shard relocation" backend.log
 
 **Scenario**: Some nodes have many more shards than others.
 
-1. Navigate to Shards view
+1. Navigate to Topology tab
 2. Count shards per node (visible in the grid)
 3. Identify nodes with excessive shards
 4. Relocate shards from overloaded to underloaded nodes
