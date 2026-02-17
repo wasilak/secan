@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Title,
-  Table,
   Badge,
   Text,
   Alert,
   Center,
   Stack,
   Group,
-  UnstyledButton,
   RingProgress,
   Card,
   Grid,
@@ -18,9 +16,6 @@ import {
 } from '@mantine/core';
 import {
   IconAlertCircle,
-  IconChevronUp,
-  IconChevronDown,
-  IconSelector,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -28,6 +23,7 @@ import { HealthStatus } from '../types/api';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useScreenReader } from '../lib/accessibility';
 import { useFaviconManager } from '../hooks/useFaviconManager';
+import { SortableTable, SortableTableColumn } from '../components/SortableTable';
 
 /**
  * Cluster summary combining cluster info and health data
@@ -42,19 +38,6 @@ interface ClusterSummary {
   documents: number;
   error?: string;
 }
-
-/**
- * Sort direction
- */
-type SortDirection = 'asc' | 'desc' | null;
-
-/**
- * Sortable column keys
- */
-type SortableColumn = keyof Pick<
-  ClusterSummary,
-  'name' | 'health' | 'nodes' | 'shards' | 'indices' | 'documents'
->;
 
 /**
  * Get badge color for health status
@@ -75,108 +58,6 @@ function getHealthColor(health: HealthStatus | 'unreachable'): string {
 }
 
 /**
- * Get numeric value for health status for sorting
- */
-function getHealthSortValue(health: HealthStatus | 'unreachable'): number {
-  switch (health) {
-    case 'green':
-      return 3;
-    case 'yellow':
-      return 2;
-    case 'red':
-      return 1;
-    case 'unreachable':
-      return 0;
-    default:
-      return 0;
-  }
-}
-
-/**
- * Sort clusters by column
- */
-function sortClusters(
-  clusters: ClusterSummary[],
-  column: SortableColumn,
-  direction: SortDirection
-): ClusterSummary[] {
-  if (!direction) {
-    return clusters;
-  }
-
-  const sorted = [...clusters].sort((a, b) => {
-    let aValue: string | number;
-    let bValue: string | number;
-
-    if (column === 'health') {
-      aValue = getHealthSortValue(a.health);
-      bValue = getHealthSortValue(b.health);
-    } else {
-      aValue = a[column];
-      bValue = b[column];
-    }
-
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return direction === 'asc'
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    }
-
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return direction === 'asc' ? aValue - bValue : bValue - aValue;
-    }
-
-    return 0;
-  });
-
-  return sorted;
-}
-
-/**
- * Table header with sort controls
- */
-interface SortableHeaderProps {
-  column: SortableColumn;
-  currentColumn: SortableColumn | null;
-  direction: SortDirection;
-  onSort: (column: SortableColumn) => void;
-  children: React.ReactNode;
-}
-
-function SortableHeader({
-  column,
-  currentColumn,
-  direction,
-  onSort,
-  children,
-}: SortableHeaderProps) {
-  const isActive = currentColumn === column;
-  const sortLabel = isActive
-    ? `Sorted ${direction === 'asc' ? 'ascending' : 'descending'}`
-    : 'Not sorted';
-
-  return (
-    <Table.Th>
-      <UnstyledButton
-        onClick={() => onSort(column)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          width: '100%',
-        }}
-        aria-label={`Sort by ${children}, ${sortLabel}`}
-      >
-        <Text fw={500}>{children}</Text>
-        {isActive && direction === 'asc' && <IconChevronUp size={14} aria-hidden="true" />}
-        {isActive && direction === 'desc' && <IconChevronDown size={14} aria-hidden="true" />}
-        {!isActive && <IconSelector size={14} opacity={0.5} aria-hidden="true" />}
-      </UnstyledButton>
-    </Table.Th>
-  );
-}
-
-/**
  * Dashboard component displays an overview of all configured clusters.
  * 
  * Features:
@@ -194,8 +75,6 @@ export function Dashboard() {
   const refreshInterval = useRefreshInterval();
   const { announce, announceError } = useScreenReader();
   const [clusterSummaries, setClusterSummaries] = useState<ClusterSummary[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   // Always show neutral favicon on clusters list
   // Requirements: 12.1, 12.7, 12.8
@@ -267,32 +146,60 @@ export function Dashboard() {
     fetchClusterStats();
   }, [clusters]);
 
-  // Handle sort column click
-  const handleSort = (column: SortableColumn) => {
-    if (sortColumn === column) {
-      // Cycle through: asc -> desc -> null
-      if (sortDirection === 'asc') {
-        setSortDirection('desc');
-        announce(`Sorted by ${column} descending`);
-      } else if (sortDirection === 'desc') {
-        setSortDirection(null);
-        setSortColumn(null);
-        announce(`Sort removed`);
-      }
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-      announce(`Sorted by ${column} ascending`);
-    }
-  };
-
   // Handle cluster row click - navigate to cluster detail view
   const handleClusterClick = (clusterId: string) => {
     navigate(`/cluster/${clusterId}`);
   };
 
-  // Apply sorting
-  const sortedClusters = sortClusters(clusterSummaries, sortColumn!, sortDirection);
+  // Define columns for SortableTable
+  const columns: SortableTableColumn<ClusterSummary>[] = [
+    {
+      key: 'name',
+      label: 'Cluster Name',
+      sortable: true,
+      render: (value, row) => (
+        <div>
+          <Text fw={500}>{value as string}</Text>
+          {row.error && (
+            <Text size="xs" c="dimmed" role="alert">
+              {row.error}
+            </Text>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'health',
+      label: 'Health',
+      sortable: true,
+      render: (value) => (
+        <Badge color={getHealthColor(value as HealthStatus | 'unreachable')} variant="filled" aria-label={`Health status: ${value}`}>
+          {value as string}
+        </Badge>
+      ),
+    },
+    {
+      key: 'nodes',
+      label: 'Nodes',
+      sortable: true,
+    },
+    {
+      key: 'shards',
+      label: 'Shards',
+      sortable: true,
+    },
+    {
+      key: 'indices',
+      label: 'Indices',
+      sortable: true,
+    },
+    {
+      key: 'documents',
+      label: 'Documents',
+      sortable: true,
+      render: (value) => (value as number).toLocaleString(),
+    },
+  ];
 
   // Loading state
   if (clustersLoading) {
@@ -383,7 +290,7 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (sortedClusters.filter(c => c.health === 'green').length / sortedClusters.length) * 100,
+                    value: (clusterSummaries.filter(c => c.health === 'green').length / clusterSummaries.length) * 100,
                     color: 'green',
                   },
                 ]}
@@ -391,7 +298,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {sortedClusters.filter(c => c.health === 'green').length}
+                        {clusterSummaries.filter(c => c.health === 'green').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Green
@@ -412,7 +319,7 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (sortedClusters.filter(c => c.health === 'yellow').length / sortedClusters.length) * 100,
+                    value: (clusterSummaries.filter(c => c.health === 'yellow').length / clusterSummaries.length) * 100,
                     color: 'yellow',
                   },
                 ]}
@@ -420,7 +327,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {sortedClusters.filter(c => c.health === 'yellow').length}
+                        {clusterSummaries.filter(c => c.health === 'yellow').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Yellow
@@ -441,7 +348,7 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (sortedClusters.filter(c => c.health === 'red').length / sortedClusters.length) * 100,
+                    value: (clusterSummaries.filter(c => c.health === 'red').length / clusterSummaries.length) * 100,
                     color: 'red',
                   },
                 ]}
@@ -449,7 +356,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {sortedClusters.filter(c => c.health === 'red').length}
+                        {clusterSummaries.filter(c => c.health === 'red').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Red
@@ -465,102 +372,11 @@ export function Dashboard() {
 
       {/* Responsive table with horizontal scroll on mobile */}
       <Box style={{ overflowX: 'auto' }}>
-        <Table 
-          highlightOnHover 
-          striped 
-          role="table" 
-          aria-label="Cluster overview table"
-          style={{ minWidth: '600px' }}
-        >
-          <Table.Thead>
-            <Table.Tr>
-              <SortableHeader
-                column="name"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Cluster Name
-              </SortableHeader>
-              <SortableHeader
-                column="health"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Health
-              </SortableHeader>
-              <SortableHeader
-                column="nodes"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Nodes
-              </SortableHeader>
-              <SortableHeader
-                column="shards"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Shards
-              </SortableHeader>
-              <SortableHeader
-                column="indices"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Indices
-              </SortableHeader>
-              <SortableHeader
-                column="documents"
-                currentColumn={sortColumn}
-                direction={sortDirection}
-                onSort={handleSort}
-              >
-                Documents
-              </SortableHeader>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {sortedClusters.map((cluster) => (
-              <Table.Tr
-                key={cluster.id}
-                onClick={() => handleClusterClick(cluster.id)}
-                style={{ cursor: 'pointer' }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleClusterClick(cluster.id);
-                  }
-                }}
-                aria-label={`View details for cluster ${cluster.name}`}
-              >
-                <Table.Td>
-                  <Text fw={500}>{cluster.name}</Text>
-                  {cluster.error && (
-                    <Text size="xs" c="dimmed" role="alert">
-                      {cluster.error}
-                    </Text>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <Badge color={getHealthColor(cluster.health)} variant="filled" aria-label={`Health status: ${cluster.health}`}>
-                    {cluster.health}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>{cluster.nodes}</Table.Td>
-                <Table.Td>{cluster.shards}</Table.Td>
-                <Table.Td>{cluster.indices}</Table.Td>
-                <Table.Td>{cluster.documents.toLocaleString()}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <SortableTable
+          data={clusterSummaries}
+          columns={columns}
+          onRowClick={(row) => handleClusterClick(row.id)}
+        />
       </Box>
     </Stack>
   );
