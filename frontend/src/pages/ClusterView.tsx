@@ -2085,7 +2085,7 @@ function ShardAllocationGrid({
             value={selectedShardStates}
             onChange={updateShardStates}
             clearable={false}
-            style={{ minWidth: 250, maxWidth: 350 }}
+            style={{ minWidth: 400, maxWidth: 500 }}
             size="xs"
           />
           
