@@ -1964,23 +1964,132 @@ function ShardAllocationGrid({
         </Group>
       </Group>
 
-      {/* Summary stats */}
-      <Group gap="md">
-        <Text size="sm">
-          <Text component="span" fw={700}>{nodes.length}</Text> nodes
-        </Text>
-        <Text size="sm">
-          <Text component="span" fw={700}>{filteredIndices.length}</Text> indices
-        </Text>
-        <Text size="sm">
-          <Text component="span" fw={700}>{shards.length}</Text> shards
-        </Text>
-        {unassignedShards.length > 0 && (
-          <Badge color="red" variant="filled">
-            {unassignedShards.length} unassigned
-          </Badge>
-        )}
-      </Group>
+      {/* Legend and dynamic stats - Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7 */}
+      <Stack gap="md">
+        {/* Shard color legend */}
+        <Card withBorder padding="sm">
+          <Stack gap="xs">
+            <Text size="sm" fw={600}>Shard State Legend</Text>
+            <Group gap="lg" wrap="wrap">
+              <Group gap="xs">
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid var(--mantine-color-green-6)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '2px'
+                }} />
+                <Text size="xs">Started (Healthy)</Text>
+              </Group>
+              <Group gap="xs">
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid var(--mantine-color-yellow-6)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '2px'
+                }} />
+                <Text size="xs">Initializing</Text>
+              </Group>
+              <Group gap="xs">
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid var(--mantine-color-orange-6)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '2px'
+                }} />
+                <Text size="xs">Relocating</Text>
+              </Group>
+              <Group gap="xs">
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid var(--mantine-color-red-6)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '2px'
+                }} />
+                <Text size="xs">Unassigned</Text>
+              </Group>
+            </Group>
+          </Stack>
+        </Card>
+
+        {/* Dynamic activity status or static stats */}
+        {(() => {
+          const relocatingShards = shards.filter(s => s.state === 'RELOCATING');
+          const initializingShards = shards.filter(s => s.state === 'INITIALIZING');
+          const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
+
+          if (hasActivity) {
+            // Show activity status when shards are relocating or initializing
+            // Requirements: 11.2, 11.3, 11.4, 11.7
+            return (
+              <Group gap="md">
+                {relocatingShards.length > 0 && (
+                  <Badge 
+                    color="orange" 
+                    variant="filled" 
+                    size="lg"
+                    leftSection={
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid white',
+                        backgroundColor: 'transparent',
+                        borderRadius: '2px',
+                        marginRight: '4px'
+                      }} />
+                    }
+                  >
+                    {relocatingShards.length} shard{relocatingShards.length !== 1 ? 's' : ''} relocating
+                  </Badge>
+                )}
+                {initializingShards.length > 0 && (
+                  <Badge 
+                    color="yellow" 
+                    variant="filled" 
+                    size="lg"
+                    leftSection={
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        border: '2px solid white',
+                        backgroundColor: 'transparent',
+                        borderRadius: '2px',
+                        marginRight: '4px'
+                      }} />
+                    }
+                  >
+                    {initializingShards.length} shard{initializingShards.length !== 1 ? 's' : ''} initializing
+                  </Badge>
+                )}
+              </Group>
+            );
+          } else {
+            // Show static stats when no activity
+            // Requirements: 11.5
+            return (
+              <Group gap="md">
+                <Text size="sm">
+                  <Text component="span" fw={700}>{nodes.filter(n => n.roles.includes('data')).length}</Text> data nodes
+                </Text>
+                <Text size="sm">
+                  <Text component="span" fw={700}>{filteredIndices.length}</Text> indices
+                </Text>
+                <Text size="sm">
+                  <Text component="span" fw={700}>{shards.length}</Text> shards
+                </Text>
+                {unassignedShards.length > 0 && (
+                  <Badge color="red" variant="filled">
+                    {unassignedShards.length} unassigned
+                  </Badge>
+                )}
+              </Group>
+            );
+          }
+        })()}
+      </Stack>
 
       {/* Shard allocation grid */}
       <ScrollArea>
@@ -1997,7 +2106,7 @@ function ShardAllocationGrid({
                       <Text 
                         size="xs" 
                         fw={500} 
-                        truncate="end" 
+                        truncate="end"
                         title={index.name}
                         style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         onClick={(e) => {
@@ -2093,7 +2202,8 @@ function ShardAllocationGrid({
               )}
               
               {/* Node rows */}
-              {nodes.map((node) => {
+              {/* Filter to show only nodes with data role - Requirements: 10.1, 10.2, 10.3 */}
+              {nodes.filter(node => node.roles.includes('data')).map((node) => {
                 const nodeShards = shardsByNodeAndIndex.get(node.name);
                 
                 return (

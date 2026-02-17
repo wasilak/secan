@@ -40,22 +40,13 @@ function getShardBorderColor(state: ShardInfo['state']): string {
 /**
  * Get background color for shard based on primary/replica status
  * 
- * Requirements: 3.7
- * - Solid fill for primary shards
- * - Outlined/hollow for replica shards
+ * Requirements: 3.7, 9.1, 9.2
+ * - All shards have transparent backgrounds
+ * - Border colors indicate shard state
  */
-function getShardBackgroundColor(primary: boolean, state: ShardInfo['state']): string {
-  if (state === 'UNASSIGNED') {
-    // Unassigned shards have no fill
-    return 'transparent';
-  }
-  
-  if (primary) {
-    // Primary shards have solid fill
-    return 'var(--mantine-color-blue-1)';
-  }
-  
-  // Replica shards are hollow (transparent background)
+function getShardBackgroundColor(_primary: boolean, _state: ShardInfo['state']): string {
+  // All shard squares now have transparent backgrounds
+  // Requirements: 9.1
   return 'transparent';
 }
 
@@ -96,7 +87,8 @@ export const ShardCell = memo(function ShardCell({
     : borderColor;
   
   // Selected shards have thicker border and pulsing animation
-  // Requirements: 4.1
+  // Requirements: 4.1, 9.3
+  // Ensure border thickness for visibility with transparent backgrounds
   const borderWidth = isSelected ? '3px' : '2px';
   
   // Handle click and touch events for shard selection
