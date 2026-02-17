@@ -14,6 +14,7 @@ import {
   FileButton,
   Alert,
   Menu,
+  CopyButton,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -26,6 +27,8 @@ import {
   IconAlertCircle,
   IconBook,
   IconEraser,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -506,6 +509,16 @@ export function RestConsole() {
               <Group justify="space-between" mb="xs">
                 <Text fw={500}>Request</Text>
                 <Group gap="xs">
+                  <CopyButton value={request} timeout={2000}>
+                    {({ copied, copy }) => (
+                      <Tooltip label={copied ? 'Copied!' : 'Copy request'}>
+                        <ActionIcon onClick={copy} variant="subtle" color={copied ? 'teal' : 'gray'}>
+                          {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </CopyButton>
+
                   <Menu shadow="md" width={250}>
                     <Menu.Target>
                       <Button
@@ -602,6 +615,17 @@ export function RestConsole() {
                     </Badge>
                   )}
                 </Group>
+                {response && (
+                  <CopyButton value={response} timeout={2000}>
+                    {({ copied, copy }) => (
+                      <Tooltip label={copied ? 'Copied!' : 'Copy response'}>
+                        <ActionIcon onClick={copy} variant="subtle" color={copied ? 'teal' : 'gray'}>
+                          {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </CopyButton>
+                )}
               </Group>
 
               <Editor
