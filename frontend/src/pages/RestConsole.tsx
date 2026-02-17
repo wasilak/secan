@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Title,
   Grid,
@@ -189,6 +189,7 @@ export function RestConsole() {
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(true);
 
   // Get history from the hook
   const history = getHistory();
@@ -204,6 +205,15 @@ export function RestConsole() {
     setStatusCode(null);
     setExecutionTime(null);
     setError(null);
+  }, []);
+
+  /**
+   * Toggle history panel visibility
+   * 
+   * Requirements: 13.17
+   */
+  const toggleHistory = useCallback(() => {
+    setShowHistory((prev) => !prev);
   }, []);
 
   /**
@@ -405,15 +415,61 @@ export function RestConsole() {
     reader.readAsText(file);
   }, [addEntry]);
 
+  /**
+   * Keyboard shortcuts for REST Console
+   * 
+   * Ctrl+Enter / Cmd+Enter: Execute request
+   * Ctrl+L / Cmd+L: Clear request editor
+   * Ctrl+H / Cmd+H: Toggle history panel
+   * 
+   * Requirements: 13.17
+   */
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl (Windows/Linux) or Cmd (Mac)
+      const isModifierPressed = event.ctrlKey || event.metaKey;
+
+      if (!isModifierPressed) return;
+
+      // Ctrl+Enter / Cmd+Enter: Execute request
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        executeRequest();
+        return;
+      }
+
+      // Ctrl+L / Cmd+L: Clear request editor
+      if (event.key === 'l' || event.key === 'L') {
+        event.preventDefault();
+        clearRequest();
+        return;
+      }
+
+      // Ctrl+H / Cmd+H: Toggle history panel
+      if (event.key === 'h' || event.key === 'H') {
+        event.preventDefault();
+        toggleHistory();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [executeRequest, clearRequest, toggleHistory]);
+
   return (
     <FullWidthContainer>
       <Title order={2} mb="md">
         REST Console - Cluster: {id}
       </Title>
 
+      <Text size="sm" c="dimmed" mb="md">
+        Keyboard shortcuts: Ctrl+Enter (Execute) • Ctrl+L (Clear) • Ctrl+H (Toggle History)
+      </Text>
+
       <Grid gutter="md">
         {/* Main editor area */}
-        <Grid.Col span={{ base: 12, md: 8 }}>
+        <Grid.Col span={{ base: 12, md: showHistory ? 8 : 12 }}>
           <Stack gap="md">
             {/* Request editor */}
             <Paper shadow="sm" p="md" withBorder>
@@ -537,82 +593,84 @@ export function RestConsole() {
         </Grid.Col>
 
         {/* History sidebar */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper shadow="sm" p="md" withBorder>
-            <Group justify="space-between" mb="md">
-              <Text fw={500}>History</Text>
-              <Group gap="xs">
-                <FileButton onChange={importHistory} accept="application/json">
-                  {(props) => (
-                    <Tooltip label="Import">
-                      <ActionIcon {...props} variant="subtle" size="sm">
-                        <IconUpload size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </FileButton>
-                
-                <Tooltip label="Export">
-                  <ActionIcon
-                    onClick={exportHistory}
-                    variant="subtle"
-                    size="sm"
-                    disabled={history.length === 0}
-                  >
-                    <IconDownload size={16} />
-                  </ActionIcon>
-                </Tooltip>
-
-                <Tooltip label="Clear History">
-                  <ActionIcon
-                    onClick={clearHistory}
-                    variant="subtle"
-                    size="sm"
-                    color="red"
-                    disabled={history.length === 0}
-                  >
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
-            </Group>
-
-            <ScrollArea h={600}>
-              <Stack gap="xs">
-                {history.length === 0 ? (
-                  <Text size="sm" c="dimmed" ta="center" py="xl">
-                    No history yet
-                  </Text>
-                ) : (
-                  history.map((item, index) => (
-                    <Paper
-                      key={index}
-                      p="xs"
-                      withBorder
-                      onClick={() => loadFromHistory(item)}
-                      style={{ cursor: 'pointer' }}
+        {showHistory && (
+          <Grid.Col span={{ base: 12, md: 4 }}>
+            <Paper shadow="sm" p="md" withBorder>
+              <Group justify="space-between" mb="md">
+                <Text fw={500}>History</Text>
+                <Group gap="xs">
+                  <FileButton onChange={importHistory} accept="application/json">
+                    {(props) => (
+                      <Tooltip label="Import">
+                        <ActionIcon {...props} variant="subtle" size="sm">
+                          <IconUpload size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
+                  </FileButton>
+                  
+                  <Tooltip label="Export">
+                    <ActionIcon
+                      onClick={exportHistory}
+                      variant="subtle"
+                      size="sm"
+                      disabled={history.length === 0}
                     >
-                      <Group justify="space-between" gap="xs">
-                        <Badge size="sm" variant="light">
-                          {item.method}
-                        </Badge>
-                        <Group gap={4}>
-                          <IconClock size={12} />
-                          <Text size="xs" c="dimmed">
-                            {new Date(item.timestamp).toLocaleTimeString()}
-                          </Text>
+                      <IconDownload size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+
+                  <Tooltip label="Clear History">
+                    <ActionIcon
+                      onClick={clearHistory}
+                      variant="subtle"
+                      size="sm"
+                      color="red"
+                      disabled={history.length === 0}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              </Group>
+
+              <ScrollArea h={600}>
+                <Stack gap="xs">
+                  {history.length === 0 ? (
+                    <Text size="sm" c="dimmed" ta="center" py="xl">
+                      No history yet
+                    </Text>
+                  ) : (
+                    history.map((item, index) => (
+                      <Paper
+                        key={index}
+                        p="xs"
+                        withBorder
+                        onClick={() => loadFromHistory(item)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Group justify="space-between" gap="xs">
+                          <Badge size="sm" variant="light">
+                            {item.method}
+                          </Badge>
+                          <Group gap={4}>
+                            <IconClock size={12} />
+                            <Text size="xs" c="dimmed">
+                              {new Date(item.timestamp).toLocaleTimeString()}
+                            </Text>
+                          </Group>
                         </Group>
-                      </Group>
-                      <Text size="sm" mt={4} lineClamp={1}>
-                        {item.path}
-                      </Text>
-                    </Paper>
-                  ))
-                )}
-              </Stack>
-            </ScrollArea>
-          </Paper>
-        </Grid.Col>
+                        <Text size="sm" mt={4} lineClamp={1}>
+                          {item.path}
+                        </Text>
+                      </Paper>
+                    ))
+                  )}
+                </Stack>
+              </ScrollArea>
+            </Paper>
+          </Grid.Col>
+        )}
       </Grid>
     </FullWidthContainer>
   );
