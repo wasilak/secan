@@ -8,7 +8,7 @@ auth:
 
 clusters:
   - id: "local"
-    name: "Local Development"
+    name: "Local Development"  # Optional: if omitted, cluster ID will be used as display name
     nodes:
       - "http://localhost:9200"
     es_version: 8
