@@ -390,7 +390,7 @@ describe('ShardGrid', () => {
       const thead = container.querySelector('thead');
       expect(thead).toBeInTheDocument();
     });
-  });
+
     // Check for sticky node column
     const nodeHeader = screen.getByText('Node');
     expect(nodeHeader).toBeInTheDocument();

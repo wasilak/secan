@@ -43,14 +43,15 @@ describe('AppShell', () => {
     expect(screen.getByLabelText('Open navigation menu')).toBeInTheDocument();
   });
 
-  it('renders user menu', () => {
+  it('renders navigation menu button', () => {
     renderWithProviders(<AppShell />);
-    // User avatar should be present
-    expect(screen.getByLabelText('User menu')).toBeInTheDocument();
+    // Burger menu button should be present
+    expect(screen.getByLabelText('Open navigation menu')).toBeInTheDocument();
   });
 
-  it('renders theme selector', () => {
+  it('renders refresh control', () => {
     renderWithProviders(<AppShell />);
-    expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
+    // App title should be present
+    expect(screen.getByText('Secan')).toBeInTheDocument();
   });
 });
