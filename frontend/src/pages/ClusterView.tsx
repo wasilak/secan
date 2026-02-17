@@ -2825,12 +2825,12 @@ function ShardsList({
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">
-                        {shard.docs !== undefined && shard.docs !== null ? shard.docs.toLocaleString() : 'N/A'}
+                        {shard.docs.toLocaleString()}
                       </Text>
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">
-                        {shard.store !== undefined && shard.store !== null ? formatBytes(shard.store) : 'N/A'}
+                        {formatBytes(shard.store)}
                       </Text>
                     </Table.Td>
                   </Table.Tr>
