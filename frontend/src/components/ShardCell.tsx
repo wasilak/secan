@@ -1,7 +1,8 @@
-import { Box } from '@mantine/core';
+import { Box, Group } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { memo } from 'react';
 import type { ShardInfo } from '../types/api';
+import { ShardTypeBadge } from './ShardTypeBadge';
 
 /**
  * Props for ShardCell component
@@ -164,23 +165,33 @@ export const ShardCell = memo(function ShardCell({
           }
         }}
         >
-        {/* Shard number */}
-        {shard.shard}
-        
-        {/* Primary indicator (small dot in corner) */}
-        {shard.primary && shard.state !== 'UNASSIGNED' && (
-          <Box
-            style={{
-              position: 'absolute',
-              top: '2px',
-              right: '2px',
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--mantine-color-blue-6)',
-            }}
-            aria-hidden="true"
-          />
+        {/* For unassigned shards, show shard number and type badge */}
+        {shard.state === 'UNASSIGNED' ? (
+          <Group gap={4} wrap="nowrap">
+            <span>{shard.shard}</span>
+            <ShardTypeBadge primary={shard.primary} />
+          </Group>
+        ) : (
+          <>
+            {/* Shard number */}
+            {shard.shard}
+            
+            {/* Primary indicator (small dot in corner) */}
+            {shard.primary && (
+              <Box
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--mantine-color-blue-6)',
+                }}
+                aria-hidden="true"
+              />
+            )}
+          </>
         )}
       </Box>
     </>
