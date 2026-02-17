@@ -429,10 +429,10 @@ export function NodeDetail() {
                       </Text>
                     </div>
                     <Anchor
-                      href={`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.id)}`}
+                      href={`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        navigate(`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.id)}`);
+                        navigate(`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`);
                       }}
                     >
                       <Button
