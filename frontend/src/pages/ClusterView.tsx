@@ -1449,9 +1449,25 @@ function IndicesList({
                     )}
                     <Table.Td>
                       {unassignedCount > 0 ? (
-                        <Badge size="sm" color="red" variant="filled">
-                          {unassignedCount}
-                        </Badge>
+                        <Tooltip
+                          label={
+                            <Stack gap={4}>
+                              <Text size="xs" fw={600}>Unassigned Shards:</Text>
+                              {unassignedByIndex[index.name]?.map((shard, idx) => (
+                                <Group key={idx} gap={4}>
+                                  <Text size="xs">Shard {shard.shard}</Text>
+                                  <ShardTypeBadge primary={shard.primary} />
+                                </Group>
+                              ))}
+                            </Stack>
+                          }
+                          multiline
+                          w={200}
+                        >
+                          <Badge size="sm" color="red" variant="filled" style={{ cursor: 'help' }}>
+                            {unassignedCount}
+                          </Badge>
+                        </Tooltip>
                       ) : (
                         <Text size="sm" c="dimmed">-</Text>
                       )}
