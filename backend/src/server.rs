@@ -239,7 +239,7 @@ mod tests {
         // Create with at least one cluster
         let cluster_config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),
@@ -262,7 +262,7 @@ mod tests {
         let config = create_test_config();
         let cluster_config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),

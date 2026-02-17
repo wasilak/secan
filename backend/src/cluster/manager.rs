@@ -16,8 +16,8 @@ use tokio::sync::RwLock;
 pub struct ClusterConnection {
     /// Unique cluster identifier
     pub id: String,
-    /// Human-readable cluster name
-    pub name: String,
+    /// Human-readable cluster name (optional, defaults to ID if not provided)
+    pub name: Option<String>,
     /// List of node URLs for this cluster
     pub nodes: Vec<String>,
     /// Elasticsearch client for this cluster
@@ -55,7 +55,7 @@ pub struct ClusterHealth {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterInfo {
     pub id: String,
-    pub name: String,
+    pub name: Option<String>,
     pub nodes: Vec<String>,
     pub accessible: bool,
 }
@@ -230,7 +230,7 @@ mod tests {
     async fn test_cluster_connection_creation() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test Cluster".to_string(),
+            name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -242,7 +242,7 @@ mod tests {
 
         let conn = connection.unwrap();
         assert_eq!(conn.id, "test");
-        assert_eq!(conn.name, "Test Cluster");
+        assert_eq!(conn.name, Some("Test Cluster".to_string()));
         assert_eq!(conn.nodes.len(), 1);
     }
 
@@ -250,7 +250,7 @@ mod tests {
     async fn test_cluster_connection_with_auth() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test Cluster".to_string(),
+            name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: Some(ClusterAuth::Basic {
                 username: "user".to_string(),
@@ -298,7 +298,7 @@ mod tests {
     fn test_cluster_info_serialization() {
         let info = ClusterInfo {
             id: "test".to_string(),
-            name: "Test Cluster".to_string(),
+            name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             accessible: true,
         };
@@ -345,7 +345,8 @@ impl Manager {
         let mut clusters = HashMap::new();
 
         for config in cluster_configs {
-            tracing::info!("Initializing cluster: {} ({})", config.name, config.id);
+            let display_name = config.name.as_deref().unwrap_or(&config.id);
+            tracing::info!("Initializing cluster: {} ({})", display_name, config.id);
 
             let connection = ClusterConnection::new(&config)
                 .await
@@ -656,7 +657,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "cluster1".to_string(),
-                name: "Cluster 1".to_string(),
+                name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -664,7 +665,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
-                name: "Cluster 2".to_string(),
+                name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -694,7 +695,7 @@ mod manager_tests {
     async fn test_get_cluster() {
         let configs = vec![ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -716,7 +717,7 @@ mod manager_tests {
     async fn test_get_cluster_not_found() {
         let configs = vec![ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -740,7 +741,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "cluster1".to_string(),
-                name: "Cluster 1".to_string(),
+                name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -748,7 +749,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
-                name: "Cluster 2".to_string(),
+                name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -770,7 +771,7 @@ mod manager_tests {
     async fn test_has_cluster() {
         let configs = vec![ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -790,7 +791,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "cluster1".to_string(),
-                name: "Cluster 1".to_string(),
+                name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -798,7 +799,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
-                name: "Cluster 2".to_string(),
+                name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -817,7 +818,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "basic".to_string(),
-                name: "Basic Auth".to_string(),
+                name: Some("Basic Auth".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: Some(ClusterAuth::Basic {
                     username: "user".to_string(),
@@ -828,7 +829,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "apikey".to_string(),
-                name: "API Key".to_string(),
+                name: Some("API Key".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: Some(ClusterAuth::ApiKey {
                     key: "key123".to_string(),
@@ -838,7 +839,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "none".to_string(),
-                name: "No Auth".to_string(),
+                name: Some("No Auth".to_string()),
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -861,7 +862,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "prod-cluster-1".to_string(),
-                name: "Production 1".to_string(),
+                name: Some("Production 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -869,7 +870,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
-                name: "Development 1".to_string(),
+                name: Some("Development 1".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -922,7 +923,7 @@ mod manager_tests {
         let configs = vec![
             ClusterConfig {
                 id: "prod-cluster-1".to_string(),
-                name: "Production 1".to_string(),
+                name: Some("Production 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -930,7 +931,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "prod-cluster-2".to_string(),
-                name: "Production 2".to_string(),
+                name: Some("Production 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -938,7 +939,7 @@ mod manager_tests {
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
-                name: "Development 1".to_string(),
+                name: Some("Development 1".to_string()),
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
@@ -976,7 +977,7 @@ mod manager_tests {
 
         let configs = vec![ClusterConfig {
             id: "prod-cluster-1".to_string(),
-            name: "Production 1".to_string(),
+            name: Some("Production 1".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -1012,7 +1013,7 @@ mod manager_tests {
 
         let configs = vec![ClusterConfig {
             id: "prod-cluster-1".to_string(),
-            name: "Production 1".to_string(),
+            name: Some("Production 1".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -1049,7 +1050,7 @@ mod manager_tests {
     async fn test_get_cluster_with_auth_no_user() {
         let configs = vec![ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -1071,7 +1072,7 @@ mod manager_tests {
 
         let configs = vec![ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),

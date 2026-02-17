@@ -114,7 +114,8 @@ pub struct RoleConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterConfig {
     pub id: String,
-    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     pub nodes: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<ClusterAuth>,
@@ -329,8 +330,9 @@ impl ClusterConfig {
             anyhow::bail!("Cluster ID cannot be empty");
         }
 
-        if self.name.is_empty() {
-            anyhow::bail!("Cluster name cannot be empty");
+        // Name is optional, but if provided it cannot be empty
+        if self.name.as_ref().is_some_and(|n| n.is_empty()) {
+            anyhow::bail!("Cluster name cannot be empty if provided");
         }
 
         if self.nodes.is_empty() {
@@ -604,7 +606,7 @@ mod tests {
     fn test_cluster_config_validation() {
         let mut cluster = ClusterConfig {
             id: "test".to_string(),
-            name: "Test Cluster".to_string(),
+            name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),

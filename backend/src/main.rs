@@ -39,9 +39,10 @@ async fn main() -> anyhow::Result<()> {
 
     // Log cluster configurations (sanitized)
     for cluster in &config.clusters {
+        let display_name = cluster.name.as_deref().unwrap_or(&cluster.id);
         info!(
             cluster_id = %cluster.id,
-            cluster_name = %cluster.name,
+            cluster_name = %display_name,
             node_count = cluster.nodes.len(),
             has_auth = cluster.auth.is_some(),
             tls_verify = cluster.tls.verify,

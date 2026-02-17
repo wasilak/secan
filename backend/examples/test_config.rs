@@ -18,9 +18,13 @@ fn main() -> anyhow::Result<()> {
     println!("  Auth mode: {:?}", config.auth.mode);
     println!("  Clusters: {}", config.clusters.len());
     if !config.clusters.is_empty() {
+        let display_name = config.clusters[0]
+            .name
+            .as_deref()
+            .unwrap_or(&config.clusters[0].id);
         println!(
             "  First cluster: {} ({})",
-            config.clusters[0].name, config.clusters[0].id
+            display_name, config.clusters[0].id
         );
     }
 

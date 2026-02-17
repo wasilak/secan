@@ -428,7 +428,7 @@ mod tests {
     async fn test_client_creation() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -446,7 +446,7 @@ mod tests {
     async fn test_client_with_basic_auth() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: Some(ClusterAuth::Basic {
                 username: "user".to_string(),
@@ -464,7 +464,7 @@ mod tests {
     async fn test_client_with_api_key() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: Some(ClusterAuth::ApiKey {
                 key: "id:key".to_string(),
@@ -481,7 +481,7 @@ mod tests {
     async fn test_client_version() {
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
@@ -493,7 +493,7 @@ mod tests {
 
         let config = ClusterConfig {
             id: "test".to_string(),
-            name: "Test".to_string(),
+            name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
