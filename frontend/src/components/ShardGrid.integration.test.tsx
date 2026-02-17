@@ -13,6 +13,9 @@ vi.mock('../api/client', () => ({
   apiClient: {
     relocateShard: vi.fn(),
     getShardStats: vi.fn(),
+    getNodes: vi.fn(),
+    getIndices: vi.fn(),
+    getShards: vi.fn(),
   },
 }));
 
@@ -121,13 +124,29 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     // Reset mocks
     vi.clearAllMocks();
     
-    // Setup initial state
-    useShardGridStore.setState({
-      loading: false,
-      nodes: mockNodes,
-      indices: mockIndices,
-      unassignedShards: [],
-    });
+    // Mock API calls to return test data
+    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
+    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
+    vi.mocked(apiClient.getShards).mockResolvedValue([
+      {
+        index: 'test-index',
+        shard: 0,
+        primary: true,
+        state: 'STARTED',
+        node: 'node-1',
+        docs: 1000,
+        storeSize: 1024000,
+      },
+      {
+        index: 'test-index',
+        shard: 0,
+        primary: false,
+        state: 'STARTED',
+        node: 'node-2',
+        docs: 1000,
+        storeSize: 1024000,
+      },
+    ]);
   });
 
   it('completes full relocation workflow: click shard -> select for relocation -> click destination -> confirm', async () => {
@@ -137,6 +156,11 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     vi.mocked(apiClient.relocateShard).mockResolvedValue(undefined);
     
     renderWithProviders(<ShardGrid clusterId="test-cluster" />);
+    
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shard grid...')).not.toBeInTheDocument();
+    });
     
     // Step 1: Find and click on a shard (primary shard 0 on node-1)
     const shardCells = screen.getAllByText('0');
@@ -227,6 +251,11 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     
     renderWithProviders(<ShardGrid clusterId="test-cluster" />);
     
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shard grid...')).not.toBeInTheDocument();
+    });
+    
     // Click on a shard
     const shardCells = screen.getAllByText('0');
     await user.click(shardCells[0]);
@@ -290,6 +319,11 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     
     renderWithProviders(<ShardGrid clusterId="test-cluster" />);
     
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shard grid...')).not.toBeInTheDocument();
+    });
+    
     // Click on a shard on node-1
     const shardCells = screen.getAllByText('0');
     await user.click(shardCells[0]);
@@ -315,6 +349,11 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     const user = userEvent.setup();
     
     renderWithProviders(<ShardGrid clusterId="test-cluster" />);
+    
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shard grid...')).not.toBeInTheDocument();
+    });
     
     // Enter relocation mode
     const shardCells = screen.getAllByText('0');
@@ -342,6 +381,11 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     const user = userEvent.setup();
     
     renderWithProviders(<ShardGrid clusterId="test-cluster" />);
+    
+    // Wait for data to load
+    await waitFor(() => {
+      expect(screen.queryByText('Loading shard grid...')).not.toBeInTheDocument();
+    });
     
     // Click on primary shard 0 on node-1
     const shardCells = screen.getAllByText('0');

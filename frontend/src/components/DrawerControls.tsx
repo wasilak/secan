@@ -158,6 +158,9 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
                 backgroundColor: 'var(--mantine-color-gray-light-hover)',
               }
             }}
+            role="button"
+            aria-label="Toggle theme"
+            tabIndex={0}
           >
             {themeIcon}
             <Text size="sm">
@@ -208,6 +211,9 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
                 backgroundColor: 'var(--mantine-color-gray-light-hover)',
               }
             }}
+            role="button"
+            aria-label="User menu"
+            tabIndex={0}
           >
             <Avatar size="sm" radius="xl" color="blue">
               {userInitial}

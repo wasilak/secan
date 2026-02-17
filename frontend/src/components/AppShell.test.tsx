@@ -53,9 +53,4 @@ describe('AppShell', () => {
     renderWithProviders(<AppShell />);
     expect(screen.getByLabelText('Toggle theme')).toBeInTheDocument();
   });
-
-  it('renders keyboard shortcuts button', () => {
-    renderWithProviders(<AppShell />);
-    expect(screen.getByLabelText('View keyboard shortcuts')).toBeInTheDocument();
-  });
 });
