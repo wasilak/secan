@@ -13,6 +13,7 @@ import {
   Badge,
   FileButton,
   Alert,
+  Menu,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -23,6 +24,8 @@ import {
   IconUpload,
   IconClock,
   IconAlertCircle,
+  IconBook,
+  IconEraser,
 } from '@tabler/icons-react';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -31,14 +34,82 @@ import { RequestHistoryItem } from '../types/preferences';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
+ * Example REST requests for common Elasticsearch operations
+ * 
+ * Requirements: 13.20
+ */
+const EXAMPLE_REQUESTS = [
+  {
+    label: 'Cluster Health',
+    request: 'GET _cluster/health',
+  },
+  {
+    label: 'Cluster Settings',
+    request: 'GET _cluster/settings?include_defaults',
+  },
+  {
+    label: 'List Indices',
+    request: 'GET _cat/indices?v&h=index,pri,rep,store.size&s=index:asc',
+  },
+  {
+    label: 'List Nodes',
+    request: 'GET _cat/nodes?full_id=true&h=id,name&v&s=name:asc',
+  },
+  {
+    label: 'Update Cluster Settings',
+    request: `PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.node_concurrent_recoveries": 5
+  }
+}`,
+  },
+  {
+    label: 'Create Index',
+    request: `POST my-index
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  }
+}`,
+  },
+  {
+    label: 'Update Index Settings (Wildcard)',
+    request: `PUT service-live-2026.02.*/_settings
+{
+  "index": {
+    "number_of_replicas": 1
+  }
+}`,
+  },
+  {
+    label: 'Search Documents',
+    request: `POST my-index/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}`,
+  },
+  {
+    label: 'Rollover Index',
+    request: 'POST ds-invalid-file/_rollover',
+  },
+];
+
+/**
  * Parse REST console request format: "METHOD endpoint"
  * 
  * Supports formats like:
  * - GET _cat/nodes
+ * - GET /_cat/nodes (with leading slash)
  * - POST _search
  * - PUT my-index
+ * - GET _cluster/settings?include_defaults (with query params)
+ * - PUT service-live-2026.02.WILDCARD/_settings (with wildcards)
  * 
- * Requirements: 19.2, 19.4, 19.5
+ * Requirements: 13.3, 13.4, 13.21, 13.22, 13.23, 13.24
  */
 function parseRequest(input: string): {
   method: string;
@@ -54,11 +125,18 @@ function parseRequest(input: string): {
   if (parts.length < 2) return null;
 
   const method = parts[0].toUpperCase();
-  const path = parts[1];
+  let path = parts.slice(1).join(' '); // Rejoin in case path has spaces (shouldn't, but be safe)
 
   // Valid HTTP methods
   const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PATCH'];
   if (!validMethods.includes(method)) return null;
+
+  // Normalize path: ensure it starts with /
+  // Support both /_cluster/settings and _cluster/settings formats
+  // Preserve query parameters and wildcards
+  if (!path.startsWith('/')) {
+    path = `/${path}`;
+  }
 
   // Body is everything after the first line
   const body = lines.slice(1).join('\n').trim();
@@ -107,10 +185,37 @@ export function RestConsole() {
   const [request, setRequest] = useState<string>('GET _cluster/health');
   const [response, setResponse] = useState<string>('');
   const [statusCode, setStatusCode] = useState<number | null>(null);
+  const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const MAX_HISTORY_ENTRIES = 100; // Configurable max entries (Requirement 19.13)
+
+  /**
+   * Clear the request editor
+   * 
+   * Requirements: 13.1
+   */
+  const clearRequest = useCallback(() => {
+    setRequest('');
+    setResponse('');
+    setStatusCode(null);
+    setExecutionTime(null);
+    setError(null);
+  }, []);
+
+  /**
+   * Load an example request
+   * 
+   * Requirements: 13.20
+   */
+  const loadExample = useCallback((exampleRequest: string) => {
+    setRequest(exampleRequest);
+    setResponse('');
+    setStatusCode(null);
+    setExecutionTime(null);
+    setError(null);
+  }, []);
 
   /**
    * Execute the REST request against the cluster
@@ -130,6 +235,9 @@ export function RestConsole() {
     setError(null);
     setResponse('');
     setStatusCode(null);
+    setExecutionTime(null);
+
+    const startTime = performance.now();
 
     try {
       // Parse body as JSON if present
@@ -152,10 +260,14 @@ export function RestConsole() {
         bodyData
       );
 
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+
       // Format and display response
       const formattedResponse = formatResponse(result);
       setResponse(formattedResponse);
       setStatusCode(200); // Successful response
+      setExecutionTime(timeTaken);
 
       // Add to history (Requirements: 19.8, 19.10, 19.13)
       const historyItem: RequestHistoryItem = {
@@ -175,15 +287,19 @@ export function RestConsole() {
 
       notifications.show({
         title: 'Success',
-        message: 'Request executed successfully',
+        message: `Request executed in ${timeTaken.toFixed(0)}ms`,
         color: 'green',
       });
     } catch (err) {
+      const endTime = performance.now();
+      const timeTaken = endTime - startTime;
+      
       const error = err as { message?: string; status?: number };
       const errorMessage = error.message || 'Request failed';
       setError(errorMessage);
       setStatusCode(error.status || 0);
       setResponse(errorMessage);
+      setExecutionTime(timeTaken);
 
       notifications.show({
         title: 'Error',
@@ -304,14 +420,49 @@ export function RestConsole() {
             <Paper shadow="sm" p="md" withBorder>
               <Group justify="space-between" mb="xs">
                 <Text fw={500}>Request</Text>
-                <Button
-                  leftSection={<IconPlayerPlay size={16} />}
-                  onClick={executeRequest}
-                  loading={loading}
-                  size="sm"
-                >
-                  Execute
-                </Button>
+                <Group gap="xs">
+                  <Menu shadow="md" width={250}>
+                    <Menu.Target>
+                      <Button
+                        leftSection={<IconBook size={16} />}
+                        variant="light"
+                        size="sm"
+                      >
+                        Examples
+                      </Button>
+                    </Menu.Target>
+
+                    <Menu.Dropdown>
+                      <Menu.Label>Common Operations</Menu.Label>
+                      {EXAMPLE_REQUESTS.map((example) => (
+                        <Menu.Item
+                          key={example.label}
+                          onClick={() => loadExample(example.request)}
+                        >
+                          {example.label}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Dropdown>
+                  </Menu>
+
+                  <Button
+                    leftSection={<IconEraser size={16} />}
+                    onClick={clearRequest}
+                    variant="subtle"
+                    size="sm"
+                  >
+                    Clear
+                  </Button>
+
+                  <Button
+                    leftSection={<IconPlayerPlay size={16} />}
+                    onClick={executeRequest}
+                    loading={loading}
+                    size="sm"
+                  >
+                    Execute
+                  </Button>
+                </Group>
               </Group>
               
               <Text size="xs" c="dimmed" mb="xs">
@@ -358,6 +509,11 @@ export function RestConsole() {
                       variant="light"
                     >
                       {statusCode}
+                    </Badge>
+                  )}
+                  {executionTime !== null && (
+                    <Badge color="blue" variant="light">
+                      {executionTime.toFixed(0)}ms
                     </Badge>
                   )}
                 </Group>
