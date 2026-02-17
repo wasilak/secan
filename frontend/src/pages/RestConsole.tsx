@@ -15,6 +15,7 @@ import {
   Alert,
   Menu,
   CopyButton,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -210,6 +211,7 @@ function formatResponse(data: unknown, contentType: string | null): { text: stri
 export function RestConsole() {
   const { id } = useParams<{ id: string }>();
   const { addEntry, getHistory, clearHistory: clearHistoryHook } = useConsoleHistory();
+  const { colorScheme } = useMantineColorScheme();
 
   const [request, setRequest] = useState<string>('GET _cluster/health');
   const [response, setResponse] = useState<string>('');
@@ -572,7 +574,7 @@ export function RestConsole() {
                 defaultLanguage="plaintext"
                 value={request}
                 onChange={(value) => setRequest(value || '')}
-                theme="vs-dark"
+                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                 options={{
                   minimap: { enabled: false },
                   fontSize: 14,
@@ -633,7 +635,7 @@ export function RestConsole() {
                 defaultLanguage="json"
                 language={responseLanguage}
                 value={response}
-                theme="vs-dark"
+                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                 options={{
                   readOnly: true,
                   minimap: { enabled: false },
