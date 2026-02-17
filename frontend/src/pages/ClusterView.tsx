@@ -2001,21 +2001,22 @@ function ShardAllocationGrid({
         clusterId={id!}
       />
 
-      {/* Toolbar with convenience actions */}
-      <Group justify="space-between" wrap="wrap">
-        <Group>
+      {/* Compact toolbar with filters */}
+      <Group justify="space-between" wrap="nowrap" gap="xs">
+        {/* Left side: Action buttons */}
+        <Group gap="xs">
           {/* Shard allocation lock/unlock */}
           {shardAllocationEnabled ? (
             <Menu shadow="md" width={200}>
               <Menu.Target>
                 <Tooltip label="Disable shard allocation">
                   <ActionIcon
-                    size="lg"
+                    size="md"
                     variant="subtle"
                     color="green"
                     loading={disableAllocationMutation.isPending}
                   >
-                    <IconLockOpen size={20} />
+                    <IconLockOpen size={18} />
                   </ActionIcon>
                 </Tooltip>
               </Menu.Target>
@@ -2044,13 +2045,13 @@ function ShardAllocationGrid({
           ) : (
             <Tooltip label="Enable shard allocation">
               <ActionIcon
-                size="lg"
+                size="md"
                 variant="subtle"
                 color="red"
                 onClick={() => enableAllocationMutation.mutate()}
                 loading={enableAllocationMutation.isPending}
               >
-                <IconLock size={20} />
+                <IconLock size={18} />
               </ActionIcon>
             </Tooltip>
           )}
@@ -2058,115 +2059,113 @@ function ShardAllocationGrid({
           {/* Expand/compress view */}
           <Tooltip label={expandedView ? 'Compress view' : 'Expand view'}>
             <ActionIcon
-              size="lg"
+              size="md"
               variant="subtle"
               onClick={() => updateParam('overviewExpanded', !expandedView)}
             >
-              {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+              {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
             </ActionIcon>
           </Tooltip>
         </Group>
 
-        <Group style={{ flex: 1 }}>
+        {/* Center: Search and filters */}
+        <Group gap="xs" style={{ flex: 1 }}>
           <TextInput
-            placeholder="Filter indices by name or alias..."
-            leftSection={<IconSearch size={16} />}
+            placeholder="Filter indices..."
+            leftSection={<IconSearch size={14} />}
             value={searchQuery}
             onChange={(e) => updateParam('overviewSearch', e.currentTarget.value)}
-            style={{ flex: 1, maxWidth: 400 }}
+            style={{ minWidth: 200, maxWidth: 300 }}
+            size="xs"
           />
           
           <MultiSelect
-            placeholder="Shard States"
+            placeholder="States"
             data={SHARD_STATES.map(state => ({ value: state, label: state }))}
             value={selectedShardStates}
             onChange={updateShardStates}
             clearable={false}
-            style={{ minWidth: 200 }}
-            size="sm"
+            style={{ minWidth: 150, maxWidth: 200 }}
+            size="xs"
           />
           
-          <Group gap="md">
-            <Checkbox
-              label={`closed (${indices.filter(i => i.status !== 'open').length})`}
-              checked={showClosed}
-              onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
-              size="sm"
-            />
-            
-            <Checkbox
-              label={`special (${indices.filter(i => i.name.startsWith('.')).length})`}
-              checked={showSpecial}
-              onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
-              size="sm"
-            />
+          <Checkbox
+            label={`closed (${indices.filter(i => i.status !== 'open').length})`}
+            checked={showClosed}
+            onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
+            size="xs"
+          />
+          
+          <Checkbox
+            label={`special (${indices.filter(i => i.name.startsWith('.')).length})`}
+            checked={showSpecial}
+            onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
+            size="xs"
+          />
 
-            {unassignedShards.length > 0 && (
-              <Checkbox
-                label="Show only affected"
-                checked={showOnlyAffected}
-                onChange={(e) => updateParam('overviewAffected', e.currentTarget.checked)}
-                size="sm"
-              />
-            )}
-            
-            <Text size="sm" c="dimmed">
-              {filteredIndicesData.length} of {indices.length}
-            </Text>
-          </Group>
+          {unassignedShards.length > 0 && (
+            <Checkbox
+              label="affected"
+              checked={showOnlyAffected}
+              onChange={(e) => updateParam('overviewAffected', e.currentTarget.checked)}
+              size="xs"
+            />
+          )}
+        </Group>
+
+        {/* Right side: Stats */}
+        <Group gap="md">
+          <Text size="xs" c="dimmed">
+            {filteredIndicesData.length} of {indices.length}
+          </Text>
         </Group>
       </Group>
 
-      {/* Legend and dynamic stats - Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7 */}
-      <Stack gap="md">
-        {/* Shard color legend */}
-        <Card withBorder padding="sm">
-          <Stack gap="xs">
-            <Text size="sm" fw={600}>Shard State Legend</Text>
-            <Group gap="lg" wrap="wrap">
-              <Group gap="xs">
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid var(--mantine-color-green-6)',
-                  backgroundColor: 'transparent',
-                  borderRadius: '2px'
-                }} />
-                <Text size="xs">Started (Healthy)</Text>
-              </Group>
-              <Group gap="xs">
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid var(--mantine-color-yellow-6)',
-                  backgroundColor: 'transparent',
-                  borderRadius: '2px'
-                }} />
-                <Text size="xs">Initializing</Text>
-              </Group>
-              <Group gap="xs">
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid var(--mantine-color-orange-6)',
-                  backgroundColor: 'transparent',
-                  borderRadius: '2px'
-                }} />
-                <Text size="xs">Relocating</Text>
-              </Group>
-              <Group gap="xs">
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  border: '2px solid var(--mantine-color-red-6)',
-                  backgroundColor: 'transparent',
-                  borderRadius: '2px'
-                }} />
-                <Text size="xs">Unassigned</Text>
-              </Group>
-            </Group>
-          </Stack>
-        </Card>
+      {/* Compact legend and stats */}
+      <Group justify="space-between" wrap="wrap" gap="xs">
+        {/* Shard color legend - inline */}
+        <Group gap="md" wrap="wrap">
+          <Group gap={4}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid var(--mantine-color-green-6)',
+              backgroundColor: 'transparent',
+              borderRadius: '2px'
+            }} />
+            <Text size="xs">Started</Text>
+          </Group>
+          <Group gap={4}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid var(--mantine-color-yellow-6)',
+              backgroundColor: 'transparent',
+              borderRadius: '2px'
+            }} />
+            <Text size="xs">Initializing</Text>
+          </Group>
+          <Group gap={4}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid var(--mantine-color-orange-6)',
+              backgroundColor: 'transparent',
+              borderRadius: '2px'
+            }} />
+            <Text size="xs">Relocating</Text>
+          </Group>
+          <Group gap={4}>
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid var(--mantine-color-red-6)',
+              backgroundColor: 'transparent',
+              borderRadius: '2px'
+            }} />
+            <Text size="xs">Unassigned</Text>
+          </Group>
+        </Group>
 
         {/* Dynamic activity status or static stats */}
         {(() => {
@@ -2175,66 +2174,34 @@ function ShardAllocationGrid({
           const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
 
           if (hasActivity) {
-            // Show activity status when shards are relocating or initializing
-            // Requirements: 11.2, 11.3, 11.4, 11.7
             return (
-              <Group gap="md">
+              <Group gap="xs">
                 {relocatingShards.length > 0 && (
-                  <Badge 
-                    color="orange" 
-                    variant="filled" 
-                    size="lg"
-                    leftSection={
-                      <div style={{
-                        width: '12px',
-                        height: '12px',
-                        border: '2px solid white',
-                        backgroundColor: 'transparent',
-                        borderRadius: '2px',
-                        marginRight: '4px'
-                      }} />
-                    }
-                  >
-                    {relocatingShards.length} shard{relocatingShards.length !== 1 ? 's' : ''} relocating
+                  <Badge color="orange" variant="filled" size="sm">
+                    {relocatingShards.length} relocating
                   </Badge>
                 )}
                 {initializingShards.length > 0 && (
-                  <Badge 
-                    color="yellow" 
-                    variant="filled" 
-                    size="lg"
-                    leftSection={
-                      <div style={{
-                        width: '12px',
-                        height: '12px',
-                        border: '2px solid white',
-                        backgroundColor: 'transparent',
-                        borderRadius: '2px',
-                        marginRight: '4px'
-                      }} />
-                    }
-                  >
-                    {initializingShards.length} shard{initializingShards.length !== 1 ? 's' : ''} initializing
+                  <Badge color="yellow" variant="filled" size="sm">
+                    {initializingShards.length} initializing
                   </Badge>
                 )}
               </Group>
             );
           } else {
-            // Show static stats when no activity
-            // Requirements: 11.5
             return (
-              <Group gap="md">
-                <Text size="sm">
-                  <Text component="span" fw={700}>{nodes.filter(n => n.roles.includes('data')).length}</Text> data nodes
+              <Group gap="xs">
+                <Text size="xs">
+                  <Text component="span" fw={600}>{nodes.filter(n => n.roles.includes('data')).length}</Text> nodes
                 </Text>
-                <Text size="sm">
-                  <Text component="span" fw={700}>{filteredIndicesData.length}</Text> indices
+                <Text size="xs">
+                  <Text component="span" fw={600}>{filteredIndicesData.length}</Text> indices
                 </Text>
-                <Text size="sm">
-                  <Text component="span" fw={700}>{filteredShards.length}</Text> shards
+                <Text size="xs">
+                  <Text component="span" fw={600}>{filteredShards.length}</Text> shards
                 </Text>
                 {unassignedShards.length > 0 && (
-                  <Badge color="red" variant="filled">
+                  <Badge color="red" variant="filled" size="sm">
                     {unassignedShards.length} unassigned
                   </Badge>
                 )}
@@ -2242,7 +2209,7 @@ function ShardAllocationGrid({
             );
           }
         })()}
-      </Stack>
+      </Group>
 
       {/* Shard allocation grid */}
       <ScrollArea>
