@@ -104,7 +104,7 @@ export function SpotlightSearch() {
             id: `node-${node.id}`,
             label: `Node: ${node.name}`,
             description: `${node.ip} - ${node.roles.join(', ')}`,
-            onClick: () => navigate(`/cluster/${currentClusterId}?tab=nodes`),
+            onClick: () => navigate(`/cluster/${currentClusterId}/nodes/${node.id}`),
             leftSection: <IconServer size={20} />,
             keywords: ['node', node.name, node.ip, ...node.roles, currentClusterName],
           });
