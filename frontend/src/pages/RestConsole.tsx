@@ -29,7 +29,7 @@ import {
 } from '@tabler/icons-react';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
-import { usePreferences } from '../hooks/usePreferences';
+import { useConsoleHistory } from '../hooks/useConsoleHistory';
 import { RequestHistoryItem } from '../types/preferences';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 
@@ -169,18 +169,19 @@ function formatResponse(data: unknown): string {
  * - Execute requests against selected cluster
  * - Display response with syntax highlighting
  * - Show status code and headers
- * - Store requests in local storage
- * - Display history in sidebar
+ * - Store requests in local storage via useConsoleHistory hook
+ * - Display history in sidebar with timestamps
  * - Populate request from history selection
- * - Limit history to configurable max entries
+ * - Limit history to configurable max entries (100)
  * - Support clearing history
  * - Export/import request collections
  * 
- * Requirements: 19.1, 19.2, 19.3, 19.5, 19.6, 19.7, 19.8, 19.9, 19.10, 19.11, 19.12, 19.13
+ * Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8, 13.9, 13.10,
+ *               13.11, 13.12, 13.13, 13.14, 13.15, 13.16, 13.17, 13.18, 13.19, 13.20
  */
 export function RestConsole() {
   const { id } = useParams<{ id: string }>();
-  const { preferences, updatePreference } = usePreferences();
+  const { addEntry, getHistory, clearHistory: clearHistoryHook } = useConsoleHistory();
 
   const [request, setRequest] = useState<string>('GET _cluster/health');
   const [response, setResponse] = useState<string>('');
@@ -189,7 +190,8 @@ export function RestConsole() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const MAX_HISTORY_ENTRIES = 100; // Configurable max entries (Requirement 19.13)
+  // Get history from the hook
+  const history = getHistory();
 
   /**
    * Clear the request editor
@@ -220,7 +222,7 @@ export function RestConsole() {
   /**
    * Execute the REST request against the cluster
    * 
-   * Requirements: 19.5, 19.6, 19.7
+   * Requirements: 13.7, 13.8, 13.9, 13.10, 13.11
    */
   const executeRequest = useCallback(async () => {
     if (!id) return;
@@ -269,21 +271,13 @@ export function RestConsole() {
       setStatusCode(200); // Successful response
       setExecutionTime(timeTaken);
 
-      // Add to history (Requirements: 19.8, 19.10, 19.13)
-      const historyItem: RequestHistoryItem = {
-        timestamp: Date.now(),
+      // Add to history using the hook (Requirements: 13.11, 13.14, 13.15)
+      addEntry({
         method: parsed.method,
         path: parsed.path,
         body: parsed.body,
         response: formattedResponse,
-      };
-
-      const newHistory = [historyItem, ...preferences.restConsoleHistory];
-      
-      // Limit history to max entries
-      const limitedHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);
-      
-      updatePreference('restConsoleHistory', limitedHistory);
+      });
 
       notifications.show({
         title: 'Success',
@@ -309,12 +303,12 @@ export function RestConsole() {
     } finally {
       setLoading(false);
     }
-  }, [id, request, preferences.restConsoleHistory, updatePreference]);
+  }, [id, request, addEntry]);
 
   /**
    * Load a request from history
    * 
-   * Requirements: 19.9, 19.10
+   * Requirements: 13.12, 13.13
    */
   const loadFromHistory = useCallback((item: RequestHistoryItem) => {
     const requestText = item.body
@@ -331,24 +325,24 @@ export function RestConsole() {
   /**
    * Clear request history
    * 
-   * Requirements: 19.11
+   * Requirements: 13.16
    */
   const clearHistory = useCallback(() => {
-    updatePreference('restConsoleHistory', []);
+    clearHistoryHook();
     notifications.show({
       title: 'History Cleared',
       message: 'Request history has been cleared',
       color: 'blue',
     });
-  }, [updatePreference]);
+  }, [clearHistoryHook]);
 
   /**
    * Export request collections to JSON
    * 
-   * Requirements: 19.12
+   * Requirements: 13.20
    */
   const exportHistory = useCallback(() => {
-    const dataStr = JSON.stringify(preferences.restConsoleHistory, null, 2);
+    const dataStr = JSON.stringify(history, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -362,12 +356,12 @@ export function RestConsole() {
       message: 'Request history exported successfully',
       color: 'green',
     });
-  }, [preferences.restConsoleHistory]);
+  }, [history]);
 
   /**
    * Import request collections from JSON
    * 
-   * Requirements: 19.12
+   * Requirements: 13.20
    */
   const importHistory = useCallback((file: File | null) => {
     if (!file) return;
@@ -383,11 +377,16 @@ export function RestConsole() {
           throw new Error('Invalid format: expected array');
         }
 
-        // Merge with existing history and limit
-        const merged = [...imported, ...preferences.restConsoleHistory];
-        const limited = merged.slice(0, MAX_HISTORY_ENTRIES);
-        
-        updatePreference('restConsoleHistory', limited);
+        // Add each imported item to history
+        // The hook will handle limiting to max entries
+        imported.forEach((item) => {
+          addEntry({
+            method: item.method,
+            path: item.path,
+            body: item.body,
+            response: item.response,
+          });
+        });
 
         notifications.show({
           title: 'Imported',
@@ -404,7 +403,7 @@ export function RestConsole() {
       }
     };
     reader.readAsText(file);
-  }, [preferences.restConsoleHistory, updatePreference]);
+  }, [addEntry]);
 
   return (
     <FullWidthContainer>
@@ -558,7 +557,7 @@ export function RestConsole() {
                     onClick={exportHistory}
                     variant="subtle"
                     size="sm"
-                    disabled={preferences.restConsoleHistory.length === 0}
+                    disabled={history.length === 0}
                   >
                     <IconDownload size={16} />
                   </ActionIcon>
@@ -570,7 +569,7 @@ export function RestConsole() {
                     variant="subtle"
                     size="sm"
                     color="red"
-                    disabled={preferences.restConsoleHistory.length === 0}
+                    disabled={history.length === 0}
                   >
                     <IconTrash size={16} />
                   </ActionIcon>
@@ -580,12 +579,12 @@ export function RestConsole() {
 
             <ScrollArea h={600}>
               <Stack gap="xs">
-                {preferences.restConsoleHistory.length === 0 ? (
+                {history.length === 0 ? (
                   <Text size="sm" c="dimmed" ta="center" py="xl">
                     No history yet
                   </Text>
                 ) : (
-                  preferences.restConsoleHistory.map((item, index) => (
+                  history.map((item, index) => (
                     <Paper
                       key={index}
                       p="xs"
