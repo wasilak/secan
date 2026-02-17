@@ -69,7 +69,7 @@ pub async fn list_clusters(
 
     let clusters = state.cluster_manager.list_clusters().await;
 
-    tracing::info!("Returning {} cluster(s)", clusters.len());
+    tracing::debug!("Returning {} cluster(s)", clusters.len());
 
     Ok(Json(clusters))
 }
@@ -472,7 +472,7 @@ pub async fn get_shard_stats(
                     if let Some(arr) = shard_array.as_array() {
                         // Return the first shard (primary or replica)
                         if let Some(shard_stats) = arr.first() {
-                            tracing::info!(
+                            tracing::debug!(
                                 cluster_id = %cluster_id,
                                 index = %index_name,
                                 shard = %shard_num,

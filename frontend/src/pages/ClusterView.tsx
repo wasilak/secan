@@ -55,6 +55,7 @@ import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { Sparkline } from '../components/Sparkline';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
+import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
@@ -977,6 +978,7 @@ function IndicesList({
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
   
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
@@ -1173,8 +1175,9 @@ function IndicesList({
     const matchesHealth = selectedHealth.length === 0 || selectedHealth.includes(index.health);
     const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
+    const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
     
-    return matchesSearch && matchesHealth && matchesStatus && matchesAffected;
+    return matchesSearch && matchesHealth && matchesStatus && matchesAffected && matchesSpecial;
   });
 
   // Sort indices
@@ -1342,6 +1345,14 @@ function IndicesList({
               size="sm"
             />
           )}
+
+          {/* Show special indices checkbox */}
+          <Checkbox
+            label="Show special indices"
+            checked={showSpecialIndices}
+            onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
+            size="sm"
+          />
         </Group>
         
         {id && (
@@ -2566,6 +2577,7 @@ function ShardsList({
   const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
   const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
   const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
   
   // Initialize search with nodeFilter if present
   useEffect(() => {
@@ -2655,7 +2667,9 @@ function ShardsList({
       (showPrimaryOnly && shard.primary) ||
       (showReplicaOnly && !shard.primary);
     
-    return matchesSearch && matchesState && matchesType;
+    const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
+    
+    return matchesSearch && matchesState && matchesType && matchesSpecial;
   });
   if (loading) {
     return (
@@ -2728,22 +2742,34 @@ function ShardsList({
             onChange={(e) => updateFilters(undefined, undefined, undefined, e.currentTarget.checked)}
             size="sm"
           />
+          <Checkbox
+            label="Show special indices"
+            checked={showSpecialIndices}
+            onChange={(e) => {
+              const params = new URLSearchParams(searchParams);
+              if (e.currentTarget.checked) {
+                params.set('showSpecial', 'true');
+              } else {
+                params.delete('showSpecial');
+              }
+              setSearchParams(params);
+            }}
+            size="sm"
+          />
         </Group>
       </Group>
 
-      {/* Shard state summary */}
-      <Grid>
-        {Object.entries(shardsByState).map(([state, stateShards]) => (
-          <Grid.Col key={state} span={{ base: 12, sm: 6, md: 3 }}>
-            <Card shadow="sm" padding="md">
-              <Stack gap="xs">
-                <Text size="sm" c="dimmed">{state}</Text>
-                <Text size="xl" fw={700}>{stateShards.length}</Text>
-              </Stack>
-            </Card>
-          </Grid.Col>
-        ))}
-      </Grid>
+      {/* Shard statistics cards */}
+      <ShardStatsCards
+        stats={{
+          totalShards: filteredShards?.length || 0,
+          primaryShards: filteredShards?.filter(s => s.primary).length || 0,
+          replicaShards: filteredShards?.filter(s => !s.primary).length || 0,
+          unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
+          relocatingShards: shardsByState['RELOCATING']?.length || 0,
+          initializingShards: shardsByState['INITIALIZING']?.length || 0,
+        }}
+      />
 
       {filteredShards && filteredShards.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
