@@ -1,6 +1,6 @@
 use axum::{extract::Request, middleware::Next, response::Response};
 use std::time::Instant;
-use tracing::{error, info, warn};
+use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 /// Request ID header name
@@ -35,8 +35,8 @@ pub async fn logging_middleware(mut request: Request, next: Next) -> Response {
     // Sanitize path to avoid logging sensitive data
     let sanitized_path = sanitize_path(&path);
 
-    // Log incoming request
-    info!(
+    // Log incoming request at DEBUG level to reduce log spam
+    debug!(
         request_id = %request_id,
         method = %method,
         path = %sanitized_path,
@@ -57,7 +57,7 @@ pub async fn logging_middleware(mut request: Request, next: Next) -> Response {
     // Log response based on status code
     match status.as_u16() {
         200..=299 => {
-            info!(
+            debug!(
                 request_id = %request_id,
                 method = %method,
                 path = %sanitized_path,
@@ -87,7 +87,7 @@ pub async fn logging_middleware(mut request: Request, next: Next) -> Response {
             );
         }
         _ => {
-            info!(
+            debug!(
                 request_id = %request_id,
                 method = %method,
                 path = %sanitized_path,
