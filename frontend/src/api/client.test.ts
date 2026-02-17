@@ -155,7 +155,9 @@ describe('ApiClient', () => {
 
       server.use(
         http.get('/api/clusters/cluster1/_cat/indices', () => {
-          return HttpResponse.json(mockResponse);
+          return HttpResponse.json(mockResponse, {
+            headers: { 'content-type': 'application/json' },
+          });
         })
       );
 
@@ -165,7 +167,8 @@ describe('ApiClient', () => {
         'GET',
         '_cat/indices'
       );
-      expect(response).toEqual(mockResponse);
+      expect(response.data).toEqual(mockResponse);
+      expect(response.contentType).toBe('application/json');
     });
 
     it('should proxy POST request with body to cluster', async () => {
@@ -176,7 +179,9 @@ describe('ApiClient', () => {
         http.post('/api/clusters/cluster1/_search', async ({ request }) => {
           const body = await request.json();
           expect(body).toEqual(requestBody);
-          return HttpResponse.json(mockResponse);
+          return HttpResponse.json(mockResponse, {
+            headers: { 'content-type': 'application/json' },
+          });
         })
       );
 
@@ -187,13 +192,16 @@ describe('ApiClient', () => {
         '_search',
         requestBody
       );
-      expect(response).toEqual(mockResponse);
+      expect(response.data).toEqual(mockResponse);
+      expect(response.contentType).toBe('application/json');
     });
 
     it('should normalize path without leading slash', async () => {
       server.use(
         http.get('/api/clusters/cluster1/_cat/nodes', () => {
-          return HttpResponse.json([]);
+          return HttpResponse.json([], {
+            headers: { 'content-type': 'application/json' },
+          });
         })
       );
 
@@ -203,7 +211,8 @@ describe('ApiClient', () => {
         'GET',
         '_cat/nodes'
       );
-      expect(response).toEqual([]);
+      expect(response.data).toEqual([]);
+      expect(response.contentType).toBe('application/json');
     });
   });
 

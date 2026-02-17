@@ -673,7 +673,7 @@ pub async fn proxy_request(
 
     let mut axum_response = Response::builder().status(status);
 
-    // Copy headers
+    // Copy headers including content-type for proper response formatting in frontend
     for (key, value) in headers.iter() {
         axum_response = axum_response.header(key, value);
     }

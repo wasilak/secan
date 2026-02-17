@@ -983,7 +983,7 @@ function IndicesList({
         'GET',
         '/_cluster/settings'
       );
-      return response;
+      return response.data;
     },
     enabled: !!id,
   });
@@ -1668,7 +1668,7 @@ function ShardAllocationGrid({
         'GET',
         '/_cluster/settings'
       );
-      return response;
+      return response.data;
     },
     enabled: !!id,
   });

@@ -292,6 +292,8 @@ export class ApiClient {
    * This method forwards arbitrary requests to the Elasticsearch cluster,
    * allowing the frontend to interact with any Elasticsearch API.
    * 
+   * Returns both the response data and content-type header for proper formatting.
+   * 
    * Requirements: 21.5, 21.6, 23.4, 25.4
    */
   async proxyRequest<T = unknown>(
@@ -299,7 +301,7 @@ export class ApiClient {
     method: Method,
     path: string,
     body?: unknown
-  ): Promise<T> {
+  ): Promise<{ data: T; contentType: string | null }> {
     return this.executeWithRetry(async () => {
       // Ensure path starts with /
       const normalizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -310,7 +312,13 @@ export class ApiClient {
         data: body,
       });
 
-      return response.data;
+      // Extract content-type header for response formatting
+      const contentType = response.headers['content-type'] || null;
+
+      return {
+        data: response.data,
+        contentType,
+      };
     });
   }
 

@@ -80,6 +80,8 @@ export function useConsoleHistory(): ConsoleHistoryManager {
    * Add a new entry to history
    * 
    * Automatically adds timestamp and limits history to MAX_HISTORY_ENTRIES.
+   * Deduplicates requests: if the same request (method + path + body) exists,
+   * updates it with the new response instead of creating a duplicate entry.
    * Newest entries appear first in the history list.
    * 
    * Requirements: 13.11, 13.14, 13.15
@@ -96,8 +98,28 @@ export function useConsoleHistory(): ConsoleHistoryManager {
         response: request.response,
       };
 
-      // Add to beginning of history (newest first)
-      const newHistory = [historyItem, ...preferences.restConsoleHistory];
+      // Check if an identical request already exists (same method, path, and body)
+      const existingIndex = preferences.restConsoleHistory.findIndex(
+        (item) =>
+          item.method === request.method &&
+          item.path === request.path &&
+          item.body === request.body
+      );
+
+      let newHistory: RequestHistoryItem[];
+      
+      if (existingIndex !== -1) {
+        // Update existing entry with new response and timestamp
+        newHistory = [...preferences.restConsoleHistory];
+        newHistory[existingIndex] = historyItem;
+        
+        // Move updated entry to the front (newest first)
+        const updatedEntry = newHistory.splice(existingIndex, 1)[0];
+        newHistory.unshift(updatedEntry);
+      } else {
+        // Add new entry to beginning of history (newest first)
+        newHistory = [historyItem, ...preferences.restConsoleHistory];
+      }
 
       // Limit to MAX_HISTORY_ENTRIES, removing oldest entries
       const limitedHistory = newHistory.slice(0, MAX_HISTORY_ENTRIES);

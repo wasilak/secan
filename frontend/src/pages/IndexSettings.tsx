@@ -80,7 +80,7 @@ export function IndexSettings() {
 
       // Extract settings from the response
       // Response format: { "index-name": { "settings": { ... } } }
-      const indexData = response[indexName] as Record<string, unknown>;
+      const indexData = response.data[indexName] as Record<string, unknown>;
       return indexData?.settings as Record<string, unknown>;
     },
     enabled: !!clusterId && !!indexName,

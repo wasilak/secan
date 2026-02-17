@@ -163,7 +163,7 @@ export function IndexEdit() {
           `/${indexName}/_stats`
         )
         .then((response) => {
-          setStatsData(response);
+          setStatsData(response.data);
         })
         .catch((error) => {
           setStatsError(error instanceof Error ? error.message : 'Failed to fetch stats');
@@ -192,7 +192,7 @@ export function IndexEdit() {
         `/${indexName}/_settings`
       );
 
-      const indexData = response[indexName] as Record<string, unknown>;
+      const indexData = response.data[indexName] as Record<string, unknown>;
       return indexData?.settings as Record<string, unknown>;
     },
     enabled: !!clusterId && !!indexName,
@@ -216,7 +216,7 @@ export function IndexEdit() {
         `/${indexName}/_mapping`
       );
 
-      const indexData = response[indexName] as Record<string, unknown>;
+      const indexData = response.data[indexName] as Record<string, unknown>;
       return indexData?.mappings as Record<string, unknown>;
     },
     enabled: !!clusterId && !!indexName,
@@ -264,7 +264,7 @@ export function IndexEdit() {
             'PUT',
             `/${indexName}/_settings`,
             filteredSettings
-          )
+          ).then(() => undefined)
         );
       }
 
@@ -284,7 +284,7 @@ export function IndexEdit() {
             'PUT',
             `/${indexName}/_mapping`,
             parsedMappings
-          )
+          ).then(() => undefined)
         );
       }
 

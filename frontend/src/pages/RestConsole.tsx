@@ -149,14 +149,39 @@ function parseRequest(input: string): {
 }
 
 /**
- * Format response for display with proper indentation
+ * Format response for display based on content type
+ * 
+ * Handles JSON and plain text responses appropriately:
+ * - JSON: Pretty-printed with 2-space indentation
+ * - Plain text: Returned as-is without quotes
  */
-function formatResponse(data: unknown): string {
-  try {
-    return JSON.stringify(data, null, 2);
-  } catch {
-    return String(data);
+function formatResponse(data: unknown, contentType: string | null): { text: string; language: string } {
+  // Check if content-type indicates JSON
+  const isJson = contentType?.includes('application/json') || contentType?.includes('application/vnd.elasticsearch+json');
+  
+  // Try to detect if data is JSON even without content-type header
+  const looksLikeJson = typeof data === 'object' && data !== null;
+  
+  if (isJson || looksLikeJson) {
+    try {
+      return {
+        text: JSON.stringify(data, null, 2),
+        language: 'json',
+      };
+    } catch {
+      // If JSON.stringify fails, treat as plain text
+      return {
+        text: String(data),
+        language: 'plaintext',
+      };
+    }
   }
+  
+  // Plain text response - return as-is without quotes
+  return {
+    text: String(data),
+    language: 'plaintext',
+  };
 }
 
 /**
@@ -185,6 +210,7 @@ export function RestConsole() {
 
   const [request, setRequest] = useState<string>('GET _cluster/health');
   const [response, setResponse] = useState<string>('');
+  const [responseLanguage, setResponseLanguage] = useState<string>('json');
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -246,6 +272,7 @@ export function RestConsole() {
     setLoading(true);
     setError(null);
     setResponse('');
+    setResponseLanguage('json');
     setStatusCode(null);
     setExecutionTime(null);
 
@@ -264,7 +291,7 @@ export function RestConsole() {
         }
       }
 
-      // Execute request via proxy
+      // Execute request via proxy - now returns data and contentType
       const result = await apiClient.proxyRequest(
         id,
         parsed.method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD' | 'PATCH',
@@ -275,18 +302,20 @@ export function RestConsole() {
       const endTime = performance.now();
       const timeTaken = endTime - startTime;
 
-      // Format and display response
-      const formattedResponse = formatResponse(result);
-      setResponse(formattedResponse);
+      // Format and display response based on content type
+      const formatted = formatResponse(result.data, result.contentType);
+      setResponse(formatted.text);
+      setResponseLanguage(formatted.language);
       setStatusCode(200); // Successful response
       setExecutionTime(timeTaken);
 
       // Add to history using the hook (Requirements: 13.11, 13.14, 13.15)
+      // The hook will handle deduplication
       addEntry({
         method: parsed.method,
         path: parsed.path,
         body: parsed.body,
-        response: formattedResponse,
+        response: formatted.text,
       });
 
       notifications.show({
@@ -303,6 +332,7 @@ export function RestConsole() {
       setError(errorMessage);
       setStatusCode(error.status || 0);
       setResponse(errorMessage);
+      setResponseLanguage('plaintext');
       setExecutionTime(timeTaken);
 
       notifications.show({
@@ -577,6 +607,7 @@ export function RestConsole() {
               <Editor
                 height="400px"
                 defaultLanguage="json"
+                language={responseLanguage}
                 value={response}
                 theme="vs-dark"
                 options={{
@@ -585,7 +616,11 @@ export function RestConsole() {
                   fontSize: 14,
                   lineNumbers: 'on',
                   scrollBeyondLastLine: false,
-                  wordWrap: 'on',
+                  wordWrap: 'off',
+                  scrollbar: {
+                    horizontal: 'auto',
+                    vertical: 'auto',
+                  },
                 }}
               />
             </Paper>
