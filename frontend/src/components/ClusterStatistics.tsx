@@ -1,4 +1,4 @@
-import { Card, Grid, Stack, Text } from '@mantine/core';
+import { Card, Grid, Stack, Text, useMantineColorScheme } from '@mantine/core';
 import {
   AreaChart,
   Area,
@@ -71,6 +71,16 @@ export function ClusterStatistics({
   stats,
   nodes,
 }: ClusterStatisticsProps) {
+  const { colorScheme } = useMantineColorScheme();
+  
+  // Theme-aware tooltip styles
+  const tooltipStyle = {
+    backgroundColor: colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+    border: `1px solid ${colorScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
+    borderRadius: '4px',
+    color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
+  };
+  
   // Prepare time series data for area charts
   // Merge all histories by timestamp
   const timeSeriesData = nodesHistory.map((nodePoint, index) => ({
@@ -146,11 +156,7 @@ export function ClusterStatistics({
                     width={35}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: '4px',
-                    }}
+                    contentStyle={tooltipStyle}
                   />
                   <Area
                     type="monotone"
@@ -211,11 +217,7 @@ export function ClusterStatistics({
                     width={35}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: '4px',
-                    }}
+                    contentStyle={tooltipStyle}
                   />
                   <Area
                     type="monotone"
@@ -274,11 +276,7 @@ export function ClusterStatistics({
                 tickFormatter={(value) => value.toLocaleString()}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--mantine-color-dark-7)',
-                  border: '1px solid var(--mantine-color-dark-4)',
-                  borderRadius: '4px',
-                }}
+                contentStyle={tooltipStyle}
                 formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
               />
               <Area
@@ -319,11 +317,7 @@ export function ClusterStatistics({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: '4px',
-                    }}
+                    contentStyle={tooltipStyle}
                   />
                   <Legend />
                 </PieChart>
@@ -352,11 +346,7 @@ export function ClusterStatistics({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: '4px',
-                    }}
+                    contentStyle={tooltipStyle}
                   />
                   <Legend />
                 </PieChart>
@@ -389,11 +379,7 @@ export function ClusterStatistics({
                     fillOpacity={0.5}
                   />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: '4px',
-                    }}
+                    contentStyle={tooltipStyle}
                   />
                   <Legend />
                 </RadarChart>

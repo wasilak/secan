@@ -865,7 +865,8 @@ pub async fn relocate_shard(
         } else if error_msg.contains("already relocating") {
             format!("Shard {} of index '{}' is already being relocated. Please wait for the current relocation to complete.", req.shard, req.index)
         } else if error_msg.contains("same node") {
-            "Cannot relocate shard to the same node. Please select a different destination node.".to_string()
+            "Cannot relocate shard to the same node. Please select a different destination node."
+                .to_string()
         } else if error_msg.contains("allocation") {
             format!(
                 "Shard allocation failed: {}. Check cluster allocation settings and node capacity.",

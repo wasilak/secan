@@ -41,6 +41,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
+import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
@@ -942,9 +943,12 @@ function IndicesList({
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
   
+  // Responsive default page size
+  const defaultPageSize = useResponsivePageSize();
+  
   // Pagination state
   const currentPage = parseInt(searchParams.get('indicesPage') || '1', 10);
-  const pageSize = parseInt(searchParams.get('indicesPageSize') || '50', 10);
+  const pageSize = parseInt(searchParams.get('indicesPageSize') || defaultPageSize.toString(), 10);
   
   const handleIndicesPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -1589,6 +1593,13 @@ function ShardAllocationGrid({
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
   
+  // Shard state filter - all states selected by default
+  const SHARD_STATES = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
+  const selectedStatesParam = searchParams.get('shardStates');
+  const selectedShardStates = selectedStatesParam 
+    ? selectedStatesParam.split(',').filter(Boolean)
+    : [...SHARD_STATES];
+  
   // Get UI state from URL
   const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
@@ -1596,9 +1607,12 @@ function ShardAllocationGrid({
   const expandedView = searchParams.get('overviewExpanded') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
   
+  // Responsive default page size
+  const defaultPageSize = useResponsivePageSize();
+  
   // Pagination state
   const currentPage = parseInt(searchParams.get('overviewPage') || '1', 10);
-  const pageSize = parseInt(searchParams.get('overviewPageSize') || '20', 10);
+  const pageSize = parseInt(searchParams.get('overviewPageSize') || defaultPageSize.toString(), 10);
   
   const handleOverviewPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -1653,6 +1667,21 @@ function ShardAllocationGrid({
       newParams.delete(key);
     } else {
       newParams.set(key, String(value));
+    }
+    setSearchParams(newParams);
+  };
+  
+  // Update shard state filter
+  const updateShardStates = (states: string[]) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (states.length === SHARD_STATES.length) {
+      // All states selected - remove param to use default
+      newParams.delete('shardStates');
+    } else if (states.length > 0) {
+      newParams.set('shardStates', states.join(','));
+    } else {
+      // No states selected - keep at least one to avoid empty view
+      newParams.set('shardStates', SHARD_STATES[0]);
     }
     setSearchParams(newParams);
   };
@@ -1768,8 +1797,13 @@ function ShardAllocationGrid({
     );
   }
 
-  // Identify unassigned shards
-  const unassignedShards = shards.filter(s => s.state === 'UNASSIGNED');
+  // Filter shards by selected states first
+  const filteredShards = shards.filter(shard => 
+    selectedShardStates.includes(shard.state)
+  );
+
+  // Identify unassigned shards (from filtered shards)
+  const unassignedShards = filteredShards.filter(s => s.state === 'UNASSIGNED');
   const unassignedByIndex = unassignedShards.reduce((acc, shard) => {
     if (!acc[shard.index]) {
       acc[shard.index] = [];
@@ -1778,9 +1812,9 @@ function ShardAllocationGrid({
     return acc;
   }, {} as Record<string, ShardInfo[]>);
 
-  // Check if an index has problems
+  // Check if an index has problems (using filtered shards)
   const hasProblems = (indexName: string) => {
-    const indexShards = shards.filter(s => s.index === indexName);
+    const indexShards = filteredShards.filter(s => s.index === indexName);
     return indexShards.some(s => 
       s.state === 'UNASSIGNED' || 
       s.state === 'RELOCATING' || 
@@ -1789,7 +1823,7 @@ function ShardAllocationGrid({
   };
 
   // Filter indices based on search and filters
-  const filteredIndices = indices.filter((index) => {
+  const filteredIndicesData = indices.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesClosed = showClosed || index.status === 'open';
     const matchesSpecial = showSpecial || !index.name.startsWith('.');
@@ -1798,8 +1832,8 @@ function ShardAllocationGrid({
   });
 
   // Pagination
-  const totalPages = Math.ceil(filteredIndices.length / pageSize);
-  const paginatedIndices = filteredIndices.slice(
+  const totalPages = Math.ceil(filteredIndicesData.length / pageSize);
+  const paginatedIndices = filteredIndicesData.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -1817,7 +1851,7 @@ function ShardAllocationGrid({
   
   const shardsByNodeAndIndex = new Map<string, Map<string, ShardInfo[]>>();
   
-  shards.forEach((shard) => {
+  filteredShards.forEach((shard) => {
     if (!shard.node) return; // Skip unassigned shards for grid view
     
     // Try to find the node name using the identifier map
@@ -1936,6 +1970,16 @@ function ShardAllocationGrid({
             style={{ flex: 1, maxWidth: 400 }}
           />
           
+          <MultiSelect
+            placeholder="Shard States"
+            data={SHARD_STATES.map(state => ({ value: state, label: state }))}
+            value={selectedShardStates}
+            onChange={updateShardStates}
+            clearable={false}
+            style={{ minWidth: 200 }}
+            size="sm"
+          />
+          
           <Group gap="md">
             <Checkbox
               label={`closed (${indices.filter(i => i.status !== 'open').length})`}
@@ -1961,7 +2005,7 @@ function ShardAllocationGrid({
             )}
             
             <Text size="sm" c="dimmed">
-              {filteredIndices.length} of {indices.length}
+              {filteredIndicesData.length} of {indices.length}
             </Text>
           </Group>
         </Group>
@@ -2078,10 +2122,10 @@ function ShardAllocationGrid({
                   <Text component="span" fw={700}>{nodes.filter(n => n.roles.includes('data')).length}</Text> data nodes
                 </Text>
                 <Text size="sm">
-                  <Text component="span" fw={700}>{filteredIndices.length}</Text> indices
+                  <Text component="span" fw={700}>{filteredIndicesData.length}</Text> indices
                 </Text>
                 <Text size="sm">
-                  <Text component="span" fw={700}>{shards.length}</Text> shards
+                  <Text component="span" fw={700}>{filteredShards.length}</Text> shards
                 </Text>
                 {unassignedShards.length > 0 && (
                   <Badge color="red" variant="filled">
@@ -2334,12 +2378,12 @@ function ShardAllocationGrid({
       </ScrollArea>
       
       {/* Pagination */}
-      {filteredIndices.length > pageSize && (
+      {filteredIndicesData.length > pageSize && (
         <TablePagination
           currentPage={currentPage}
           totalPages={totalPages}
           pageSize={pageSize}
-          totalItems={filteredIndices.length}
+          totalItems={filteredIndicesData.length}
           onPageChange={handleOverviewPageChange}
           onPageSizeChange={handleOverviewPageSizeChange}
         />
@@ -2385,9 +2429,12 @@ function ShardsList({
     }
   }, [nodeFilter, searchQuery, searchParams, setSearchParams]);
   
+  // Responsive default page size
+  const defaultPageSize = useResponsivePageSize();
+  
   // Pagination state
   const currentPage = parseInt(searchParams.get('shardsPage') || '1', 10);
-  const pageSize = parseInt(searchParams.get('shardsPageSize') || '100', 10);
+  const pageSize = parseInt(searchParams.get('shardsPageSize') || defaultPageSize.toString(), 10);
   
   const handleShardsPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);

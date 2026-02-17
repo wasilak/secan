@@ -61,36 +61,49 @@ function HeaderTitle() {
   if (!clusterId) {
     // Not in a cluster view - show app name
     return (
-      <Text 
-        size="xl"
-        fw={700} 
-        component="h1"
-        style={{ whiteSpace: 'nowrap' }}
+      <Tooltip 
+        label="Secan - Secure Elasticsearch Admin" 
+        position="bottom"
+        withArrow
       >
-        Secan
-      </Text>
+        <Text 
+          size="xl"
+          fw={700} 
+          component="h1"
+          style={{ whiteSpace: 'nowrap', cursor: 'help' }}
+        >
+          Secan
+        </Text>
+      </Tooltip>
     );
   }
   
   // In cluster view - show breadcrumb with cluster name and health
   return (
     <Group gap="xs" wrap="nowrap">
-      <Anchor
-        component="button"
-        onClick={() => navigate('/')}
-        size="lg"
-        fw={700}
-        c="dimmed"
-        style={{ 
-          textDecoration: 'none',
-          whiteSpace: 'nowrap',
-          '&:hover': {
-            textDecoration: 'underline',
-          }
-        }}
+      <Tooltip 
+        label="Secan - Secure Elasticsearch Admin" 
+        position="bottom"
+        withArrow
       >
-        Secan
-      </Anchor>
+        <Anchor
+          component="button"
+          onClick={() => navigate('/')}
+          size="lg"
+          fw={700}
+          c="dimmed"
+          style={{ 
+            textDecoration: 'none',
+            whiteSpace: 'nowrap',
+            cursor: 'help',
+            '&:hover': {
+              textDecoration: 'underline',
+            }
+          }}
+        >
+          Secan
+        </Anchor>
+      </Tooltip>
       <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)' }} />
       <Group gap={6} wrap="nowrap">
         <Text 
