@@ -41,6 +41,7 @@ import { useWatermarks } from '../hooks/useWatermarks';
 import type { ShardInfo, NodeInfo } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ShardGridSkeleton } from '../components/LoadingSkeleton';
+import { getShardStateColor } from '../utils/colors';
 
 /**
  * ShardManagement component displays and manages shard allocation
@@ -506,13 +507,7 @@ export function ShardManagement() {
               <Text size="xl" fw={700}>{stateShards.length}</Text>
               <Badge
                 size="sm"
-                color={
-                  state === 'STARTED'
-                    ? 'green'
-                    : state === 'UNASSIGNED'
-                    ? 'red'
-                    : 'yellow'
-                }
+                color={getShardStateColor(state as ShardInfo['state'])}
               >
                 {state}
               </Badge>

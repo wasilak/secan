@@ -61,25 +61,10 @@ import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons, RoleLegend, RoleOption, getRoleIcon } from '../components/RoleIcons';
 import { ShardContextMenu } from '../components/ShardContextMenu';
-import type { NodeInfo, IndexInfo, ShardInfo, HealthStatus, NodeRole } from '../types/api';
+import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
+import { getHealthColor, getShardStateColor } from '../utils/colors';
 import { useState, useEffect } from 'react';
-
-/**
- * Get color for health status badge
- */
-function getHealthColor(health: HealthStatus): string {
-  switch (health) {
-    case 'green':
-      return 'green';
-    case 'yellow':
-      return 'yellow';
-    case 'red':
-      return 'red';
-    default:
-      return 'gray';
-  }
-}
 
 /**
  * Format bytes to human-readable format
@@ -2807,13 +2792,7 @@ function ShardsList({
                         <ShardTypeBadge primary={shard.primary} />
                         <Badge
                           size="sm"
-                          color={
-                            shard.state === 'STARTED'
-                              ? 'green'
-                              : shard.state === 'UNASSIGNED'
-                              ? 'red'
-                              : 'yellow'
-                          }
+                          color={getShardStateColor(shard.state)}
                         >
                           {shard.state}
                         </Badge>

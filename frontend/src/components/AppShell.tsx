@@ -17,23 +17,7 @@ import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
 import { useClusterName } from '../hooks/useClusterName';
-import type { HealthStatus } from '../types/api';
-
-/**
- * Get color for health status badge
- */
-function getHealthColor(health: HealthStatus): string {
-  switch (health) {
-    case 'green':
-      return 'green';
-    case 'yellow':
-      return 'yellow';
-    case 'red':
-      return 'red';
-    default:
-      return 'gray';
-  }
-}
+import { getHealthColor } from '../utils/colors';
 
 /**
  * Header title component - shows app name or cluster context

@@ -3,6 +3,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { memo } from 'react';
 import type { ShardInfo } from '../types/api';
 import { ShardTypeBadge } from './ShardTypeBadge';
+import { getShardBorderColor } from '../utils/colors';
 
 /**
  * Props for ShardCell component
@@ -12,30 +13,6 @@ interface ShardCellProps {
   isSelected?: boolean;
   isDestinationIndicator?: boolean;
   onClick?: (shard: ShardInfo, event: React.MouseEvent | React.TouchEvent) => void;
-}
-
-/**
- * Get border color based on shard state
- * 
- * Requirements: 3.5
- * - Green border for STARTED (healthy)
- * - Yellow border for INITIALIZING
- * - Orange border for RELOCATING
- * - Red border for UNASSIGNED
- */
-function getShardBorderColor(state: ShardInfo['state']): string {
-  switch (state) {
-    case 'STARTED':
-      return 'var(--mantine-color-green-6)';
-    case 'INITIALIZING':
-      return 'var(--mantine-color-yellow-6)';
-    case 'RELOCATING':
-      return 'var(--mantine-color-orange-6)';
-    case 'UNASSIGNED':
-      return 'var(--mantine-color-red-6)';
-    default:
-      return 'var(--mantine-color-gray-6)';
-  }
 }
 
 /**

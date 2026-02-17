@@ -24,6 +24,7 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useScreenReader } from '../lib/accessibility';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { SortableTable, SortableTableColumn } from '../components/SortableTable';
+import { getHealthColor } from '../utils/colors';
 
 /**
  * Cluster summary combining cluster info and health data
@@ -37,24 +38,6 @@ interface ClusterSummary {
   indices: number;
   documents: number;
   error?: string;
-}
-
-/**
- * Get badge color for health status
- */
-function getHealthColor(health: HealthStatus | 'unreachable'): string {
-  switch (health) {
-    case 'green':
-      return 'green';
-    case 'yellow':
-      return 'yellow';
-    case 'red':
-      return 'red';
-    case 'unreachable':
-      return 'gray';
-    default:
-      return 'gray';
-  }
 }
 
 /**
