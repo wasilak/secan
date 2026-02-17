@@ -24,7 +24,7 @@ import {
 } from '@mantine/core';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   IconAlertCircle, 
   IconPlus, 
   IconSettings, 
@@ -37,6 +37,8 @@ import {
   IconMinimize,
   IconSortAscending,
   IconSortDescending,
+  IconRefresh,
+  IconTrash,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -47,7 +49,6 @@ import { useWatermarks } from '../hooks/useWatermarks';
 import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
-import { IndexOperations } from '../components/IndexOperations';
 import { IndexEdit } from './IndexEdit';
 import { RestConsole } from './RestConsole';
 import { Sparkline } from '../components/Sparkline';
@@ -316,6 +317,7 @@ export function ClusterView() {
       <Tabs value={activeTab} onChange={handleTabChange}>
         <Tabs.List>
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
+          <Tabs.Tab value="topology">Topology</Tabs.Tab>
           <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
           <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
           <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
@@ -518,19 +520,21 @@ export function ClusterView() {
                 )}
               </Grid>
             )}
-
-            {/* Shard Allocation Grid */}
-            <Card shadow="sm" padding="lg">
-              <ShardAllocationGrid 
-                nodes={nodes} 
-                indices={indices} 
-                shards={shards}
-                loading={nodesLoading || indicesLoading || shardsLoading}
-                error={nodesError || indicesError || shardsError}
-                openIndexModal={openIndexModal}
-              />
-            </Card>
           </Stack>
+        </Tabs.Panel>
+
+        {/* Topology Tab */}
+        <Tabs.Panel value="topology" pt="md">
+          <Card shadow="sm" padding="lg">
+            <ShardAllocationGrid 
+              nodes={nodes} 
+              indices={indices} 
+              shards={shards}
+              loading={nodesLoading || indicesLoading || shardsLoading}
+              error={nodesError || indicesError || shardsError}
+              openIndexModal={openIndexModal}
+            />
+          </Card>
         </Tabs.Panel>
 
         {/* Statistics Tab */}
@@ -1407,38 +1411,140 @@ function IndicesList({
                       )}
                     </Table.Td>
                     <Table.Td onClick={(e) => e.stopPropagation()}>
-                      <Group gap="xs">
-                        {id && <IndexOperations clusterId={id} index={index} />}
-                        <Menu shadow="md" width={200}>
-                          <Menu.Target>
-                            <ActionIcon variant="subtle" color="gray">
-                              <IconDots size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
+                      <Menu shadow="md" width={220}>
+                        <Menu.Target>
+                          <ActionIcon variant="subtle" color="gray">
+                            <IconDots size={16} />
+                          </ActionIcon>
+                        </Menu.Target>
 
-                          <Menu.Dropdown>
-                            <Menu.Label>Index Management</Menu.Label>
+                        <Menu.Dropdown>
+                          <Menu.Label>Index Management</Menu.Label>
+                          <Menu.Item
+                            leftSection={<IconSettings size={14} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openIndexModal(index.name, 'settings');
+                            }}
+                          >
+                            Settings
+                          </Menu.Item>
+                          <Menu.Item
+                            leftSection={<IconMap size={14} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openIndexModal(index.name, 'mappings');
+                            }}
+                          >
+                            Mappings
+                          </Menu.Item>
+
+                          <Menu.Divider />
+
+                          <Menu.Label>Index Operations</Menu.Label>
+                          {index.status === 'close' ? (
                             <Menu.Item
-                              leftSection={<IconSettings size={14} />}
+                              leftSection={<IconLockOpen size={14} />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openIndexModal(index.name, 'settings');
+                                // Open index operation
+                                apiClient.openIndex(id!, index.name).then(() => {
+                                  notifications.show({
+                                    title: 'Success',
+                                    message: `Index ${index.name} opened successfully`,
+                                    color: 'green',
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                                }).catch((error: Error) => {
+                                  notifications.show({
+                                    title: 'Error',
+                                    message: `Failed to open index: ${error.message}`,
+                                    color: 'red',
+                                  });
+                                });
                               }}
                             >
-                              Settings
+                              Open Index
                             </Menu.Item>
+                          ) : (
                             <Menu.Item
-                              leftSection={<IconMap size={14} />}
+                              leftSection={<IconLock size={14} />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openIndexModal(index.name, 'mappings');
+                                // Close index operation
+                                apiClient.closeIndex(id!, index.name).then(() => {
+                                  notifications.show({
+                                    title: 'Success',
+                                    message: `Index ${index.name} closed successfully`,
+                                    color: 'green',
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                                }).catch((error: Error) => {
+                                  notifications.show({
+                                    title: 'Error',
+                                    message: `Failed to close index: ${error.message}`,
+                                    color: 'red',
+                                  });
+                                });
                               }}
                             >
-                              Mappings
+                              Close Index
                             </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Group>
+                          )}
+
+                          <Menu.Item
+                            leftSection={<IconRefresh size={14} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Refresh index operation
+                              apiClient.refreshIndex(id!, index.name).then(() => {
+                                notifications.show({
+                                  title: 'Success',
+                                  message: `Index ${index.name} refreshed successfully`,
+                                  color: 'green',
+                                });
+                              }).catch((error: Error) => {
+                                notifications.show({
+                                  title: 'Error',
+                                  message: `Failed to refresh index: ${error.message}`,
+                                  color: 'red',
+                                });
+                              });
+                            }}
+                          >
+                            Refresh
+                          </Menu.Item>
+
+                          <Menu.Divider />
+
+                          <Menu.Item
+                            leftSection={<IconTrash size={14} />}
+                            color="red"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Delete index operation - would need confirmation modal
+                              if (window.confirm(`Are you sure you want to delete index ${index.name}? This action cannot be undone.`)) {
+                                apiClient.deleteIndex(id!, index.name).then(() => {
+                                  notifications.show({
+                                    title: 'Success',
+                                    message: `Index ${index.name} deleted successfully`,
+                                    color: 'green',
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                                }).catch((error: Error) => {
+                                  notifications.show({
+                                    title: 'Error',
+                                    message: `Failed to delete index: ${error.message}`,
+                                    color: 'red',
+                                  });
+                                });
+                              }
+                            }}
+                          >
+                            Delete Index
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
                     </Table.Td>
                   </Table.Tr>
                 );
