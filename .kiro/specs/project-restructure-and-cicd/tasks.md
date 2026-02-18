@@ -158,7 +158,7 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Document how to comply with license
     - _Requirements: 5.5_
 
-- [-] 8. Implement CI workflow
+- [x] 8. Implement CI workflow
   - [x] 8.1 Create .github/workflows/ci.yml
     - Set up workflow triggers (push, pull_request)
     - Configure job matrix if needed
@@ -184,80 +184,80 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Add npm cache configuration
     - _Requirements: 10.8_
   
-  - [-] 8.5 Test CI workflow
+  - [x] 8.5 Test CI workflow
     - Push to test branch
     - Verify workflow runs
     - Verify all jobs pass
     - Fix any issues
     - _Requirements: 10.6, 10.7_
 
-- [ ] 9. Implement Docker build workflow
-  - [ ] 9.1 Create .github/workflows/docker.yml
+- [x] 9. Implement Docker build workflow
+  - [x] 9.1 Create .github/workflows/docker.yml
     - Set up workflow triggers (push to main, tags)
     - Configure permissions for GHCR
     - _Requirements: 9.5_
   
-  - [ ] 9.2 Set up Docker Buildx for multi-arch
+  - [x] 9.2 Set up Docker Buildx for multi-arch
     - Add Docker Buildx setup step
     - Configure for amd64 and arm64
     - _Requirements: 7.4, 9.4_
   
-  - [ ] 9.3 Add GHCR login step
+  - [x] 9.3 Add GHCR login step
     - Configure authentication with GITHUB_TOKEN
     - _Requirements: 12.1, 12.2_
   
-  - [ ] 9.4 Add metadata extraction step
+  - [x] 9.4 Add metadata extraction step
     - Extract version from git tag
     - Generate image tags (version, latest, sha)
     - _Requirements: 9.2, 9.3_
   
-  - [ ] 9.5 Add Docker build and push step
+  - [x] 9.5 Add Docker build and push step
     - Configure multi-platform build
     - Enable layer caching
     - Push to GHCR
     - _Requirements: 1.2, 1.4, 9.1, 9.7_
   
-  - [ ] 9.6 Test Docker workflow
+  - [x] 9.6 Test Docker workflow
     - Push to main branch
     - Verify images are built and pushed
     - Pull images and test on both architectures
     - _Requirements: 9.6_
 
-- [ ] 10. Implement release workflow
-  - [ ] 10.1 Create .github/workflows/release.yml
+- [x] 10. Implement release workflow
+  - [x] 10.1 Create .github/workflows/release.yml
     - Set up workflow trigger (tags matching v*.*.*)
     - Configure permissions for releases
     - _Requirements: 11.1, 12.6_
   
-  - [ ] 10.2 Set up build matrix for cross-compilation
+  - [x] 10.2 Set up build matrix for cross-compilation
     - Define matrix for all target platforms
     - Configure OS and target triples
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
   
-  - [ ] 10.3 Add frontend build step
+  - [x] 10.3 Add frontend build step
     - Build frontend assets once
     - Share artifacts between jobs
     - _Requirements: 1.6, 8.6_
   
-  - [ ] 10.4 Add cross-compilation build steps
+  - [x] 10.4 Add cross-compilation build steps
     - Install Rust with target support
     - Build binary for each platform
     - Strip and optimize binaries
     - _Requirements: 8.7_
   
-  - [ ] 10.5 Add binary packaging steps
+  - [x] 10.5 Add binary packaging steps
     - Create tar.gz archives for each platform
     - Generate SHA256 checksums
     - _Requirements: 8.8, 11.6_
   
-  - [ ] 10.6 Add release creation step
+  - [x] 10.6 Add release creation step
     - Create GitHub release
     - Generate release notes from commits
     - Attach all binaries and checksums
     - Handle pre-release versions
     - _Requirements: 1.3, 11.2, 11.3, 11.4, 11.5, 11.7_
   
-  - [ ] 10.7 Test release workflow
+  - [x] 10.7 Test release workflow
     - Push test tag (v0.0.1-test)
     - Verify release is created
     - Verify all binaries are attached
