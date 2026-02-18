@@ -34,6 +34,7 @@ secan-config/
 
 # Rust build artifacts (root level after restructure)
 /target/
+backend/target/
 Cargo.lock
 
 # Frontend
