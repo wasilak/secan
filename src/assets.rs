@@ -4,13 +4,13 @@ use rust_embed::RustEmbed;
 ///
 /// This struct embeds all frontend assets (HTML, CSS, JS, etc.) into the binary
 /// at compile time using rust-embed. The assets are built by the frontend
-/// (Vite + React) and placed in the `assets/` directory.
+/// (Vite + React) and placed in the `frontend/dist/` directory.
 ///
 /// # Requirements
 ///
 /// Validates: Requirements 1.1, 1.2
 #[derive(RustEmbed)]
-#[folder = "assets/"]
+#[folder = "frontend/dist/"]
 pub struct Assets;
 
 #[cfg(test)]

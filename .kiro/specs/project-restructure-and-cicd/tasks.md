@@ -27,7 +27,7 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Keep config.example.yaml tracked
     - _Requirements: 6.3, 6.4, 6.5, 6.6, 6.7_
 
-- [-] 3. Move configuration files
+- [x] 3. Move configuration files
   - [x] 3.1 Move backend/config.yaml to config.example.yaml at root
     - Use git mv to preserve history
     - Update all references in documentation
@@ -39,8 +39,8 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Test config loading with new paths
     - _Requirements: 4.5_
 
-- [ ] 4. Restructure project directories
-  - [ ] 4.1 Move Rust source code to root
+- [x] 4. Restructure project directories
+  - [x] 4.1 Move Rust source code to root
     - Move backend/src/ to src/ using git mv
     - Move backend/Cargo.toml to root using git mv
     - Move backend/Cargo.lock to root using git mv
@@ -48,25 +48,25 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Move backend/rustfmt.toml to root using git mv
     - _Requirements: 3.1, 3.2_
   
-  - [ ] 4.2 Remove obsolete backend directories
+  - [x] 4.2 Remove obsolete backend directories
     - Remove backend/examples/ directory
     - Remove backend/docs/ directory
     - Remove backend/README.md (content moved to main README)
     - Remove now-empty backend/ directory
     - _Requirements: 3.5, 3.6_
   
-  - [ ] 4.3 Update rust-embed asset paths
+  - [x] 4.3 Update rust-embed asset paths
     - Update asset paths in src code to reference frontend/dist
     - Verify embedded assets configuration is correct
     - _Requirements: 3.7_
   
-  - [ ] 4.4 Update all path references in code
+  - [x] 4.4 Update all path references in code
     - Search for hardcoded "backend/" paths in source code
     - Update import paths and file references
     - Update any scripts or build tools
     - _Requirements: 3.4, 3.8_
   
-  - [ ] 4.5 Verify build works from root
+  - [x] 4.5 Verify build works from root
     - Run cargo build from repository root
     - Run cargo test from repository root
     - Verify no path-related errors
