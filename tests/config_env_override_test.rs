@@ -1,9 +1,11 @@
 use secan::config::Config;
+use serial_test::serial;
 use std::env;
 use std::fs;
 use tempfile::TempDir;
 
 #[test]
+#[serial]
 fn test_env_override_precedence() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("config.yaml");
@@ -53,6 +55,7 @@ clusters:
 }
 
 #[test]
+#[serial]
 fn test_missing_config_file_uses_defaults() {
     // Clear any environment variables
     env::remove_var("SECAN_SERVER__PORT");
