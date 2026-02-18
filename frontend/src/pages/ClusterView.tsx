@@ -1965,7 +1965,9 @@ function ShardAllocationGrid({
     );
   }
 
-  if (!nodes || !indices || !shards || nodes.length === 0 || indices.length === 0) {
+  if (!nodes || !indices || !shards || nodes.length === 0) {
+    // Show empty state only if there are no nodes
+    // If there are nodes but no indices, we still want to show the node grid
     return (
       <Stack gap="md" align="center" py="xl">
         <Text c="dimmed">No shard allocation data available</Text>
