@@ -4,302 +4,174 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to release (e.g., v0.1.0)'
-        required: true
-        type: string
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  create-release:
-    name: Create Release
+  # Build frontend assets once and share across all platform builds
+  build-frontend:
+    name: Build Frontend Assets
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      version: ${{ steps.get_version.outputs.version }}
-    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  # Build binaries for all target platforms
+  build-binaries:
+    name: Build ${{ matrix.name }}
+    needs: build-frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            name: linux-amd64
+            cross: true
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            name: linux-arm64
+            cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-amd64
+            cross: false
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+            cross: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-amd64
+            cross: false
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/assets/assets
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools (Linux)
+        if: matrix.cross && runner.os == 'Linux'
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build binary (cross-compilation)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Build binary (native)
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Strip binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          strip target/${{ matrix.target }}/release/secan || true
+
+      - name: Package binary (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf secan-${{ matrix.name }}.tar.gz secan
+          sha256sum secan-${{ matrix.name }}.tar.gz > secan-${{ matrix.name }}.tar.gz.sha256
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path secan.exe -DestinationPath secan-${{ matrix.name }}.zip
+          (Get-FileHash secan-${{ matrix.name }}.zip -Algorithm SHA256).Hash.ToLower() + "  secan-${{ matrix.name }}.zip" | Out-File -Encoding ASCII secan-${{ matrix.name }}.zip.sha256
+
+      - name: Upload binary artifacts (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.name }}
+          path: |
+            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.tar.gz
+            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.tar.gz.sha256
+          retention-days: 1
+
+      - name: Upload binary artifacts (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.name }}
+          path: |
+            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.zip
+            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.zip.sha256
+          retention-days: 1
+
+  # Create GitHub release with all binaries
+  create-release:
+    name: Create GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get version from tag
-        id: get_version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.tag }}"
-          else
-            VERSION=${GITHUB_REF#refs/tags/}
-          fi
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version: ${VERSION}"
-
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
-          
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 ${VERSION}^ 2>/dev/null || echo "")
-          
-          # Generate changelog
-          if [ -n "$PREV_TAG" ]; then
-            echo "## Changes since ${PREV_TAG}" > release_notes.md
-            echo "" >> release_notes.md
-            git log ${PREV_TAG}..${VERSION} --pretty=format:"- %s (%h)" --no-merges >> release_notes.md
-          else
-            echo "## Initial Release" > release_notes.md
-            echo "" >> release_notes.md
-            echo "First release of Cerebro - Elasticsearch Web Administration Tool" >> release_notes.md
-          fi
-          
-          echo "" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Downloads" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Binaries" >> release_notes.md
-          echo "- **Linux x86_64**: \`secan-linux-x86_64\`" >> release_notes.md
-          echo "- **Linux ARM64**: \`secan-linux-aarch64\`" >> release_notes.md
-          echo "- **macOS x86_64**: \`secan-macos-x86_64\`" >> release_notes.md
-          echo "- **macOS ARM64** (Apple Silicon): \`secan-macos-aarch64\`" >> release_notes.md
-          echo "- **Windows x86_64**: \`secan-windows-x86_64.exe\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Docker" >> release_notes.md
-          echo "\`\`\`bash" >> release_notes.md
-          echo "docker pull ghcr.io/${{ github.repository }}:${VERSION}" >> release_notes.md
-          echo "docker pull ghcr.io/${{ github.repository }}:latest" >> release_notes.md
-          echo "\`\`\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Binary Installation" >> release_notes.md
-          echo "1. Download the appropriate binary for your platform" >> release_notes.md
-          echo "2. Make it executable (Unix/macOS): \`chmod +x secan-*\`" >> release_notes.md
-          echo "3. Run: \`./secan-* --help\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Docker Installation" >> release_notes.md
-          echo "\`\`\`bash" >> release_notes.md
-          echo "docker run -p 9000:9000 ghcr.io/${{ github.repository }}:${VERSION}" >> release_notes.md
-          echo "\`\`\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "See [CONFIGURATION.md](https://github.com/${{ github.repository }}/blob/${VERSION}/CONFIGURATION.md) for configuration options." >> release_notes.md
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
         with:
-          tag_name: ${{ steps.get_version.outputs.version }}
-          release_name: Secan ${{ steps.get_version.outputs.version }}
-          body_path: release_notes.md
+          pattern: binary-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          if [[ "${{ github.ref_name }}" =~ (alpha|beta|rc) ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
           draft: false
-          prerelease: ${{ contains(steps.get_version.outputs.version, 'alpha') || contains(steps.get_version.outputs.version, 'beta') || contains(steps.get_version.outputs.version, 'rc') }}
-
-  build-release:
-    name: Build Release Binary
-    needs: create-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Linux x86_64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: secan-linux-x86_64
-            use_cross: false
-          
-          # Linux ARM64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: secan-linux-aarch64
-            use_cross: true
-          
-          # macOS x86_64
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: secan-macos-x86_64
-            use_cross: false
-          
-          # macOS ARM64 (Apple Silicon)
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: secan-macos-aarch64
-            use_cross: false
-          
-          # Windows x86_64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: secan-windows-x86_64.exe
-            use_cross: false
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo index
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: backend/target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm run build
-
-      - name: Install cross (for cross-compilation)
-        if: matrix.use_cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build backend (native)
-        if: ${{ !matrix.use_cross }}
-        working-directory: backend
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build backend (cross)
-        if: matrix.use_cross
-        working-directory: backend
-        run: cross build --release --target ${{ matrix.target }}
-
-      - name: Prepare binary (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p artifacts
-          cp backend/target/${{ matrix.target }}/release/secan_backend artifacts/${{ matrix.artifact_name }}
-          chmod +x artifacts/${{ matrix.artifact_name }}
-          cd artifacts
-          tar czf ${{ matrix.artifact_name }}.tar.gz ${{ matrix.artifact_name }}
-          sha256sum ${{ matrix.artifact_name }}.tar.gz > ${{ matrix.artifact_name }}.tar.gz.sha256
-
-      - name: Prepare binary (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir artifacts
-          copy backend\target\${{ matrix.target }}\release\secan_backend.exe artifacts\${{ matrix.artifact_name }}
-          cd artifacts
-          7z a ${{ matrix.artifact_name }}.zip ${{ matrix.artifact_name }}
-          certutil -hashfile ${{ matrix.artifact_name }}.zip SHA256 > ${{ matrix.artifact_name }}.zip.sha256
-
-      - name: Upload Release Asset (Unix - tar.gz)
-        if: runner.os != 'Windows'
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ matrix.artifact_name }}.tar.gz
-          asset_name: ${{ matrix.artifact_name }}.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Asset (Unix - checksum)
-        if: runner.os != 'Windows'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ matrix.artifact_name }}.tar.gz.sha256
-          asset_name: ${{ matrix.artifact_name }}.tar.gz.sha256
-          asset_content_type: text/plain
-
-      - name: Upload Release Asset (Windows - zip)
-        if: runner.os == 'Windows'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ matrix.artifact_name }}.zip
-          asset_name: ${{ matrix.artifact_name }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload Release Asset (Windows - checksum)
-        if: runner.os == 'Windows'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ matrix.artifact_name }}.zip.sha256
-          asset_name: ${{ matrix.artifact_name }}.zip.sha256
-          asset_content_type: text/plain
-
-  docker-release:
-    name: Build and Push Docker Image
-    needs: create-release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.create-release.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.create-release.outputs.version }}
-            type=semver,pattern={{major}},value=${{ needs.create-release.outputs.version }}
-            type=raw,value=latest
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
