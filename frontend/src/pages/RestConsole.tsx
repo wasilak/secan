@@ -289,7 +289,7 @@ export function RestConsole() {
       if (parsed.body) {
         try {
           bodyData = JSON.parse(parsed.body);
-        } catch (e) {
+        } catch {
           setError('Invalid JSON in request body');
           setLoading(false);
           return;
