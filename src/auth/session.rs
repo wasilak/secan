@@ -148,14 +148,13 @@ impl Default for SessionStore {
 
 /// Generate a cryptographically secure random session token
 pub fn generate_token() -> String {
-    use rand::Rng;
+    use rand::RngExt;
     const TOKEN_LENGTH: usize = 32;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-    let mut rng = rand::thread_rng();
     let token: String = (0..TOKEN_LENGTH)
         .map(|_| {
-            let idx = rng.gen_range(0..CHARSET.len());
+            let idx = rand::rng().random_range(0..CHARSET.len());
             CHARSET[idx] as char
         })
         .collect();

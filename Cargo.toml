@@ -10,8 +10,8 @@ license = "GPL-3.0"
 # Web framework
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.5", features = ["fs", "cors", "compression-gzip"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -24,7 +24,7 @@ clap = { version = "4", features = ["derive", "env"] }
 shellexpand = "3"
 
 # HTTP client for Elasticsearch communication
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", features = ["json", "form"] }
 
 # Elasticsearch Rust SDK
 elasticsearch = "8.15.0-alpha.1"
@@ -42,10 +42,10 @@ mime_guess = "2"
 # Authentication
 bcrypt = "0.15"
 argon2 = "0.5"
-jsonwebtoken = "9"
+jsonwebtoken = "10"
 
 # Error handling
-thiserror = "1"
+thiserror = "2"
 anyhow = "1"
 
 # Logging
@@ -53,9 +53,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 # TLS
-rustls = "0.22"
+rustls = "0.23"
 rustls-pemfile = "2"
-tokio-rustls = "0.25"
+tokio-rustls = "0.26"
 
 # Async traits
 async-trait = "0.1"
@@ -67,7 +67,7 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 
 # Random number generation for secure tokens
-rand = "0.8"
+rand = "0.10"
 
 # URL encoding for OIDC
 urlencoding = "2"
