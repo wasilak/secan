@@ -36,7 +36,7 @@ export function ShardContextMenu({
   onClose,
   onShowStats,
   onSelectForRelocation,
-}: ShardContextMenuProps): JSX.Element | null {
+}: ShardContextMenuProps): React.JSX.Element | null {
   const targetRef = useRef<HTMLDivElement>(null);
   
   // Responsive sizing for touch-friendly menu - Requirements: 11.4

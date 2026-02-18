@@ -44,7 +44,7 @@ export function NodeModal({
   nodeId,
   opened,
   onClose,
-}: NodeModalProps): JSX.Element {
+}: NodeModalProps): React.JSX.Element {
   const refreshInterval = useRefreshInterval();
 
   // Fetch node statistics with auto-refresh

@@ -42,7 +42,7 @@ export function ShardGrid({
   clusterId,
   refreshInterval = 30000,
   openNodeModal,
-}: ShardGridProps): JSX.Element {
+}: ShardGridProps): React.JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   // Responsive breakpoints - Requirements: 11.1, 11.5, 11.9

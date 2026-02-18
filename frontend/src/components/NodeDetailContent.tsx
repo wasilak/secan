@@ -83,7 +83,7 @@ interface NodeDetailContentProps {
  */
 export function NodeDetailContent({
   nodeStats,
-}: NodeDetailContentProps): JSX.Element {
+}: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   

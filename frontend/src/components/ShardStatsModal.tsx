@@ -27,7 +27,7 @@ export function ShardStatsModal({
   opened,
   onClose,
   clusterId,
-}: ShardStatsModalProps): JSX.Element {
+}: ShardStatsModalProps): React.JSX.Element {
   const [detailedStats, setDetailedStats] = useState<DetailedShardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

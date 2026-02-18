@@ -48,7 +48,7 @@ export function SortableTable<T>({
   columns,
   defaultSort,
   onRowClick,
-}: SortableTableProps<T>): JSX.Element {
+}: SortableTableProps<T>): React.JSX.Element {
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(defaultSort || null);
 
   /**

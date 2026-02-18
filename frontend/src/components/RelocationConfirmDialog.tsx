@@ -85,7 +85,7 @@ export function RelocationConfirmDialog({
   opened,
   onClose,
   onConfirm,
-}: RelocationConfirmDialogProps): JSX.Element {
+}: RelocationConfirmDialogProps): React.JSX.Element {
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
   

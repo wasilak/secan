@@ -48,7 +48,7 @@ export const ShardCell = memo(function ShardCell({
   isSelected = false,
   isDestinationIndicator = false,
   onClick,
-}: ShardCellProps): JSX.Element {
+}: ShardCellProps): React.JSX.Element {
   // Responsive sizing - Requirements: 11.3
   // Ensure minimum touch target size of 44x44px on mobile
   const isMobile = useMediaQuery('(max-width: 768px)');
