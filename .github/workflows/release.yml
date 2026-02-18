@@ -78,7 +78,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: backend/assets/assets
+          path: assets/assets
 
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1

@@ -50,7 +50,7 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: backend/target
+          path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
@@ -79,19 +79,15 @@ jobs:
         run: npm run lint
 
       - name: Check Rust formatting
-        working-directory: backend
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        working-directory: backend
         run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Build backend
-        working-directory: backend
         run: cargo build --release
 
       - name: Run backend tests
-        working-directory: backend
         run: cargo test --all-features
 
   build:
@@ -160,7 +156,7 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: backend/target
+          path: target
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-build-
@@ -186,26 +182,24 @@ jobs:
 
       - name: Build backend (native)
         if: ${{ !matrix.use_cross }}
-        working-directory: backend
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Build backend (cross)
         if: matrix.use_cross
-        working-directory: backend
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Prepare binary (Unix)
         if: runner.os != 'Windows'
         run: |
           mkdir -p artifacts
-          cp backend/target/${{ matrix.target }}/release/secan_backend artifacts/${{ matrix.artifact_name }}
+          cp target/${{ matrix.target }}/release/secan artifacts/${{ matrix.artifact_name }}
           chmod +x artifacts/${{ matrix.artifact_name }}
 
       - name: Prepare binary (Windows)
         if: runner.os == 'Windows'
         run: |
           mkdir artifacts
-          copy backend\target\${{ matrix.target }}\release\secan_backend.exe artifacts\${{ matrix.artifact_name }}
+          copy target\${{ matrix.target }}\release\secan.exe artifacts\${{ matrix.artifact_name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
