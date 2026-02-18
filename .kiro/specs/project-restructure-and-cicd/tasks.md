@@ -72,19 +72,19 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Verify no path-related errors
     - _Requirements: 3.9_
 
-- [ ] 5. Update Dockerfile for new structure
-  - [ ] 5.1 Update Dockerfile paths
+- [x] 5. Update Dockerfile for new structure
+  - [x] 5.1 Update Dockerfile paths
     - Change COPY backend/ paths to root paths
     - Update WORKDIR paths
     - Update build commands to work from root
     - _Requirements: 7.1_
   
-  - [ ] 5.2 Optimize Dockerfile layer caching
+  - [x] 5.2 Optimize Dockerfile layer caching
     - Ensure dependency caching works efficiently
     - Verify multi-stage build is optimal
     - _Requirements: 7.5_
   
-  - [ ] 5.3 Test Docker build locally
+  - [x] 5.3 Test Docker build locally
     - Build Docker image with new structure
     - Run container and verify application works
     - Test frontend assets are served correctly

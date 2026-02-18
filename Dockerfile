@@ -4,11 +4,11 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy frontend package files
+# Copy frontend package files first for better caching
 COPY frontend/package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (cached layer)
+RUN npm ci --prefer-offline --no-audit
 
 # Copy frontend source
 COPY frontend/ ./
@@ -24,8 +24,8 @@ RUN apk add --no-cache musl-dev openssl-dev
 
 WORKDIR /app
 
-# Copy backend Cargo files
-COPY backend/Cargo.toml backend/Cargo.lock ./
+# Copy Cargo files from root (cached layer for dependencies)
+COPY Cargo.toml Cargo.lock ./
 
 # Create dummy main.rs to cache dependencies
 RUN mkdir src && \
@@ -33,14 +33,14 @@ RUN mkdir src && \
     cargo build --release && \
     rm -rf src
 
-# Copy backend source
-COPY backend/src ./src
+# Copy source from root
+COPY src ./src
 
 # Copy frontend assets from previous stage
-COPY --from=frontend-builder /app/frontend/dist ./assets/assets
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Build the backend with embedded frontend
-RUN cargo build --release
+RUN cargo build --release --locked
 
 # Stage 3: Runtime image
 FROM alpine:3.19
@@ -59,7 +59,7 @@ RUN mkdir -p /app /config && \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=backend-builder /app/target/release/secan_backend /app/secan
+COPY --from=backend-builder /app/target/release/secan /app/secan
 
 # Change ownership
 RUN chown secan:secan /app/secan
