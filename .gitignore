@@ -4,10 +4,20 @@
 # except for .gitignore
 !.gitignore
 !.eslintrc.json
+!.eslintrc.cjs
+!.prettierrc
+!.clippy.toml
+!.dockerignore
 # except for .kiro/ (Kiro specs and settings)
 !.kiro/
 # except for .github/ (GitHub Actions workflows)
 !.github/
+# except for .serena/ (Serena MCP cache and memories)
+!.serena/
+# except for .task/ (Task runner checksums)
+!.task/
+# except for .vscode/ (VS Code settings)
+!.vscode/
 
 # Configuration files (keep example tracked)
 config.yaml
