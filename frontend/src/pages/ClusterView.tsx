@@ -1773,6 +1773,15 @@ function ShardAllocationGrid({
   const [relocationMode, setRelocationMode] = useState(false);
   const [validDestinationNodes, setValidDestinationNodes] = useState<string[]>([]);
   
+  // Relocation confirmation modal state
+  const [relocationConfirmOpened, setRelocationConfirmOpened] = useState(false);
+  const [relocationSourceNode, setRelocationSourceNode] = useState<NodeInfo | null>(null);
+  const [relocationDestinationNode, setRelocationDestinationNode] = useState<NodeInfo | null>(null);
+  const [relocationInProgress, setRelocationInProgress] = useState(false);
+  
+  // No destinations state - show in banner instead of modal
+  const [showNoDestinationsMessage, setShowNoDestinationsMessage] = useState(false);
+  
   // Shard state filter - all states selected by default
   const SHARD_STATES = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
   const selectedStatesParam = searchParams.get('shardStates');
@@ -1881,10 +1890,20 @@ function ShardAllocationGrid({
     
     console.log('[ClusterView] Valid destinations:', validDestinations);
     
+    // Check if there are any valid destinations
+    if (validDestinations.length === 0) {
+      // Show message in banner explaining why relocation is not possible
+      setShowNoDestinationsMessage(true);
+      setSelectedShard(shard);
+      handleContextMenuClose();
+      return;
+    }
+    
     // Set relocation mode state
     setRelocationMode(true);
     setSelectedShard(shard);
     setValidDestinationNodes(validDestinations);
+    setShowNoDestinationsMessage(false);
     
     handleContextMenuClose();
   };
@@ -2270,12 +2289,33 @@ function ShardAllocationGrid({
         </Group>
       </Group>
 
-      {/* Relocation mode banner */}
-      {relocationMode && selectedShard && (
+      {/* Relocation mode banner or no destinations message */}
+      {showNoDestinationsMessage && selectedShard && (
         <Alert color="violet" variant="light">
           <Group justify="space-between">
             <Text size="sm">
-              <Text component="span" fw={600}>Relocation Mode:</Text> Select a destination node for shard {selectedShard.shard} of index "{selectedShard.index}". Purple dashed boxes show valid destinations.
+              <Text component="span" fw={600}>Cannot Relocate:</Text> Shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.
+            </Text>
+            <Button
+              size="xs"
+              color="violet"
+              variant="subtle"
+              onClick={() => {
+                setShowNoDestinationsMessage(false);
+                setSelectedShard(null);
+              }}
+            >
+              OK
+            </Button>
+          </Group>
+        </Alert>
+      )}
+      
+      {relocationMode && selectedShard && !showNoDestinationsMessage && (
+        <Alert color="violet" variant="light">
+          <Group justify="space-between">
+            <Text size="sm">
+              <Text component="span" fw={600}>Relocation Mode:</Text> Select a destination node for shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}". Purple dashed boxes show valid destinations.
             </Text>
             <Button
               size="xs"
@@ -2651,7 +2691,7 @@ function ShardAllocationGrid({
                                       border: '2px dashed var(--mantine-color-violet-6)',
                                       cursor: 'pointer',
                                     }}
-                                    onClick={async (e) => {
+                                    onClick={(e) => {
                                       e.stopPropagation();
                                       
                                       if (!selectedShard || !id) {
@@ -2675,54 +2715,10 @@ function ShardAllocationGrid({
                                         return;
                                       }
                                       
-                                      // Confirm relocation
-                                      const confirmed = window.confirm(
-                                        `Relocate shard ${selectedShard.shard} of index "${selectedShard.index}" from ${sourceNode.name} to ${node.name}?`
-                                      );
-                                      
-                                      if (!confirmed) {
-                                        return;
-                                      }
-                                      
-                                      try {
-                                        // Call the backend API to relocate the shard
-                                        await apiClient.relocateShard(id, {
-                                          index: selectedShard.index,
-                                          shard: selectedShard.shard,
-                                          from_node: sourceNode.id,
-                                          to_node: node.id,
-                                        });
-                                        
-                                        // Show success notification
-                                        notifications.show({
-                                          color: 'green',
-                                          title: 'Relocation Started',
-                                          message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${sourceNode.name} to ${node.name}.`,
-                                          autoClose: 5000,
-                                        });
-                                        
-                                        // Exit relocation mode
-                                        setRelocationMode(false);
-                                        setSelectedShard(null);
-                                        setValidDestinationNodes([]);
-                                        
-                                        // Invalidate queries to refresh data
-                                        queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-                                      } catch (error) {
-                                        // Show error notification
-                                        let errorMessage = 'An unexpected error occurred';
-                                        
-                                        if (error instanceof Error) {
-                                          errorMessage = error.message;
-                                        }
-                                        
-                                        notifications.show({
-                                          color: 'red',
-                                          title: 'Relocation Failed',
-                                          message: errorMessage,
-                                          autoClose: false,
-                                        });
-                                      }
+                                      // Set modal state and open confirmation dialog
+                                      setRelocationSourceNode(sourceNode);
+                                      setRelocationDestinationNode(node);
+                                      setRelocationConfirmOpened(true);
                                     }}
                                   >
                                     {selectedShard.shard}
@@ -2755,6 +2751,137 @@ function ShardAllocationGrid({
           onPageSizeChange={handleOverviewPageSizeChange}
         />
       )}
+      
+      {/* Relocation Confirmation Modal */}
+      <Modal
+        opened={relocationConfirmOpened}
+        onClose={() => {
+          if (!relocationInProgress) {
+            setRelocationConfirmOpened(false);
+            setRelocationSourceNode(null);
+            setRelocationDestinationNode(null);
+          }
+        }}
+        title="Confirm Shard Relocation"
+        centered
+        size="md"
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            You are about to relocate the following shard:
+          </Text>
+          
+          <Card withBorder padding="md">
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Index:</Text>
+                <Text size="sm" fw={600}>{selectedShard?.index}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Shard Number:</Text>
+                <Text size="sm" fw={600}>{selectedShard?.shard}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Shard Type:</Text>
+                <Badge size="sm" color={selectedShard?.primary ? 'blue' : 'gray'}>
+                  {selectedShard?.primary ? 'Primary' : 'Replica'}
+                </Badge>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Source Node:</Text>
+                <Text size="sm" fw={600}>{relocationSourceNode?.name}</Text>
+              </Group>
+              
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Destination Node:</Text>
+                <Text size="sm" fw={600} c="violet">{relocationDestinationNode?.name}</Text>
+              </Group>
+            </Stack>
+          </Card>
+          
+          <Text size="sm" c="dimmed">
+            This operation will move the shard from {relocationSourceNode?.name} to {relocationDestinationNode?.name}. 
+            The shard will be temporarily unavailable during relocation.
+          </Text>
+          
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              color="gray"
+              onClick={() => {
+                setRelocationConfirmOpened(false);
+                setRelocationSourceNode(null);
+                setRelocationDestinationNode(null);
+              }}
+              disabled={relocationInProgress}
+            >
+              Cancel
+            </Button>
+            
+            <Button
+              color="violet"
+              onClick={async () => {
+                if (!selectedShard || !id || !relocationSourceNode || !relocationDestinationNode) {
+                  return;
+                }
+                
+                setRelocationInProgress(true);
+                
+                try {
+                  // Call the backend API to relocate the shard
+                  await apiClient.relocateShard(id, {
+                    index: selectedShard.index,
+                    shard: selectedShard.shard,
+                    from_node: relocationSourceNode.id,
+                    to_node: relocationDestinationNode.id,
+                  });
+                  
+                  // Show success notification
+                  notifications.show({
+                    color: 'green',
+                    title: 'Relocation Started',
+                    message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${relocationSourceNode.name} to ${relocationDestinationNode.name}.`,
+                    autoClose: 5000,
+                  });
+                  
+                  // Exit relocation mode and close modal
+                  setRelocationMode(false);
+                  setSelectedShard(null);
+                  setValidDestinationNodes([]);
+                  setRelocationConfirmOpened(false);
+                  setRelocationSourceNode(null);
+                  setRelocationDestinationNode(null);
+                  
+                  // Invalidate queries to refresh data
+                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+                } catch (error) {
+                  // Show error notification
+                  let errorMessage = 'An unexpected error occurred';
+                  
+                  if (error instanceof Error) {
+                    errorMessage = error.message;
+                  }
+                  
+                  notifications.show({
+                    color: 'red',
+                    title: 'Relocation Failed',
+                    message: errorMessage,
+                    autoClose: false,
+                  });
+                } finally {
+                  setRelocationInProgress(false);
+                }
+              }}
+              loading={relocationInProgress}
+            >
+              Commit Relocation
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
