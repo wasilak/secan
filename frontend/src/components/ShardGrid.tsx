@@ -378,12 +378,21 @@ export function ShardGrid({
   
   // Handle select for relocation - Requirements: 4.4, 5.1, 5.2, 5.3
   const handleSelectForRelocation = (shard: ShardInfo) => {
+    console.log('[handleSelectForRelocation] Called with shard:', shard);
+    console.log('[handleSelectForRelocation] Current nodes:', nodes);
+    console.log('[handleSelectForRelocation] Current relocationMode:', relocationMode);
+    
     // Enter relocation mode
     // This will:
     // 1. Set relocationMode to true
     // 2. Store selected shard
     // 3. Calculate valid destinations
     enterRelocationMode(shard);
+    
+    console.log('[handleSelectForRelocation] After enterRelocationMode');
+    console.log('[handleSelectForRelocation] New relocationMode:', useShardGridStore.getState().relocationMode);
+    console.log('[handleSelectForRelocation] New destinationIndicators:', useShardGridStore.getState().destinationIndicators);
+    
     handleContextMenuClose();
   };
   

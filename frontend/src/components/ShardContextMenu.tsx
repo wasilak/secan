@@ -65,12 +65,19 @@ export function ShardContextMenu({
   
   // Handle menu item clicks
   const handleShowStats = () => {
+    console.log('[ShardContextMenu] handleShowStats called');
     onShowStats(shard);
   };
   
   const handleSelectForRelocation = () => {
+    console.log('[ShardContextMenu] handleSelectForRelocation called');
+    console.log('[ShardContextMenu] isRelocationDisabled:', isRelocationDisabled);
+    console.log('[ShardContextMenu] shard:', shard);
     if (!isRelocationDisabled) {
+      console.log('[ShardContextMenu] Calling onSelectForRelocation');
       onSelectForRelocation(shard);
+    } else {
+      console.log('[ShardContextMenu] Relocation is disabled, not calling handler');
     }
   };
   
