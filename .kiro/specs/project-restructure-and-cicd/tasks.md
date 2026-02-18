@@ -28,12 +28,12 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - _Requirements: 6.3, 6.4, 6.5, 6.6, 6.7_
 
 - [-] 3. Move configuration files
-  - [-] 3.1 Move backend/config.yaml to config.example.yaml at root
+  - [x] 3.1 Move backend/config.yaml to config.example.yaml at root
     - Use git mv to preserve history
     - Update all references in documentation
     - _Requirements: 4.1, 4.3, 4.4_
   
-  - [ ] 3.2 Update application config loading logic
+  - [x] 3.2 Update application config loading logic
     - Update config file search paths to look at root first
     - Ensure backward compatibility with old paths during transition
     - Test config loading with new paths

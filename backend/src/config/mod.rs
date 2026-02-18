@@ -437,9 +437,34 @@ impl Config {
     /// 1. Environment variables (SECAN_*)
     /// 2. Configuration file
     /// 3. Default values
+    ///
+    /// Configuration file search order:
+    /// 1. SECAN_CONFIG_FILE environment variable
+    /// 2. ./config.yaml (repository root)
+    /// 3. ./backend/config.yaml (backward compatibility)
+    /// 4. /etc/secan/config.yaml (system-wide)
+    /// 5. ~/.config/secan/config.yaml (user-specific)
     pub fn load() -> anyhow::Result<Self> {
-        let config_path =
-            env::var("SECAN_CONFIG_FILE").unwrap_or_else(|_| "config.yaml".to_string());
+        let config_path = if let Ok(path) = env::var("SECAN_CONFIG_FILE") {
+            path
+        } else {
+            // Try multiple locations in order
+            let search_paths = [
+                "config.yaml",                 // Root (new location)
+                "backend/config.yaml",         // Backward compatibility
+                "/etc/secan/config.yaml",      // System-wide
+                "~/.config/secan/config.yaml", // User-specific
+            ];
+
+            search_paths
+                .iter()
+                .find(|path| {
+                    let expanded = shellexpand::tilde(path);
+                    std::path::Path::new(expanded.as_ref()).exists()
+                })
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "config.yaml".to_string())
+        };
 
         Self::from_file(&config_path)
     }
