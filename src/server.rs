@@ -63,10 +63,16 @@ impl Server {
     /// Validates: Requirements 1.2, 30.2, 30.7, 31.8
     pub fn router(&self) -> Router {
         // Create auth state for authentication routes
-        let auth_state = crate::routes::AuthState {
+        let auth_routes_state = crate::routes::AuthState {
             oidc_provider: None, // TODO: Initialize OIDC provider if configured
             session_manager: self.session_manager.clone(),
         };
+
+        // Create auth state for middleware
+        let auth_middleware_state = Arc::new(crate::auth::AuthState::new(
+            self.session_manager.clone(),
+            self.config.auth.mode.clone(),
+        ));
 
         // Create cluster state for cluster routes
         let cluster_state = crate::routes::ClusterState {
@@ -86,7 +92,7 @@ impl Server {
                 "/api/auth/oidc/callback",
                 get(crate::routes::auth::oidc_callback),
             )
-            .with_state(auth_state)
+            .with_state(auth_routes_state)
             // Cluster routes
             .route("/api/clusters", get(crate::routes::clusters::list_clusters))
             // Typed SDK routes for cluster data
@@ -130,6 +136,11 @@ impl Server {
             .with_state(cluster_state)
             // Static assets - must be last to act as fallback
             .fallback(crate::routes::serve_static)
+            // Add auth middleware (handles authentication in all modes)
+            .layer(middleware::from_fn_with_state(
+                auth_middleware_state.clone(),
+                crate::auth::auth_middleware,
+            ))
             // Add security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
             .layer(middleware::from_fn(
                 crate::middleware::security::security_headers_middleware,
