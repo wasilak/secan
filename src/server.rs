@@ -91,37 +91,37 @@ impl Server {
             .route("/api/clusters", get(crate::routes::clusters::list_clusters))
             // Typed SDK routes for cluster data
             .route(
-                "/api/clusters/:id/stats",
+                "/api/clusters/{id}/stats",
                 get(crate::routes::clusters::get_cluster_stats),
             )
             .route(
-                "/api/clusters/:id/nodes",
+                "/api/clusters/{id}/nodes",
                 get(crate::routes::clusters::get_nodes),
             )
             .route(
-                "/api/clusters/:id/nodes/:nodeId/stats",
+                "/api/clusters/{id}/nodes/{nodeId}/stats",
                 get(crate::routes::clusters::get_node_stats),
             )
             .route(
-                "/api/clusters/:id/indices",
+                "/api/clusters/{id}/indices",
                 get(crate::routes::clusters::get_indices),
             )
             .route(
-                "/api/clusters/:id/shards",
+                "/api/clusters/{id}/shards",
                 get(crate::routes::clusters::get_shards),
             )
             .route(
-                "/api/clusters/:id/shards/:index/:shard",
+                "/api/clusters/{id}/shards/{index}/{shard}",
                 get(crate::routes::clusters::get_shard_stats),
             )
             // Shard relocation endpoint
             .route(
-                "/api/clusters/:id/shards/relocate",
+                "/api/clusters/{id}/shards/relocate",
                 post(crate::routes::clusters::relocate_shard),
             )
             // Generic proxy route - must be last to avoid conflicts
             .route(
-                "/api/clusters/:id/*path",
+                "/api/clusters/{id}/{*path}",
                 get(crate::routes::clusters::proxy_request)
                     .post(crate::routes::clusters::proxy_request)
                     .put(crate::routes::clusters::proxy_request)
