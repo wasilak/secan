@@ -64,10 +64,6 @@ jobs:
             target: aarch64-apple-darwin
             name: macos-arm64
             cross: false
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: windows-amd64
-            cross: false
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -99,44 +95,23 @@ jobs:
         if: ${{ !matrix.cross }}
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Strip binary (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Strip binary
         run: |
           strip target/${{ matrix.target }}/release/secan || true
 
-      - name: Package binary (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Package binary
         run: |
           cd target/${{ matrix.target }}/release
           tar czf secan-${{ matrix.name }}.tar.gz secan
           sha256sum secan-${{ matrix.name }}.tar.gz > secan-${{ matrix.name }}.tar.gz.sha256
 
-      - name: Package binary (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cd target/${{ matrix.target }}/release
-          Compress-Archive -Path secan.exe -DestinationPath secan-${{ matrix.name }}.zip
-          (Get-FileHash secan-${{ matrix.name }}.zip -Algorithm SHA256).Hash.ToLower() + "  secan-${{ matrix.name }}.zip" | Out-File -Encoding ASCII secan-${{ matrix.name }}.zip.sha256
-
-      - name: Upload binary artifacts (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Upload binary artifacts
         uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.name }}
           path: |
             target/${{ matrix.target }}/release/secan-${{ matrix.name }}.tar.gz
             target/${{ matrix.target }}/release/secan-${{ matrix.name }}.tar.gz.sha256
-          retention-days: 1
-
-      - name: Upload binary artifacts (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: binary-${{ matrix.name }}
-          path: |
-            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.zip
-            target/${{ matrix.target }}/release/secan-${{ matrix.name }}.zip.sha256
           retention-days: 1
 
   # Create GitHub release with all binaries
