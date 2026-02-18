@@ -1,16 +1,68 @@
 services:
-  elasticsearch:
+  es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: secan-elasticsearch
+    container_name: es01
     environment:
-      - discovery.type=single-node
+      - node.name=es01
+      - cluster.name=secan-cluster
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - node.roles=master,data
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
       - "9300:9300"
     volumes:
-      - es_data:/usr/share/elasticsearch/data
+      - es01_data:/usr/share/elasticsearch/data
+    networks:
+      - secan-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: es02
+    environment:
+      - node.name=es02
+      - cluster.name=secan-cluster
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - node.roles=master,data
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+      - "9301:9300"
+    volumes:
+      - es02_data:/usr/share/elasticsearch/data
+    networks:
+      - secan-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  es03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: es03
+    environment:
+      - node.name=es03
+      - cluster.name=secan-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - node.roles=master,data
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9202:9200"
+      - "9302:9300"
+    volumes:
+      - es03_data:/usr/share/elasticsearch/data
     networks:
       - secan-network
     healthcheck:
@@ -20,7 +72,11 @@ services:
       retries: 5
 
 volumes:
-  es_data:
+  es01_data:
+    driver: local
+  es02_data:
+    driver: local
+  es03_data:
     driver: local
 
 networks:
