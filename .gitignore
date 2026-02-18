@@ -4,6 +4,11 @@
 # except for .gitignore
 !.gitignore
 !.eslintrc.json
+# except for .kiro/ (Kiro specs and settings)
+!.kiro/
+
+# Configuration files (keep example tracked)
+config.yaml
 
 # Ignore Play! working directory #
 db
@@ -14,18 +19,24 @@ modules
 precompiled
 project/project
 project/target
-target
 tmp
 test-result
 server.pid
 *.iml
 *.eml
 activator-*.sbt
-node_modules
 secan.db
 
 # Docker Compose local config
 secan-config/
+
+# Rust build artifacts (root level after restructure)
+/target/
+Cargo.lock
+
+# Frontend
+node_modules
+frontend/dist/
 
 # Frontend build artifacts (embedded by rust-embed during backend build)
 backend/assets/
