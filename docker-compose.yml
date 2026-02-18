@@ -19,23 +19,6 @@ services:
       timeout: 10s
       retries: 5
 
-  secan:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: secan-app
-    ports:
-      - "9000:9000"
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-    volumes:
-      - ./config.yaml:/app/config.yaml:ro
-    networks:
-      - secan-network
-    environment:
-      - RUST_LOG=info
-
 volumes:
   es_data:
     driver: local
