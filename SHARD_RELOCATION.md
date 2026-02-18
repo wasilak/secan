@@ -195,7 +195,7 @@ Shard relocation:
 - Network connectivity issues
 
 **Solutions:**
-- Verify cluster configuration in `config.yaml`
+- Verify cluster configuration in `config.yaml` (copy from `config.example.yaml` if needed)
 - Check that Elasticsearch is running
 - Test connectivity: `curl http://elasticsearch:9200`
 
@@ -231,7 +231,7 @@ In open mode (no authentication), all users can relocate shards.
 
 ### Authorization
 
-When RBAC is enabled, users must have access to the cluster to relocate shards. Check your role configuration in `config.yaml`.
+When RBAC is enabled, users must have access to the cluster to relocate shards. Check your role configuration in `config.yaml` (copy from `config.example.yaml` if needed).
 
 ### Audit Logging
 

@@ -68,10 +68,11 @@ services:
 Mount a configuration file for more complex setups:
 
 ```bash
-# Create config.yaml
-cat > config.yaml <<EOF
-server:
-  host: "0.0.0.0"
+# Copy example config and customize
+cp config.example.yaml config.yaml
+# Edit config.yaml to set:
+# server:
+#   host: "0.0.0.0"
   port: 9001
 
 auth:

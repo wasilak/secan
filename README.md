@@ -70,7 +70,11 @@ cargo build --release
 
 ## Configuration
 
-Secan uses a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
+Secan uses a YAML configuration file. Copy `config.example.yaml` to `config.yaml` and customize it for your environment.
+
+```bash
+cp config.example.yaml config.yaml
+```
 
 ### Basic Configuration
 

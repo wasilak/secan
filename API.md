@@ -541,7 +541,7 @@ Rate limit exceeded response:
 
 ## CORS
 
-CORS is enabled for development mode. In production, configure allowed origins in `config.yaml`:
+CORS is enabled for development mode. In production, configure allowed origins in `config.yaml` (copy from `config.example.yaml` if needed):
 
 ```yaml
 server:

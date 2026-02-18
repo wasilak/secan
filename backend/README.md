@@ -26,7 +26,13 @@ Secan can be configured using:
 
 ### Configuration File
 
-Create a `config.yaml` file:
+Copy the example configuration and customize it:
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+Then edit `config.yaml`:
 
 ```yaml
 server:

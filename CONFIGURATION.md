@@ -2,7 +2,7 @@
 
 ## Authentication Modes
 
-Secan supports three authentication modes, configured in `backend/config.yaml`:
+Secan supports three authentication modes, configured in `config.yaml`:
 
 ### 1. Open Mode (No Authentication) ✅ **Currently Active**
 
@@ -264,9 +264,8 @@ cargo run
 Secan looks for configuration in this order:
 
 1. `./config.yaml` (current directory)
-2. `./backend/config.yaml`
-3. `/etc/secan/config.yaml`
-4. `~/.config/secan/config.yaml`
+2. `/etc/secan/config.yaml`
+3. `~/.config/secan/config.yaml`
 
 You can also specify a custom config file:
 
@@ -285,7 +284,6 @@ cargo run
 
 ### Run with custom config
 ```bash
-cd backend
 cargo run -- --config /path/to/custom-config.yaml
 ```
 
@@ -299,14 +297,14 @@ AUTH_MODE=open SERVER_PORT=9000 cargo run
 
 To switch from Open mode to Local Users mode:
 
-1. Edit `backend/config.yaml`
+1. Edit `config.yaml`
 2. Change `auth.mode` from `"open"` to `"local_users"`
 3. Add `local_users` and `roles` sections
 4. Restart the backend: `cargo run`
 
 To switch back to Open mode for testing:
 
-1. Edit `backend/config.yaml`
+1. Edit `config.yaml`
 2. Change `auth.mode` back to `"open"`
 3. Restart the backend
 
@@ -315,7 +313,8 @@ To switch back to Open mode for testing:
 ## Summary
 
 ✅ **You're already set up for testing!**
-- Your `config.yaml` has `auth.mode: "open"`
+- Copy `config.example.yaml` to `config.yaml`
+- The example config has `auth.mode: "open"`
 - No authentication required
 - Perfect for development and testing
 
