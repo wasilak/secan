@@ -90,81 +90,81 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Test frontend assets are served correctly
     - _Requirements: 7.2, 7.8_
 
-- [ ] 6. Consolidate documentation
-  - [ ] 6.1 Create enhanced README.md structure
+- [x] 6. Consolidate documentation
+  - [x] 6.1 Create enhanced README.md structure
     - Add table of contents
     - Create sections for all consolidated content
     - Maintain clear organization
     - _Requirements: 2.9_
   
-  - [ ] 6.2 Extract and merge API.md content
+  - [x] 6.2 Extract and merge API.md content
     - Extract essential API information
     - Add brief API overview to README
     - Consider keeping full API docs or linking to generated docs
     - Remove API.md
     - _Requirements: 2.2_
   
-  - [ ] 6.3 Extract and merge CONFIGURATION.md content
+  - [x] 6.3 Extract and merge CONFIGURATION.md content
     - Extract key configuration examples
     - Add quick start configuration to README
     - Remove CONFIGURATION.md
     - _Requirements: 2.3_
   
-  - [ ] 6.4 Extract and merge CONTRIBUTING.md content
+  - [x] 6.4 Extract and merge CONTRIBUTING.md content
     - Extract essential contribution guidelines
     - Add brief contributing section to README
     - Remove CONTRIBUTING.md
     - _Requirements: 2.4_
   
-  - [ ] 6.5 Extract and merge DOCKER.md content
+  - [x] 6.5 Extract and merge DOCKER.md content
     - Extract Docker quick start
     - Add Docker deployment section to README
     - Remove DOCKER.md
     - _Requirements: 2.5_
   
-  - [ ] 6.6 Extract and merge SHARD_RELOCATION.md content
+  - [x] 6.6 Extract and merge SHARD_RELOCATION.md content
     - Extract shard relocation overview
     - Add feature description to README
     - Remove SHARD_RELOCATION.md
     - _Requirements: 2.6_
   
-  - [ ] 6.7 Update acknowledgments and links
+  - [x] 6.7 Update acknowledgments and links
     - Ensure Cerebro acknowledgment is prominent
     - Update repository URLs
     - Add/update status badges
     - _Requirements: 2.7, 2.8_
 
-- [ ] 7. Change license to GPL v3
-  - [ ] 7.1 Replace LICENSE file
+- [x] 7. Change license to GPL v3
+  - [x] 7.1 Replace LICENSE file
     - Replace MIT license text with full GPL v3 text
     - Update copyright year and holder
     - _Requirements: 5.1_
   
-  - [ ] 7.2 Update Cargo.toml license field
+  - [x] 7.2 Update Cargo.toml license field
     - Change license = "MIT" to license = "GPL-3.0"
     - _Requirements: 5.2_
   
-  - [ ] 7.3 Update frontend/package.json license field
+  - [x] 7.3 Update frontend/package.json license field
     - Change license field to "GPL-3.0"
     - _Requirements: 5.3_
   
-  - [ ] 7.4 Update README.md license section
+  - [x] 7.4 Update README.md license section
     - Update license section to indicate GPL v3
     - Add link to LICENSE file
     - _Requirements: 5.4_
   
-  - [ ] 7.5 Document attribution requirements
+  - [x] 7.5 Document attribution requirements
     - Add section explaining GPL v3 requirements
     - Document how to comply with license
     - _Requirements: 5.5_
 
-- [ ] 8. Implement CI workflow
-  - [ ] 8.1 Create .github/workflows/ci.yml
+- [-] 8. Implement CI workflow
+  - [x] 8.1 Create .github/workflows/ci.yml
     - Set up workflow triggers (push, pull_request)
     - Configure job matrix if needed
     - _Requirements: 10.8_
   
-  - [ ] 8.2 Add backend test job
+  - [x] 8.2 Add backend test job
     - Set up Rust toolchain
     - Configure cargo cache
     - Add cargo test step
@@ -172,19 +172,19 @@ This implementation plan restructures the Secan project to follow Rust conventio
     - Add cargo fmt --check step
     - _Requirements: 10.1, 10.2, 10.3_
   
-  - [ ] 8.3 Add frontend test job
+  - [x] 8.3 Add frontend test job
     - Set up Node.js
     - Configure npm cache
     - Add npm test step
     - Add npm run lint step
     - _Requirements: 10.4, 10.5_
   
-  - [ ] 8.4 Configure dependency caching
+  - [x] 8.4 Configure dependency caching
     - Add Rust cache action
     - Add npm cache configuration
     - _Requirements: 10.8_
   
-  - [ ] 8.5 Test CI workflow
+  - [-] 8.5 Test CI workflow
     - Push to test branch
     - Verify workflow runs
     - Verify all jobs pass

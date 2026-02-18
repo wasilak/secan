@@ -6,6 +6,8 @@
 !.eslintrc.json
 # except for .kiro/ (Kiro specs and settings)
 !.kiro/
+# except for .github/ (GitHub Actions workflows)
+!.github/
 
 # Configuration files (keep example tracked)
 config.yaml
