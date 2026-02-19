@@ -67,7 +67,11 @@ import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons, getRoleIcon, RoleFilterToggle } from '../components/RoleIcons';
 import { ShardStateFilterToggle } from '../components/ShardStateFilter';
 import { ShardContextMenu } from '../components/ShardContextMenu';
+import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
+import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
+import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
 import { useState, useEffect } from 'react';
@@ -998,6 +1002,11 @@ function IndicesList({
   // Confirmation modal state for close/delete operations
   const [confirmationModalOpened, setConfirmationModalOpened] = useState(false);
   const [confirmationAction, setConfirmationAction] = useState<{ type: 'close' | 'delete'; indexName: string } | null>(null);
+
+  // Bulk operations state
+  const { selectedIndices, isSelected, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
+  const [bulkModalOpened, setBulkModalOpened] = useState(false);
+  const [selectedOperation, setSelectedOperation] = useState<BulkOperationType | null>(null);
   
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
@@ -1017,6 +1026,43 @@ function IndicesList({
     params.set('indicesPageSize', size.toString());
     params.set('indicesPage', '1'); // Reset to first page when changing page size
     setSearchParams(params);
+  };
+
+  // Bulk operations handlers
+  const handleBulkOperationSelect = (operation: BulkOperationType) => {
+    setSelectedOperation(operation);
+    setBulkModalOpened(true);
+  };
+
+  const handleBulkOperationConfirm = () => {
+    if (!selectedOperation) return;
+
+    switch (selectedOperation) {
+      case 'open':
+        bulkOpenMutation.mutate();
+        break;
+      case 'close':
+        bulkCloseMutation.mutate();
+        break;
+      case 'delete':
+        bulkDeleteMutation.mutate();
+        break;
+      case 'refresh':
+        bulkRefreshMutation.mutate();
+        break;
+      case 'set_read_only':
+        bulkSetReadOnlyMutation.mutate();
+        break;
+      case 'set_writable':
+        bulkSetWritableMutation.mutate();
+        break;
+    }
+  };
+
+  const handleBulkSelectAll = () => {
+    if (paginatedIndices) {
+      selectAll(paginatedIndices.map(index => index.name));
+    }
   };
   
   // Debounce search query to avoid excessive filtering
@@ -1113,6 +1159,133 @@ function IndicesList({
       notifications.show({
         title: 'Error',
         message: `Failed to disable shard allocation: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  // Bulk operation mutations
+  const bulkOpenMutation = useMutation({
+    mutationFn: () => apiClient.bulkOpenIndices(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Opened ${selectedIndices.size} indices`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to open indices: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const bulkCloseMutation = useMutation({
+    mutationFn: () => apiClient.bulkCloseIndices(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Closed ${selectedIndices.size} indices`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to close indices: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: () => apiClient.bulkDeleteIndices(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Deleted ${selectedIndices.size} indices`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to delete indices: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const bulkRefreshMutation = useMutation({
+    mutationFn: () => apiClient.bulkRefreshIndices(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Refreshed ${selectedIndices.size} indices`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to refresh indices: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const bulkSetReadOnlyMutation = useMutation({
+    mutationFn: () => apiClient.bulkSetIndexReadOnly(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Set ${selectedIndices.size} indices to read-only`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to set indices to read-only: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const bulkSetWritableMutation = useMutation({
+    mutationFn: () => apiClient.bulkSetIndexWritable(id!, Array.from(selectedIndices)),
+    onSuccess: () => {
+      notifications.show({
+        title: 'Success',
+        message: `Set ${selectedIndices.size} indices to writable`,
+        color: 'green',
+      });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      setBulkModalOpened(false);
+      clearSelection();
+    },
+    onError: (error: Error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Failed to set indices to writable: ${error.message}`,
         color: 'red',
       });
     },
@@ -1473,7 +1646,16 @@ function IndicesList({
             <Text size="xs">special</Text>
             </Group>
             </Group>
-            
+
+            {/* Bulk operations menu */}
+            {count > 0 && (
+              <BulkOperationsMenu
+                selectedIndices={selectedIndices}
+                indices={indices || []}
+                onOperationSelect={handleBulkOperationSelect}
+              />
+            )}
+
             {id && (
           <Button
             leftSection={<IconPlus size={16} />}
@@ -1495,6 +1677,15 @@ function IndicesList({
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
+                <Table.Th>
+                  <Checkbox
+                    aria-label="Select all indices"
+                    checked={count > 0 && count === paginatedIndices?.length}
+                    indeterminate={count > 0 && count < (paginatedIndices?.length || 0)}
+                    onChange={handleBulkSelectAll}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Table.Th>
                 <Table.Th>Name</Table.Th>
                 <Table.Th>Health</Table.Th>
                 <Table.Th>Status</Table.Th>
@@ -1511,16 +1702,28 @@ function IndicesList({
               {paginatedIndices?.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
                 const hasUnassigned = unassignedCount > 0;
-                
+
                 return (
-                  <Table.Tr 
+                  <Table.Tr
                     key={index.name}
-                    style={{ 
+                    style={{
                       cursor: 'pointer',
-                      backgroundColor: hasUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
+                      backgroundColor: isSelected(index.name)
+                        ? 'var(--mantine-color-blue-light)'
+                        : hasUnassigned
+                          ? 'rgba(250, 82, 82, 0.1)'
+                          : undefined,
                     }}
                     onClick={() => openIndexModal(index.name)}
                   >
+                    <Table.Td onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        aria-label={`Select index ${index.name}`}
+                        checked={isSelected(index.name)}
+                        onChange={() => toggleSelection(index.name)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Table.Td>
                     <Table.Td>
                       <Stack gap={2}>
                         <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
@@ -1775,6 +1978,27 @@ function IndicesList({
           </Group>
         </Stack>
       </Modal>
+
+      {/* Bulk Operation Confirm Modal */}
+      <BulkOperationConfirmModal
+        opened={bulkModalOpened}
+        onClose={() => {
+          setBulkModalOpened(false);
+          setSelectedOperation(null);
+        }}
+        operation={selectedOperation || 'open'}
+        selectedIndices={Array.from(selectedIndices)}
+        indices={indices || []}
+        onConfirm={handleBulkOperationConfirm}
+        isExecuting={
+          bulkOpenMutation.isPending ||
+          bulkCloseMutation.isPending ||
+          bulkDeleteMutation.isPending ||
+          bulkRefreshMutation.isPending ||
+          bulkSetReadOnlyMutation.isPending ||
+          bulkSetWritableMutation.isPending
+        }
+      />
     </Stack>
   );
 }
