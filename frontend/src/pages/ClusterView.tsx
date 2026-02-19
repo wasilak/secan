@@ -1330,7 +1330,7 @@ function IndicesList({
           />
           
           {/* Health filter toggles */}
-          <Group gap="xs" wrap="wrap">
+          <Group gap="md" wrap="wrap">
             {['green', 'yellow', 'red'].map((health) => {
               const isSelected = selectedHealth.includes(health);
               const healthColor = health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : 'red';
@@ -1339,13 +1339,9 @@ function IndicesList({
                   key={health}
                   gap={4}
                   style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
                     cursor: 'pointer',
-                    transition: 'all 150ms ease',
-                    backgroundColor: isSelected ? `var(--mantine-color-${healthColor}-0)` : 'var(--mantine-color-gray-1)',
-                    border: `1px solid ${isSelected ? `var(--mantine-color-${healthColor}-3)` : 'var(--mantine-color-gray-2)'}`,
-                    opacity: isSelected ? 1 : 0.6,
+                    opacity: isSelected ? 1 : 0.5,
+                    transition: 'opacity 150ms ease',
                   }}
                   onClick={() => {
                     const newHealth = isSelected
@@ -1370,10 +1366,8 @@ function IndicesList({
                     height: '10px',
                     borderRadius: '50%',
                     backgroundColor: `var(--mantine-color-${healthColor}-6)`,
-                    transition: 'opacity 150ms ease',
-                    opacity: isSelected ? 1 : 0.4,
                   }} />
-                  <Text size="xs" fw={isSelected ? 500 : 400} style={{ textTransform: 'capitalize', transition: 'font-weight 150ms ease' }}>
+                  <Text size="xs" style={{ textTransform: 'capitalize' }}>
                     {health}
                   </Text>
                 </Group>
@@ -1382,7 +1376,7 @@ function IndicesList({
           </Group>
           
           {/* Status filter toggles */}
-          <Group gap="xs" wrap="wrap">
+          <Group gap="md" wrap="wrap">
             {['open', 'close'].map((status) => {
               const isSelected = selectedStatus.includes(status);
               return (
@@ -1390,13 +1384,9 @@ function IndicesList({
                   key={status}
                   gap={4}
                   style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
                     cursor: 'pointer',
-                    transition: 'all 150ms ease',
-                    backgroundColor: isSelected ? 'var(--mantine-color-blue-0)' : 'var(--mantine-color-gray-1)',
-                    border: `1px solid ${isSelected ? 'var(--mantine-color-blue-3)' : 'var(--mantine-color-gray-2)'}`,
-                    opacity: isSelected ? 1 : 0.6,
+                    opacity: isSelected ? 1 : 0.5,
+                    transition: 'opacity 150ms ease',
                   }}
                   onClick={() => {
                     const newStatus = isSelected
@@ -1416,7 +1406,7 @@ function IndicesList({
                     }
                   }}
                 >
-                  <Text size="xs" fw={isSelected ? 500 : 400} style={{ textTransform: 'capitalize', transition: 'font-weight 150ms ease' }}>
+                  <Text size="xs" style={{ textTransform: 'capitalize' }}>
                     {status}
                   </Text>
                 </Group>

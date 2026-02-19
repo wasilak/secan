@@ -104,7 +104,7 @@ export function RoleOption({ role }: { role: string }) {
 
 /**
  * RoleFilterToggle component - clickable roles that toggle on/off
- * Active (selected) roles show in color, inactive roles in grayscale
+ * Displays as a legend-style filter with icons and text labels
  */
 export function RoleFilterToggle({ 
   roles, 
@@ -116,7 +116,7 @@ export function RoleFilterToggle({
   onToggle: (role: string) => void;
 }) {
   return (
-    <Group gap="xs" wrap="wrap">
+    <Group gap="md" wrap="wrap">
       {roles.map((role) => {
         const roleInfo = getRoleIcon(role);
         const Icon = roleInfo.icon;
@@ -127,13 +127,9 @@ export function RoleFilterToggle({
             key={role} 
             gap={6}
             style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
               cursor: 'pointer',
-              transition: 'all 150ms ease',
-              backgroundColor: isSelected ? `var(--mantine-color-${roleInfo.color}-0)` : 'var(--mantine-color-gray-1)',
-              border: `1px solid ${isSelected ? `var(--mantine-color-${roleInfo.color}-3)` : 'var(--mantine-color-gray-2)'}`,
-              opacity: isSelected ? 1 : 0.6,
+              opacity: isSelected ? 1 : 0.5,
+              transition: 'opacity 150ms ease',
             }}
             onClick={() => onToggle(role)}
             onKeyDown={(e) => {
@@ -147,13 +143,12 @@ export function RoleFilterToggle({
           >
             <Icon 
               size={16} 
-              color={isSelected ? `var(--mantine-color-${roleInfo.color}-6)` : 'var(--mantine-color-gray-6)'} 
-              style={{ transition: 'color 150ms ease' }}
+              color={`var(--mantine-color-${roleInfo.color}-6)`}
+              style={{ transition: 'opacity 150ms ease' }}
             />
             <Text 
-              size="xs" 
-              fw={isSelected ? 500 : 400}
-              style={{ transition: 'font-weight 150ms ease' }}
+              size="xs"
+              style={{ transition: 'opacity 150ms ease' }}
             >
               {roleInfo.label}
             </Text>
