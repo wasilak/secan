@@ -2932,7 +2932,7 @@ function ShardsList({
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
   const nodeFilter = searchParams.get('nodeFilter') || '';
-  const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
+  const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || ['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED'];
   const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
   const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
   const showSpecialIndices = searchParams.get('showSpecial') === 'true';
@@ -3089,34 +3089,64 @@ function ShardsList({
           }}
         />
         
-        <Group gap="md">
-          <Checkbox
-            label="Primary only"
-            checked={showPrimaryOnly}
-            onChange={(e) => updateFilters(undefined, undefined, e.currentTarget.checked, undefined)}
-            size="sm"
-          />
-          <Checkbox
-            label="Replica only"
-            checked={showReplicaOnly}
-            onChange={(e) => updateFilters(undefined, undefined, undefined, e.currentTarget.checked)}
-            size="sm"
-          />
-          <Checkbox
-            label="Show special indices"
-            checked={showSpecialIndices}
-            onChange={(e) => {
-              const params = new URLSearchParams(searchParams);
-              if (e.currentTarget.checked) {
-                params.set('showSpecial', 'true');
-              } else {
-                params.delete('showSpecial');
-              }
-              setSearchParams(params);
-            }}
-            size="sm"
-          />
+        {/* Shard type filter toggles */}
+        <Group gap="md" wrap="wrap">
+          {['Primary', 'Replica'].map((type) => {
+            const isPrimary = type === 'Primary';
+            const isSelected = isPrimary ? !showPrimaryOnly : !showReplicaOnly;
+            return (
+              <Group
+                key={type}
+                gap={4}
+                style={{
+                  cursor: 'pointer',
+                  opacity: isSelected ? 1 : 0.5,
+                  transition: 'opacity 150ms ease',
+                }}
+                onClick={() => {
+                  updateFilters(
+                    undefined,
+                    undefined,
+                    isPrimary ? !showPrimaryOnly : undefined,
+                    isPrimary ? undefined : !showReplicaOnly
+                  );
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    updateFilters(
+                      undefined,
+                      undefined,
+                      isPrimary ? !showPrimaryOnly : undefined,
+                      isPrimary ? undefined : !showReplicaOnly
+                    );
+                  }
+                }}
+              >
+                <Text size="xs">
+                  {type}
+                </Text>
+              </Group>
+            );
+          })}
         </Group>
+
+        <Checkbox
+          label="Show special indices"
+          checked={showSpecialIndices}
+          onChange={(e) => {
+            const params = new URLSearchParams(searchParams);
+            if (e.currentTarget.checked) {
+              params.set('showSpecial', 'true');
+            } else {
+              params.delete('showSpecial');
+            }
+            setSearchParams(params);
+          }}
+          size="sm"
+        />
       </Group>
 
       {/* Shard statistics cards */}
