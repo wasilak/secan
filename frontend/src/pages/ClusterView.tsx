@@ -39,7 +39,7 @@ import {
   IconSortDescending,
   IconRefresh,
   IconTrash,
-  IconCrown,
+  IconStar,
   IconCopy,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -3094,7 +3094,7 @@ function ShardsList({
         {/* Shard type filter toggles */}
         <Group gap="md" wrap="wrap">
           {[
-            { label: 'Primary', icon: IconCrown, color: 'yellow' },
+            { label: 'Primary', icon: IconStar, color: 'yellow' },
             { label: 'Replica', icon: IconCopy, color: 'blue' },
           ].map(({ label, icon: Icon, color }) => {
             const isPrimary = label === 'Primary';
