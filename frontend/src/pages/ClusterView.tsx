@@ -42,6 +42,8 @@ import {
   IconStar,
   IconCopy,
   IconEyeOff,
+  IconFolderOpen,
+  IconFolderX,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -1379,11 +1381,14 @@ function IndicesList({
           
           {/* Status filter toggles */}
           <Group gap="md" wrap="wrap">
-            {['open', 'close'].map((status) => {
-              const isSelected = selectedStatus.includes(status);
+            {[
+              { value: 'open', label: 'Open', icon: IconFolderOpen, color: 'green' },
+              { value: 'close', label: 'Closed', icon: IconFolderX, color: 'red' },
+            ].map(({ value, label, icon: Icon, color }) => {
+              const isSelected = selectedStatus.includes(value);
               return (
                 <Group
-                  key={status}
+                  key={value}
                   gap={4}
                   style={{
                     cursor: 'pointer',
@@ -1392,8 +1397,8 @@ function IndicesList({
                   }}
                   onClick={() => {
                     const newStatus = isSelected
-                      ? selectedStatus.filter(s => s !== status)
-                      : [...selectedStatus, status];
+                      ? selectedStatus.filter(s => s !== value)
+                      : [...selectedStatus, value];
                     updateFilters(undefined, undefined, newStatus);
                   }}
                   role="button"
@@ -1402,14 +1407,15 @@ function IndicesList({
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       const newStatus = isSelected
-                        ? selectedStatus.filter(s => s !== status)
-                        : [...selectedStatus, status];
+                        ? selectedStatus.filter(s => s !== value)
+                        : [...selectedStatus, value];
                       updateFilters(undefined, undefined, newStatus);
                     }
                   }}
                 >
-                  <Text size="xs" style={{ textTransform: 'capitalize' }}>
-                    {status}
+                  <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
+                  <Text size="xs">
+                    {label}
                   </Text>
                 </Group>
               );
