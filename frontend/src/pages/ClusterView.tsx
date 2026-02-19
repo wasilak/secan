@@ -3133,7 +3133,7 @@ function ShardsList({
             { label: 'Replica', icon: IconCopy, color: 'blue' },
           ].map(({ label, icon: Icon, color }) => {
             const isPrimary = label === 'Primary';
-            const isSelected = isPrimary ? showPrimaryOnly : showReplicaOnly;
+            const isSelected = isPrimary ? !showPrimaryOnly : !showReplicaOnly;
             return (
               <Group
                 key={label}
