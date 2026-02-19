@@ -2355,12 +2355,48 @@ function ShardAllocationGrid({
           )}
         </Group>
 
-        {/* Right side: Stats */}
-        <Group gap="md">
-          <Text size="xs" c="dimmed">
-            {filteredIndicesData.length} of {indices.length}
-          </Text>
-        </Group>
+        {/* Right side: Stats and Activity */}
+        {(() => {
+          const relocatingShards = shards.filter(s => s.state === 'RELOCATING');
+          const initializingShards = shards.filter(s => s.state === 'INITIALIZING');
+          const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
+
+          if (hasActivity) {
+            return (
+              <Group gap="xs">
+                {relocatingShards.length > 0 && (
+                  <Badge color="orange" variant="filled" size="sm">
+                    {relocatingShards.length} relocating
+                  </Badge>
+                )}
+                {initializingShards.length > 0 && (
+                  <Badge color="yellow" variant="filled" size="sm">
+                    {initializingShards.length} initializing
+                  </Badge>
+                )}
+              </Group>
+            );
+          } else {
+            return (
+              <Group gap="xs">
+                <Text size="xs">
+                  <Text component="span" fw={600}>{nodes.filter(n => n.roles.includes('data')).length}</Text> nodes
+                </Text>
+                <Text size="xs">
+                  <Text component="span" fw={600}>{filteredIndicesData.length}</Text> indices
+                </Text>
+                <Text size="xs">
+                  <Text component="span" fw={600}>{filteredShards.length}</Text> shards
+                </Text>
+                {unassignedShards.length > 0 && (
+                  <Badge color="red" variant="filled" size="sm">
+                    {unassignedShards.length} unassigned
+                  </Badge>
+                )}
+              </Group>
+            );
+          }
+        })()}
       </Group>
 
       {/* Relocation mode banner or no destinations message */}
@@ -2407,50 +2443,7 @@ function ShardAllocationGrid({
         </Alert>
       )}
 
-      {/* Stats display */}
-      <Group justify="flex-end" wrap="wrap" gap="xs">
-        {(() => {
-          const relocatingShards = shards.filter(s => s.state === 'RELOCATING');
-          const initializingShards = shards.filter(s => s.state === 'INITIALIZING');
-          const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
 
-          if (hasActivity) {
-            return (
-              <Group gap="xs">
-                {relocatingShards.length > 0 && (
-                  <Badge color="orange" variant="filled" size="sm">
-                    {relocatingShards.length} relocating
-                  </Badge>
-                )}
-                {initializingShards.length > 0 && (
-                  <Badge color="yellow" variant="filled" size="sm">
-                    {initializingShards.length} initializing
-                  </Badge>
-                )}
-              </Group>
-            );
-          } else {
-            return (
-              <Group gap="xs">
-                <Text size="xs">
-                  <Text component="span" fw={600}>{nodes.filter(n => n.roles.includes('data')).length}</Text> nodes
-                </Text>
-                <Text size="xs">
-                  <Text component="span" fw={600}>{filteredIndicesData.length}</Text> indices
-                </Text>
-                <Text size="xs">
-                  <Text component="span" fw={600}>{filteredShards.length}</Text> shards
-                </Text>
-                {unassignedShards.length > 0 && (
-                  <Badge color="red" variant="filled" size="sm">
-                    {unassignedShards.length} unassigned
-                  </Badge>
-                )}
-              </Group>
-            );
-          }
-        })()}
-      </Group>
 
       {/* Shard allocation grid */}
       <ScrollArea>
