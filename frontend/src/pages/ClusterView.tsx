@@ -60,7 +60,7 @@ import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons, getRoleIcon, RoleFilterToggle } from '../components/RoleIcons';
-import { ShardStateFilterToggle, getShardStateConfig } from '../components/ShardStateFilter';
+import { ShardStateFilterToggle } from '../components/ShardStateFilter';
 import { ShardContextMenu } from '../components/ShardContextMenu';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
@@ -2407,23 +2407,8 @@ function ShardAllocationGrid({
         </Alert>
       )}
 
-      {/* Compact legend and stats */}
-      <Group justify="space-between" wrap="wrap" gap="xs">
-        {/* Shard state legend - inline */}
-        <Group gap="xs" wrap="wrap">
-          {SHARD_STATES.map((state) => {
-            const config = getShardStateConfig(state);
-            const Icon = config.icon;
-            return (
-              <Group key={state} gap={4}>
-                <Icon size={16} color={`var(--mantine-color-${config.color}-6)`} />
-                <Text size="xs">{config.label}</Text>
-              </Group>
-            );
-          })}
-        </Group>
-
-        {/* Dynamic activity status or static stats */}
+      {/* Stats display */}
+      <Group justify="flex-end" wrap="wrap" gap="xs">
         {(() => {
           const relocatingShards = shards.filter(s => s.state === 'RELOCATING');
           const initializingShards = shards.filter(s => s.state === 'INITIALIZING');
