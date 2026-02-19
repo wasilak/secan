@@ -1431,7 +1431,7 @@ function IndicesList({
             gap={4}
             style={{
               cursor: 'pointer',
-              opacity: showSpecialIndices ? 1 : 0.5,
+              opacity: !showSpecialIndices ? 1 : 0.5,
               transition: 'opacity 150ms ease',
             }}
             onClick={() => updateParam('showSpecial', !showSpecialIndices)}
@@ -2356,7 +2356,7 @@ function ShardAllocationGrid({
             gap={4}
             style={{
               cursor: relocationMode ? 'not-allowed' : 'pointer',
-              opacity: showSpecial ? 1 : 0.5,
+              opacity: !showSpecial ? 1 : 0.5,
               transition: 'opacity 150ms ease',
               pointerEvents: relocationMode ? 'none' : 'auto',
             }}
@@ -3172,7 +3172,7 @@ function ShardsList({
           gap={4}
           style={{
             cursor: 'pointer',
-            opacity: showSpecialIndices ? 1 : 0.5,
+            opacity: !showSpecialIndices ? 1 : 0.5,
             transition: 'opacity 150ms ease',
           }}
           onClick={() => {
