@@ -39,8 +39,10 @@ COPY src ./src
 # Copy frontend assets from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Build the backend with embedded frontend
-RUN cargo build --release --locked
+# Build the backend with embedded frontend (optimized for faster builds)
+RUN cargo build --release --locked \
+    --config profile.release.lto=\"thin\" \
+    --config profile.release.codegen-units=16
 
 # Stage 3: Runtime image
 FROM alpine:3.19
