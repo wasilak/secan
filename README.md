@@ -183,6 +183,42 @@ auth:
     redirect_uri: "http://localhost:9000/api/auth/oidc/callback"
 ```
 
+### Logging Configuration
+
+Configure log levels for authentication events. Supports five log levels for production debugging and development troubleshooting:
+
+```yaml
+auth:
+  logging:
+    # Global log level for all authentication events
+    level: "INFO"  # ERROR, WARN, INFO (default), DEBUG, TRACE
+    
+    # Optional: Per-component log level overrides
+    # Valid components: local, oidc, session, middleware
+    component_levels:
+      local: "DEBUG"      # Debug local authentication
+      oidc: "WARN"        # Only warnings for OIDC
+      session: "INFO"     # Info for session events
+      middleware: "INFO"  # Info for middleware
+```
+
+**Log Levels Guide:**
+- **ERROR**: Critical failures only (connection errors, auth failures)
+- **WARN**: Warnings and errors (rate limit exceeded, group validation failures)
+- **INFO**: Normal operation events (successful auth, session creation/expiration) - **Recommended for production**
+- **DEBUG**: Detailed troubleshooting (auth flow steps, token validation details)
+- **TRACE**: Very detailed information (all intermediate steps)
+
+**Override via Environment Variables:**
+```bash
+# Global log level
+export CEREBRO_AUTH__LOGGING__LEVEL=DEBUG
+
+# Component-specific levels
+export CEREBRO_AUTH__LOGGING__COMPONENT_LEVELS__LOCAL=TRACE
+export CEREBRO_AUTH__LOGGING__COMPONENT_LEVELS__OIDC=DEBUG
+```
+
 ### Cluster Configuration
 
 Connect to multiple Elasticsearch clusters:

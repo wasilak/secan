@@ -251,32 +251,32 @@ This implementation plan breaks down the authentication system into discrete, in
     - Test cookie handling
     - _Requirements: 2.6, 2.7, 5.1, 7.2, 7.3, 7.4, 9.1, 9.2, 9.4_
 
-- [ ] 12. Integrate authentication into main application
-  - [ ] 12.1 Update main.rs to load authentication configuration
+- [x] 12. Integrate authentication into main application
+  - [x] 12.1 Update main.rs to load authentication configuration
     - Load AuthConfig using ConfigLoader
     - Handle configuration validation errors
     - Log active authentication mode
     - _Requirements: 10.1, 10.5, 10.6_
   
-  - [ ] 12.2 Initialize authentication components
+  - [x] 12.2 Initialize authentication components
     - Create SessionManager with configuration
     - Create AuthProviderFactory
     - Create authentication provider based on mode
     - _Requirements: 1.1, 1.3, 1.4_
   
-  - [ ] 12.3 Register authentication middleware
+  - [x] 12.3 Register authentication middleware
     - Add AuthMiddleware to Axum router
     - Apply middleware to protected routes
     - Exclude public routes (login, OIDC endpoints)
     - _Requirements: 7.5, 7.6_
   
-  - [ ] 12.4 Register authentication routes
+  - [x] 12.4 Register authentication routes
     - Add authentication routes to Axum router
     - Mount routes at `/api/auth/`
     - _Requirements: 2.6, 5.1, 5.2, 9.1, 9.4_
 
-- [ ] 13. Implement logging and security features
-  - [ ] 13.1 Add authentication event logging
+- [-] 13. Implement logging and security features
+  - [x] 13.1 Add authentication event logging
     - Log successful authentication with username and IP
     - Log failed authentication attempts with reason
     - Log session creation and expiration

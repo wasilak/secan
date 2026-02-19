@@ -4,7 +4,63 @@ server:
 
 auth:
   mode: "open"
-  session_timeout_minutes: 30
+  session:
+    timeout_seconds: 3600
+    renewal_mode: "sliding_window"
+    cookie_name: "cerebro_session"
+    secure_only: false
+  security:
+    rate_limit_attempts: 5
+    rate_limit_window_seconds: 300
+    min_password_length: 8
+    require_https: false
+  
+  # Logging configuration for authentication events
+  # Supports: ERROR, WARN, INFO (default), DEBUG, TRACE
+  logging:
+    # Global log level for all auth events
+    level: INFO
+    
+    # Optional: Per-component log level overrides
+    # Valid components: local, oidc, session, middleware
+    # component_levels:
+    #   local: DEBUG        # More verbose logging for local auth
+    #   oidc: WARN          # Only warnings and errors from OIDC
+    #   session: INFO       # Info level for session management
+    #   middleware: INFO    # Info level for middleware
+  
+  # Example: Local authentication configuration
+  # Uncomment and configure for local user authentication mode
+  # local:
+  #   users:
+  #     - username: admin
+  #       password_hash: "$2b$12$abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc"
+  #       hash_algorithm: bcrypt
+  #       roles:
+  #         - admin
+  #     - username: user
+  #       password_hash: "$2b$12$abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc"
+  #       hash_algorithm: bcrypt
+  #       roles:
+  #         - user
+  
+  # Example: OIDC authentication configuration
+  # Uncomment and configure for OpenID Connect mode
+  # oidc:
+  #   client_id: "cerebro-client"
+  #   client_secret: "client-secret-here"
+  #   redirect_uri: "http://localhost:3000/auth/callback"
+  #   # Use discovery URL for auto-discovery
+  #   discovery_url: "https://idp.example.com/.well-known/openid-configuration"
+  #   # OR use manual endpoint configuration
+  #   # discovery_url: null
+  #   # authorization_endpoint: "https://idp.example.com/oauth/authorize"
+  #   # token_endpoint: "https://idp.example.com/oauth/token"
+  #   # userinfo_endpoint: "https://idp.example.com/oauth/userinfo"
+  #   # jwks_uri: "https://idp.example.com/.well-known/jwks.json"
+  #   group_claim_key: "groups"
+  #   required_groups:
+  #     - "cerebro-admin"
 
 clusters:
   - id: "local"

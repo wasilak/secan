@@ -16,6 +16,8 @@ pub struct AuthConfig {
     pub oidc: Option<OidcConfig>,
     pub session: SessionConfig,
     pub security: SecurityConfig,
+    #[serde(default)]
+    pub logging: LoggingConfig,
 }
 
 /// Authentication mode selection
@@ -91,6 +93,87 @@ pub struct SecurityConfig {
     pub require_https: bool,
 }
 
+/// Log level for authentication events
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    /// Convert LogLevel to tracing::Level
+    pub fn to_tracing_level(self) -> tracing::Level {
+        match self {
+            LogLevel::Error => tracing::Level::ERROR,
+            LogLevel::Warn => tracing::Level::WARN,
+            LogLevel::Info => tracing::Level::INFO,
+            LogLevel::Debug => tracing::Level::DEBUG,
+            LogLevel::Trace => tracing::Level::TRACE,
+        }
+    }
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        LogLevel::Info
+    }
+}
+
+/// Logging configuration for authentication events
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoggingConfig {
+    /// Global log level for authentication events
+    #[serde(default)]
+    pub level: LogLevel,
+    
+    /// Per-component log level overrides
+    #[serde(default)]
+    pub component_levels: Option<std::collections::HashMap<String, LogLevel>>,
+    
+    // Keep backward compatibility with old fields
+    /// Whether to log successful authentication events
+    #[serde(default = "default_true")]
+    pub log_successful_auth: bool,
+    
+    /// Whether to log failed authentication attempts
+    #[serde(default = "default_true")]
+    pub log_failed_auth: bool,
+    
+    /// Whether to log session events (creation, expiration, deletion)
+    #[serde(default = "default_true")]
+    pub log_session_events: bool,
+}
+
+impl LoggingConfig {
+    /// Get the effective log level for a component, falling back to global level
+    pub fn get_level(&self, component: &str) -> LogLevel {
+        self.component_levels
+            .as_ref()
+            .and_then(|levels| levels.get(component).copied())
+            .unwrap_or(self.level)
+    }
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            level: LogLevel::default(),
+            component_levels: None,
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        }
+    }
+}
+
+fn default_true() -> bool {
+    true
+}
+
 /// Configuration loader with validation
 pub struct ConfigLoader {
     file_path: PathBuf,
@@ -162,6 +245,9 @@ impl ConfigLoader {
             }
         }
 
+        // Validate logging configuration
+        self.validate_logging_config(&config.logging)?;
+
         Ok(())
     }
 
@@ -223,6 +309,28 @@ impl ConfigLoader {
                     "OIDC requires either discovery_url or all manual endpoints \
                      (authorization_endpoint, token_endpoint, userinfo_endpoint, jwks_uri)"
                 ));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate logging configuration
+    fn validate_logging_config(&self, logging: &LoggingConfig) -> Result<()> {
+        // List of allowed component names
+        let allowed_components = ["local", "oidc", "session", "middleware"];
+
+        // Validate component_levels if provided
+        if let Some(component_levels) = &logging.component_levels {
+            for (component_name, _level) in component_levels {
+                if !allowed_components.contains(&component_name.as_str()) {
+                    return Err(anyhow!(
+                        "Invalid component name '{}' in logging.component_levels. \
+                         Allowed components are: {}",
+                        component_name,
+                        allowed_components.join(", ")
+                    ));
+                }
             }
         }
 
@@ -465,4 +573,284 @@ security:
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("OIDC auth mode requires OIDC configuration"));
     }
+
+    #[test]
+    fn test_log_level_default() {
+        let level = LogLevel::default();
+        assert_eq!(level, LogLevel::Info);
+    }
+
+    #[test]
+    fn test_log_level_to_tracing_level() {
+        assert_eq!(LogLevel::Error.to_tracing_level(), tracing::Level::ERROR);
+        assert_eq!(LogLevel::Warn.to_tracing_level(), tracing::Level::WARN);
+        assert_eq!(LogLevel::Info.to_tracing_level(), tracing::Level::INFO);
+        assert_eq!(LogLevel::Debug.to_tracing_level(), tracing::Level::DEBUG);
+        assert_eq!(LogLevel::Trace.to_tracing_level(), tracing::Level::TRACE);
+    }
+
+    #[test]
+    fn test_log_level_deserialization() {
+        use serde_yaml;
+        
+        let yaml_error = "ERROR";
+        let level: LogLevel = serde_yaml::from_str(yaml_error).unwrap();
+        assert_eq!(level, LogLevel::Error);
+        
+        let yaml_warn = "WARN";
+        let level: LogLevel = serde_yaml::from_str(yaml_warn).unwrap();
+        assert_eq!(level, LogLevel::Warn);
+        
+        let yaml_info = "INFO";
+        let level: LogLevel = serde_yaml::from_str(yaml_info).unwrap();
+        assert_eq!(level, LogLevel::Info);
+        
+        let yaml_debug = "DEBUG";
+        let level: LogLevel = serde_yaml::from_str(yaml_debug).unwrap();
+        assert_eq!(level, LogLevel::Debug);
+        
+        let yaml_trace = "TRACE";
+        let level: LogLevel = serde_yaml::from_str(yaml_trace).unwrap();
+        assert_eq!(level, LogLevel::Trace);
+    }
+
+    #[test]
+    fn test_logging_config_default() {
+        let config = LoggingConfig::default();
+        assert_eq!(config.level, LogLevel::Info);
+        assert!(config.component_levels.is_none());
+        assert!(config.log_successful_auth);
+        assert!(config.log_failed_auth);
+        assert!(config.log_session_events);
+    }
+
+    #[test]
+    fn test_logging_config_get_level_global() {
+        let config = LoggingConfig {
+            level: LogLevel::Debug,
+            component_levels: None,
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        assert_eq!(config.get_level("local"), LogLevel::Debug);
+        assert_eq!(config.get_level("oidc"), LogLevel::Debug);
+        assert_eq!(config.get_level("session"), LogLevel::Debug);
+        assert_eq!(config.get_level("middleware"), LogLevel::Debug);
+    }
+
+    #[test]
+    fn test_logging_config_get_level_with_component_overrides() {
+        use std::collections::HashMap;
+        
+        let mut component_levels = HashMap::new();
+        component_levels.insert("local".to_string(), LogLevel::Error);
+        component_levels.insert("oidc".to_string(), LogLevel::Warn);
+        
+        let config = LoggingConfig {
+            level: LogLevel::Info,
+            component_levels: Some(component_levels),
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        // Components with overrides
+        assert_eq!(config.get_level("local"), LogLevel::Error);
+        assert_eq!(config.get_level("oidc"), LogLevel::Warn);
+        
+        // Components without overrides fall back to global
+        assert_eq!(config.get_level("session"), LogLevel::Info);
+        assert_eq!(config.get_level("middleware"), LogLevel::Info);
+    }
+
+    #[test]
+    fn test_logging_config_deserialization_global_only() {
+        use serde_yaml;
+        
+        let yaml = r#"
+            level: DEBUG
+        "#;
+        
+        let config: LoggingConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.level, LogLevel::Debug);
+        assert!(config.component_levels.is_none());
+    }
+
+    #[test]
+    fn test_logging_config_deserialization_with_component_levels() {
+        use serde_yaml;
+        
+        let yaml = r#"
+            level: INFO
+            component_levels:
+              local: ERROR
+              oidc: WARN
+        "#;
+        
+        let config: LoggingConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.level, LogLevel::Info);
+        assert!(config.component_levels.is_some());
+        
+        let levels = config.component_levels.unwrap();
+        assert_eq!(levels.get("local"), Some(&LogLevel::Error));
+        assert_eq!(levels.get("oidc"), Some(&LogLevel::Warn));
+    }
+
+    #[test]
+    fn test_validate_logging_config_valid() {
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let config = LoggingConfig {
+            level: LogLevel::Info,
+            component_levels: None,
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        let result = loader.validate_logging_config(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_logging_config_with_valid_components() {
+        use std::collections::HashMap;
+        
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let mut component_levels = HashMap::new();
+        component_levels.insert("local".to_string(), LogLevel::Debug);
+        component_levels.insert("oidc".to_string(), LogLevel::Warn);
+        component_levels.insert("session".to_string(), LogLevel::Info);
+        component_levels.insert("middleware".to_string(), LogLevel::Error);
+        
+        let config = LoggingConfig {
+            level: LogLevel::Info,
+            component_levels: Some(component_levels),
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        let result = loader.validate_logging_config(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_logging_config_invalid_component() {
+        use std::collections::HashMap;
+        
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let mut component_levels = HashMap::new();
+        component_levels.insert("invalid_component".to_string(), LogLevel::Debug);
+        
+        let config = LoggingConfig {
+            level: LogLevel::Info,
+            component_levels: Some(component_levels),
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        let result = loader.validate_logging_config(&config);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("Invalid component name 'invalid_component'"));
+        assert!(err_msg.contains("local"));
+        assert!(err_msg.contains("oidc"));
+        assert!(err_msg.contains("session"));
+        assert!(err_msg.contains("middleware"));
+    }
+
+    #[test]
+    fn test_validate_logging_config_multiple_invalid_components() {
+        use std::collections::HashMap;
+        
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let mut component_levels = HashMap::new();
+        component_levels.insert("unknown".to_string(), LogLevel::Debug);
+        
+        let config = LoggingConfig {
+            level: LogLevel::Info,
+            component_levels: Some(component_levels),
+            log_successful_auth: true,
+            log_failed_auth: true,
+            log_session_events: true,
+        };
+        
+        let result = loader.validate_logging_config(&config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Allowed components are:"));
+    }
+
+    #[test]
+    fn test_validate_full_config_with_logging() {
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let config = AuthConfig {
+            mode: AuthMode::Open,
+            local: None,
+            oidc: None,
+            session: SessionConfig {
+                timeout_seconds: 3600,
+                renewal_mode: RenewalMode::SlidingWindow,
+                cookie_name: "session".to_string(),
+                secure_only: true,
+            },
+            security: SecurityConfig {
+                rate_limit_attempts: 5,
+                rate_limit_window_seconds: 300,
+                min_password_length: 8,
+                require_https: false,
+            },
+            logging: LoggingConfig {
+                level: LogLevel::Debug,
+                component_levels: None,
+                log_successful_auth: true,
+                log_failed_auth: true,
+                log_session_events: true,
+            },
+        };
+        
+        let result = loader.validate(&config);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_full_config_with_invalid_logging_component() {
+        use std::collections::HashMap;
+        
+        let loader = ConfigLoader::new(PathBuf::from("test.yaml"));
+        let mut component_levels = HashMap::new();
+        component_levels.insert("bad_component".to_string(), LogLevel::Warn);
+        
+        let config = AuthConfig {
+            mode: AuthMode::Open,
+            local: None,
+            oidc: None,
+            session: SessionConfig {
+                timeout_seconds: 3600,
+                renewal_mode: RenewalMode::SlidingWindow,
+                cookie_name: "session".to_string(),
+                secure_only: true,
+            },
+            security: SecurityConfig {
+                rate_limit_attempts: 5,
+                rate_limit_window_seconds: 300,
+                min_password_length: 8,
+                require_https: false,
+            },
+            logging: LoggingConfig {
+                level: LogLevel::Info,
+                component_levels: Some(component_levels),
+                log_successful_auth: true,
+                log_failed_auth: true,
+                log_session_events: true,
+            },
+        };
+        
+        let result = loader.validate(&config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid component name 'bad_component'"));
+        }
+        }
 }
