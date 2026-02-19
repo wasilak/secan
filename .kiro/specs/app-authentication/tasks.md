@@ -13,14 +13,14 @@ This implementation plan breaks down the authentication system into discrete, in
   - Define module exports in `mod.rs`
   - _Requirements: All requirements (foundation)_
 
-- [ ] 2. Implement configuration structures and loading
-  - [ ] 2.1 Define configuration data structures
+- [x] 2. Implement configuration structures and loading
+  - [x] 2.1 Define configuration data structures
     - Implement `AuthConfig`, `AuthMode`, `LocalAuthConfig`, `LocalUser`, `HashAlgorithm`
     - Implement `OidcConfig`, `SessionConfig`, `RenewalMode`, `SecurityConfig`
     - Add serde derives for deserialization
     - _Requirements: 1.1, 2.1, 2.2, 3.3, 4.1, 6.1, 6.2, 7.7, 8.4, 11.3, 11.4_
   
-  - [ ] 2.2 Implement ConfigLoader with validation
+  - [x] 2.2 Implement ConfigLoader with validation
     - Create `ConfigLoader` struct with file path
     - Implement `load()` method using `config-rs` with environment variable overrides
     - Implement `validate()` method for all authentication modes
