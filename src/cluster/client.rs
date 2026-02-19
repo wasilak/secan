@@ -350,7 +350,8 @@ impl ElasticsearchClient for Client {
 
     /// Get all indices stats using SDK typed method
     async fn indices_stats(&self) -> Result<Value> {
-        let response = self
+        // Get stats for open indices (closed indices don't have stats)
+        let stats_response = self
             .client
             .indices()
             .stats(elasticsearch::indices::IndicesStatsParts::None)
@@ -358,17 +359,71 @@ impl ElasticsearchClient for Client {
             .await
             .context("Indices stats request failed")?;
 
-        if !response.status_code().is_success() {
+        if !stats_response.status_code().is_success() {
             anyhow::bail!(
                 "Indices stats failed with status: {}",
-                response.status_code()
+                stats_response.status_code()
             );
         }
 
-        response
-            .json()
+        let mut stats = stats_response
+            .json::<Value>()
             .await
-            .context("Failed to parse indices stats response")
+            .context("Failed to parse indices stats response")?;
+
+        // Get all indices including closed ones from cluster state
+        let state_response = self
+            .client
+            .cluster()
+            .state(elasticsearch::cluster::ClusterStateParts::None)
+            .send()
+            .await
+            .context("Cluster state request failed")?;
+
+        if state_response.status_code().is_success() {
+            let state = state_response
+                .json::<Value>()
+                .await
+                .context("Failed to parse cluster state response")?;
+
+            // Add closed indices to stats with minimal info
+            if let Some(metadata) = state["metadata"]["indices"].as_object() {
+                if !stats["indices"].is_object() {
+                    stats["indices"] = serde_json::json!({});
+                }
+                
+                let indices = stats["indices"].as_object_mut().unwrap();
+                for (index_name, index_state) in metadata {
+                    // Only add if not already in stats (i.e., it's closed)
+                    if !indices.contains_key(index_name) {
+                        let status = if index_state["state"].as_str() == Some("close") {
+                            "close"
+                        } else {
+                            "open"
+                        };
+                        
+                        indices.insert(
+                            index_name.clone(),
+                            serde_json::json!({
+                                "status": status,
+                                "health": "unknown",
+                                "primaries": {
+                                    "docs": {"count": 0},
+                                    "shard_stats": {"total_count": 0}
+                                },
+                                "total": {
+                                    "docs": {"count": 0},
+                                    "store": {"size_in_bytes": 0}
+                                },
+                                "shards": {}
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(stats)
     }
 
     /// Get indices stats with shard-level details using SDK typed method

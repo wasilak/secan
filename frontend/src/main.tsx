@@ -13,6 +13,7 @@ import { queryClient } from './lib/query-client';
 import { configureMonaco } from './lib/monacoConfig';
 import { RefreshProvider } from './contexts/RefreshContext';
 import { DrawerProvider } from './contexts/DrawerContext';
+import { ThemeInitializer } from './components/ThemeInitializer';
 
 // Configure Monaco Editor to use bundled files instead of CDN
 configureMonaco();
@@ -88,6 +89,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme} defaultColorScheme="auto">
+        <ThemeInitializer />
         <DrawerProvider>
           <RefreshProvider>
             <Notifications />

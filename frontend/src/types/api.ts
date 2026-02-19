@@ -619,3 +619,43 @@ export interface IndexShardStats {
     memoryInBytes: number;
   };
 }
+
+/**
+ * Bulk operation types for index operations
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export type BulkOperationType =
+  | 'open'
+  | 'close'
+  | 'delete'
+  | 'refresh'
+  | 'set_read_only'
+  | 'set_writable';
+
+/**
+ * Result of bulk operation validation
+ * Shows which indices will be affected and which will be ignored
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export interface BulkOperationValidationResult {
+  /** Indices that will be affected by the operation */
+  validIndices: string[];
+  /** Indices that will be skipped */
+  ignoredIndices: string[];
+  /** Reason for ignoring each index */
+  ignoreReasons: Record<string, string>;
+}
+
+/**
+ * Response from bulk operation execution
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export interface BulkOperationResponse {
+  /** Successfully processed indices */
+  success: string[];
+  /** Failed indices with error details */
+  failed: Array<{
+    index: string;
+    error: string;
+  }>;
+}

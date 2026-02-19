@@ -526,7 +526,7 @@ export class ApiClient {
 
   /**
    * Flush an index
-   * 
+   *
    * Requirements: 5.7
    */
   async flushIndex(clusterId: string, indexName: string): Promise<void> {
@@ -536,8 +536,152 @@ export class ApiClient {
   }
 
   /**
+   * Bulk open multiple closed indices
+   *
+   * Opens multiple indices in a single operation using comma-separated index names.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to open
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkOpenIndices(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.post(`/clusters/${clusterId}/${indicesParam}/_open`);
+    });
+  }
+
+  /**
+   * Bulk close multiple open indices
+   *
+   * Closes multiple indices in a single operation using comma-separated index names.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to close
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkCloseIndices(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.post(`/clusters/${clusterId}/${indicesParam}/_close`);
+    });
+  }
+
+  /**
+   * Bulk delete multiple indices
+   *
+   * Deletes multiple indices in a single operation using comma-separated index names.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to delete
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkDeleteIndices(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.delete(`/clusters/${clusterId}/${indicesParam}`);
+    });
+  }
+
+  /**
+   * Bulk refresh multiple open indices
+   *
+   * Refreshes multiple open indices in a single operation using comma-separated index names.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to refresh
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkRefreshIndices(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.post(`/clusters/${clusterId}/${indicesParam}/_refresh`);
+    });
+  }
+
+  /**
+   * Bulk set multiple indices to read-only
+   *
+   * Sets the index.blocks.write setting to true for multiple indices in a single operation.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to set as read-only
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkSetIndexReadOnly(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.put(`/clusters/${clusterId}/${indicesParam}/_settings`, {
+        index: {
+          blocks: {
+            write: true,
+          },
+        },
+      });
+    });
+  }
+
+  /**
+   * Bulk set multiple read-only indices to writable
+   *
+   * Sets the index.blocks.write setting to false for multiple indices in a single operation.
+   *
+   * @param clusterId - Cluster identifier
+   * @param indexNames - Array of index names to set as writable
+   * @returns Promise that resolves when operation completes
+   *
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+   */
+  async bulkSetIndexWritable(clusterId: string, indexNames: string[]): Promise<void> {
+    if (indexNames.length === 0) {
+      return Promise.resolve();
+    }
+
+    return this.executeWithRetry(async () => {
+      const indicesParam = indexNames.join(',');
+      await this.client.put(`/clusters/${clusterId}/${indicesParam}/_settings`, {
+        index: {
+          blocks: {
+            write: false,
+          },
+        },
+      });
+    });
+  }
+
+  /**
    * Get all aliases in a cluster
-   * 
+   *
    * Requirements: 11.1
    */
   async getAliases(clusterId: string): Promise<AliasInfo[]> {

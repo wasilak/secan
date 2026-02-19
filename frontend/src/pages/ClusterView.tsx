@@ -995,6 +995,10 @@ function IndicesList({
   const showOnlyAffected = searchParams.get('affected') === 'true';
   const showSpecialIndices = searchParams.get('showSpecial') === 'true';
   
+  // Confirmation modal state for close/delete operations
+  const [confirmationModalOpened, setConfirmationModalOpened] = useState(false);
+  const [confirmationAction, setConfirmationAction] = useState<{ type: 'close' | 'delete'; indexName: string } | null>(null);
+  
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
   
@@ -1187,7 +1191,8 @@ function IndicesList({
   // Filter indices based on debounced search query and filters
   let filteredIndices = indices?.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesHealth = selectedHealth.length === 0 || selectedHealth.includes(index.health);
+    // Closed indices have health "unknown", so bypass health filter for them
+    const matchesHealth = index.status === 'close' || selectedHealth.length === 0 || selectedHealth.includes(index.health);
     const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
     const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
@@ -1382,8 +1387,8 @@ function IndicesList({
           {/* Status filter toggles */}
           <Group gap="md" wrap="wrap">
             {[
-              { value: 'open', label: 'Open', icon: IconFolderOpen, color: 'green' },
-              { value: 'close', label: 'Closed', icon: IconFolderX, color: 'red' },
+              { value: 'open', label: 'open', icon: IconFolderOpen, color: 'green' },
+              { value: 'close', label: 'closed', icon: IconFolderX, color: 'red' },
             ].map(({ value, label, icon: Icon, color }) => {
               const isSelected = selectedStatus.includes(value);
               return (
@@ -1422,24 +1427,38 @@ function IndicesList({
             })}
           </Group>
 
-          {/* Show only affected checkbox */}
+          {/* Show only affected toggle */}
           {hasAnyProblems && (
-            <Checkbox
-              label="Show only affected"
-              checked={showOnlyAffected}
-              onChange={(e) => updateParam('affected', e.currentTarget.checked)}
-              size="sm"
-            />
-          )}
+            <Group
+              gap={4}
+              style={{
+                cursor: 'pointer',
+                opacity: showOnlyAffected ? 1 : 0.5,
+                transition: 'opacity 150ms ease',
+              }}
+              onClick={() => updateParam('affected', !showOnlyAffected)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  updateParam('affected', !showOnlyAffected);
+                }
+              }}
+            >
+              <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
+              <Text size="xs">affected</Text>
+              </Group>
+              )}
 
           {/* Show special indices toggle */}
           <Group
-            gap={4}
-            style={{
-              cursor: 'pointer',
-              opacity: !showSpecialIndices ? 1 : 0.5,
-              transition: 'opacity 150ms ease',
-            }}
+             gap={4}
+             style={{
+               cursor: 'pointer',
+               opacity: showSpecialIndices ? 1 : 0.5,
+               transition: 'opacity 150ms ease',
+             }}
             onClick={() => updateParam('showSpecial', !showSpecialIndices)}
             role="button"
             tabIndex={0}
@@ -1451,11 +1470,11 @@ function IndicesList({
             }}
           >
             <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-            <Text size="xs">Special</Text>
-          </Group>
-        </Group>
-        
-        {id && (
+            <Text size="xs">special</Text>
+            </Group>
+            </Group>
+            
+            {id && (
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => navigate(`/cluster/${id}/indices/create`)}
@@ -1629,21 +1648,8 @@ function IndicesList({
                               leftSection={<IconLock size={14} />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Close index operation
-                                apiClient.closeIndex(id!, index.name).then(() => {
-                                  notifications.show({
-                                    title: 'Success',
-                                    message: `Index ${index.name} closed successfully`,
-                                    color: 'green',
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
-                                }).catch((error: Error) => {
-                                  notifications.show({
-                                    title: 'Error',
-                                    message: `Failed to close index: ${error.message}`,
-                                    color: 'red',
-                                  });
-                                });
+                                setConfirmationAction({ type: 'close', indexName: index.name });
+                                setConfirmationModalOpened(true);
                               }}
                             >
                               Close Index
@@ -1680,23 +1686,8 @@ function IndicesList({
                             color="red"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Delete index operation - would need confirmation modal
-                              if (window.confirm(`Are you sure you want to delete index ${index.name}? This action cannot be undone.`)) {
-                                apiClient.deleteIndex(id!, index.name).then(() => {
-                                  notifications.show({
-                                    title: 'Success',
-                                    message: `Index ${index.name} deleted successfully`,
-                                    color: 'green',
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
-                                }).catch((error: Error) => {
-                                  notifications.show({
-                                    title: 'Error',
-                                    message: `Failed to delete index: ${error.message}`,
-                                    color: 'red',
-                                  });
-                                });
-                              }
+                              setConfirmationAction({ type: 'delete', indexName: index.name });
+                              setConfirmationModalOpened(true);
                             }}
                           >
                             Delete Index
@@ -1723,6 +1714,67 @@ function IndicesList({
           onPageSizeChange={handleIndicesPageSizeChange}
         />
       )}
+
+      {/* Confirmation Modal for Close/Delete Operations */}
+      <Modal
+        opened={confirmationModalOpened}
+        onClose={() => {
+          setConfirmationModalOpened(false);
+          setConfirmationAction(null);
+        }}
+        title={confirmationAction?.type === 'close' ? 'Close Index' : 'Delete Index'}
+        centered
+      >
+        <Stack gap="md">
+          <Text>
+            {confirmationAction?.type === 'close'
+              ? `Are you sure you want to close index "${confirmationAction.indexName}"? Closed indices cannot be searched or written to, but can be reopened.`
+              : `Are you sure you want to delete index "${confirmationAction?.indexName}"? This action cannot be undone.`}
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmationModalOpened(false);
+                setConfirmationAction(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              color={confirmationAction?.type === 'close' ? 'yellow' : 'red'}
+              onClick={() => {
+                if (!id || !confirmationAction) return;
+
+                const action = confirmationAction.type === 'close'
+                  ? apiClient.closeIndex(id, confirmationAction.indexName)
+                  : apiClient.deleteIndex(id, confirmationAction.indexName);
+
+                action
+                  .then(() => {
+                    notifications.show({
+                      title: 'Success',
+                      message: `Index ${confirmationAction.indexName} ${confirmationAction.type === 'close' ? 'closed' : 'deleted'} successfully`,
+                      color: 'green',
+                    });
+                    queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                    setConfirmationModalOpened(false);
+                    setConfirmationAction(null);
+                  })
+                  .catch((error: Error) => {
+                    notifications.show({
+                      title: 'Error',
+                      message: `Failed to ${confirmationAction.type} index: ${error.message}`,
+                      color: 'red',
+                    });
+                  });
+              }}
+            >
+              {confirmationAction?.type === 'close' ? 'Close Index' : 'Delete Index'}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
@@ -2362,7 +2414,7 @@ function ShardAllocationGrid({
             gap={4}
             style={{
               cursor: relocationMode ? 'not-allowed' : 'pointer',
-              opacity: !showSpecial ? 1 : 0.5,
+              opacity: showSpecial ? 1 : 0.5,
               transition: 'opacity 150ms ease',
               pointerEvents: relocationMode ? 'none' : 'auto',
             }}
@@ -2377,18 +2429,32 @@ function ShardAllocationGrid({
             }}
           >
             <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-            <Text size="xs">Special ({indices.filter(i => i.name.startsWith('.')).length})</Text>
+            <Text size="xs">special ({indices.filter(i => i.name.startsWith('.')).length})</Text>
           </Group>
 
           {unassignedShards.length > 0 && (
-            <Checkbox
-              label="affected"
-              checked={showOnlyAffected}
-              onChange={(e) => updateParam('overviewAffected', e.currentTarget.checked)}
-              size="xs"
-              disabled={relocationMode}
-            />
-          )}
+            <Group
+              gap={4}
+              style={{
+                cursor: relocationMode ? 'not-allowed' : 'pointer',
+                opacity: showOnlyAffected ? 1 : 0.5,
+                transition: 'opacity 150ms ease',
+                pointerEvents: relocationMode ? 'none' : 'auto',
+              }}
+              onClick={() => !relocationMode && updateParam('overviewAffected', !showOnlyAffected)}
+              role="button"
+              tabIndex={relocationMode ? -1 : 0}
+              onKeyDown={(e) => {
+                if (!relocationMode && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  updateParam('overviewAffected', !showOnlyAffected);
+                }
+              }}
+            >
+              <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
+              <Text size="xs">affected ({unassignedShards.length})</Text>
+              </Group>
+              )}
         </Group>
 
         {/* Right side: Stats and Activity */}
@@ -2970,9 +3036,9 @@ function ShardsList({
   const searchQuery = searchParams.get('shardsSearch') || '';
   const nodeFilter = searchParams.get('nodeFilter') || '';
   const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || ['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED'];
-  const showPrimaryOnly = searchParams.get('primaryOnly') === 'true';
-  const showReplicaOnly = searchParams.get('replicaOnly') === 'true';
-  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
+  const showPrimaries = searchParams.get('showPrimaries') !== 'false'; // Default to true
+  const showReplicas = searchParams.get('showReplicas') !== 'false'; // Default to true
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
   
   // Initialize search with nodeFilter if present
   useEffect(() => {
@@ -3011,7 +3077,7 @@ function ShardsList({
   };
 
   // Update URL when filters change
-  const updateFilters = (newSearch?: string, newStates?: string[], newPrimaryOnly?: boolean, newReplicaOnly?: boolean) => {
+  const updateFilters = (newSearch?: string, newStates?: string[], newShowPrimaries?: boolean, newShowReplicas?: boolean) => {
     const params = new URLSearchParams(searchParams);
     
     if (newSearch !== undefined) {
@@ -3030,21 +3096,19 @@ function ShardsList({
       }
     }
     
-    if (newPrimaryOnly !== undefined) {
-      if (newPrimaryOnly) {
-        params.set('primaryOnly', 'true');
-        params.delete('replicaOnly');
+    if (newShowPrimaries !== undefined) {
+      if (newShowPrimaries) {
+        params.delete('showPrimaries');
       } else {
-        params.delete('primaryOnly');
+        params.set('showPrimaries', 'false');
       }
     }
     
-    if (newReplicaOnly !== undefined) {
-      if (newReplicaOnly) {
-        params.set('replicaOnly', 'true');
-        params.delete('primaryOnly');
+    if (newShowReplicas !== undefined) {
+      if (newShowReplicas) {
+        params.delete('showReplicas');
       } else {
-        params.delete('replicaOnly');
+        params.set('showReplicas', 'false');
       }
     }
     
@@ -3058,9 +3122,7 @@ function ShardsList({
     
     const matchesState = selectedStates.length === 0 || selectedStates.includes(shard.state);
     
-    const matchesType = (!showPrimaryOnly && !showReplicaOnly) ||
-      (showPrimaryOnly && shard.primary) ||
-      (showReplicaOnly && !shard.primary);
+    const matchesType = (showPrimaries && shard.primary) || (showReplicas && !shard.primary);
     
     const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
     
@@ -3127,58 +3189,57 @@ function ShardsList({
         />
         
         {/* Shard type filter toggles */}
-        <Group gap="md" wrap="wrap">
-          {[
-            { label: 'Primary', icon: IconStar, color: 'yellow' },
-            { label: 'Replica', icon: IconCopy, color: 'blue' },
-          ].map(({ label, icon: Icon, color }) => {
-            const isPrimary = label === 'Primary';
-            const isSelected = isPrimary ? showPrimaryOnly : showReplicaOnly;
-            return (
-              <Group
-                key={label}
-                gap={4}
-                style={{
-                  cursor: 'pointer',
-                  opacity: isSelected ? 1 : 0.5,
-                  transition: 'opacity 150ms ease',
-                }}
-                onClick={() => {
-                  updateFilters(
-                    undefined,
-                    undefined,
-                    isPrimary ? !showPrimaryOnly : undefined,
-                    isPrimary ? undefined : !showReplicaOnly
-                  );
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    updateFilters(
-                      undefined,
-                      undefined,
-                      isPrimary ? !showPrimaryOnly : undefined,
-                      isPrimary ? undefined : !showReplicaOnly
-                    );
-                  }
-                }}
-              >
-                <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
-                <Text size="xs">
-                  {label}
-                </Text>
-              </Group>
-            );
-          })}
-        </Group>
+         <Group gap="md" wrap="wrap">
+           {[
+              { label: 'primaries', icon: IconStar, color: 'yellow', isShown: showPrimaries },
+              { label: 'replicas', icon: IconCopy, color: 'blue', isShown: showReplicas },
+            ].map(({ label, icon: Icon, color, isShown }) => {
+              const isPrimary = label === 'primaries';
+             return (
+               <Group
+                 key={label}
+                 gap={4}
+                 style={{
+                   cursor: 'pointer',
+                   opacity: isShown ? 1 : 0.5,
+                   transition: 'opacity 150ms ease',
+                 }}
+                 onClick={() => {
+                   updateFilters(
+                     undefined,
+                     undefined,
+                     isPrimary ? !showPrimaries : undefined,
+                     isPrimary ? undefined : !showReplicas
+                   );
+                 }}
+                 role="button"
+                 tabIndex={0}
+                 onKeyDown={(e) => {
+                   if (e.key === 'Enter' || e.key === ' ') {
+                     e.preventDefault();
+                     updateFilters(
+                       undefined,
+                       undefined,
+                       isPrimary ? !showPrimaries : undefined,
+                       isPrimary ? undefined : !showReplicas
+                     );
+                   }
+                 }}
+               >
+                 <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
+                 <Text size="xs">
+                   {label}
+                 </Text>
+               </Group>
+             );
+           })}
+         </Group>
 
         <Group
           gap={4}
           style={{
             cursor: 'pointer',
-            opacity: !showSpecialIndices ? 1 : 0.5,
+            opacity: showSpecialIndices ? 1 : 0.5,
             transition: 'opacity 150ms ease',
           }}
           onClick={() => {
@@ -3206,11 +3267,11 @@ function ShardsList({
           }}
         >
           <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-          <Text size="xs">Special</Text>
-        </Group>
-      </Group>
+          <Text size="xs">special</Text>
+          </Group>
+          </Group>
 
-      {/* Shard statistics cards */}
+          {/* Shard statistics cards */}
       <ShardStatsCards
         stats={{
           totalShards: filteredShards?.length || 0,

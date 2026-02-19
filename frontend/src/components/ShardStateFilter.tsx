@@ -10,10 +10,10 @@ import {
  * Shard state icon and color mapping
  */
 const SHARD_STATE_CONFIG: Record<string, { icon: typeof IconCircleCheckFilled; color: string; label: string }> = {
-  STARTED: { icon: IconCircleCheckFilled, color: 'green', label: 'STARTED' },
-  UNASSIGNED: { icon: IconHourglass, color: 'red', label: 'UNASSIGNED' },
-  INITIALIZING: { icon: IconProgress, color: 'yellow', label: 'INITIALIZING' },
-  RELOCATING: { icon: IconAlertCircle, color: 'orange', label: 'RELOCATING' },
+  STARTED: { icon: IconCircleCheckFilled, color: 'green', label: 'started' },
+  UNASSIGNED: { icon: IconHourglass, color: 'red', label: 'unassigned' },
+  INITIALIZING: { icon: IconProgress, color: 'yellow', label: 'initializing' },
+  RELOCATING: { icon: IconAlertCircle, color: 'orange', label: 'relocating' },
 };
 
 export function getShardStateConfig(state: string) {

@@ -77,6 +77,9 @@ export function useTheme(): ThemeContextValue {
       setColorScheme(e.matches ? 'dark' : 'light');
     };
 
+    // Set initial theme on mount
+    setColorScheme(mediaQuery.matches ? 'dark' : 'light');
+
     // Modern browsers
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleChange);
