@@ -39,6 +39,8 @@ import {
   IconSortDescending,
   IconRefresh,
   IconTrash,
+  IconCrown,
+  IconCopy,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -3091,12 +3093,15 @@ function ShardsList({
         
         {/* Shard type filter toggles */}
         <Group gap="md" wrap="wrap">
-          {['Primary', 'Replica'].map((type) => {
-            const isPrimary = type === 'Primary';
+          {[
+            { label: 'Primary', icon: IconCrown, color: 'yellow' },
+            { label: 'Replica', icon: IconCopy, color: 'blue' },
+          ].map(({ label, icon: Icon, color }) => {
+            const isPrimary = label === 'Primary';
             const isSelected = isPrimary ? !showPrimaryOnly : !showReplicaOnly;
             return (
               <Group
-                key={type}
+                key={label}
                 gap={4}
                 style={{
                   cursor: 'pointer',
@@ -3125,8 +3130,9 @@ function ShardsList({
                   }
                 }}
               >
+                <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
                 <Text size="xs">
-                  {type}
+                  {label}
                 </Text>
               </Group>
             );
