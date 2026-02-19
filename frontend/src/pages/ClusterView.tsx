@@ -41,6 +41,7 @@ import {
   IconTrash,
   IconStar,
   IconCopy,
+  IconEyeOff,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -1425,13 +1426,27 @@ function IndicesList({
             />
           )}
 
-          {/* Show special indices checkbox */}
-          <Checkbox
-            label="Show special indices"
-            checked={showSpecialIndices}
-            onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
-            size="sm"
-          />
+          {/* Show special indices toggle */}
+          <Group
+            gap={4}
+            style={{
+              cursor: 'pointer',
+              opacity: showSpecialIndices ? 1 : 0.5,
+              transition: 'opacity 150ms ease',
+            }}
+            onClick={() => updateParam('showSpecial', !showSpecialIndices)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                updateParam('showSpecial', !showSpecialIndices);
+              }
+            }}
+          >
+            <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
+            <Text size="xs">Special</Text>
+          </Group>
         </Group>
         
         {id && (
@@ -2337,13 +2352,27 @@ function ShardAllocationGrid({
             disabled={relocationMode}
           />
           
-          <Checkbox
-            label={`special (${indices.filter(i => i.name.startsWith('.')).length})`}
-            checked={showSpecial}
-            onChange={(e) => updateParam('showSpecial', e.currentTarget.checked)}
-            size="xs"
-            disabled={relocationMode}
-          />
+          <Group
+            gap={4}
+            style={{
+              cursor: relocationMode ? 'not-allowed' : 'pointer',
+              opacity: showSpecial ? 1 : 0.5,
+              transition: 'opacity 150ms ease',
+              pointerEvents: relocationMode ? 'none' : 'auto',
+            }}
+            onClick={() => !relocationMode && updateParam('showSpecial', !showSpecial)}
+            role="button"
+            tabIndex={relocationMode ? -1 : 0}
+            onKeyDown={(e) => {
+              if (!relocationMode && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                updateParam('showSpecial', !showSpecial);
+              }
+            }}
+          >
+            <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
+            <Text size="xs">Special ({indices.filter(i => i.name.startsWith('.')).length})</Text>
+          </Group>
 
           {unassignedShards.length > 0 && (
             <Checkbox
@@ -3139,20 +3168,40 @@ function ShardsList({
           })}
         </Group>
 
-        <Checkbox
-          label="Show special indices"
-          checked={showSpecialIndices}
-          onChange={(e) => {
+        <Group
+          gap={4}
+          style={{
+            cursor: 'pointer',
+            opacity: showSpecialIndices ? 1 : 0.5,
+            transition: 'opacity 150ms ease',
+          }}
+          onClick={() => {
             const params = new URLSearchParams(searchParams);
-            if (e.currentTarget.checked) {
+            if (!showSpecialIndices) {
               params.set('showSpecial', 'true');
             } else {
               params.delete('showSpecial');
             }
             setSearchParams(params);
           }}
-          size="sm"
-        />
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const params = new URLSearchParams(searchParams);
+              if (!showSpecialIndices) {
+                params.set('showSpecial', 'true');
+              } else {
+                params.delete('showSpecial');
+              }
+              setSearchParams(params);
+            }
+          }}
+        >
+          <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
+          <Text size="xs">Special</Text>
+        </Group>
       </Group>
 
       {/* Shard statistics cards */}
