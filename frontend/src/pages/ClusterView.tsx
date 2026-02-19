@@ -2072,13 +2072,19 @@ function ShardAllocationGrid({
     );
   };
 
+  // Get set of indices that have shards after shard state filtering
+  const indicesWithFilteredShards = new Set(filteredShards.map(s => s.index));
+
   // Filter indices based on search and filters
+  // IMPORTANT: Indices must have shards matching the selected shard states to be shown
   const filteredIndicesData = indices.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesClosed = showClosed || index.status === 'open';
     const matchesSpecial = showSpecial || !index.name.startsWith('.');
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
-    return matchesSearch && matchesClosed && matchesSpecial && matchesAffected;
+    // NEW: Filter indices to only show those with shards after shard state filtering
+    const hasShards = indicesWithFilteredShards.has(index.name);
+    return matchesSearch && matchesClosed && matchesSpecial && matchesAffected && hasShards;
   });
 
   // Pagination
