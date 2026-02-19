@@ -27,7 +27,7 @@ shellexpand = "3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Elasticsearch Rust SDK
-elasticsearch = "8.15.0-alpha.1"
+elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["rustls-tls"] }
 
 # URL parsing
 url = "2"
@@ -43,6 +43,7 @@ mime_guess = "2"
 bcrypt = "0.18"
 argon2 = "0.5"
 jsonwebtoken = "10"
+openidconnect = "3"
 
 # Error handling
 thiserror = "2"
