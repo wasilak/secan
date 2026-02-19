@@ -1061,7 +1061,13 @@ function IndicesList({
 
   const handleBulkSelectAll = () => {
     if (paginatedIndices) {
-      selectAll(paginatedIndices.map(index => index.name));
+      // If all are already selected, clear selection; otherwise select all
+      const allSelected = paginatedIndices.every(index => selectedIndices.has(index.name));
+      if (allSelected) {
+        clearSelection();
+      } else {
+        selectAll(paginatedIndices.map(index => index.name));
+      }
     }
   };
   
