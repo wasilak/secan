@@ -91,14 +91,14 @@ This implementation plan breaks down the authentication system into discrete, in
 - [x] 4. Checkpoint - Ensure configuration and session tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 5. Implement authentication provider interface and factory
-  - [ ] 5.1 Define AuthProvider trait and related types
+- [x] 5. Implement authentication provider interface and factory
+  - [x] 5.1 Define AuthProvider trait and related types
     - Define `AuthProvider` trait with `authenticate()` and `provider_type()` methods
     - Define `AuthRequest` enum (LocalCredentials, OidcCallback, Open)
     - Define `AuthResponse` struct with user_info and session_token
     - _Requirements: 1.3, 1.4_
   
-  - [ ] 5.2 Implement AuthProviderFactory
+  - [x] 5.2 Implement AuthProviderFactory
     - Create `AuthProviderFactory` with config and session_manager
     - Implement `create()` method to instantiate providers based on mode
     - _Requirements: 1.1, 1.3, 1.4_
