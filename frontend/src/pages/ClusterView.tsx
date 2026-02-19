@@ -60,7 +60,8 @@ import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { TablePagination } from '../components/TablePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
-import { RoleIcons, RoleLegend, RoleOption, getRoleIcon } from '../components/RoleIcons';
+import { RoleIcons, getRoleIcon, RoleFilterToggle } from '../components/RoleIcons';
+import { ShardStateFilterToggle, getShardStateConfig } from '../components/ShardStateFilter';
 import { ShardContextMenu } from '../components/ShardContextMenu';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
@@ -708,6 +709,13 @@ function NodesList({
     setSearchParams(params);
   };
 
+  const toggleRole = (role: string) => {
+    const newRoles = selectedRoles.includes(role)
+      ? selectedRoles.filter(r => r !== role)
+      : [...selectedRoles, role];
+    updateFilters(undefined, newRoles, undefined);
+  };
+
   // Get all unique roles from nodes
   const allRoles = Array.from(new Set(nodes?.flatMap(n => n.roles) || []));
 
@@ -750,41 +758,35 @@ function NodesList({
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <Group style={{ flex: 1 }}>
+      <Group justify="space-between" align="flex-end">
+        <Group style={{ flex: 1 }} wrap="wrap">
           <TextInput
             placeholder="Search nodes..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
-            style={{ flex: 1, maxWidth: 400 }}
-          />
-          
-          <MultiSelect
-            placeholder="Filter by roles"
-            data={allRoles}
-            value={selectedRoles}
-            onChange={(values) => updateFilters(undefined, values, undefined)}
-            clearable
-            searchable
-            style={{ flex: 1, maxWidth: 300 }}
-            renderOption={({ option }) => <RoleOption role={option.value} />}
+            style={{ minWidth: 200 }}
           />
         </Group>
         
         <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
           <ActionIcon
             variant="subtle"
-            size="lg"
+            size="md"
             onClick={() => updateFilters(undefined, undefined, !expandedView)}
+            aria-label={expandedView ? 'Collapse view' : 'Expand view'}
           >
-            {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
+            {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
           </ActionIcon>
         </Tooltip>
       </Group>
 
-      {!expandedView && sortedNodes && sortedNodes.length > 0 && (
-        <RoleLegend roles={Array.from(new Set(sortedNodes.flatMap(n => n.roles)))} />
+      {allRoles.length > 0 && (
+        <RoleFilterToggle 
+          roles={allRoles.sort()} 
+          selectedRoles={selectedRoles} 
+          onToggle={toggleRole}
+        />
       )}
 
       {sortedNodes && sortedNodes.length === 0 ? (
@@ -2249,15 +2251,15 @@ function ShardAllocationGrid({
             disabled={relocationMode}
           />
           
-          <MultiSelect
-            placeholder="States"
-            data={SHARD_STATES.map(state => ({ value: state, label: state }))}
-            value={selectedShardStates}
-            onChange={updateShardStates}
-            clearable={false}
-            style={{ minWidth: 400, maxWidth: 500 }}
-            size="xs"
-            disabled={relocationMode}
+          <ShardStateFilterToggle
+            states={Array.from(SHARD_STATES)}
+            selectedStates={selectedShardStates}
+            onToggle={(state) => {
+              const newStates = selectedShardStates.includes(state)
+                ? selectedShardStates.filter(s => s !== state)
+                : [...selectedShardStates, state];
+              updateShardStates(newStates);
+            }}
           />
           
           <Checkbox
@@ -2341,48 +2343,18 @@ function ShardAllocationGrid({
 
       {/* Compact legend and stats */}
       <Group justify="space-between" wrap="wrap" gap="xs">
-        {/* Shard color legend - inline */}
-        <Group gap="md" wrap="wrap">
-          <Group gap={4}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid var(--mantine-color-green-6)',
-              backgroundColor: 'transparent',
-              borderRadius: '2px'
-            }} />
-            <Text size="xs">Started</Text>
-          </Group>
-          <Group gap={4}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid var(--mantine-color-yellow-6)',
-              backgroundColor: 'transparent',
-              borderRadius: '2px'
-            }} />
-            <Text size="xs">Initializing</Text>
-          </Group>
-          <Group gap={4}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid var(--mantine-color-orange-6)',
-              backgroundColor: 'transparent',
-              borderRadius: '2px'
-            }} />
-            <Text size="xs">Relocating</Text>
-          </Group>
-          <Group gap={4}>
-            <div style={{
-              width: '16px',
-              height: '16px',
-              border: '2px solid var(--mantine-color-red-6)',
-              backgroundColor: 'transparent',
-              borderRadius: '2px'
-            }} />
-            <Text size="xs">Unassigned</Text>
-          </Group>
+        {/* Shard state legend - inline */}
+        <Group gap="xs" wrap="wrap">
+          {SHARD_STATES.map((state) => {
+            const config = getShardStateConfig(state);
+            const Icon = config.icon;
+            return (
+              <Group key={state} gap={4}>
+                <Icon size={16} color={`var(--mantine-color-${config.color}-6)`} />
+                <Text size="xs">{config.label}</Text>
+              </Group>
+            );
+          })}
         </Group>
 
         {/* Dynamic activity status or static stats */}

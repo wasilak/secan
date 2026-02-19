@@ -101,3 +101,65 @@ export function RoleOption({ role }: { role: string }) {
     </Group>
   );
 }
+
+/**
+ * RoleFilterToggle component - clickable roles that toggle on/off
+ * Active (selected) roles show in color, inactive roles in grayscale
+ */
+export function RoleFilterToggle({ 
+  roles, 
+  selectedRoles, 
+  onToggle 
+}: { 
+  roles: string[]; 
+  selectedRoles: string[];
+  onToggle: (role: string) => void;
+}) {
+  return (
+    <Group gap="xs" wrap="wrap">
+      {roles.map((role) => {
+        const roleInfo = getRoleIcon(role);
+        const Icon = roleInfo.icon;
+        const isSelected = selectedRoles.includes(role);
+        
+        return (
+          <Group 
+            key={role} 
+            gap={6}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 150ms ease',
+              backgroundColor: isSelected ? `var(--mantine-color-${roleInfo.color}-0)` : 'var(--mantine-color-gray-1)',
+              border: `1px solid ${isSelected ? `var(--mantine-color-${roleInfo.color}-3)` : 'var(--mantine-color-gray-2)'}`,
+              opacity: isSelected ? 1 : 0.6,
+            }}
+            onClick={() => onToggle(role)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggle(role);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <Icon 
+              size={16} 
+              color={isSelected ? `var(--mantine-color-${roleInfo.color}-6)` : 'var(--mantine-color-gray-6)'} 
+              style={{ transition: 'color 150ms ease' }}
+            />
+            <Text 
+              size="xs" 
+              fw={isSelected ? 500 : 400}
+              style={{ transition: 'font-weight 150ms ease' }}
+            >
+              {roleInfo.label}
+            </Text>
+          </Group>
+        );
+      })}
+    </Group>
+  );
+}
