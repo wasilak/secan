@@ -93,7 +93,7 @@ export function BulkOperationConfirmModal({
 
     return (
       <span>
-        This will <strong>{actionVerb.toLowerCase()}</strong> {validationResult.validIndices.length} indices.
+        This will <strong>{actionVerb.toLowerCase()}</strong> {validationResult.validIndices.length} indices.&nbsp;
         {validationResult.ignoredIndices.length} indices will be skipped.
       </span>
     );

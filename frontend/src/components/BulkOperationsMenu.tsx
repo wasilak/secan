@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Button, Group, Menu, Text, Tooltip } from '@mantine/core';
 import {
-  IconDots,
   IconFolderOpen,
   IconFolderOff,
   IconTrash,
@@ -104,7 +103,6 @@ export function BulkOperationsMenu({
           <Button
             variant="filled"
             color="blue"
-            leftSection={<IconDots size={18} />}
             aria-label={`Bulk operations for ${selectedCount} selected indices`}
           >
             Bulk Actions
