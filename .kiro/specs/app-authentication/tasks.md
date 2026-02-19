@@ -103,19 +103,19 @@ This implementation plan breaks down the authentication system into discrete, in
     - Implement `create()` method to instantiate providers based on mode
     - _Requirements: 1.1, 1.3, 1.4_
 
-- [ ] 6. Implement local authentication provider
-  - [ ] 6.1 Implement LocalAuthProvider structure
+- [x] 6. Implement local authentication provider
+  - [x] 6.1 Implement LocalAuthProvider structure
     - Create `LocalAuthProvider` with config, session_manager, and user HashMap
     - Build user lookup HashMap from configuration
     - _Requirements: 2.1, 2.8_
   
-  - [ ] 6.2 Implement password verification
+  - [x] 6.2 Implement password verification
     - Implement `verify_password()` supporting bcrypt and argon2
     - Use `bcrypt` crate for bcrypt verification
     - Use `argon2` crate for argon2 verification
     - _Requirements: 2.3, 2.4, 2.5_
   
-  - [ ] 6.3 Implement AuthProvider trait for LocalAuthProvider
+  - [x] 6.3 Implement AuthProvider trait for LocalAuthProvider
     - Implement `authenticate()` method for local credentials
     - Verify password and create session on success
     - Return generic error message on failure
@@ -136,34 +136,34 @@ This implementation plan breaks down the authentication system into discrete, in
     - Test generic error messages
     - _Requirements: 2.5, 2.6, 2.7, 11.5_
 
-- [ ] 7. Implement OIDC authentication provider
-  - [ ] 7.1 Implement OidcAuthProvider structure
+- [x] 7. Implement OIDC authentication provider
+  - [x] 7.1 Implement OidcAuthProvider structure
     - Create `OidcAuthProvider` with config, session_manager, client, and jwks
     - Use `openidconnect` crate for OIDC client
     - Support both auto-discovery and manual configuration
     - Fetch and cache JWKS at initialization
     - _Requirements: 4.1, 4.2, 4.3_
   
-  - [ ] 7.2 Implement authorization URL generation
+  - [x] 7.2 Implement authorization URL generation
     - Implement `authorization_url()` method
     - Generate URL with CSRF token and required scopes (openid, profile, email)
     - _Requirements: 5.1_
   
-  - [ ] 7.3 Implement token exchange and validation
+  - [x] 7.3 Implement token exchange and validation
     - Implement `authenticate()` for OIDC callback
     - Exchange authorization code for tokens
     - Validate ID token signature using JWKS
     - Extract user information from token claims
     - _Requirements: 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 7.4 Implement group-based access control
+  - [x] 7.4 Implement group-based access control
     - Implement `validate_groups()` method
     - Extract group claim from token
     - Check user membership in required groups
     - Return descriptive error if access denied
     - _Requirements: 6.3, 6.4, 6.5, 6.6, 6.7_
   
-  - [ ] 7.5 Complete OIDC authentication flow
+  - [x] 7.5 Complete OIDC authentication flow
     - Create session on successful authentication
     - Return session token in response
     - _Requirements: 5.6_
