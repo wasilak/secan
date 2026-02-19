@@ -192,12 +192,12 @@ This implementation plan breaks down the authentication system into discrete, in
 - [x] 9. Checkpoint - Ensure all authentication provider tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Implement authentication middleware
-  - [ ] 10.1 Implement AuthMiddleware structure
+- [x] 10. Implement authentication middleware
+  - [x] 10.1 Implement AuthMiddleware structure
     - Create `AuthMiddleware` with session_manager and config
     - _Requirements: 7.5, 7.6_
   
-  - [ ] 10.2 Implement authentication middleware logic
+  - [x] 10.2 Implement authentication middleware logic
     - Implement `authenticate()` middleware function
     - Skip authentication for open mode
     - Skip authentication for public endpoints (login, OIDC callback)
@@ -206,7 +206,7 @@ This implementation plan breaks down the authentication system into discrete, in
     - Return 401 Unauthorized for invalid sessions
     - _Requirements: 1.2, 7.5, 7.6_
   
-  - [ ] 10.3 Implement cookie extraction helper
+  - [x] 10.3 Implement cookie extraction helper
     - Implement `extract_session_token()` to parse cookies
     - Support configurable cookie name
     - _Requirements: 7.2_
@@ -219,8 +219,8 @@ This implementation plan breaks down the authentication system into discrete, in
     - Test missing cookie rejection
     - _Requirements: 1.2, 7.5, 7.6_
 
-- [ ] 11. Implement authentication API routes
-  - [ ] 11.1 Create authentication route handlers
+- [x] 11. Implement authentication API routes
+  - [x] 11.1 Create authentication route handlers
     - Create `backend/src/routes/auth.rs`
     - Implement `POST /api/auth/login` for local authentication
     - Implement `GET /api/auth/oidc/login` to initiate OIDC flow
@@ -228,13 +228,13 @@ This implementation plan breaks down the authentication system into discrete, in
     - Implement `POST /api/auth/logout` for logout
     - _Requirements: 2.6, 5.1, 5.2, 9.1, 9.2, 9.4_
   
-  - [ ] 11.2 Implement cookie handling in route handlers
+  - [x] 11.2 Implement cookie handling in route handlers
     - Set session cookie with HttpOnly, Secure, and SameSite attributes
     - Clear session cookie on logout
     - Support configurable cookie settings from SessionConfig
     - _Requirements: 7.2, 7.3, 7.4, 9.2_
   
-  - [ ] 11.3 Implement error responses
+  - [x] 11.3 Implement error responses
     - Return appropriate HTTP status codes
     - Return JSON error responses with generic messages
     - Log detailed errors server-side
