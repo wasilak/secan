@@ -179,8 +179,8 @@ This implementation plan breaks down the authentication system into discrete, in
     - Test error handling for missing claims
     - _Requirements: 5.1, 5.3, 5.4, 5.5, 6.3, 6.4, 6.5, 6.6_
 
-- [ ] 8. Implement open authentication provider
-  - [ ] 8.1 Implement OpenAuthProvider
+- [x] 8. Implement open authentication provider
+  - [x] 8.1 Implement OpenAuthProvider
     - Create `OpenAuthProvider` with session_manager
     - Implement `authenticate()` to create default dev user session
     - _Requirements: 1.2_
