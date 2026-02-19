@@ -189,7 +189,7 @@ This implementation plan breaks down the authentication system into discrete, in
     - Test that open mode creates dev user session
     - _Requirements: 1.2_
 
-- [ ] 9. Checkpoint - Ensure all authentication provider tests pass
+- [x] 9. Checkpoint - Ensure all authentication provider tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 10. Implement authentication middleware
