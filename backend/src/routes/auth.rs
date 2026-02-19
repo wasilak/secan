@@ -68,13 +68,14 @@ pub struct ErrorResponse {
 /// and sets a session cookie.
 pub async fn login(
     State(state): State<AuthState>,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Response, StatusCode> {
-    info!("Login attempt for user: {}", req.username);
+    info!("Login attempt for user: {} from IP: {}", req.username, addr.ip());
 
     // Check rate limit
     if let Err(e) = state.session_manager.check_rate_limit(&req.username) {
-        warn!("Rate limit exceeded for user: {}", req.username);
+        warn!("Rate limit exceeded for user: {} from IP: {}", req.username, addr.ip());
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
 
@@ -88,7 +89,10 @@ pub async fn login(
         Ok(response) => response,
         Err(e) => {
             // Log detailed error server-side
-            error!("Authentication failed for user {}: {}", req.username, e);
+            error!(
+                "Authentication failed for user {} from IP {}: {}",
+                req.username, addr.ip(), e
+            );
             
             // Return generic error to client
             return Ok((
@@ -102,8 +106,8 @@ pub async fn login(
     };
 
     info!(
-        "Successful login for user: {} (id: {})",
-        auth_response.user_info.username, auth_response.user_info.id
+        "Successful login for user: {} (id: {}) from IP: {}",
+        auth_response.user_info.username, auth_response.user_info.id, addr.ip()
     );
 
     // Create response with session cookie

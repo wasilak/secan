@@ -8,6 +8,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::{debug, error, info, warn};
 
 use super::config::{HashAlgorithm, LocalAuthConfig, LocalUser};
 use super::provider::{AuthProvider, AuthRequest, AuthResponse};
@@ -72,27 +73,50 @@ impl AuthProvider for LocalAuthProvider {
     async fn authenticate(&self, request: AuthRequest) -> Result<AuthResponse> {
         let (username, password) = match request {
             AuthRequest::LocalCredentials { username, password } => (username, password),
-            _ => return Err(anyhow!("Invalid request type for local authentication")),
+            _ => {
+                error!("Invalid request type for local authentication");
+                return Err(anyhow!("Invalid request type for local authentication"));
+            }
         };
 
+        debug!("Local authentication attempt for user: {}", username);
+
         // Check rate limit before attempting authentication
-        self.session_manager
-            .check_rate_limit(&username)
-            .map_err(|_| anyhow!("Invalid credentials"))?; // Generic error message
+        if let Err(e) = self.session_manager.check_rate_limit(&username) {
+            warn!(
+                "Rate limit exceeded for user: {} - {}",
+                username, e
+            );
+            // Return generic error message to prevent username enumeration
+            return Err(anyhow!("Invalid credentials"));
+        }
 
         // Look up user
-        let user = self
-            .users
-            .get(&username)
-            .ok_or_else(|| anyhow!("Invalid credentials"))?; // Generic error message
+        let user = self.users.get(&username);
+        if user.is_none() {
+            warn!("Authentication failed for user: {} - user not found", username);
+            // Return generic error message to prevent username enumeration
+            return Err(anyhow!("Invalid credentials"));
+        }
+        let user = user.unwrap();
 
         // Verify password
-        let valid = self
-            .verify_password(user, &password)
-            .map_err(|_| anyhow!("Invalid credentials"))?; // Generic error message
+        let valid = match self.verify_password(user, &password) {
+            Ok(v) => v,
+            Err(e) => {
+                error!(
+                    "Password verification error for user: {} - {}",
+                    username, e
+                );
+                // Return generic error message to prevent information leakage
+                return Err(anyhow!("Invalid credentials"));
+            }
+        };
 
         if !valid {
-            return Err(anyhow!("Invalid credentials")); // Generic error message
+            warn!("Authentication failed for user: {} - invalid password", username);
+            // Return generic error message to prevent username enumeration
+            return Err(anyhow!("Invalid credentials"));
         }
 
         // Create user info
@@ -109,6 +133,11 @@ impl AuthProvider for LocalAuthProvider {
             .session_manager
             .create_session(user_info.clone())
             .await?;
+
+        info!(
+            "Successful local authentication for user: {} (roles: {:?})",
+            username, user.roles
+        );
 
         Ok(AuthResponse {
             user_info,

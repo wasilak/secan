@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 
 use super::config::{RenewalMode, SecurityConfig, SessionConfig};
 
@@ -78,7 +79,7 @@ impl SessionManager {
 
         let session = Session {
             token: token.clone(),
-            user_info,
+            user_info: user_info.clone(),
             created_at: now,
             last_activity: now,
             expires_at: now + timeout,
@@ -86,6 +87,18 @@ impl SessionManager {
 
         let mut sessions = self.sessions.write().await;
         sessions.insert(token.clone(), session);
+
+        // Log session creation with truncated token (never log full token)
+        let token_preview = if token.len() > 8 {
+            format!("{}...", &token[..8])
+        } else {
+            "***".to_string()
+        };
+        
+        info!(
+            "Session created for user: {} (id: {}, token: {})",
+            user_info.username, user_info.id, token_preview
+        );
 
         Ok(token)
     }
@@ -99,15 +112,22 @@ impl SessionManager {
 
         let session = sessions
             .get_mut(token)
-            .ok_or_else(|| anyhow!("Invalid session token"))?;
+            .ok_or_else(|| {
+                debug!("Session validation failed: invalid token");
+                anyhow!("Invalid session token")
+            })?;
 
         let now = Instant::now();
 
         // Check if session is expired
         if now > session.expires_at {
+            let username = session.user_info.username.clone();
             sessions.remove(token);
+            info!("Session expired for user: {}", username);
             return Err(anyhow!("Session expired"));
         }
+
+        let username = session.user_info.username.clone();
 
         // Update session activity and expiration based on renewal mode
         match self.config.renewal_mode {
@@ -115,10 +135,12 @@ impl SessionManager {
                 // Sliding window: extend expiration on each access
                 session.last_activity = now;
                 session.expires_at = now + Duration::from_secs(self.config.timeout_seconds);
+                debug!("Session renewed for user: {} (sliding window)", username);
             }
             RenewalMode::FixedExpiration => {
                 // Fixed expiration: update last activity but keep original expiration
                 session.last_activity = now;
+                debug!("Session accessed for user: {} (fixed expiration)", username);
                 // expires_at remains unchanged
             }
         }
@@ -129,7 +151,13 @@ impl SessionManager {
     /// Delete a session (logout)
     pub async fn delete_session(&self, token: &str) -> Result<()> {
         let mut sessions = self.sessions.write().await;
-        sessions.remove(token);
+        
+        if let Some(session) = sessions.remove(token) {
+            info!("Session deleted for user: {} (logout)", session.user_info.username);
+        } else {
+            debug!("Attempted to delete non-existent session");
+        }
+        
         Ok(())
     }
 
@@ -152,9 +180,15 @@ impl SessionManager {
 
                 let mut sessions = sessions.write().await;
                 let now = Instant::now();
+                let initial_count = sessions.len();
 
                 // Remove expired sessions
                 sessions.retain(|_, session| now <= session.expires_at);
+                
+                let removed_count = initial_count - sessions.len();
+                if removed_count > 0 {
+                    info!("Session cleanup: removed {} expired sessions", removed_count);
+                }
             }
         });
     }
@@ -192,6 +226,12 @@ impl RateLimiter {
         entry.retain(|&t| now.duration_since(t) < self.window);
 
         if entry.len() >= self.max_attempts as usize {
+            warn!(
+                "Rate limit exceeded for identifier: {} ({} attempts in {:?})",
+                identifier,
+                entry.len(),
+                self.window
+            );
             return Err(anyhow!("Rate limit exceeded. Try again later."));
         }
 

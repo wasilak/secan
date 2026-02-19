@@ -16,6 +16,7 @@ use openidconnect::{
 };
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::config::OidcConfig;
@@ -52,17 +53,25 @@ impl OidcAuthProvider {
     /// - Manual endpoint configuration is invalid
     /// - JWKS cannot be fetched
     pub fn new(config: OidcConfig, session_manager: Arc<SessionManager>) -> Result<Self> {
+        info!("Initializing OIDC authentication provider");
+        debug!("OIDC client_id: {}", config.client_id);
+        debug!("OIDC redirect_uri: {}", config.redirect_uri);
+        
         // Create the OIDC client based on configuration
         let client = if let Some(discovery_url) = &config.discovery_url {
+            info!("Using OIDC auto-discovery from: {}", discovery_url);
             // Auto-discovery mode
             Self::create_client_with_discovery(&config, discovery_url)?
         } else {
+            info!("Using manual OIDC endpoint configuration");
             // Manual configuration mode
             Self::create_client_manual(&config)?
         };
 
         // Fetch JWKS for token validation
+        info!("Fetching JWKS for token validation");
         let jwks = Self::fetch_jwks(&client)?;
+        info!("OIDC provider initialized successfully");
 
         Ok(Self {
             config,
@@ -84,7 +93,12 @@ impl OidcAuthProvider {
                     .await
                     .context("Failed to discover OIDC provider metadata")
             })
+        }).map_err(|e| {
+            error!("OIDC provider discovery failed: {}", e);
+            e
         })?;
+
+        info!("OIDC provider metadata discovered successfully");
 
         // Create client from discovered metadata
         let client = CoreClient::from_provider_metadata(
@@ -142,6 +156,8 @@ impl OidcAuthProvider {
             .jwks_uri()
             .ok_or_else(|| anyhow!("JWKS URI not available from provider"))?;
 
+        debug!("Fetching JWKS from: {:?}", jwks_uri);
+
         // Fetch JWKS synchronously (called during initialization)
         let jwks = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {
@@ -149,11 +165,15 @@ impl OidcAuthProvider {
                     .await
                     .context("Failed to fetch JWKS")
             })
+        }).map_err(|e| {
+            error!("Failed to fetch JWKS: {}", e);
+            e
         })?;
 
         let jwks_json: JsonWebKeySet = serde_json::from_slice(&jwks.body)
             .context("Failed to parse JWKS")?;
 
+        debug!("JWKS fetched and parsed successfully");
         Ok(jwks_json)
     }
 
@@ -162,6 +182,8 @@ impl OidcAuthProvider {
     /// Returns a tuple of (authorization_url, csrf_token) where the CSRF token
     /// should be stored in the session for validation during callback.
     pub fn authorization_url(&self) -> (Url, CsrfToken) {
+        debug!("Generating OIDC authorization URL");
+        
         let (pkce_challenge, _pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
         let (auth_url, csrf_token, _nonce) = self
@@ -177,6 +199,7 @@ impl OidcAuthProvider {
             .set_pkce_challenge(pkce_challenge)
             .url();
 
+        info!("Generated OIDC authorization URL");
         (auth_url, csrf_token)
     }
 
@@ -202,6 +225,7 @@ impl OidcAuthProvider {
     fn validate_groups(&self, claims: &Value) -> Result<Vec<String>> {
         // If no required groups are configured, allow all authenticated users
         if self.config.required_groups.is_empty() {
+            debug!("No required groups configured, allowing all authenticated users");
             return Ok(vec![]);
         }
 
@@ -211,10 +235,17 @@ impl OidcAuthProvider {
             .as_deref()
             .unwrap_or("groups");
 
+        debug!("Validating group membership using claim key: {}", group_claim_key);
+
         // Extract group claim from token
         let groups_value = claims
             .get(group_claim_key)
             .ok_or_else(|| {
+                warn!(
+                    "Group claim '{}' not found in token. Required groups: {:?}",
+                    group_claim_key,
+                    self.config.required_groups
+                );
                 anyhow!(
                     "Group claim '{}' not found in token. Required groups: {:?}",
                     group_claim_key,
@@ -232,11 +263,17 @@ impl OidcAuthProvider {
             // Handle case where groups is a single string
             vec![group_str.to_string()]
         } else {
+            error!(
+                "Group claim '{}' has invalid format (expected array or string)",
+                group_claim_key
+            );
             return Err(anyhow!(
                 "Group claim '{}' has invalid format (expected array or string)",
                 group_claim_key
             ));
         };
+
+        debug!("User groups from token: {:?}", user_groups);
 
         // Check if user is in at least one required group
         let has_required_group = user_groups
@@ -244,6 +281,11 @@ impl OidcAuthProvider {
             .any(|g| self.config.required_groups.contains(g));
 
         if !has_required_group {
+            warn!(
+                "Access denied: User is not a member of any required groups. Required: {:?}, User has: {:?}",
+                self.config.required_groups,
+                user_groups
+            );
             return Err(anyhow!(
                 "Access denied: User is not a member of any required groups. Required: {:?}, User has: {:?}",
                 self.config.required_groups,
@@ -251,6 +293,7 @@ impl OidcAuthProvider {
             ));
         }
 
+        info!("Group validation successful for user groups: {:?}", user_groups);
         Ok(user_groups)
     }
 
@@ -299,8 +342,13 @@ impl AuthProvider for OidcAuthProvider {
     async fn authenticate(&self, request: AuthRequest) -> Result<AuthResponse> {
         let (code, _state) = match request {
             AuthRequest::OidcCallback { code, state } => (code, state),
-            _ => return Err(anyhow!("Invalid request type for OIDC authentication")),
+            _ => {
+                error!("Invalid request type for OIDC authentication");
+                return Err(anyhow!("Invalid request type for OIDC authentication"));
+            }
         };
+
+        debug!("Processing OIDC callback with authorization code");
 
         // Exchange authorization code for tokens
         let token_response = self
@@ -308,12 +356,20 @@ impl AuthProvider for OidcAuthProvider {
             .exchange_code(AuthorizationCode::new(code))
             .request_async(async_http_client)
             .await
-            .context("Failed to exchange authorization code for tokens")?;
+            .map_err(|e| {
+                error!("Failed to exchange authorization code for tokens: {}", e);
+                anyhow!("Failed to exchange authorization code for tokens: {}", e)
+            })?;
+
+        debug!("Successfully exchanged authorization code for tokens");
 
         // Extract ID token
         let id_token = token_response
             .id_token()
-            .ok_or_else(|| anyhow!("No ID token in response"))?;
+            .ok_or_else(|| {
+                error!("No ID token in OIDC response");
+                anyhow!("No ID token in response")
+            })?;
 
         // Validate ID token signature using JWKS
         let id_token_verifier = CoreIdTokenVerifier::new_public_client(
@@ -323,13 +379,23 @@ impl AuthProvider for OidcAuthProvider {
 
         let claims = id_token
             .claims(&id_token_verifier, Nonce::new("nonce".to_string()))
-            .context("Failed to validate ID token signature")?;
+            .map_err(|e| {
+                error!("Failed to validate ID token signature: {}", e);
+                anyhow!("Failed to validate ID token signature: {}", e)
+            })?;
+
+        debug!("ID token signature validated successfully");
 
         // Validate group membership
         let groups = self.validate_groups(claims.additional_claims())?;
 
         // Extract user information
         let user_info = self.extract_user_info(claims, groups);
+
+        info!(
+            "Successful OIDC authentication for user: {} (id: {})",
+            user_info.username, user_info.id
+        );
 
         // Create session
         let session_token = self

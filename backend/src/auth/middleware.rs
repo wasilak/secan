@@ -13,6 +13,7 @@ use axum::{
     response::Response,
 };
 use std::sync::Arc;
+use tracing::{debug, warn};
 
 /// Authentication middleware for validating sessions and protecting routes
 pub struct AuthMiddleware {
@@ -44,25 +45,35 @@ impl AuthMiddleware {
     ) -> Result<Response, StatusCode> {
         // Skip authentication for open mode
         if self.config.mode == super::config::AuthMode::Open {
+            debug!("Skipping authentication (open mode)");
             return Ok(next.run(req).await);
         }
 
         // Skip authentication for public endpoints
         if self.is_public_endpoint(req.uri().path()) {
+            debug!("Skipping authentication for public endpoint: {}", req.uri().path());
             return Ok(next.run(req).await);
         }
 
         // Extract session token from cookie
         let token = self
             .extract_session_token(&req)
-            .ok_or(StatusCode::UNAUTHORIZED)?;
+            .ok_or_else(|| {
+                warn!("Authentication failed: no session cookie found");
+                StatusCode::UNAUTHORIZED
+            })?;
 
         // Validate session
         let user_info = self
             .session_manager
             .validate_session(&token)
             .await
-            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+            .map_err(|e| {
+                warn!("Session validation failed: {}", e);
+                StatusCode::UNAUTHORIZED
+            })?;
+
+        debug!("Request authenticated for user: {}", user_info.username);
 
         // Add user info to request extensions
         req.extensions_mut().insert(user_info);
