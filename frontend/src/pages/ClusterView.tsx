@@ -15,7 +15,6 @@ import {
   Menu,
   ActionIcon,
   TextInput,
-  MultiSelect,
   Checkbox,
   Tooltip,
   Modal,
@@ -1330,23 +1329,100 @@ function IndicesList({
             style={{ flex: 1, maxWidth: 300 }}
           />
           
-          <MultiSelect
-            placeholder="Health"
-            data={['green', 'yellow', 'red']}
-            value={selectedHealth}
-            onChange={(values) => updateFilters(undefined, values, undefined)}
-            clearable
-            style={{ maxWidth: 200 }}
-          />
+          {/* Health filter toggles */}
+          <Group gap="xs" wrap="wrap">
+            {['green', 'yellow', 'red'].map((health) => {
+              const isSelected = selectedHealth.includes(health);
+              const healthColor = health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : 'red';
+              return (
+                <Group
+                  key={health}
+                  gap={4}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    backgroundColor: isSelected ? `var(--mantine-color-${healthColor}-0)` : 'var(--mantine-color-gray-1)',
+                    border: `1px solid ${isSelected ? `var(--mantine-color-${healthColor}-3)` : 'var(--mantine-color-gray-2)'}`,
+                    opacity: isSelected ? 1 : 0.6,
+                  }}
+                  onClick={() => {
+                    const newHealth = isSelected
+                      ? selectedHealth.filter(h => h !== health)
+                      : [...selectedHealth, health];
+                    updateFilters(undefined, newHealth, undefined);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const newHealth = isSelected
+                        ? selectedHealth.filter(h => h !== health)
+                        : [...selectedHealth, health];
+                      updateFilters(undefined, newHealth, undefined);
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: `var(--mantine-color-${healthColor}-6)`,
+                    transition: 'opacity 150ms ease',
+                    opacity: isSelected ? 1 : 0.4,
+                  }} />
+                  <Text size="xs" fw={isSelected ? 500 : 400} style={{ textTransform: 'capitalize', transition: 'font-weight 150ms ease' }}>
+                    {health}
+                  </Text>
+                </Group>
+              );
+            })}
+          </Group>
           
-          <MultiSelect
-            placeholder="Status"
-            data={['open', 'close']}
-            value={selectedStatus}
-            onChange={(values) => updateFilters(undefined, undefined, values)}
-            clearable
-            style={{ maxWidth: 150 }}
-          />
+          {/* Status filter toggles */}
+          <Group gap="xs" wrap="wrap">
+            {['open', 'close'].map((status) => {
+              const isSelected = selectedStatus.includes(status);
+              return (
+                <Group
+                  key={status}
+                  gap={4}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease',
+                    backgroundColor: isSelected ? 'var(--mantine-color-blue-0)' : 'var(--mantine-color-gray-1)',
+                    border: `1px solid ${isSelected ? 'var(--mantine-color-blue-3)' : 'var(--mantine-color-gray-2)'}`,
+                    opacity: isSelected ? 1 : 0.6,
+                  }}
+                  onClick={() => {
+                    const newStatus = isSelected
+                      ? selectedStatus.filter(s => s !== status)
+                      : [...selectedStatus, status];
+                    updateFilters(undefined, undefined, newStatus);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const newStatus = isSelected
+                        ? selectedStatus.filter(s => s !== status)
+                        : [...selectedStatus, status];
+                      updateFilters(undefined, undefined, newStatus);
+                    }
+                  }}
+                >
+                  <Text size="xs" fw={isSelected ? 500 : 400} style={{ textTransform: 'capitalize', transition: 'font-weight 150ms ease' }}>
+                    {status}
+                  </Text>
+                </Group>
+              );
+            })}
+          </Group>
 
           {/* Show only affected checkbox */}
           {hasAnyProblems && (
@@ -3035,13 +3111,15 @@ function ShardsList({
           style={{ flex: 1, maxWidth: 300 }}
         />
         
-        <MultiSelect
-          placeholder="State"
-          data={['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED']}
-          value={selectedStates}
-          onChange={(values) => updateFilters(undefined, values, undefined, undefined)}
-          clearable
-          style={{ maxWidth: 250 }}
+        <ShardStateFilterToggle
+          states={['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED']}
+          selectedStates={selectedStates}
+          onToggle={(state) => {
+            const newStates = selectedStates.includes(state)
+              ? selectedStates.filter(s => s !== state)
+              : [...selectedStates, state];
+            updateFilters(undefined, newStates, undefined, undefined);
+          }}
         />
         
         <Group gap="md">
