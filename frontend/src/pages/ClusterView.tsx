@@ -670,7 +670,9 @@ function NodesList({
   
   // Get filters from URL
   const searchQuery = searchParams.get('nodesSearch') || '';
-  const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || [];
+  // Get all unique roles from nodes
+  const allRoles = Array.from(new Set(nodes?.flatMap(n => n.roles) || []));
+  const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || allRoles;
   const expandedView = searchParams.get('nodesExpanded') === 'true';
   
   // Debounce search query
@@ -714,9 +716,6 @@ function NodesList({
       : [...selectedRoles, role];
     updateFilters(undefined, newRoles, undefined);
   };
-
-  // Get all unique roles from nodes
-  const allRoles = Array.from(new Set(nodes?.flatMap(n => n.roles) || []));
 
   // Filter nodes based on debounced search query and selected roles
   const filteredNodes = nodes?.filter((node) => {
@@ -984,8 +983,8 @@ function IndicesList({
   
   // Get filters from URL
   const searchQuery = searchParams.get('indicesSearch') || '';
-  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [];
-  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [];
+  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || ['green', 'yellow', 'red'];
+  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || ['open', 'close'];
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
