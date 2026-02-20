@@ -391,7 +391,7 @@ impl ElasticsearchClient for Client {
                 if !stats["indices"].is_object() {
                     stats["indices"] = serde_json::json!({});
                 }
-                
+
                 let indices = stats["indices"].as_object_mut().unwrap();
                 for (index_name, index_state) in metadata {
                     // Only add if not already in stats (i.e., it's closed)
@@ -401,7 +401,7 @@ impl ElasticsearchClient for Client {
                         } else {
                             "open"
                         };
-                        
+
                         indices.insert(
                             index_name.clone(),
                             serde_json::json!({
