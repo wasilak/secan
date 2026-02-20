@@ -67,8 +67,15 @@ jobs:
       - name: Install Task
         uses: go-task/setup-task@v1
       
-      - name: Run frontend tests and linting
-        run: task test-frontend && task lint-frontend
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Run frontend tests
+        run: task test-frontend
+      
+      - name: Run frontend linting
+        run: task lint-frontend
 
   build-check:
     name: Build Check
