@@ -108,3 +108,58 @@ tasks:
       - sleep 5
       - task: bootstrap-data
       - task: dev
+
+  fmt:
+    desc: Format code
+    cmds:
+      - cargo fmt --all
+      - task: fmt-frontend
+
+  fmt-frontend:
+    desc: Format frontend code
+    dir: frontend
+    cmds:
+      - npx prettier --write src/
+
+  build-frontend-release:
+    desc: Build frontend for release
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run build
+
+  build-backend-release:
+    desc: Build backend for release
+    cmds:
+      - cargo build --release
+
+  build-backend-target:
+    desc: Build backend for specific target
+    cmds:
+      - cargo build --release --target $TARGET
+
+  install-cross:
+    desc: Install cross-compilation tool
+    cmds:
+      - cargo install cross --git https://github.com/cross-rs/cross
+
+  build-cross-target:
+    desc: Build backend using cross for specific target
+    cmds:
+      - cross build --release --target $TARGET
+
+  package-binary:
+    desc: Package binary as tarball (set TARGET and NAME env vars)
+    cmds:
+      - mkdir -p artifacts
+      - cd target/$TARGET/release && tar czf ../../artifacts/secan-$NAME.tar.gz secan && sha256sum secan-$NAME.tar.gz > ../../artifacts/secan-$NAME.tar.gz.sha256
+
+  docker-build-amd64:
+    desc: Build Docker image for amd64
+    cmds:
+      - docker build --platform linux/amd64 -t secan:latest .
+
+  docker-build-multiarch:
+    desc: Build Docker image for multiple architectures
+    cmds:
+      - docker buildx build --platform linux/amd64,linux/arm64 -t secan:latest .

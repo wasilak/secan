@@ -53,3 +53,7 @@ frontend/dist/
 
 # Frontend build artifacts (embedded by rust-embed during backend build)
 backend/assets/
+
+audit.log
+.task
+.serena
