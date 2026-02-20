@@ -163,3 +163,8 @@ tasks:
     desc: Build Docker image for multiple architectures
     cmds:
       - docker buildx build --platform linux/amd64,linux/arm64 -t secan:latest .
+
+  bump-version:
+    desc: Bump version and create git tag. Usage - task bump-version TAG=v0.2.0
+    cmds:
+      - ./scripts/bump-version.sh {{.TAG}}
