@@ -150,6 +150,10 @@ jobs:
       - name: Install Task
         uses: go-task/setup-task@v1
 
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
       - name: Build frontend
         run: task build-frontend
 
