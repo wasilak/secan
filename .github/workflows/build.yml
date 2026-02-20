@@ -65,8 +65,15 @@ jobs:
       - name: Install Task
         uses: go-task/setup-task@v1
 
-      - name: Run full test suite
-        run: task test
+      - name: Build frontend (required for rust-embed)
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: Run backend tests
+        run: task test-backend
+
+      - name: Run frontend tests
+        run: task test-frontend
 
   build:
     name: Build Release Binaries
