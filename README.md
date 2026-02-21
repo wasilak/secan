@@ -11,7 +11,7 @@ Heavily inspired by [Cerebro](https://github.com/lmenezes/cerebro).
 
 ## Quick Start
 
-**📖 See full documentation at https://wasilak.github.io/secan/**
+**📖 See full documentation at [https://wasilak.github.io/secan/](https://wasilak.github.io/secan/)**
 
 ### Installation
 
@@ -39,7 +39,7 @@ Visit http://localhost:9000
 
 Complete documentation including installation, configuration, deployment, and development guides available at:
 
-**https://wasilak.github.io/secan/**
+**[https://wasilak.github.io/secan/](https://wasilak.github.io/secan/)**
 
 ## Development
 
@@ -56,7 +56,7 @@ just docs-build       # Build documentation
 
 ## License
 
-GNU General Public License v3.0 - see [LICENSE](LICENSE) for details.
+GNU General Public License v3.0 - see [LICENSE](./LICENSE) for details.
 
 ## Acknowledgments
 
