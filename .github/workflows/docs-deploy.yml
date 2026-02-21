@@ -42,6 +42,8 @@ jobs:
       # Setup Just
       - name: Setup Just
         uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
 
       # Build complete documentation (Rust API + Starlight)
       - name: Build documentation
