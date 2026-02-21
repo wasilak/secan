@@ -210,7 +210,28 @@ impl Server {
 
         let app = self.router();
 
-        axum::serve(listener, app).await?;
+        // Setup graceful shutdown signal handler
+        let shutdown_signal = async {
+            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("Failed to setup SIGTERM handler");
+            let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                .expect("Failed to setup SIGINT handler");
+
+            tokio::select! {
+                _ = sigterm.recv() => {
+                    tracing::info!("Received SIGTERM, starting graceful shutdown");
+                },
+                _ = sigint.recv() => {
+                    tracing::info!("Received SIGINT, starting graceful shutdown");
+                },
+            }
+        };
+
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown_signal)
+            .await?;
+
+        tracing::info!("Server shut down gracefully");
 
         Ok(())
     }
