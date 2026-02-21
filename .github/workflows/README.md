@@ -185,7 +185,7 @@ Update Node.js version in both workflows:
 ```yaml
 - uses: actions/setup-node@v4
   with:
-    node-version: '20'  # or other LTS version
+    node-version: '25'  # or other LTS version
 ```
 
 ### Adding New Platforms

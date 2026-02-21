@@ -35,17 +35,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: latest
+          cache: "npm"
           cache-dependency-path: docs/package-lock.json
 
-      # Install Task
-      - name: Install Task
-        uses: go-task/setup-task@v1
+      # Setup Just
+      - name: Setup Just
+        uses: extractions/setup-just@v3
 
       # Build complete documentation (Rust API + Starlight)
       - name: Build documentation
-        run: task docs:build-complete
+        run: just docs-build-complete
 
       # Upload artifact for deployment
       - name: Upload documentation artifact
