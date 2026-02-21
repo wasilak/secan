@@ -1,70 +1,122 @@
+# Secan Configuration File Example
+# 
+# This is an example configuration file showing all available options.
+# Copy this to config.yaml and customize for your environment.
+# 
+# Note: Environment variables take precedence over config file values.
+# See .env.example for environment variable options.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
 server:
-  host: "127.0.0.1"
+  # Bind address (default: 0.0.0.0)
+  host: "0.0.0.0"
+  
+  # Port (default: 27182)
   port: 27182
+  
+  # Optional TLS configuration (advanced - typically use reverse proxy)
+  # tls:
+  #   cert_file: "/etc/secan/cert.pem"
+  #   key_file: "/etc/secan/key.pem"
+
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION
+# ============================================================================
 
 auth:
-  mode: "open"
-  session:
-    timeout_seconds: 3600
-    renewal_mode: "sliding_window"
-    cookie_name: "cerebro_session"
-    secure_only: false
-  security:
-    rate_limit_attempts: 5
-    rate_limit_window_seconds: 300
-    min_password_length: 8
-    require_https: false
+  # Mode: open, local_users, or oidc (default: open)
+  mode: open
   
-  # Logging configuration for authentication events
-  # Supports: ERROR, WARN, INFO (default), DEBUG, TRACE
-  logging:
-    # Global log level for all auth events
-    level: INFO
-    
-    # Optional: Per-component log level overrides
-    # Valid components: local, oidc, session, middleware
-    # component_levels:
-    #   local: DEBUG        # More verbose logging for local auth
-    #   oidc: WARN          # Only warnings and errors from OIDC
-    #   session: INFO       # Info level for session management
-    #   middleware: INFO    # Info level for middleware
+  # Session timeout in minutes (default: 60)
+  session_timeout_minutes: 60
   
-  # Example: Local authentication configuration
-  # Uncomment and configure for local user authentication mode
-  # local:
-  #   users:
-  #     - username: admin
-  #       password_hash: "$2b$12$abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc"
-  #       hash_algorithm: bcrypt
-  #       roles:
-  #         - admin
-  #     - username: user
-  #       password_hash: "$2b$12$abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc"
-  #       hash_algorithm: bcrypt
-  #       roles:
-  #         - user
+  # Optional: local_users mode configuration
+  # local_users:
+  #   - username: "admin"
+  #     password_hash: "$2b$12$..." # bcrypt hash
+  #     roles:
+  #       - "admin"
   
-  # Example: OIDC authentication configuration
-  # Uncomment and configure for OpenID Connect mode
+  # Optional: OIDC mode configuration
   # oidc:
-  #   client_id: "cerebro-client"
-  #   client_secret: "client-secret-here"
-  #   redirect_uri: "http://localhost:3000/auth/callback"
-  #   # Use discovery URL for auto-discovery
-  #   discovery_url: "https://idp.example.com/.well-known/openid-configuration"
-  #   # OR use manual endpoint configuration
-  #   # discovery_url: null
-  #   # authorization_endpoint: "https://idp.example.com/oauth/authorize"
-  #   # token_endpoint: "https://idp.example.com/oauth/token"
-  #   # userinfo_endpoint: "https://idp.example.com/oauth/userinfo"
-  #   # jwks_uri: "https://idp.example.com/.well-known/jwks.json"
-  #   group_claim_key: "groups"
-  #   required_groups:
-  #     - "cerebro-admin"
+  #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+  #   client_id: "secan"
+  #   client_secret: "secret"
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+  
+  # Optional: role-based access control
+  # roles:
+  #   - name: "admin"
+  #     cluster_patterns:
+  #       - "*"  # Access to all clusters
+  #   - name: "viewer"
+  #     cluster_patterns:
+  #       - "production"
+
+
+# ============================================================================
+# CLUSTER CONFIGURATION (REQUIRED)
+# ============================================================================
 
 clusters:
+  # Example: Single cluster for local development
   - id: "local"
-    name: "Local Development"  # Optional: if omitted, cluster ID will be used as display name
+    name: "Local Elasticsearch"
     nodes:
       - "http://localhost:9200"
     es_version: 8
+
+  # Example: Production cluster with authentication
+  - id: "production"
+    name: "Production Cluster"
+    nodes:
+      - "http://es1.example.com:9200"
+      - "http://es2.example.com:9200"
+      - "http://es3.example.com:9200"
+    
+    # Authentication
+    auth:
+      type: "basic"
+      username: "elastic"
+      password: "secure-password"  # Consider using env vars for secrets
+    
+    # TLS configuration
+    tls:
+      verify: true
+      ca_cert_file: "/etc/secan/ca.pem"
+    
+    es_version: 8
+
+  # Example: Staging cluster
+  - id: "staging"
+    name: "Staging Cluster"
+    nodes:
+      - "http://es-staging.internal:9200"
+    auth:
+      type: "basic"
+      username: "elastic"
+      password: "staging-password"
+    es_version: 8
+
+  # Example: Cluster with API key auth
+  - id: "monitoring"
+    name: "Monitoring Cluster"
+    nodes:
+      - "http://es-monitoring:9200"
+    auth:
+      type: "api_key"
+      key: "VuaCfGcBxxx=="
+    es_version: 8
+
+
+# ============================================================================
+# CACHE CONFIGURATION
+# ============================================================================
+
+cache:
+  # Cluster metadata cache duration in seconds (default: 30)
+  metadata_duration_seconds: 30

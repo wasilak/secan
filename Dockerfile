@@ -63,11 +63,14 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=backend-builder /app/target/release/secan /app/secan
 
+# Copy default configuration
+COPY config.yaml /app/config.yaml
+
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Change ownership
-RUN chown secan:secan /app/secan /app/docker-entrypoint.sh && \
+RUN chown secan:secan /app/secan /app/config.yaml /app/docker-entrypoint.sh && \
     chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user
@@ -80,9 +83,9 @@ EXPOSE 27182
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:27182/health || exit 1
 
-# Set default environment variables
-ENV SECAN_SERVER__HOST=0.0.0.0 \
-    SECAN_SERVER__PORT=27182 \
+# Set default environment variables (config-rs format with single underscore)
+ENV SECAN_SERVER_HOST=0.0.0.0 \
+    SECAN_SERVER_PORT=27182 \
     RUST_LOG=info
 
 # Run the application with entrypoint

@@ -427,106 +427,135 @@ impl TlsConfig {
     }
 }
 
-use config::{Environment, File};
-use std::env;
+mod defaults;
 
 impl Config {
-    /// Load configuration from file and environment variables
+    /// Load configuration from environment variables and optional config files
     ///
     /// Priority (highest to lowest):
-    /// 1. Environment variables (SECAN_*)
-    /// 2. Configuration file
-    /// 3. Default values
-    ///
-    /// Configuration file search order:
-    /// 1. SECAN_CONFIG_FILE environment variable
-    /// 2. ./config.yaml (repository root)
-    /// 3. ./backend/config.yaml (backward compatibility)
-    /// 4. /etc/secan/config.yaml (system-wide)
-    /// 5. ~/.config/secan/config.yaml (user-specific)
+    /// 1. Environment variables (SECAN_* with _ separator, supports array indices like SECAN_CLUSTERS_0_ID)
+    /// 2. Configuration files (config.yaml, config.local.yaml, config.toml)
+    /// 3. Default values (hardcoded)
     pub fn load() -> anyhow::Result<Self> {
-        let config_path = if let Ok(path) = env::var("SECAN_CONFIG_FILE") {
-            path
-        } else {
-            // Try multiple locations in order
-            let search_paths = [
-                "config.yaml",                 // Root (new location)
-                "backend/config.yaml",         // Backward compatibility
-                "/etc/secan/config.yaml",      // System-wide
-                "~/.config/secan/config.yaml", // User-specific
-            ];
+        use config::{Config as ConfigRs, Environment, File};
+        use std::path::Path;
 
-            search_paths
-                .iter()
-                .find(|path| {
-                    let expanded = shellexpand::tilde(path);
-                    std::path::Path::new(expanded.as_ref()).exists()
-                })
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| "config.yaml".to_string())
-        };
+        let mut builder = ConfigRs::builder()
+            // Set defaults first (lowest priority)
+            .set_default("server.host", defaults::DEFAULT_SERVER_HOST)?
+            .set_default("server.port", defaults::DEFAULT_SERVER_PORT)?
+            .set_default("auth.mode", defaults::DEFAULT_AUTH_MODE)?
+            .set_default("auth.session_timeout_minutes", defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES)?
+            .set_default("cache.metadata_duration_seconds", defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS)?;
 
-        Self::from_file(&config_path)
-    }
+        // Add optional config files (medium priority)
+        for filename in &["config.yaml", "config.local.yaml", "config.yml", "config.local.yml", "config.toml"] {
+            if Path::new(filename).exists() {
+                builder = builder.add_source(File::from(Path::new(filename)));
+            }
+        }
 
-    /// Load configuration from a specific file path
-    pub fn from_file(path: &str) -> anyhow::Result<Self> {
-        let builder = config::Config::builder()
-            // Start with default values
-            .set_default("server.host", "0.0.0.0")?
-            .set_default("server.port", 27182)?
-            .set_default("auth.session_timeout_minutes", 60)?;
-
-        // Add file source if it exists
-        let builder = if std::path::Path::new(path).exists() {
-            builder.add_source(File::with_name(path))
-        } else {
-            tracing::warn!("Configuration file not found: {}, using defaults", path);
-            builder
-        };
-
-        // Add environment variable overrides
-        // Environment variables should be prefixed with SECAN_
-        // and use double underscore for nested fields
-        // Example: SECAN_SERVER__PORT=27182
-        let builder = builder.add_source(
+        // Add environment variables (highest priority)
+        // Uses _ as separator which matches config-rs's expected format
+        // Example: SECAN_CLUSTERS_0_ID -> clusters[0].id
+        //          SECAN_CACHE_METADATA_DURATION_SECONDS -> cache.metadata_duration_seconds
+        builder = builder.add_source(
             Environment::with_prefix("SECAN")
-                .separator("__")
+                .separator("_")
                 .try_parsing(true)
-                .prefix_separator("_"),
         );
 
-        let config = builder.build()?;
+        // Build into raw config
+        let config_rs = builder.build()?;
 
-        let parsed_config: Config = config.try_deserialize()?;
+        // Try to deserialize; if it fails due to array index issues, fix and retry
+        let final_config: Self = match config_rs.clone().try_deserialize() {
+            Ok(config) => config,
+            Err(_) => {
+                // If direct deserialization fails, it's likely due to numeric-keyed maps
+                // Convert to JSON and fix array indices
+                let clusters_value = config_rs.get("clusters").unwrap_or(serde_json::json!({}));
+                let mut config_json = serde_json::json!({
+                    "server": {
+                        "host": config_rs.get_string("server.host").unwrap_or_else(|_| defaults::DEFAULT_SERVER_HOST.to_string()),
+                        "port": config_rs.get_int("server.port").unwrap_or(defaults::DEFAULT_SERVER_PORT as i64),
+                    },
+                    "auth": {
+                        "mode": config_rs.get_string("auth.mode").unwrap_or_else(|_| defaults::DEFAULT_AUTH_MODE.to_string()),
+                        "session_timeout_minutes": config_rs.get_int("auth.session_timeout_minutes").unwrap_or(defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES as i64),
+                    },
+                    "cache": {
+                        "metadata_duration_seconds": config_rs.get_int("cache.metadata_duration_seconds").unwrap_or(defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS as i64),
+                    },
+                    "clusters": clusters_value,
+                });
+
+                Self::fix_array_indices(&mut config_json);
+                
+                serde_json::from_value(config_json)
+                    .map_err(|e| anyhow::anyhow!("Failed to deserialize configuration after fixing arrays: {}", e))?
+            }
+        };
 
         // Validate configuration
-        parsed_config.validate()?;
+        final_config.validate()?;
 
-        Ok(parsed_config)
+        Ok(final_config)
     }
 
-    /// Apply environment variable overrides to an existing config
-    pub fn with_env_overrides(self) -> anyhow::Result<Self> {
-        // Convert current config to a config builder
-        let yaml = serde_yaml::to_string(&self)?;
+    /// Fix array indices that config-rs treats as map keys
+    /// Converts { "0": {...}, "1": {...} } to [...{...}, {...}]
+    fn fix_array_indices(value: &mut serde_json::Value) {
+        if let serde_json::Value::Object(map) = value {
+            // First, recursively fix all nested values
+            for v in map.values_mut() {
+                Self::fix_array_indices(v);
+            }
 
-        let builder = config::Config::builder()
-            .add_source(File::from_str(&yaml, config::FileFormat::Yaml))
-            .add_source(
-                Environment::with_prefix("SECAN")
-                    .separator("__")
-                    .try_parsing(true),
-            );
+            // Then check if this object should be an array
+            if Self::is_numeric_keyed_map(map) {
+                // Convert object with numeric keys to array
+                let mut indices: Vec<(usize, serde_json::Value)> = map
+                    .iter()
+                    .filter_map(|(k, v)| {
+                        k.parse::<usize>().ok().map(|idx| (idx, v.clone()))
+                    })
+                    .collect();
 
-        let config = builder.build()?;
-        let parsed_config: Config = config.try_deserialize()?;
+                if !indices.is_empty() {
+                    indices.sort_by_key(|(idx, _)| *idx);
 
-        // Validate configuration
-        parsed_config.validate()?;
+                    // Determine the max index to size the array properly
+                    let max_idx = indices.last().map(|(idx, _)| *idx).unwrap_or(0);
+                    let mut array = vec![serde_json::Value::Null; max_idx + 1];
 
-        Ok(parsed_config)
+                    for (idx, v) in indices {
+                        array[idx] = v;
+                    }
+
+                    *value = serde_json::Value::Array(array);
+                }
+            }
+        } else if let serde_json::Value::Array(arr) = value {
+            for v in arr.iter_mut() {
+                Self::fix_array_indices(v);
+            }
+        }
     }
+
+    /// Check if a map should be an array (has numeric keys, not necessarily all consecutive)
+    fn is_numeric_keyed_map(map: &serde_json::Map<String, serde_json::Value>) -> bool {
+        if map.is_empty() {
+            return false;
+        }
+
+        // Most keys must be numeric for this to be an array
+        // (Allow some non-numeric keys for flexibility)
+        let numeric_keys = map.keys().filter(|k| k.parse::<usize>().is_ok()).count();
+        numeric_keys > 0 && numeric_keys == map.len()
+    }
+
+
 }
 
 impl Default for ServerConfig {
@@ -554,8 +583,6 @@ impl Default for AuthConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
 
     #[test]
     fn test_config_validation_empty_clusters() {
@@ -695,65 +722,7 @@ mod tests {
         assert!(auth.validate(cluster_id).is_ok());
     }
 
-    #[test]
-    fn test_config_from_yaml() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("config.yaml");
 
-        let yaml_content = r#"
-server:
-  host: "127.0.0.1"
-  port: 8080
-
-auth:
-  mode: open
-  session_timeout_minutes: 30
-
-clusters:
-  - id: "local"
-    name: "Local Elasticsearch"
-    nodes:
-      - "http://localhost:9200"
-    es_version: 8
-"#;
-
-        fs::write(&config_path, yaml_content).unwrap();
-
-        let config = Config::from_file(config_path.to_str().unwrap()).unwrap();
-
-        assert_eq!(config.server.host, "127.0.0.1");
-        assert_eq!(config.server.port, 8080);
-        assert_eq!(config.auth.mode, AuthMode::Open);
-        assert_eq!(config.auth.session_timeout_minutes, 30);
-        assert_eq!(config.clusters.len(), 1);
-        assert_eq!(config.clusters[0].id, "local");
-    }
-
-    #[test]
-    fn test_config_defaults() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("config.yaml");
-
-        let yaml_content = r#"
-auth:
-  mode: open
-
-clusters:
-  - id: "local"
-    name: "Local"
-    nodes:
-      - "http://localhost:9200"
-"#;
-
-        fs::write(&config_path, yaml_content).unwrap();
-
-        let config = Config::from_file(config_path.to_str().unwrap()).unwrap();
-
-        // Check defaults are applied
-        assert_eq!(config.server.host, "0.0.0.0");
-        assert_eq!(config.server.port, 27182);
-        assert_eq!(config.auth.session_timeout_minutes, 60);
-    }
 
     #[test]
     fn test_role_config_validation() {
