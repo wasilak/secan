@@ -40,10 +40,6 @@ export default defineConfig({
 						{ label: 'Logging', slug: 'configuration/logging' },
 					],
 				},
-				{
-					label: 'API Reference',
-					autogenerate: { directory: 'api' },
-				},
 			],
 			customCss: [],
 			head: [

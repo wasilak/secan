@@ -162,9 +162,9 @@ docs-rust-api:
 
 [group('docs')]
 docs-integrate-api:
-    # Integrate Rust API docs into Starlight output
-    mkdir -p docs/dist/api
-    cp -r target/doc/secan/* docs/dist/api/
+    # Copy Rust API docs to public folder for direct serving
+    mkdir -p docs/public/api
+    cp -r target/doc/secan/* docs/public/api/
 
 [group('docs')]
 docs-build-complete: frontend-build docs-rust-api docs-build docs-integrate-api
