@@ -63,8 +63,12 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=backend-builder /app/target/release/secan /app/secan
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+
 # Change ownership
-RUN chown secan:secan /app/secan
+RUN chown secan:secan /app/secan /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user
 USER secan
@@ -81,5 +85,5 @@ ENV SECAN_SERVER__HOST=0.0.0.0 \
     SECAN_SERVER__PORT=27182 \
     RUST_LOG=info
 
-# Run the application
-CMD ["/app/secan"]
+# Run the application with entrypoint
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
