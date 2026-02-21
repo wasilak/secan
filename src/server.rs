@@ -212,10 +212,12 @@ impl Server {
 
         // Setup graceful shutdown signal handler
         let shutdown_signal = async {
-            let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                .expect("Failed to setup SIGTERM handler");
-            let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-                .expect("Failed to setup SIGINT handler");
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("Failed to setup SIGTERM handler");
+            let mut sigint =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                    .expect("Failed to setup SIGINT handler");
 
             tokio::select! {
                 _ = sigterm.recv() => {

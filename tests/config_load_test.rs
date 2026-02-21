@@ -85,12 +85,22 @@ clusters:
     env::remove_var("SECAN_SERVER_PORT");
     std::env::set_current_dir(&orig_dir).unwrap();
 
-    assert!(result.is_ok(), "Should load with env overrides: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Should load with env overrides: {:?}",
+        result
+    );
     let config = result.unwrap();
 
     // Env vars should override file values
-    assert_eq!(config.server.host, "0.0.0.0", "Host should be overridden by env var");
-    assert_eq!(config.server.port, 9999, "Port should be overridden by env var");
+    assert_eq!(
+        config.server.host, "0.0.0.0",
+        "Host should be overridden by env var"
+    );
+    assert_eq!(
+        config.server.port, 9999,
+        "Port should be overridden by env var"
+    );
 }
 
 // NOTE: Testing env var overrides of existing cluster fields is complex with config-rs
@@ -124,10 +134,7 @@ clusters: []
 
     std::env::set_current_dir(&orig_dir).unwrap();
 
-    assert!(
-        result.is_err(),
-        "Should fail validation with no clusters"
-    );
+    assert!(result.is_err(), "Should fail validation with no clusters");
     assert!(result
         .unwrap_err()
         .to_string()
@@ -198,7 +205,11 @@ clusters:
     env::remove_var("SECAN_SERVER_PORT");
     std::env::set_current_dir(&orig_dir).unwrap();
 
-    assert!(result.is_ok(), "Should load with numeric env vars: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Should load with numeric env vars: {:?}",
+        result
+    );
     let config = result.unwrap();
 
     assert_eq!(config.server.port, 7777);

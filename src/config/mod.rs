@@ -445,11 +445,23 @@ impl Config {
             .set_default("server.host", defaults::DEFAULT_SERVER_HOST)?
             .set_default("server.port", defaults::DEFAULT_SERVER_PORT)?
             .set_default("auth.mode", defaults::DEFAULT_AUTH_MODE)?
-            .set_default("auth.session_timeout_minutes", defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES)?
-            .set_default("cache.metadata_duration_seconds", defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS)?;
+            .set_default(
+                "auth.session_timeout_minutes",
+                defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES,
+            )?
+            .set_default(
+                "cache.metadata_duration_seconds",
+                defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS,
+            )?;
 
         // Add optional config files (medium priority)
-        for filename in &["config.yaml", "config.local.yaml", "config.yml", "config.local.yml", "config.toml"] {
+        for filename in &[
+            "config.yaml",
+            "config.local.yaml",
+            "config.yml",
+            "config.local.yml",
+            "config.toml",
+        ] {
             if Path::new(filename).exists() {
                 builder = builder.add_source(File::from(Path::new(filename)));
             }
@@ -462,7 +474,7 @@ impl Config {
         builder = builder.add_source(
             Environment::with_prefix("SECAN")
                 .separator("_")
-                .try_parsing(true)
+                .try_parsing(true),
         );
 
         // Build into raw config
@@ -491,9 +503,13 @@ impl Config {
                 });
 
                 Self::fix_array_indices(&mut config_json);
-                
-                serde_json::from_value(config_json)
-                    .map_err(|e| anyhow::anyhow!("Failed to deserialize configuration after fixing arrays: {}", e))?
+
+                serde_json::from_value(config_json).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to deserialize configuration after fixing arrays: {}",
+                        e
+                    )
+                })?
             }
         };
 
@@ -517,9 +533,7 @@ impl Config {
                 // Convert object with numeric keys to array
                 let mut indices: Vec<(usize, serde_json::Value)> = map
                     .iter()
-                    .filter_map(|(k, v)| {
-                        k.parse::<usize>().ok().map(|idx| (idx, v.clone()))
-                    })
+                    .filter_map(|(k, v)| k.parse::<usize>().ok().map(|idx| (idx, v.clone())))
                     .collect();
 
                 if !indices.is_empty() {
@@ -554,8 +568,6 @@ impl Config {
         let numeric_keys = map.keys().filter(|k| k.parse::<usize>().is_ok()).count();
         numeric_keys > 0 && numeric_keys == map.len()
     }
-
-
 }
 
 impl Default for ServerConfig {
@@ -721,8 +733,6 @@ mod tests {
         let auth = ClusterAuth::None;
         assert!(auth.validate(cluster_id).is_ok());
     }
-
-
 
     #[test]
     fn test_role_config_validation() {
