@@ -1,0 +1,63 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabled": true,
+  "enabledManagers": [
+    "cargo",
+    "npm",
+    "github-actions"
+  ],
+  "labels": [
+    "renovate::dependencies",
+    "{{#if category}}renovate::{{category}}{{/if}}",
+    "{{#if updateType}}renovate::{{updateType}}{{/if}}",
+    "{{#if datasource}}renovate::{{datasource}}{{/if}}",
+    "{{#if manager}}renovate::{{manager}}{{/if}}",
+    "{{#if vulnerabilitySeverity}}renovate::{{vulnerabilitySeverity}}{{/if}}",
+    "renovate::{{#if isVulnerabilityAlert}}vulnerability{{else}}not-vulnerability{{/if}}"
+  ],
+  "pinDigests": false,
+  "separateMajorMinor": true,
+  "separateMinorPatch": true,
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeSchedule": [
+    "after 9am and before 4pm on Mon-Fri"
+  ],
+  "packageRules": [
+    {
+      "description": "Auto-merge minor and patch updates for npm dependencies",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Auto-merge patch updates for Rust dependencies",
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Group GitHub Actions updates together",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github-actions",
+      "automerge": false,
+      "schedule": [
+        "before 3am on Monday"
+      ]
+    }
+  ]
+}
