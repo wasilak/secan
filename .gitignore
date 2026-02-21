@@ -8,6 +8,8 @@
 !.prettierrc
 !.clippy.toml
 !.dockerignore
+# except for .env.example (template for environment variables)
+!.env.example
 # except for .kiro/ (Kiro specs and settings)
 !.kiro/
 # except for .github/ (GitHub Actions workflows)
