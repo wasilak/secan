@@ -70,15 +70,15 @@ RUN chown secan:secan /app/secan
 USER secan
 
 # Expose port
-EXPOSE 9000
+EXPOSE 27182
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:9000/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:27182/health || exit 1
 
 # Set default environment variables
 ENV SECAN_SERVER__HOST=0.0.0.0 \
-    SECAN_SERVER__PORT=9000 \
+    SECAN_SERVER__PORT=27182 \
     RUST_LOG=info
 
 # Run the application
