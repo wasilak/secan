@@ -19,7 +19,7 @@ full-dev: docker-up
 [group('frontend')]
 frontend-build:
     # Build the frontend React application
-    cd frontend && npm run build
+    cd frontend && npm ci && npm run build
 
 [group('backend')]
 backend-build:
