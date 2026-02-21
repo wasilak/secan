@@ -1,5 +1,5 @@
-/// Default configuration values for Secan
-/// These are used as the base layer in config-rs builder
+//! Default configuration values for Secan
+//! These are used as the base layer in config-rs builder
 
 pub const DEFAULT_SERVER_HOST: &str = "0.0.0.0";
 pub const DEFAULT_SERVER_PORT: u16 = 27182;
