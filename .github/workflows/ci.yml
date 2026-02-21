@@ -37,8 +37,8 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v3
         with:
-          just-version: 1.5.0
-
+          just-version: 1.46.0
+      
       - name: Install frontend dependencies (required for rust-embed)
         working-directory: frontend
         run: npm ci --include=dev
@@ -69,8 +69,8 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v3
         with:
-          just-version: 1.5.0
-
+          just-version: 1.46.0
+      
       - name: Install dependencies
         working-directory: frontend
         run: npm ci --include=dev
@@ -104,8 +104,8 @@ jobs:
       - name: Setup Just
         uses: extractions/setup-just@v3
         with:
-          just-version: 1.5.0
-
+          just-version: 1.46.0
+      
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci --include=dev
