@@ -167,5 +167,5 @@ docs-integrate-api:
     cp -r target/doc/secan/* docs/dist/api/
 
 [group('docs')]
-docs-build-complete: docs-rust-api docs-build docs-integrate-api
+docs-build-complete: frontend-build docs-rust-api docs-build docs-integrate-api
     # Build complete documentation site (Starlight + Rust API)
