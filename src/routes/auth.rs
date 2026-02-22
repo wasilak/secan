@@ -217,9 +217,19 @@ pub async fn login(
 
     // Resolve accessible clusters
     let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
+    tracing::debug!(
+        permissions_count = state.config.auth.permissions.len(),
+        user_groups = ?user.groups,
+        "Resolving cluster access"
+    );
     let accessible_clusters = permission_resolver.resolve_cluster_access(&user.groups);
+    
+    tracing::debug!(
+        accessible_clusters = ?accessible_clusters,
+        "Resolved cluster access"
+    );
 
-    // Create session
+    // Create session with accessible clusters
     let auth_user = AuthUser::new_with_clusters(
         user.username.clone(),
         user.username.clone(),
@@ -227,13 +237,16 @@ pub async fn login(
         accessible_clusters.clone(),
     );
 
-    let token = state.session_manager.create_session(auth_user).await.map_err(|e| {
-        tracing::error!(error = %e, "Session creation failed");
-        ErrorResponse {
-            error: "internal_error".to_string(),
-            message: "Failed to create session".to_string(),
-        }
-    })?;
+    let token = state.session_manager
+        .create_session_with_clusters(auth_user, accessible_clusters.clone())
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Session creation failed");
+            ErrorResponse {
+                error: "internal_error".to_string(),
+                message: "Failed to create session".to_string(),
+            }
+        })?;
 
     tracing::info!(
         username = %payload.username,
