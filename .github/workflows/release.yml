@@ -21,15 +21,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: latest
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Task
-        uses: go-task/setup-task@v1
+      - name: Setup Just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.46.0
 
       - name: Build frontend
-        run: task build-frontend-release
+        run: just frontend-build
 
       - name: Upload frontend artifacts
         uses: actions/upload-artifact@v4
@@ -80,24 +82,26 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
 
-      - name: Install Task
-        uses: go-task/setup-task@v1
+      - name: Setup Just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.46.0
 
       - name: Install cross-compilation tools (Linux)
         if: matrix.cross && runner.os == 'Linux'
-        run: task install-cross
+        run: just cross-install
 
       - name: Build binary (cross-compilation)
         if: matrix.cross
         env:
           TARGET: ${{ matrix.target }}
-        run: task build-cross-target
+        run: just cross-build
 
       - name: Build binary (native)
         if: ${{ !matrix.cross }}
         env:
           TARGET: ${{ matrix.target }}
-        run: task build-backend-target
+        run: just release-backend-target
 
       - name: Strip binary
         run: |
