@@ -1,16 +1,10 @@
 import { useMemo } from 'react';
+import { Modal, Stack, Text, Group, Button, Badge, ScrollArea, Box, Divider } from '@mantine/core';
 import {
-  Modal,
-  Stack,
-  Text,
-  Group,
-  Button,
-  Badge,
-  ScrollArea,
-  Box,
-  Divider,
-} from '@mantine/core';
-import { validateBulkOperation, getBulkOperationDisplayName, hasValidIndices } from '../utils/bulk-operations';
+  validateBulkOperation,
+  getBulkOperationDisplayName,
+  hasValidIndices,
+} from '../utils/bulk-operations';
 import type { BulkOperationType, IndexInfo } from '../types/api';
 
 export interface BulkOperationConfirmModalProps {
@@ -73,11 +67,7 @@ export function BulkOperationConfirmModal({
 }: BulkOperationConfirmModalProps) {
   // Calculate validation result
   const validationResult = useMemo(() => {
-    return validateBulkOperation(
-      indices,
-      operation,
-      new Set(selectedIndices)
-    );
+    return validateBulkOperation(indices, operation, new Set(selectedIndices));
   }, [indices, operation, selectedIndices]);
 
   const hasValid = hasValidIndices(validationResult);
@@ -86,14 +76,15 @@ export function BulkOperationConfirmModal({
   // Get operation-specific confirmation message
   const getConfirmationMessage = () => {
     const actionVerb = getActionVerb(operation);
-    
+
     if (validationResult.ignoredIndices.length === 0) {
       return `This will ${actionVerb.toLowerCase()} all ${validationResult.validIndices.length} selected indices.`;
     }
 
     return (
       <span>
-        This will <strong>{actionVerb.toLowerCase()}</strong> {validationResult.validIndices.length} indices.&nbsp;
+        This will <strong>{actionVerb.toLowerCase()}</strong> {validationResult.validIndices.length}{' '}
+        indices.&nbsp;
         {validationResult.ignoredIndices.length} indices will be skipped.
       </span>
     );
@@ -101,13 +92,20 @@ export function BulkOperationConfirmModal({
 
   const getActionVerb = (op: BulkOperationType): string => {
     switch (op) {
-      case 'open': return 'Open';
-      case 'close': return 'Close';
-      case 'delete': return 'Delete';
-      case 'refresh': return 'Refresh';
-      case 'set_read_only': return 'Set as Read-Only';
-      case 'set_writable': return 'Set as Writable';
-      default: return 'Modify';
+      case 'open':
+        return 'Open';
+      case 'close':
+        return 'Close';
+      case 'delete':
+        return 'Delete';
+      case 'refresh':
+        return 'Refresh';
+      case 'set_read_only':
+        return 'Set as Read-Only';
+      case 'set_writable':
+        return 'Set as Writable';
+      default:
+        return 'Modify';
     }
   };
 
@@ -128,11 +126,20 @@ export function BulkOperationConfirmModal({
             {getConfirmationMessage()}
           </Text>
           <Text size="xs" c="dimmed" mt="sm">
-            Total selected: <Text span fw={600}>{selectedIndices.length}</Text>
+            Total selected:{' '}
+            <Text span fw={600}>
+              {selectedIndices.length}
+            </Text>
             {' · '}
-            Will be affected: <Text span fw={600} c="green">{validationResult.validIndices.length}</Text>
+            Will be affected:{' '}
+            <Text span fw={600} c="green">
+              {validationResult.validIndices.length}
+            </Text>
             {' · '}
-            Will be ignored: <Text span fw={600} c="gray">{validationResult.ignoredIndices.length}</Text>
+            Will be ignored:{' '}
+            <Text span fw={600} c="gray">
+              {validationResult.ignoredIndices.length}
+            </Text>
           </Text>
         </Box>
 
@@ -147,12 +154,7 @@ export function BulkOperationConfirmModal({
             <ScrollArea.Autosize mah={150} type="scroll">
               <Group gap="xs" wrap="wrap">
                 {validationResult.validIndices.map((indexName) => (
-                  <Badge
-                    key={indexName}
-                    color="green"
-                    variant="light"
-                    size="sm"
-                  >
+                  <Badge key={indexName} color="green" variant="light" size="sm">
                     {indexName}
                   </Badge>
                 ))}
@@ -171,11 +173,7 @@ export function BulkOperationConfirmModal({
               <Stack gap="xs">
                 {validationResult.ignoredIndices.map((indexName) => (
                   <Group key={indexName} gap="xs" wrap="nowrap">
-                    <Badge
-                      color="gray"
-                      variant="light"
-                      size="sm"
-                    >
+                    <Badge color="gray" variant="light" size="sm">
                       {indexName}
                     </Badge>
                     <Text size="xs" c="dimmed" style={{ flex: 1 }}>
@@ -190,11 +188,7 @@ export function BulkOperationConfirmModal({
 
         {/* Action buttons */}
         <Group justify="flex-end" gap="sm" mt="md">
-          <Button
-            variant="default"
-            onClick={onClose}
-            disabled={isExecuting}
-          >
+          <Button variant="default" onClick={onClose} disabled={isExecuting}>
             Cancel
           </Button>
           <Button

@@ -62,10 +62,7 @@ impl PermissionResolver {
 ///
 /// If accessible contains "*", returns all clusters.
 /// Otherwise, returns only clusters in the accessible set.
-pub fn filter_clusters(
-    all_clusters: &[String],
-    accessible: &[String],
-) -> Vec<String> {
+pub fn filter_clusters(all_clusters: &[String], accessible: &[String]) -> Vec<String> {
     if accessible.contains(&"*".to_string()) {
         // Wildcard means access to all clusters
         return all_clusters.to_vec();
@@ -171,10 +168,8 @@ mod tests {
         let resolver = PermissionResolver::new(mappings);
 
         // User with multiple groups should get access to all matching clusters
-        let accessible = resolver.resolve_cluster_access(&[
-            "admin".to_string(),
-            "developer".to_string(),
-        ]);
+        let accessible =
+            resolver.resolve_cluster_access(&["admin".to_string(), "developer".to_string()]);
         assert_eq!(accessible.len(), 2);
         assert!(accessible.contains(&"prod-1".to_string()));
         assert!(accessible.contains(&"dev-1".to_string()));

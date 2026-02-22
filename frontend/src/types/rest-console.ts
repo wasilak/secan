@@ -1,9 +1,9 @@
 /**
  * REST Console types
- * 
+ *
  * Type definitions for the REST Console feature that allows users to
  * execute arbitrary Elasticsearch API requests.
- * 
+ *
  * Requirements: 13.3, 13.4
  */
 
@@ -14,7 +14,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD' | 'PATCH';
 
 /**
  * REST request parsed from console input
- * 
+ *
  * Format: METHOD /endpoint
  * Optional JSON body on subsequent lines
  */
@@ -26,7 +26,7 @@ export interface RestRequest {
 
 /**
  * REST response from Elasticsearch
- * 
+ *
  * Includes status, data, and timing information
  */
 export interface RestResponse {
@@ -39,7 +39,7 @@ export interface RestResponse {
 
 /**
  * Request history item stored in localStorage
- * 
+ *
  * Tracks executed requests with timestamps for history feature
  */
 export interface RequestHistoryItem {

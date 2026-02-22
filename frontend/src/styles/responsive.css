@@ -15,10 +15,10 @@
 /* Ensure minimum touch target size on all interactive elements */
 button,
 a,
-[role="button"],
-input[type="button"],
-input[type="submit"],
-input[type="reset"] {
+[role='button'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'] {
   min-height: 44px;
   min-width: 44px;
 }
@@ -33,24 +33,24 @@ html {
   html {
     font-size: 14px;
   }
-  
+
   /* Ensure tables are scrollable on mobile */
   .mantine-Table-root {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
+
   /* Stack form elements vertically on mobile */
   .mantine-Group-root {
     flex-wrap: wrap;
   }
-  
+
   /* Full width buttons on mobile */
   .mantine-Button-root {
     width: 100%;
   }
-  
+
   /* Reduce padding on mobile */
   .mantine-Container-root {
     padding-left: 0.5rem;
@@ -165,15 +165,15 @@ html {
   .text-responsive-sm {
     font-size: 0.875rem;
   }
-  
+
   .text-responsive-md {
     font-size: 1rem;
   }
-  
+
   .text-responsive-lg {
     font-size: 1.25rem;
   }
-  
+
   .text-responsive-xl {
     font-size: 1.5rem;
   }
@@ -200,15 +200,15 @@ html {
   .spacing-responsive-xs {
     padding: 0.625rem;
   }
-  
+
   .spacing-responsive-sm {
     padding: 0.875rem;
   }
-  
+
   .spacing-responsive-md {
     padding: 1.25rem;
   }
-  
+
   .spacing-responsive-lg {
     padding: 1.5rem;
   }
@@ -314,7 +314,7 @@ img {
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
   }
-  
+
   .mantine-Menu-item {
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;

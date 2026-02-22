@@ -39,7 +39,7 @@ import { FullWidthContainer } from '../components/FullWidthContainer';
 
 /**
  * Example REST requests for common Elasticsearch operations
- * 
+ *
  * Requirements: 13.20
  */
 const EXAMPLE_REQUESTS = [
@@ -104,7 +104,7 @@ const EXAMPLE_REQUESTS = [
 
 /**
  * Parse REST console request format: "METHOD endpoint"
- * 
+ *
  * Supports formats like:
  * - GET _cat/nodes
  * - GET /_cat/nodes (with leading slash)
@@ -112,7 +112,7 @@ const EXAMPLE_REQUESTS = [
  * - PUT my-index
  * - GET _cluster/settings?include_defaults (with query params)
  * - PUT service-live-2026.02.WILDCARD/_settings (with wildcards)
- * 
+ *
  * Requirements: 13.3, 13.4, 13.21, 13.22, 13.23, 13.24
  */
 function parseRequest(input: string): {
@@ -154,18 +154,23 @@ function parseRequest(input: string): {
 
 /**
  * Format response for display based on content type
- * 
+ *
  * Handles JSON and plain text responses appropriately:
  * - JSON: Pretty-printed with 2-space indentation
  * - Plain text: Returned as-is without quotes
  */
-function formatResponse(data: unknown, contentType: string | null): { text: string; language: string } {
+function formatResponse(
+  data: unknown,
+  contentType: string | null
+): { text: string; language: string } {
   // Check if content-type indicates JSON
-  const isJson = contentType?.includes('application/json') || contentType?.includes('application/vnd.elasticsearch+json');
-  
+  const isJson =
+    contentType?.includes('application/json') ||
+    contentType?.includes('application/vnd.elasticsearch+json');
+
   // Try to detect if data is JSON even without content-type header
   const looksLikeJson = typeof data === 'object' && data !== null;
-  
+
   if (isJson || looksLikeJson) {
     try {
       return {
@@ -180,7 +185,7 @@ function formatResponse(data: unknown, contentType: string | null): { text: stri
       };
     }
   }
-  
+
   // Plain text response - return as-is without quotes
   return {
     text: String(data),
@@ -190,7 +195,7 @@ function formatResponse(data: unknown, contentType: string | null): { text: stri
 
 /**
  * RestConsole component provides a Kibana-style console for executing REST requests.
- * 
+ *
  * Features:
  * - Monaco editor with syntax highlighting for request input
  * - Parse "METHOD endpoint" format
@@ -204,7 +209,7 @@ function formatResponse(data: unknown, contentType: string | null): { text: stri
  * - Limit history to configurable max entries (100)
  * - Support clearing history
  * - Export/import request collections
- * 
+ *
  * Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8, 13.9, 13.10,
  *               13.11, 13.12, 13.13, 13.14, 13.15, 13.16, 13.17, 13.18, 13.19, 13.20
  */
@@ -227,7 +232,7 @@ export function RestConsole() {
 
   /**
    * Clear the request editor
-   * 
+   *
    * Requirements: 13.1
    */
   const clearRequest = useCallback(() => {
@@ -240,7 +245,7 @@ export function RestConsole() {
 
   /**
    * Toggle history panel visibility
-   * 
+   *
    * Requirements: 13.17
    */
   const toggleHistory = useCallback(() => {
@@ -249,7 +254,7 @@ export function RestConsole() {
 
   /**
    * Load an example request
-   * 
+   *
    * Requirements: 13.20
    */
   const loadExample = useCallback((exampleRequest: string) => {
@@ -262,7 +267,7 @@ export function RestConsole() {
 
   /**
    * Execute the REST request against the cluster
-   * 
+   *
    * Requirements: 13.7, 13.8, 13.9, 13.10, 13.11
    */
   const executeRequest = useCallback(async () => {
@@ -331,7 +336,7 @@ export function RestConsole() {
     } catch (err) {
       const endTime = performance.now();
       const timeTaken = endTime - startTime;
-      
+
       const error = err as { message?: string; status?: number };
       const errorMessage = error.message || 'Request failed';
       setError(errorMessage);
@@ -352,16 +357,16 @@ export function RestConsole() {
 
   /**
    * Load a request from history
-   * 
+   *
    * Requirements: 13.12, 13.13
    */
   const loadFromHistory = useCallback((item: RequestHistoryItem) => {
     const requestText = item.body
       ? `${item.method} ${item.path}\n${item.body}`
       : `${item.method} ${item.path}`;
-    
+
     setRequest(requestText);
-    
+
     if (item.response) {
       setResponse(item.response);
     }
@@ -369,7 +374,7 @@ export function RestConsole() {
 
   /**
    * Clear request history
-   * 
+   *
    * Requirements: 13.16
    */
   const clearHistory = useCallback(() => {
@@ -383,7 +388,7 @@ export function RestConsole() {
 
   /**
    * Export request collections to JSON
-   * 
+   *
    * Requirements: 13.20
    */
   const exportHistory = useCallback(() => {
@@ -405,58 +410,61 @@ export function RestConsole() {
 
   /**
    * Import request collections from JSON
-   * 
+   *
    * Requirements: 13.20
    */
-  const importHistory = useCallback((file: File | null) => {
-    if (!file) return;
+  const importHistory = useCallback(
+    (file: File | null) => {
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const imported = JSON.parse(content) as RequestHistoryItem[];
-        
-        // Validate imported data
-        if (!Array.isArray(imported)) {
-          throw new Error('Invalid format: expected array');
-        }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          const imported = JSON.parse(content) as RequestHistoryItem[];
 
-        // Add each imported item to history
-        // The hook will handle limiting to max entries
-        imported.forEach((item) => {
-          addEntry({
-            method: item.method,
-            path: item.path,
-            body: item.body,
-            response: item.response,
+          // Validate imported data
+          if (!Array.isArray(imported)) {
+            throw new Error('Invalid format: expected array');
+          }
+
+          // Add each imported item to history
+          // The hook will handle limiting to max entries
+          imported.forEach((item) => {
+            addEntry({
+              method: item.method,
+              path: item.path,
+              body: item.body,
+              response: item.response,
+            });
           });
-        });
 
-        notifications.show({
-          title: 'Imported',
-          message: `Imported ${imported.length} requests`,
-          color: 'green',
-        });
-      } catch (err) {
-        const error = err as { message?: string };
-        notifications.show({
-          title: 'Import Failed',
-          message: error.message || 'Failed to import history',
-          color: 'red',
-        });
-      }
-    };
-    reader.readAsText(file);
-  }, [addEntry]);
+          notifications.show({
+            title: 'Imported',
+            message: `Imported ${imported.length} requests`,
+            color: 'green',
+          });
+        } catch (err) {
+          const error = err as { message?: string };
+          notifications.show({
+            title: 'Import Failed',
+            message: error.message || 'Failed to import history',
+            color: 'red',
+          });
+        }
+      };
+      reader.readAsText(file);
+    },
+    [addEntry]
+  );
 
   /**
    * Keyboard shortcuts for REST Console
-   * 
+   *
    * Ctrl+Enter / Cmd+Enter: Execute request
    * Ctrl+L / Cmd+L: Clear request editor
    * Ctrl+H / Cmd+H: Toggle history panel
-   * 
+   *
    * Requirements: 13.17
    */
   useEffect(() => {
@@ -514,7 +522,11 @@ export function RestConsole() {
                   <CopyButton value={request} timeout={2000}>
                     {({ copied, copy }) => (
                       <Tooltip label={copied ? 'Copied!' : 'Copy request'}>
-                        <ActionIcon onClick={copy} variant="subtle" color={copied ? 'teal' : 'gray'}>
+                        <ActionIcon
+                          onClick={copy}
+                          variant="subtle"
+                          color={copied ? 'teal' : 'gray'}
+                        >
                           {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
                         </ActionIcon>
                       </Tooltip>
@@ -523,11 +535,7 @@ export function RestConsole() {
 
                   <Menu shadow="md" width={250}>
                     <Menu.Target>
-                      <Button
-                        leftSection={<IconBook size={16} />}
-                        variant="light"
-                        size="sm"
-                      >
+                      <Button leftSection={<IconBook size={16} />} variant="light" size="sm">
                         Examples
                       </Button>
                     </Menu.Target>
@@ -535,10 +543,7 @@ export function RestConsole() {
                     <Menu.Dropdown>
                       <Menu.Label>Common Operations</Menu.Label>
                       {EXAMPLE_REQUESTS.map((example) => (
-                        <Menu.Item
-                          key={example.label}
-                          onClick={() => loadExample(example.request)}
-                        >
+                        <Menu.Item key={example.label} onClick={() => loadExample(example.request)}>
                           {example.label}
                         </Menu.Item>
                       ))}
@@ -564,7 +569,7 @@ export function RestConsole() {
                   </Button>
                 </Group>
               </Group>
-              
+
               <Text size="xs" c="dimmed" mb="xs">
                 Format: METHOD endpoint (e.g., GET _cluster/health)
               </Text>
@@ -621,7 +626,11 @@ export function RestConsole() {
                   <CopyButton value={response} timeout={2000}>
                     {({ copied, copy }) => (
                       <Tooltip label={copied ? 'Copied!' : 'Copy response'}>
-                        <ActionIcon onClick={copy} variant="subtle" color={copied ? 'teal' : 'gray'}>
+                        <ActionIcon
+                          onClick={copy}
+                          variant="subtle"
+                          color={copied ? 'teal' : 'gray'}
+                        >
                           {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
                         </ActionIcon>
                       </Tooltip>
@@ -669,7 +678,7 @@ export function RestConsole() {
                       </Tooltip>
                     )}
                   </FileButton>
-                  
+
                   <Tooltip label="Export">
                     <ActionIcon
                       onClick={exportHistory}

@@ -1,15 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Title,
-  Text,
-  Card,
-  Button,
-  Stack,
-  Group,
-  Alert,
-  Skeleton,
-  Box,
-} from '@mantine/core';
+import { Title, Text, Card, Button, Stack, Group, Alert, Skeleton, Box } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +12,7 @@ import { parseError } from '../lib/errorHandling';
 
 /**
  * Validate JSON string
- * 
+ *
  * Requirements: 7.3
  */
 function validateJSON(json: string): string | null {
@@ -40,13 +30,13 @@ function validateJSON(json: string): string | null {
 
 /**
  * IndexSettings component displays and allows editing of index settings
- * 
+ *
  * Features:
  * - Fetch and display current settings as JSON
  * - JSON editor for modifications with syntax highlighting
  * - JSON validation before submission
  * - Informational notes about static vs dynamic settings
- * 
+ *
  * Requirements: 7.1, 7.2, 7.3, 7.5, 7.6, 7.7, 7.8
  */
 export function IndexSettings() {
@@ -89,12 +79,7 @@ export function IndexSettings() {
   // Filter out read-only and static settings that cannot be updated on an open index
   const filterReadOnlySettings = (settings: Record<string, unknown>): Record<string, unknown> => {
     // System-managed read-only fields (never modifiable)
-    const systemReadOnlyFields = [
-      'creation_date',
-      'provided_name',
-      'uuid',
-      'version',
-    ];
+    const systemReadOnlyFields = ['creation_date', 'provided_name', 'uuid', 'version'];
 
     // Static settings (can only be set at index creation or on closed index)
     const staticFields = [
@@ -115,20 +100,20 @@ export function IndexSettings() {
     const allFilteredFields = [...systemReadOnlyFields, ...staticFields];
 
     const filtered: Record<string, unknown> = {};
-    
+
     for (const [key, value] of Object.entries(settings)) {
       if (key === 'index') {
         // Filter nested index settings
         const indexSettings = value as Record<string, unknown>;
         const filteredIndex: Record<string, unknown> = {};
-        
+
         for (const [indexKey, indexValue] of Object.entries(indexSettings)) {
           // Skip read-only and static fields
           if (!allFilteredFields.includes(indexKey)) {
             filteredIndex[indexKey] = indexValue;
           }
         }
-        
+
         if (Object.keys(filteredIndex).length > 0) {
           filtered[key] = filteredIndex;
         }
@@ -136,7 +121,7 @@ export function IndexSettings() {
         filtered[key] = value;
       }
     }
-    
+
     return filtered;
   };
 
@@ -165,17 +150,12 @@ export function IndexSettings() {
       }
 
       const parsedSettings = JSON.parse(settings);
-      
+
       // Filter out read-only settings
       const filteredSettings = filterReadOnlySettings(parsedSettings);
 
       // Update settings via API
-      await apiClient.proxyRequest(
-        clusterId,
-        'PUT',
-        `/${indexName}/_settings`,
-        filteredSettings
-      );
+      await apiClient.proxyRequest(clusterId, 'PUT', `/${indexName}/_settings`, filteredSettings);
     },
     onSuccess: () => {
       // Invalidate queries to refresh data
@@ -291,10 +271,7 @@ export function IndexSettings() {
             {indexName}
           </Text>
         </div>
-        <Button
-          variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-        >
+        <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
           Back to Indices
         </Button>
       </Group>
@@ -309,7 +286,12 @@ export function IndexSettings() {
               <Text size="xs" c="dimmed" mb="sm">
                 Edit the settings below and click "Update Settings" to apply changes
               </Text>
-              <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+              <Box
+                style={{
+                  border: '1px solid var(--mantine-color-gray-4)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                }}
+              >
                 <Editor
                   height="500px"
                   defaultLanguage="json"

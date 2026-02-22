@@ -15,7 +15,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={true} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByText('♛');
     expect(indicator).toBeInTheDocument();
   });
@@ -26,7 +26,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={false} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByText('♔');
     expect(indicator).toBeInTheDocument();
   });
@@ -37,7 +37,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={false} isMasterEligible={false} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     // Should not render any crown indicators
     expect(screen.queryByText('♛')).not.toBeInTheDocument();
     expect(screen.queryByText('♔')).not.toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={true} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByLabelText('Current Master');
     expect(indicator).toBeInTheDocument();
   });
@@ -60,7 +60,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={false} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByLabelText('Master Eligible');
     expect(indicator).toBeInTheDocument();
   });
@@ -71,7 +71,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={true} isMasterEligible={true} size="sm" showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '14px' });
   });
@@ -82,7 +82,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={true} isMasterEligible={true} showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '18px' });
   });
@@ -93,7 +93,7 @@ describe('MasterIndicator', () => {
         <MasterIndicator isMaster={true} isMasterEligible={true} size="lg" showTooltip={false} />
       </TestWrapper>
     );
-    
+
     const indicator = screen.getByText('♛');
     expect(indicator).toHaveStyle({ fontSize: '24px' });
   });

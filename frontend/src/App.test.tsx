@@ -9,7 +9,7 @@ describe('App', () => {
         <App />
       </MantineProvider>
     );
-    
+
     expect(screen.getByText('Secan')).toBeInTheDocument();
   });
 
@@ -19,7 +19,7 @@ describe('App', () => {
         <App />
       </MantineProvider>
     );
-    
+
     expect(screen.getByText('Elasticsearch Cluster Management Tool')).toBeInTheDocument();
   });
 });

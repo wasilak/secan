@@ -129,7 +129,7 @@ export function DetailPageSkeleton() {
       <Stack gap="md">
         {/* Stats cards */}
         <Group grow>
-          {Array.from({ length: 4}).map((_, index) => (
+          {Array.from({ length: 4 }).map((_, index) => (
             <Card key={index} shadow="sm" padding="md" radius="md" withBorder>
               <Skeleton height={16} width="60%" mb="xs" />
               <Skeleton height={24} width="40%" />

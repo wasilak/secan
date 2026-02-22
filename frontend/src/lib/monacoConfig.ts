@@ -3,7 +3,7 @@ import * as monaco from 'monaco-editor';
 
 /**
  * Configure Monaco Editor to use bundled files instead of CDN
- * 
+ *
  * This prevents CSP violations and ensures the editor works offline.
  * Must be called before any Monaco Editor component is rendered.
  */

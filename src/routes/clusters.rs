@@ -82,7 +82,8 @@ pub async fn list_clusters(
     );
 
     // Filter clusters based on user's accessible clusters
-    let filtered_clusters = filter_clusters_by_access(&all_clusters, &user.0.0.accessible_clusters);
+    let filtered_clusters =
+        filter_clusters_by_access(&all_clusters, &user.0 .0.accessible_clusters);
 
     tracing::debug!(
         total = all_clusters.len(),
@@ -127,7 +128,7 @@ fn check_cluster_access(
         return Ok(());
     };
 
-    let accessible = &user.0.0.accessible_clusters;
+    let accessible = &user.0 .0.accessible_clusters;
 
     // Check for wildcard access
     if accessible.iter().any(|c| c == "*") {

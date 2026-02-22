@@ -53,10 +53,10 @@ export function validateBulkOperation(
 
   // Create a map for quick index lookup
   const indexMap = new Map<string, IndexInfo>();
-  indices.forEach(index => indexMap.set(index.name, index));
+  indices.forEach((index) => indexMap.set(index.name, index));
 
   // Validate each selected index
-  selectedIndices.forEach(indexName => {
+  selectedIndices.forEach((indexName) => {
     const index = indexMap.get(indexName);
 
     if (!index) {

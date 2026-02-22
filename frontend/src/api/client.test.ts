@@ -60,9 +60,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      await expect(client.login('wrong', 'credentials')).rejects.toThrow(
-        ApiClientError
-      );
+      await expect(client.login('wrong', 'credentials')).rejects.toThrow(ApiClientError);
     });
   });
 
@@ -162,11 +160,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      const response = await client.proxyRequest(
-        'cluster1',
-        'GET',
-        '_cat/indices'
-      );
+      const response = await client.proxyRequest('cluster1', 'GET', '_cat/indices');
       expect(response.data).toEqual(mockResponse);
       expect(response.contentType).toBe('application/json');
     });
@@ -186,12 +180,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      const response = await client.proxyRequest(
-        'cluster1',
-        'POST',
-        '_search',
-        requestBody
-      );
+      const response = await client.proxyRequest('cluster1', 'POST', '_search', requestBody);
       expect(response.data).toEqual(mockResponse);
       expect(response.contentType).toBe('application/json');
     });
@@ -206,11 +195,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      const response = await client.proxyRequest(
-        'cluster1',
-        'GET',
-        '_cat/nodes'
-      );
+      const response = await client.proxyRequest('cluster1', 'GET', '_cat/nodes');
       expect(response.data).toEqual([]);
       expect(response.contentType).toBe('application/json');
     });
@@ -241,13 +226,13 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      
+
       try {
         await client.getClusters();
       } catch (error) {
         // Expected to throw
       }
-      
+
       // Note: jsdom doesn't fully support window.location.href assignment
       // In a real browser, this would redirect to /login
       restoreWindowLocation(originalLocation);
@@ -264,12 +249,8 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      await expect(
-        client.getClusterHealth('cluster1')
-      ).rejects.toThrow(ApiClientError);
-      await expect(
-        client.getClusterHealth('cluster1')
-      ).rejects.toThrow('Access forbidden');
+      await expect(client.getClusterHealth('cluster1')).rejects.toThrow(ApiClientError);
+      await expect(client.getClusterHealth('cluster1')).rejects.toThrow('Access forbidden');
     });
   });
 
@@ -345,9 +326,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(
-        ApiClientError
-      );
+      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(ApiClientError);
     });
 
     it('should handle Elasticsearch errors during relocation', async () => {
@@ -371,9 +350,7 @@ describe('ApiClient', () => {
       );
 
       const client = new ApiClient();
-      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(
-        ApiClientError
-      );
+      await expect(client.relocateShard('cluster1', request)).rejects.toThrow(ApiClientError);
     });
   });
 });

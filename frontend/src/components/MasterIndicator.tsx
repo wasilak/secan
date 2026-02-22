@@ -16,14 +16,14 @@ export interface MasterIndicatorProps {
 
 /**
  * MasterIndicator component displays a crown indicator for master and master-eligible nodes.
- * 
+ *
  * Features:
  * - Filled crown (♛) for current master node (yellow)
  * - Hollow crown (♔) for master-eligible nodes (gray)
  * - No indicator for non-master nodes
  * - Configurable size (sm, md, lg)
  * - Optional tooltip with status description
- * 
+ *
  * @example
  * ```tsx
  * <MasterIndicator isMaster={true} isMasterEligible={true} size="md" />
@@ -53,8 +53,8 @@ export function MasterIndicator({
     <Text
       component="span"
       c={color}
-      style={{ 
-        fontSize, 
+      style={{
+        fontSize,
         cursor: 'default',
         lineHeight: 1,
         display: 'inline-block',

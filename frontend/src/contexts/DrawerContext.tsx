@@ -23,16 +23,16 @@ interface DrawerProviderProps {
 
 /**
  * DrawerProvider manages drawer pin state
- * 
+ *
  * Features:
  * - Persists pin state to localStorage
  * - Provides drawer width constants
  * - Shared state across components
  */
 export function DrawerProvider({ children }: DrawerProviderProps) {
-  const [isPinned, setIsPinned] = useLocalStorage({ 
-    key: 'nav-pinned', 
-    defaultValue: false 
+  const [isPinned, setIsPinned] = useLocalStorage({
+    key: 'nav-pinned',
+    defaultValue: false,
   });
 
   return (

@@ -11,7 +11,7 @@ describe('ShardGridStore - Relocation Mode', () => {
   describe('enterRelocationMode', () => {
     it('should enter relocation mode and set selected shard', () => {
       const store = useShardGridStore.getState();
-      
+
       // Setup test data
       const testShard: ShardInfo = {
         index: 'test-index',
@@ -22,7 +22,7 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -47,12 +47,12 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
-      
+
       // Enter relocation mode
       store.enterRelocationMode(testShard);
-      
+
       // Verify state
       const state = useShardGridStore.getState();
       expect(state.relocationMode).toBe(true);
@@ -64,7 +64,7 @@ describe('ShardGridStore - Relocation Mode', () => {
   describe('calculateDestinations', () => {
     it('should filter out source node', () => {
       const store = useShardGridStore.getState();
-      
+
       const testShard: ShardInfo = {
         index: 'test-index',
         shard: 0,
@@ -74,7 +74,7 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -99,12 +99,12 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
       store.enterRelocationMode(testShard);
-      
+
       const state = useShardGridStore.getState();
-      
+
       // Source node should not be in destinations
       expect(state.destinationIndicators.has('node-1')).toBe(false);
       // Other data node should be in destinations
@@ -113,7 +113,7 @@ describe('ShardGridStore - Relocation Mode', () => {
 
     it('should filter out nodes already hosting the shard', () => {
       const store = useShardGridStore.getState();
-      
+
       const testShard: ShardInfo = {
         index: 'test-index',
         shard: 0,
@@ -123,13 +123,13 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const replicaShard: ShardInfo = {
         ...testShard,
         primary: false,
         node: 'node-2',
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -165,12 +165,12 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
       store.enterRelocationMode(testShard);
-      
+
       const state = useShardGridStore.getState();
-      
+
       // node-2 already has shard 0 (replica), should not be in destinations
       expect(state.destinationIndicators.has('node-2')).toBe(false);
       // node-3 doesn't have shard 0, should be in destinations
@@ -179,7 +179,7 @@ describe('ShardGridStore - Relocation Mode', () => {
 
     it('should filter out non-data nodes', () => {
       const store = useShardGridStore.getState();
-      
+
       const testShard: ShardInfo = {
         index: 'test-index',
         shard: 0,
@@ -189,7 +189,7 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -225,12 +225,12 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
       store.enterRelocationMode(testShard);
-      
+
       const state = useShardGridStore.getState();
-      
+
       // node-2 is master-only, should not be in destinations
       expect(state.destinationIndicators.has('node-2')).toBe(false);
       // node-3 has data role, should be in destinations
@@ -239,7 +239,7 @@ describe('ShardGridStore - Relocation Mode', () => {
 
     it('should create destination indicators with correct properties', () => {
       const store = useShardGridStore.getState();
-      
+
       const testShard: ShardInfo = {
         index: 'test-index',
         shard: 0,
@@ -249,7 +249,7 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -274,13 +274,13 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
       store.enterRelocationMode(testShard);
-      
+
       const state = useShardGridStore.getState();
       const indicator = state.destinationIndicators.get('node-2');
-      
+
       expect(indicator).toBeDefined();
       expect(indicator?.index).toBe('test-index');
       expect(indicator?.shard).toBe(0);
@@ -293,7 +293,7 @@ describe('ShardGridStore - Relocation Mode', () => {
   describe('exitRelocationMode', () => {
     it('should exit relocation mode and clear state', () => {
       const store = useShardGridStore.getState();
-      
+
       const testShard: ShardInfo = {
         index: 'test-index',
         shard: 0,
@@ -303,7 +303,7 @@ describe('ShardGridStore - Relocation Mode', () => {
         docs: 1000,
         store: 1024000,
       };
-      
+
       const testNodes: NodeWithShards[] = [
         {
           id: 'node-1',
@@ -328,19 +328,19 @@ describe('ShardGridStore - Relocation Mode', () => {
           shards: new Map(),
         },
       ];
-      
+
       store.setNodes(testNodes);
       store.enterRelocationMode(testShard);
-      
+
       // Verify we're in relocation mode
       let state = useShardGridStore.getState();
       expect(state.relocationMode).toBe(true);
       expect(state.selectedShard).not.toBeNull();
       expect(state.destinationIndicators.size).toBeGreaterThan(0);
-      
+
       // Exit relocation mode
       store.exitRelocationMode();
-      
+
       // Verify state is cleared
       state = useShardGridStore.getState();
       expect(state.relocationMode).toBe(false);

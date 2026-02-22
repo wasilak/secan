@@ -13,12 +13,12 @@ const THEME_STORAGE_KEY = 'secan-theme';
 
 /**
  * Hook for managing application theme (light, dark, system)
- * 
+ *
  * Supports three modes:
  * - light: Always use light theme
  * - dark: Always use dark theme
  * - system: Follow OS preference (default)
- * 
+ *
  * Theme preference is persisted to localStorage and restored on app load.
  */
 export function useTheme(): ThemeContextValue {
@@ -49,14 +49,14 @@ export function useTheme(): ThemeContextValue {
   const currentTheme = getStoredTheme();
 
   // Resolve the actual theme to apply
-  const resolvedTheme: 'light' | 'dark' = 
+  const resolvedTheme: 'light' | 'dark' =
     currentTheme === 'system' ? getSystemTheme() : currentTheme;
 
   // Set theme and persist to localStorage
   const setTheme = (theme: Theme) => {
     try {
       localStorage.setItem(THEME_STORAGE_KEY, theme);
-      
+
       // Apply the resolved theme
       const themeToApply = theme === 'system' ? getSystemTheme() : theme;
       setColorScheme(themeToApply);
@@ -72,7 +72,7 @@ export function useTheme(): ThemeContextValue {
     }
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = (e: MediaQueryListEvent) => {
       setColorScheme(e.matches ? 'dark' : 'light');
     };
@@ -96,7 +96,7 @@ export function useTheme(): ThemeContextValue {
   useEffect(() => {
     const storedTheme = getStoredTheme();
     const themeToApply = storedTheme === 'system' ? getSystemTheme() : storedTheme;
-    
+
     // Only set if different from current
     if (colorScheme !== themeToApply) {
       setColorScheme(themeToApply);

@@ -17,11 +17,7 @@ vi.mock('../api/client', () => ({
 
 // Helper to wrap component with MantineProvider
 function renderWithMantine(component: React.ReactElement) {
-  return render(
-    <MantineProvider>
-      {component}
-    </MantineProvider>
-  );
+  return render(<MantineProvider>{component}</MantineProvider>);
 }
 
 // Mock data for testing
@@ -40,17 +36,20 @@ const mockNodes: NodeWithShards[] = [
     isMaster: true,
     isMasterEligible: true,
     shards: new Map([
-      ['index-1', [
-        {
-          index: 'index-1',
-          shard: 0,
-          primary: true,
-          state: 'STARTED',
-          node: 'node-1',
-          docs: 1000,
-          store: 1024000,
-        },
-      ]],
+      [
+        'index-1',
+        [
+          {
+            index: 'index-1',
+            shard: 0,
+            primary: true,
+            state: 'STARTED',
+            node: 'node-1',
+            docs: 1000,
+            store: 1024000,
+          },
+        ],
+      ],
     ]),
   },
   {
@@ -67,17 +66,20 @@ const mockNodes: NodeWithShards[] = [
     isMaster: false,
     isMasterEligible: false,
     shards: new Map([
-      ['index-1', [
-        {
-          index: 'index-1',
-          shard: 0,
-          primary: false,
-          state: 'STARTED',
-          node: 'node-2',
-          docs: 1000,
-          store: 1024000,
-        },
-      ]],
+      [
+        'index-1',
+        [
+          {
+            index: 'index-1',
+            shard: 0,
+            primary: false,
+            state: 'STARTED',
+            node: 'node-2',
+            docs: 1000,
+            store: 1024000,
+          },
+        ],
+      ],
     ]),
   },
 ];
@@ -111,9 +113,9 @@ describe('ShardGrid', () => {
     vi.mocked(apiClient.getNodes).mockImplementation(() => new Promise(() => {}));
     vi.mocked(apiClient.getIndices).mockImplementation(() => new Promise(() => {}));
     vi.mocked(apiClient.getShards).mockImplementation(() => new Promise(() => {}));
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     expect(screen.getByText(/loading shard grid/i)).toBeInTheDocument();
   });
 
@@ -123,15 +125,15 @@ describe('ShardGrid', () => {
     vi.mocked(apiClient.getNodes).mockRejectedValue(error);
     vi.mocked(apiClient.getIndices).mockRejectedValue(error);
     vi.mocked(apiClient.getShards).mockRejectedValue(error);
-    
+
     // Set error state directly since the component catches errors silently
-    useShardGridStore.setState({ 
-      loading: false, 
-      error: new Error('Test error') 
+    useShardGridStore.setState({
+      loading: false,
+      error: new Error('Test error'),
     });
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       expect(screen.getByText(/error loading shard grid/i)).toBeInTheDocument();
     });
@@ -142,9 +144,9 @@ describe('ShardGrid', () => {
     vi.mocked(apiClient.getNodes).mockResolvedValue([]);
     vi.mocked(apiClient.getIndices).mockResolvedValue([]);
     vi.mocked(apiClient.getShards).mockResolvedValue([]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       expect(screen.getByText(/no data available/i)).toBeInTheDocument();
     });
@@ -174,19 +176,19 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for node names
       expect(screen.getByText('node-1')).toBeInTheDocument();
       expect(screen.getByText('node-2')).toBeInTheDocument();
     });
-    
+
     // Check for node IPs
     expect(screen.getByText('10.0.0.1')).toBeInTheDocument();
     expect(screen.getByText('10.0.0.2')).toBeInTheDocument();
-    
+
     // Check for index name
     expect(screen.getByText('index-1')).toBeInTheDocument();
   });
@@ -215,20 +217,20 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for heap usage (50%)
       expect(screen.getByText(/heap: 50%/i)).toBeInTheDocument();
     });
-    
+
     // Check for disk usage (50%)
     expect(screen.getByText(/disk: 50%/i)).toBeInTheDocument();
-    
+
     // Check for CPU usage
     expect(screen.getByText(/cpu: 45%/i)).toBeInTheDocument();
-    
+
     // Check for load average
     expect(screen.getByText(/load: 2\.50/i)).toBeInTheDocument();
   });
@@ -257,17 +259,17 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for shard count
       expect(screen.getByText(/2 shards/i)).toBeInTheDocument();
     });
-    
+
     // Check for document count
     expect(screen.getByText(/1,000 docs/i)).toBeInTheDocument();
-    
+
     // Check for size (1024000 bytes = 1000 KB)
     expect(screen.getByText(/1000\.0 KB/i)).toBeInTheDocument();
   });
@@ -296,9 +298,9 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for shard numbers (should have two shards with number 0)
       const shardCells = screen.getAllByText('0');
@@ -317,7 +319,7 @@ describe('ShardGrid', () => {
         store: 0,
       },
     ];
-    
+
     // Mock API to return test data with unassigned shards
     vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
     vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
@@ -333,9 +335,9 @@ describe('ShardGrid', () => {
       },
       ...unassignedShards,
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for unassigned shards label
       expect(screen.getByText(/unassigned shards/i)).toBeInTheDocument();
@@ -358,9 +360,9 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check that unassigned shards label is not present
       expect(screen.queryByText(/unassigned shards/i)).not.toBeInTheDocument();
@@ -382,9 +384,9 @@ describe('ShardGrid', () => {
         store: 1024000,
       },
     ]);
-    
+
     const { container } = renderWithMantine(<ShardGrid clusterId="test-cluster" />);
-    
+
     await waitFor(() => {
       // Check for sticky positioning on headers
       const thead = container.querySelector('thead');

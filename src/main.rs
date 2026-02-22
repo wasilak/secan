@@ -43,10 +43,10 @@ async fn main() -> anyhow::Result<()> {
                     eprintln!("Usage: secan hash-password <password>");
                     std::process::exit(1);
                 }
-                
+
                 let password = &args[2];
                 let hash = generate_password_hash(password)?;
-                
+
                 println!("Password hash for '{password}':");
                 println!("{hash}");
                 println!();
@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
                 println!("      password_hash: \"{hash}\"");
                 println!("      groups:");
                 println!("        - \"admin\"");
-                
+
                 return Ok(());
             }
             "-h" | "--help" => {

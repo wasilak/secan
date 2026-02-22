@@ -1,6 +1,6 @@
 /**
  * Logger utility with level controls for development debugging.
- * 
+ *
  * In production builds, debug logs are suppressed to keep the console clean.
  * Error and warning logs are always enabled for genuine error conditions.
  */

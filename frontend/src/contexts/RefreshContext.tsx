@@ -15,7 +15,7 @@ export const REFRESH_INTERVALS = {
   '5m': 300000,
 } as const;
 
-export type RefreshInterval = typeof REFRESH_INTERVALS[keyof typeof REFRESH_INTERVALS];
+export type RefreshInterval = (typeof REFRESH_INTERVALS)[keyof typeof REFRESH_INTERVALS];
 
 interface RefreshContextValue {
   interval: RefreshInterval;
@@ -34,7 +34,7 @@ interface RefreshProviderProps {
 
 /**
  * RefreshProvider manages global auto-refresh state
- * 
+ *
  * Features:
  * - Configurable refresh intervals (5s, 10s, 15s, 30s, 1m, 2m, 5m, or off)
  * - Manual refresh trigger
@@ -43,7 +43,10 @@ interface RefreshProviderProps {
  * - Persists interval selection to localStorage
  * - Tracks automatic query refetches to update lastRefreshTime
  */
-export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS['15s'] }: RefreshProviderProps) {
+export function RefreshProvider({
+  children,
+  defaultInterval = REFRESH_INTERVALS['15s'],
+}: RefreshProviderProps) {
   // Load interval from localStorage or use default
   const loadInterval = (): RefreshInterval => {
     try {
@@ -87,26 +90,29 @@ export function RefreshProvider({ children, defaultInterval = REFRESH_INTERVALS[
     localStorage.setItem('secan-refresh-interval', String(newInterval));
   }, []);
 
-  const refresh = useCallback((scope?: string | string[]) => {
-    setIsRefreshing(true);
-    setLastRefreshTime(Date.now());
-    
-    // Invalidate queries based on scope
-    if (scope) {
-      const scopes = Array.isArray(scope) ? scope : [scope];
-      scopes.forEach(s => {
-        queryClient.invalidateQueries({ queryKey: [s] });
-      });
-    } else {
-      // If no scope provided, invalidate all queries (backward compatibility)
-      queryClient.invalidateQueries();
-    }
-    
-    // Reset refreshing state after a short delay
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 500);
-  }, [queryClient]);
+  const refresh = useCallback(
+    (scope?: string | string[]) => {
+      setIsRefreshing(true);
+      setLastRefreshTime(Date.now());
+
+      // Invalidate queries based on scope
+      if (scope) {
+        const scopes = Array.isArray(scope) ? scope : [scope];
+        scopes.forEach((s) => {
+          queryClient.invalidateQueries({ queryKey: [s] });
+        });
+      } else {
+        // If no scope provided, invalidate all queries (backward compatibility)
+        queryClient.invalidateQueries();
+      }
+
+      // Reset refreshing state after a short delay
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 500);
+    },
+    [queryClient]
+  );
 
   return (
     <RefreshContext.Provider

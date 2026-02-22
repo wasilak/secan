@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 
 /**
  * TanStack Query client configuration
- * 
+ *
  * Handles server state management for API calls:
  * - Cluster health data
  * - Index information

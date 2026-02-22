@@ -1,8 +1,8 @@
 /**
  * Node sorting utilities
- * 
+ *
  * Provides sorting functions for node lists with master-first ordering.
- * 
+ *
  * Requirements: 5.1, 5.2, 5.3
  */
 
@@ -10,15 +10,15 @@ import { NodeInfo } from '../types/api';
 
 /**
  * Sort nodes with master nodes first, then alphabetically by name
- * 
+ *
  * Sorting rules:
  * 1. Master nodes appear before non-master nodes
  * 2. Within master nodes, sort alphabetically by name
  * 3. Within non-master nodes, sort alphabetically by name
- * 
+ *
  * @param nodes - Array of nodes to sort
  * @returns Sorted array of nodes (does not mutate original array)
- * 
+ *
  * Requirements: 5.1, 5.2, 5.3
  */
 export function sortNodesMasterFirst(nodes: NodeInfo[]): NodeInfo[] {
@@ -42,7 +42,7 @@ export function sortNodesMasterFirst(nodes: NodeInfo[]): NodeInfo[] {
 
 /**
  * Sort nodes alphabetically by name
- * 
+ *
  * @param nodes - Array of nodes to sort
  * @returns Sorted array of nodes (does not mutate original array)
  */
@@ -52,9 +52,9 @@ export function sortNodesByName(nodes: NodeInfo[]): NodeInfo[] {
 
 /**
  * Sort nodes by a specific field
- * 
+ *
  * Generic sorting function that can sort by any numeric or string field.
- * 
+ *
  * @param nodes - Array of nodes to sort
  * @param field - Field name to sort by
  * @param direction - Sort direction ('asc' or 'desc')
@@ -90,21 +90,21 @@ export function sortNodesBy<K extends keyof NodeInfo>(
 
 /**
  * Filter nodes by role
- * 
+ *
  * @param nodes - Array of nodes to filter
  * @param role - Role to filter by (e.g., 'master', 'data', 'ingest')
  * @returns Filtered array of nodes
  */
 export function filterNodesByRole(nodes: NodeInfo[], role: string): NodeInfo[] {
-  return nodes.filter(node => node.roles.includes(role as never));
+  return nodes.filter((node) => node.roles.includes(role as never));
 }
 
 /**
  * Check if a node has the data role
- * 
+ *
  * @param node - Node to check
  * @returns True if node has data role
- * 
+ *
  * Requirements: 10.1, 10.2, 10.3
  */
 export function hasDataRole(node: NodeInfo): boolean {
@@ -113,12 +113,12 @@ export function hasDataRole(node: NodeInfo): boolean {
 
 /**
  * Filter nodes to only include data nodes
- * 
+ *
  * Used for cluster overview table to exclude master-only nodes.
- * 
+ *
  * @param nodes - Array of nodes to filter
  * @returns Filtered array containing only data nodes
- * 
+ *
  * Requirements: 10.1, 10.2, 10.3
  */
 export function filterDataNodes(nodes: NodeInfo[]): NodeInfo[] {

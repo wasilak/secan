@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 /**
  * Example Zustand store
- * 
+ *
  * This demonstrates the state management pattern.
  * Actual stores will be created as features are implemented:
  * - Theme store (light/dark/system)

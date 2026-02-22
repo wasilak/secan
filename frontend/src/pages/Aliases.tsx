@@ -29,14 +29,14 @@ import { ListPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * Aliases component displays and manages index aliases
- * 
+ *
  * Features:
  * - Display existing aliases
  * - Create new aliases with multiple indices
  * - Support routing and filter parameters
  * - Delete aliases
  * - Atomic alias operations
- * 
+ *
  * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8
  */
 export function Aliases() {
@@ -108,13 +108,17 @@ export function Aliases() {
   }
 
   // Group aliases by alias name
-  const aliasesByName = aliases?.reduce((acc, alias) => {
-    if (!acc[alias.alias]) {
-      acc[alias.alias] = [];
-    }
-    acc[alias.alias].push(alias);
-    return acc;
-  }, {} as Record<string, AliasInfo[]>) || {};
+  const aliasesByName =
+    aliases?.reduce(
+      (acc, alias) => {
+        if (!acc[alias.alias]) {
+          acc[alias.alias] = [];
+        }
+        acc[alias.alias].push(alias);
+        return acc;
+      },
+      {} as Record<string, AliasInfo[]>
+    ) || {};
 
   return (
     <FullWidthContainer>
@@ -125,10 +129,7 @@ export function Aliases() {
             Manage index aliases for zero-downtime migrations and logical groupings
           </Text>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setCreateModalOpen(true)}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
           Create Alias
         </Button>
       </Group>
@@ -137,10 +138,7 @@ export function Aliases() {
         {Object.keys(aliasesByName).length === 0 ? (
           <Stack gap="md" align="center" py="xl">
             <Text c="dimmed">No aliases found</Text>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => setCreateModalOpen(true)}
-            >
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
               Create Alias
             </Button>
           </Stack>
@@ -161,7 +159,9 @@ export function Aliases() {
                 {Object.entries(aliasesByName).map(([aliasName, aliasInfos]) => (
                   <Table.Tr key={aliasName}>
                     <Table.Td>
-                      <Text size="sm" fw={500}>{aliasName}</Text>
+                      <Text size="sm" fw={500}>
+                        {aliasName}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
@@ -183,7 +183,7 @@ export function Aliases() {
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      {aliasInfos.some(info => info.isWriteIndex) && (
+                      {aliasInfos.some((info) => info.isWriteIndex) && (
                         <Badge size="sm" color="blue">
                           Yes
                         </Badge>
@@ -197,7 +197,9 @@ export function Aliases() {
                             color="red"
                             variant="subtle"
                             onClick={() => {
-                              if (confirm(`Delete alias "${aliasName}" from index "${info.index}"?`)) {
+                              if (
+                                confirm(`Delete alias "${aliasName}" from index "${info.index}"?`)
+                              ) {
                                 deleteMutation.mutate({ index: info.index, alias: aliasName });
                               }
                             }}
@@ -220,7 +222,7 @@ export function Aliases() {
         opened={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         clusterId={id}
-        availableIndices={indices?.map(i => i.name) || []}
+        availableIndices={indices?.map((i) => i.name) || []}
       />
     </FullWidthContainer>
   );
@@ -228,7 +230,7 @@ export function Aliases() {
 
 /**
  * CreateAliasModal component for creating new aliases
- * 
+ *
  * Requirements: 11.2, 11.3, 11.4, 11.5, 11.6
  */
 interface CreateAliasModalProps {
@@ -304,12 +306,7 @@ function CreateAliasModal({ opened, onClose, clusterId, availableIndices }: Crea
   });
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Create Alias"
-      size="lg"
-    >
+    <Modal opened={opened} onClose={onClose} title="Create Alias" size="lg">
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <TextInput

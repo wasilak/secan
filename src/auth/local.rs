@@ -85,10 +85,7 @@ impl LocalAuthProvider {
                         accessible_clusters.clone(),
                     );
 
-                    let token = self
-                        .session_manager
-                        .create_session(auth_user)
-                        .await?;
+                    let token = self.session_manager.create_session(auth_user).await?;
 
                     tracing::info!(
                         username = %username,
@@ -186,10 +183,7 @@ impl LocalAuthProvider {
                         accessible_clusters.clone(),
                     );
 
-                    let token = self
-                        .session_manager
-                        .create_session(auth_user)
-                        .await?;
+                    let token = self.session_manager.create_session(auth_user).await?;
 
                     tracing::info!(
                         username = %username,
@@ -328,7 +322,12 @@ mod tests {
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
         let permission_resolver = PermissionResolver::empty();
-        let provider = LocalAuthProvider::with_rate_limiter(users, session_manager, rate_limiter, permission_resolver);
+        let provider = LocalAuthProvider::with_rate_limiter(
+            users,
+            session_manager,
+            rate_limiter,
+            permission_resolver,
+        );
 
         let token = provider.authenticate("admin", "admin123").await.unwrap();
         assert!(token.is_some());
@@ -342,7 +341,12 @@ mod tests {
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
         let permission_resolver = PermissionResolver::empty();
-        let provider = LocalAuthProvider::with_rate_limiter(users, session_manager, rate_limiter, permission_resolver);
+        let provider = LocalAuthProvider::with_rate_limiter(
+            users,
+            session_manager,
+            rate_limiter,
+            permission_resolver,
+        );
 
         // Make 3 failed attempts
         for _ in 0..3 {
@@ -366,7 +370,12 @@ mod tests {
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
         let permission_resolver = PermissionResolver::empty();
-        let provider = LocalAuthProvider::with_rate_limiter(users, session_manager, rate_limiter, permission_resolver);
+        let provider = LocalAuthProvider::with_rate_limiter(
+            users,
+            session_manager,
+            rate_limiter,
+            permission_resolver,
+        );
 
         let ip = "192.168.1.100";
 
@@ -395,7 +404,12 @@ mod tests {
         let rate_limit_config = RateLimitConfig::new(5, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
         let permission_resolver = PermissionResolver::empty();
-        let provider = LocalAuthProvider::with_rate_limiter(users, session_manager, rate_limiter, permission_resolver);
+        let provider = LocalAuthProvider::with_rate_limiter(
+            users,
+            session_manager,
+            rate_limiter,
+            permission_resolver,
+        );
 
         // Make 2 failed attempts
         provider

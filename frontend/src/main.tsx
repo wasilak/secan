@@ -24,34 +24,34 @@ const theme = createTheme({
   /** Secan theme customization */
   primaryColor: 'blue',
   defaultRadius: 'md',
-  
+
   // Responsive breakpoints
   breakpoints: {
-    xs: '36em',    // 576px - Mobile
-    sm: '48em',    // 768px - Tablet
-    md: '62em',    // 992px - Small laptop
-    lg: '75em',    // 1200px - Desktop
-    xl: '88em',    // 1408px - Large desktop
+    xs: '36em', // 576px - Mobile
+    sm: '48em', // 768px - Tablet
+    md: '62em', // 992px - Small laptop
+    lg: '75em', // 1200px - Desktop
+    xl: '88em', // 1408px - Large desktop
   },
-  
+
   // Responsive typography
   fontSizes: {
-    xs: '0.75rem',   // 12px
-    sm: '0.875rem',  // 14px
-    md: '1rem',      // 16px
-    lg: '1.125rem',  // 18px
-    xl: '1.25rem',   // 20px
+    xs: '0.75rem', // 12px
+    sm: '0.875rem', // 14px
+    md: '1rem', // 16px
+    lg: '1.125rem', // 18px
+    xl: '1.25rem', // 20px
   },
-  
+
   // Responsive spacing
   spacing: {
-    xs: '0.625rem',  // 10px
-    sm: '0.75rem',   // 12px
-    md: '1rem',      // 16px
-    lg: '1.25rem',   // 20px
-    xl: '1.5rem',    // 24px
+    xs: '0.625rem', // 10px
+    sm: '0.75rem', // 12px
+    md: '1rem', // 16px
+    lg: '1.25rem', // 20px
+    xl: '1.5rem', // 24px
   },
-  
+
   // Ensure minimum touch target size (44x44px)
   components: {
     Button: {

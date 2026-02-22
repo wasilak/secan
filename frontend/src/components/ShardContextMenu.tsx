@@ -18,15 +18,15 @@ interface ShardContextMenuProps {
 
 /**
  * ShardContextMenu component
- * 
+ *
  * Displays a context menu when a shard is clicked.
- * 
+ *
  * Features:
  * - "Display shard stats" option
  * - "Select for relocation" option (disabled for invalid shards)
  * - Positioned near clicked shard
  * - Closes on outside click or Escape key
- * 
+ *
  * Requirements: 4.2, 4.3, 4.4, 4.8, 4.9, 4.10
  */
 export function ShardContextMenu({
@@ -38,17 +38,15 @@ export function ShardContextMenu({
   onSelectForRelocation,
 }: ShardContextMenuProps): React.JSX.Element | null {
   const targetRef = useRef<HTMLDivElement>(null);
-  
+
   // Responsive sizing for touch-friendly menu - Requirements: 11.4
   const isMobile = useMediaQuery('(max-width: 768px)');
-  
+
   // Determine if relocation should be disabled
   // Requirements: 4.10
-  const isRelocationDisabled = 
-    shard.state === 'UNASSIGNED' ||
-    shard.state === 'RELOCATING' ||
-    shard.state === 'INITIALIZING';
-  
+  const isRelocationDisabled =
+    shard.state === 'UNASSIGNED' || shard.state === 'RELOCATING' || shard.state === 'INITIALIZING';
+
   // Get disabled reason for tooltip
   const getDisabledReason = (): string => {
     if (shard.state === 'UNASSIGNED') {
@@ -62,13 +60,13 @@ export function ShardContextMenu({
     }
     return '';
   };
-  
+
   // Handle menu item clicks
   const handleShowStats = () => {
     console.log('[ShardContextMenu] handleShowStats called');
     onShowStats(shard);
   };
-  
+
   const handleSelectForRelocation = () => {
     console.log('[ShardContextMenu] handleSelectForRelocation called');
     console.log('[ShardContextMenu] isRelocationDisabled:', isRelocationDisabled);
@@ -80,7 +78,7 @@ export function ShardContextMenu({
       console.log('[ShardContextMenu] Relocation is disabled, not calling handler');
     }
   };
-  
+
   // Handle Escape key to close menu - Requirements: 4.8
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,17 +86,17 @@ export function ShardContextMenu({
         onClose();
       }
     };
-    
+
     if (opened) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
   }, [opened, onClose]);
-  
+
   if (!opened) {
     return null;
   }
-  
+
   return (
     <>
       {/* Invisible target positioned at click location */}
@@ -113,7 +111,7 @@ export function ShardContextMenu({
           pointerEvents: 'none',
         }}
       />
-      
+
       {/* Menu with Portal to render at document root */}
       <Portal>
         <Menu
@@ -136,7 +134,7 @@ export function ShardContextMenu({
               }}
             />
           </Menu.Target>
-          
+
           <Menu.Dropdown
             style={{
               // Make menu items larger and more touch-friendly on mobile - Requirements: 11.4
@@ -151,7 +149,7 @@ export function ShardContextMenu({
             >
               Shard {shard.shard} ({shard.primary ? 'Primary' : 'Replica'})
             </Menu.Label>
-            
+
             {/* Display shard stats option - Requirements: 4.3 */}
             <Menu.Item
               leftSection={<IconInfoCircle size={isMobile ? 20 : 16} />}
@@ -164,7 +162,7 @@ export function ShardContextMenu({
             >
               Display shard stats
             </Menu.Item>
-            
+
             {/* Select for relocation option - Requirements: 4.4, 4.10 */}
             <Menu.Item
               leftSection={<IconArrowsMove size={isMobile ? 20 : 16} />}

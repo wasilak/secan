@@ -65,7 +65,7 @@ describe('ShardContextMenu', () => {
 
   it('calls onShowStats when "Display shard stats" is clicked', async () => {
     const user = userEvent.setup();
-    
+
     render(
       <TestWrapper>
         <ShardContextMenu
@@ -88,7 +88,7 @@ describe('ShardContextMenu', () => {
 
   it('calls onSelectForRelocation when "Select for relocation" is clicked for STARTED shard', async () => {
     const user = userEvent.setup();
-    
+
     render(
       <TestWrapper>
         <ShardContextMenu
@@ -130,7 +130,7 @@ describe('ShardContextMenu', () => {
     );
 
     const relocationButton = screen.getByText('Select for relocation');
-    
+
     // Button should be disabled
     expect(relocationButton.closest('button')).toBeDisabled();
   });
@@ -156,7 +156,7 @@ describe('ShardContextMenu', () => {
     );
 
     const relocationButton = screen.getByText('Select for relocation');
-    
+
     // Button should be disabled
     expect(relocationButton.closest('button')).toBeDisabled();
   });
@@ -181,7 +181,7 @@ describe('ShardContextMenu', () => {
     );
 
     const relocationButton = screen.getByText('Select for relocation');
-    
+
     // Button should be disabled
     expect(relocationButton.closest('button')).toBeDisabled();
   });

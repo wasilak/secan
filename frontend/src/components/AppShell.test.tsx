@@ -22,9 +22,7 @@ const renderWithProviders = (component: React.ReactElement) => {
       <MantineProvider>
         <RefreshProvider>
           <DrawerProvider>
-            <BrowserRouter>
-              {component}
-            </BrowserRouter>
+            <BrowserRouter>{component}</BrowserRouter>
           </DrawerProvider>
         </RefreshProvider>
       </MantineProvider>

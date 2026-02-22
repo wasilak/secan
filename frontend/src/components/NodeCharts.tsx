@@ -27,11 +27,11 @@ interface NodeChartsProps {
  */
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
     second: '2-digit',
-    hour12: false 
+    hour12: false,
   });
 }
 
@@ -49,35 +49,30 @@ function formatLoadValue(value: number | undefined): string {
   return value !== undefined ? value.toFixed(2) : 'N/A';
 }
 
-export function NodeCharts({
-  heapHistory,
-  diskHistory,
-  cpuHistory,
-  loadHistory,
-}: NodeChartsProps) {
+export function NodeCharts({ heapHistory, diskHistory, cpuHistory, loadHistory }: NodeChartsProps) {
   // Prepare heap data with formatted time
-  const heapData = heapHistory.map(point => ({
+  const heapData = heapHistory.map((point) => ({
     timestamp: point.timestamp,
     time: formatTime(point.timestamp),
     value: point.value,
   }));
 
   // Prepare disk data with formatted time
-  const diskData = diskHistory.map(point => ({
+  const diskData = diskHistory.map((point) => ({
     timestamp: point.timestamp,
     time: formatTime(point.timestamp),
     value: point.value,
   }));
 
   // Prepare CPU data with formatted time
-  const cpuData = cpuHistory.map(point => ({
+  const cpuData = cpuHistory.map((point) => ({
     timestamp: point.timestamp,
     time: formatTime(point.timestamp),
     value: point.value,
   }));
 
   // Prepare load average data with formatted time
-  const loadData = loadHistory.map(point => ({
+  const loadData = loadHistory.map((point) => ({
     timestamp: point.timestamp,
     time: formatTime(point.timestamp),
     value: point.value,
@@ -89,26 +84,32 @@ export function NodeCharts({
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Card shadow="sm" padding="lg">
           <Stack gap="xs">
-            <Text size="sm" fw={500}>Heap Usage Over Time</Text>
+            <Text size="sm" fw={500}>
+              Heap Usage Over Time
+            </Text>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={heapData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorHeap" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.05}/>
+                    <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                <XAxis 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--mantine-color-dark-4)"
+                  opacity={0.3}
+                />
+                <XAxis
                   dataKey="time"
-                  stroke="var(--mantine-color-gray-6)" 
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                   height={40}
                   angle={-45}
                   textAnchor="end"
                 />
-                <YAxis 
-                  stroke="var(--mantine-color-gray-6)" 
+                <YAxis
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                   width={35}
                   domain={[0, 100]}
@@ -143,26 +144,32 @@ export function NodeCharts({
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Card shadow="sm" padding="lg">
           <Stack gap="xs">
-            <Text size="sm" fw={500}>Disk Usage Over Time</Text>
+            <Text size="sm" fw={500}>
+              Disk Usage Over Time
+            </Text>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={diskData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorDisk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05}/>
+                    <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                <XAxis 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--mantine-color-dark-4)"
+                  opacity={0.3}
+                />
+                <XAxis
                   dataKey="time"
-                  stroke="var(--mantine-color-gray-6)" 
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                   height={40}
                   angle={-45}
                   textAnchor="end"
                 />
-                <YAxis 
-                  stroke="var(--mantine-color-gray-6)" 
+                <YAxis
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                   width={35}
                   domain={[0, 100]}
@@ -197,26 +204,36 @@ export function NodeCharts({
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Card shadow="sm" padding="lg">
           <Stack gap="xs">
-            <Text size="sm" fw={500}>CPU Usage Over Time</Text>
+            <Text size="sm" fw={500}>
+              CPU Usage Over Time
+            </Text>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={cpuData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.05}/>
+                    <stop offset="5%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.3} />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--mantine-color-green-6)"
+                      stopOpacity={0.05}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                <XAxis 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--mantine-color-dark-4)"
+                  opacity={0.3}
+                />
+                <XAxis
                   dataKey="time"
-                  stroke="var(--mantine-color-gray-6)" 
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                   height={40}
                   angle={-45}
                   textAnchor="end"
                 />
-                <YAxis 
-                  stroke="var(--mantine-color-gray-6)" 
+                <YAxis
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                   width={35}
                   domain={[0, 100]}
@@ -251,26 +268,36 @@ export function NodeCharts({
       <Grid.Col span={{ base: 12, md: 6 }}>
         <Card shadow="sm" padding="lg">
           <Stack gap="xs">
-            <Text size="sm" fw={500}>Load Average Over Time</Text>
+            <Text size="sm" fw={500}>
+              Load Average Over Time
+            </Text>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={loadData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorLoad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--mantine-color-orange-6)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--mantine-color-orange-6)" stopOpacity={0.05}/>
+                    <stop offset="5%" stopColor="var(--mantine-color-orange-6)" stopOpacity={0.3} />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--mantine-color-orange-6)"
+                      stopOpacity={0.05}
+                    />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                <XAxis 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--mantine-color-dark-4)"
+                  opacity={0.3}
+                />
+                <XAxis
                   dataKey="time"
-                  stroke="var(--mantine-color-gray-6)" 
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                   height={40}
                   angle={-45}
                   textAnchor="end"
                 />
-                <YAxis 
-                  stroke="var(--mantine-color-gray-6)" 
+                <YAxis
+                  stroke="var(--mantine-color-gray-6)"
                   tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                   width={35}
                   tickFormatter={(value) => value.toFixed(2)}

@@ -1,9 +1,4 @@
-import {
-  Modal,
-  Group,
-  Text,
-  Alert,
-} from '@mantine/core';
+import { Modal, Group, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -26,17 +21,17 @@ interface NodeModalProps {
 
 /**
  * NodeModal component displays detailed node information in a modal dialog.
- * 
+ *
  * This modal can be opened from multiple contexts (topology view, nodes list, shards list)
  * and maintains URL synchronization for direct linking and sharing.
- * 
+ *
  * Features:
  * - Modal dialog with node details
  * - URL synchronization for direct navigation
  * - Context-aware display (shows over correct view)
  * - Master indicator in title
  * - Scrollable body for long content
- * 
+ *
  * Requirements: 8.1
  */
 export function NodeModal({
@@ -87,17 +82,17 @@ export function NodeModal({
       }}
     >
       {isLoading && <NodeDetailSkeleton />}
-      
+
       {error && (
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Failed to load node statistics: {(error as Error).message}
         </Alert>
       )}
-      
+
       {!isLoading && !error && nodeStats && (
         <NodeDetailContent nodeStats={nodeStats} loading={isLoading} />
       )}
-      
+
       {!isLoading && !error && !nodeStats && (
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Node statistics not found

@@ -30,13 +30,13 @@ import { ListPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * Templates component displays and manages index templates
- * 
+ *
  * Features:
  * - Display existing templates (legacy and composable)
  * - Create new templates
  * - Delete templates
  * - Show template priority and patterns
- * 
+ *
  * Requirements: 12.1, 12.2, 12.5, 12.6, 12.7, 12.8
  */
 export function Templates() {
@@ -109,10 +109,7 @@ export function Templates() {
             Manage index templates for consistent settings across indices
           </Text>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setCreateModalOpen(true)}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
           Create Template
         </Button>
       </Group>
@@ -121,10 +118,7 @@ export function Templates() {
         {!templates || templates.length === 0 ? (
           <Stack gap="md" align="center" py="xl">
             <Text c="dimmed">No templates found</Text>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => setCreateModalOpen(true)}
-            >
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
               Create Template
             </Button>
           </Stack>
@@ -145,10 +139,16 @@ export function Templates() {
                 {templates.map((template) => (
                   <Table.Tr key={template.name}>
                     <Table.Td>
-                      <Text size="sm" fw={500}>{template.name}</Text>
+                      <Text size="sm" fw={500}>
+                        {template.name}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
-                      <Badge size="sm" variant="light" color={template.composable ? 'blue' : 'gray'}>
+                      <Badge
+                        size="sm"
+                        variant="light"
+                        color={template.composable ? 'blue' : 'gray'}
+                      >
                         {template.composable ? 'Composable' : 'Legacy'}
                       </Badge>
                     </Table.Td>
@@ -163,7 +163,11 @@ export function Templates() {
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">
-                        {template.priority !== undefined ? template.priority : template.order !== undefined ? template.order : 'N/A'}
+                        {template.priority !== undefined
+                          ? template.priority
+                          : template.order !== undefined
+                            ? template.order
+                            : 'N/A'}
                       </Text>
                     </Table.Td>
                     <Table.Td>
@@ -175,7 +179,10 @@ export function Templates() {
                         variant="subtle"
                         onClick={() => {
                           if (confirm(`Delete template "${template.name}"?`)) {
-                            deleteMutation.mutate({ name: template.name, composable: template.composable || false });
+                            deleteMutation.mutate({
+                              name: template.name,
+                              composable: template.composable || false,
+                            });
                           }
                         }}
                         loading={deleteMutation.isPending}
@@ -202,7 +209,7 @@ export function Templates() {
 
 /**
  * CreateTemplateModal component for creating new templates
- * 
+ *
  * Requirements: 12.2, 12.3, 12.4, 12.5
  */
 interface CreateTemplateModalProps {
@@ -214,7 +221,14 @@ interface CreateTemplateModalProps {
 function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModalProps) {
   const queryClient = useQueryClient();
 
-  const form = useForm<CreateTemplateRequest & { indexPatternsText: string; settingsText: string; mappingsText: string; aliasesText: string }>({
+  const form = useForm<
+    CreateTemplateRequest & {
+      indexPatternsText: string;
+      settingsText: string;
+      mappingsText: string;
+      aliasesText: string;
+    }
+  >({
     initialValues: {
       name: '',
       indexPatterns: [],
@@ -238,7 +252,8 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
         }
         return null;
       },
-      indexPatternsText: (value: string) => (!value ? 'At least one index pattern is required' : null),
+      indexPatternsText: (value: string) =>
+        !value ? 'At least one index pattern is required' : null,
     },
   });
 
@@ -318,12 +333,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
   });
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Create Template"
-      size="xl"
-    >
+    <Modal opened={opened} onClose={onClose} title="Create Template" size="xl">
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <TextInput

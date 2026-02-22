@@ -43,7 +43,7 @@ import { ListPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * Snapshots component displays and manages snapshots in a repository
- * 
+ *
  * Features:
  * - Display snapshots in repository
  * - Create new snapshots
@@ -53,7 +53,7 @@ import { ListPageSkeleton } from '../components/LoadingSkeleton';
  * - Delete snapshots
  * - Restore snapshots with options
  * - Show snapshot metadata
- * 
+ *
  * Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8, 18.9, 18.10
  */
 export function Snapshots() {
@@ -166,7 +166,7 @@ export function Snapshots() {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m`;
     }
@@ -196,10 +196,7 @@ export function Snapshots() {
             Manage snapshots for backup and restore operations
           </Text>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setCreateModalOpen(true)}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
           Create Snapshot
         </Button>
       </Group>
@@ -208,10 +205,7 @@ export function Snapshots() {
         {!snapshots || snapshots.length === 0 ? (
           <Stack gap="md" align="center" py="xl">
             <Text c="dimmed">No snapshots found in this repository</Text>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => setCreateModalOpen(true)}
-            >
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
               Create Snapshot
             </Button>
           </Stack>
@@ -233,8 +227,12 @@ export function Snapshots() {
                 {snapshots.map((snapshot) => (
                   <Table.Tr key={snapshot.snapshot}>
                     <Table.Td>
-                      <Text size="sm" fw={500}>{snapshot.snapshot}</Text>
-                      <Text size="xs" c="dimmed">{snapshot.uuid}</Text>
+                      <Text size="sm" fw={500}>
+                        {snapshot.snapshot}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {snapshot.uuid}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Badge
@@ -262,11 +260,16 @@ export function Snapshots() {
                         <Text size="sm">
                           {snapshot.shards.successful}/{snapshot.shards.total}
                           {snapshot.shards.failed > 0 && (
-                            <Text component="span" c="red"> ({snapshot.shards.failed} failed)</Text>
+                            <Text component="span" c="red">
+                              {' '}
+                              ({snapshot.shards.failed} failed)
+                            </Text>
                           )}
                         </Text>
                       ) : (
-                        <Text size="sm" c="dimmed">N/A</Text>
+                        <Text size="sm" c="dimmed">
+                          N/A
+                        </Text>
                       )}
                     </Table.Td>
                     <Table.Td>
@@ -338,7 +341,7 @@ export function Snapshots() {
 
 /**
  * CreateSnapshotModal component for creating new snapshots
- * 
+ *
  * Requirements: 18.2, 18.3, 18.4, 18.5
  */
 interface CreateSnapshotModalProps {
@@ -444,8 +447,9 @@ function CreateSnapshotModal({
 
           <Alert color="blue" title="Snapshot Information">
             <Text size="sm">
-              Snapshots are incremental and only store data that has changed since the last snapshot.
-              The snapshot process runs in the background and does not block indexing or search operations.
+              Snapshots are incremental and only store data that has changed since the last
+              snapshot. The snapshot process runs in the background and does not block indexing or
+              search operations.
             </Text>
           </Alert>
 
@@ -465,7 +469,7 @@ function CreateSnapshotModal({
 
 /**
  * RestoreSnapshotModal component for restoring snapshots
- * 
+ *
  * Requirements: 18.8, 18.9
  */
 interface RestoreSnapshotModalProps {
@@ -524,12 +528,18 @@ function RestoreSnapshotModal({
   });
 
   return (
-    <Modal opened={opened} onClose={onClose} title={`Restore Snapshot: ${snapshot.snapshot}`} size="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={`Restore Snapshot: ${snapshot.snapshot}`}
+      size="lg"
+    >
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <Alert color="blue" title="Snapshot Contents">
             <Text size="sm">
-              This snapshot contains {snapshot.indices.length} indices: {snapshot.indices.join(', ')}
+              This snapshot contains {snapshot.indices.length} indices:{' '}
+              {snapshot.indices.join(', ')}
             </Text>
           </Alert>
 
@@ -583,8 +593,9 @@ function RestoreSnapshotModal({
 
           <Alert color="yellow" title="Warning">
             <Text size="sm">
-              Restoring a snapshot will close and reopen the target indices. Ensure you understand the
-              implications before proceeding. Use rename pattern to avoid conflicts with existing indices.
+              Restoring a snapshot will close and reopen the target indices. Ensure you understand
+              the implications before proceeding. Use rename pattern to avoid conflicts with
+              existing indices.
             </Text>
           </Alert>
 

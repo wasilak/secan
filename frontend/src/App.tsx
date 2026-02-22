@@ -17,7 +17,7 @@ function App() {
         </div>
         <ThemeSelector />
       </Group>
-      
+
       {/* Router outlet for nested routes */}
       <Outlet />
     </Container>

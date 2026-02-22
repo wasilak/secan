@@ -18,7 +18,14 @@ import {
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { IconAlertCircle, IconCheck, IconSettings, IconMap, IconInfoCircle, IconChartBar } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconCheck,
+  IconSettings,
+  IconMap,
+  IconInfoCircle,
+  IconChartBar,
+} from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
@@ -46,12 +53,7 @@ function validateJSON(json: string, fieldName: string): string | null {
  */
 function filterReadOnlySettings(settings: Record<string, unknown>): Record<string, unknown> {
   // System-managed read-only fields (never modifiable)
-  const systemReadOnlyFields = [
-    'creation_date',
-    'provided_name',
-    'uuid',
-    'version',
-  ];
+  const systemReadOnlyFields = ['creation_date', 'provided_name', 'uuid', 'version'];
 
   // Static settings (can only be set at index creation or on closed index)
   const staticFields = [
@@ -75,20 +77,20 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
   const allFilteredFields = [...systemReadOnlyFields, ...staticFields];
 
   const filtered: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(settings)) {
     if (key === 'index') {
       // Filter nested index settings
       const indexSettings = value as Record<string, unknown>;
       const filteredIndex: Record<string, unknown> = {};
-      
+
       for (const [indexKey, indexValue] of Object.entries(indexSettings)) {
         // Skip read-only and static fields
         if (!allFilteredFields.includes(indexKey)) {
           filteredIndex[indexKey] = indexValue;
         }
       }
-      
+
       if (Object.keys(filteredIndex).length > 0) {
         filtered[key] = filteredIndex;
       }
@@ -96,20 +98,20 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
       filtered[key] = value;
     }
   }
-  
+
   return filtered;
 }
 
 /**
  * IndexEdit component - unified interface for editing index settings and mappings
- * 
+ *
  * Features:
  * - Tabbed interface for Settings and Mappings
  * - Shared save button that updates both if modified
  * - JSON editor for modifications with syntax highlighting
  * - JSON validation before submission
  * - Informational notes about restrictions
- * 
+ *
  * Requirements: 7.1-7.8, 8.1-8.8
  */
 export function IndexEdit() {
@@ -118,16 +120,16 @@ export function IndexEdit() {
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Get cluster ID from route params (works in both modal and standalone mode)
   const clusterId = params.id;
-  
+
   // Get index name from URL params (for modal mode) or route params (for standalone mode)
   const indexName = searchParams.get('index') || params.indexName;
-  
+
   // Get active tab from URL or default to 'settings'
   const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'settings';
-  
+
   // Ensure tab is set in URL when modal opens
   useEffect(() => {
     if (searchParams.has('index') && !searchParams.has('indexTab')) {
@@ -155,13 +157,9 @@ export function IndexEdit() {
     if (activeTab === 'stats' && !statsData && !statsLoading) {
       setStatsLoading(true);
       setStatsError(null);
-      
+
       apiClient
-        .proxyRequest<Record<string, unknown>>(
-          clusterId!,
-          'GET',
-          `/${indexName}/_stats`
-        )
+        .proxyRequest<Record<string, unknown>>(clusterId!, 'GET', `/${indexName}/_stats`)
         .then((response) => {
           setStatsData(response.data);
         })
@@ -259,12 +257,9 @@ export function IndexEdit() {
         const filteredSettings = filterReadOnlySettings(parsedSettings);
 
         updates.push(
-          apiClient.proxyRequest(
-            clusterId,
-            'PUT',
-            `/${indexName}/_settings`,
-            filteredSettings
-          ).then(() => undefined)
+          apiClient
+            .proxyRequest(clusterId, 'PUT', `/${indexName}/_settings`, filteredSettings)
+            .then(() => undefined)
         );
       }
 
@@ -279,12 +274,9 @@ export function IndexEdit() {
         const parsedMappings = JSON.parse(mappings);
 
         updates.push(
-          apiClient.proxyRequest(
-            clusterId,
-            'PUT',
-            `/${indexName}/_mapping`,
-            parsedMappings
-          ).then(() => undefined)
+          apiClient
+            .proxyRequest(clusterId, 'PUT', `/${indexName}/_mapping`, parsedMappings)
+            .then(() => undefined)
         );
       }
 
@@ -428,13 +420,12 @@ export function IndexEdit() {
     <FullWidthContainer style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
         <Group gap="xs">
-          <Badge size="lg" variant="light" color="blue">{indexName}</Badge>
+          <Badge size="lg" variant="light" color="blue">
+            {indexName}
+          </Badge>
         </Group>
         {!searchParams.has('index') && (
-          <Button
-            variant="default"
-            onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-          >
+          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
             Back to Indices
           </Button>
         )}
@@ -483,7 +474,8 @@ export function IndexEdit() {
                         <Text size="xs" mt="xs">
                           <strong>Static (require closed index):</strong>
                           <br />
-                          number_of_shards, codec, sort, store, routing_path, analysis (analyzers, tokenizers, filters), similarity, mapping, and others
+                          number_of_shards, codec, sort, store, routing_path, analysis (analyzers,
+                          tokenizers, filters), similarity, mapping, and others
                         </Text>
                       </HoverCard.Dropdown>
                     </HoverCard>
@@ -491,7 +483,12 @@ export function IndexEdit() {
                   <Text size="xs" c="dimmed" mb="sm">
                     Edit the dynamic settings below
                   </Text>
-                  <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                  <Box
+                    style={{
+                      border: '1px solid var(--mantine-color-gray-4)',
+                      borderRadius: 'var(--mantine-radius-sm)',
+                    }}
+                  >
                     <Editor
                       height="500px"
                       defaultLanguage="json"
@@ -519,10 +516,15 @@ export function IndexEdit() {
 
           <Tabs.Panel value="mappings" pt="md">
             <Stack gap="md">
-              <Alert icon={<IconInfoCircle size={16} />} color="yellow" title="Mapping Restrictions">
+              <Alert
+                icon={<IconInfoCircle size={16} />}
+                color="yellow"
+                title="Mapping Restrictions"
+              >
                 <Text size="sm">
                   <strong>Important:</strong> Existing field mappings cannot be changed or deleted.
-                  You can only <strong>add new fields</strong>. To change field types, you must reindex your data.
+                  You can only <strong>add new fields</strong>. To change field types, you must
+                  reindex your data.
                 </Text>
               </Alert>
 
@@ -535,7 +537,12 @@ export function IndexEdit() {
                     <Text size="xs" c="dimmed" mb="sm">
                       Add new fields to the mappings below
                     </Text>
-                    <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                    <Box
+                      style={{
+                        border: '1px solid var(--mantine-color-gray-4)',
+                        borderRadius: 'var(--mantine-radius-sm)',
+                      }}
+                    >
                       <Editor
                         height="500px"
                         defaultLanguage="json"
@@ -582,9 +589,7 @@ export function IndexEdit() {
                     </Alert>
                   ) : statsData ? (
                     <ScrollArea h={500}>
-                      <Code block>
-                        {JSON.stringify(statsData, null, 2)}
-                      </Code>
+                      <Code block>{JSON.stringify(statsData, null, 2)}</Code>
                     </ScrollArea>
                   ) : null}
                 </div>
@@ -615,11 +620,7 @@ export function IndexEdit() {
           >
             Reset
           </Button>
-          <Button
-            onClick={handleSubmit}
-            loading={updateMutation.isPending}
-            disabled={!isModified}
-          >
+          <Button onClick={handleSubmit} loading={updateMutation.isPending} disabled={!isModified}>
             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
           </Button>
         </Group>

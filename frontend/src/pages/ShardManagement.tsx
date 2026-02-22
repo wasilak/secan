@@ -45,7 +45,7 @@ import { getShardStateColor } from '../utils/colors';
 
 /**
  * ShardManagement component displays and manages shard allocation
- * 
+ *
  * Features:
  * - Display shard allocation
  * - Shard relocation UI
@@ -53,7 +53,7 @@ import { getShardStateColor } from '../utils/colors';
  * - Filter affected indices
  * - Expand/compress view
  * - Sort indices
- * 
+ *
  * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.7
  */
 export function ShardManagement() {
@@ -65,10 +65,10 @@ export function ShardManagement() {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [shardDetailsData, setShardDetailsData] = useState<unknown>(null);
   const [shardDetailsLoading, setShardDetailsLoading] = useState(false);
-  
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
-  
+
   // UI state from URL params
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
@@ -103,20 +103,14 @@ export function ShardManagement() {
   });
 
   // Fetch nodes for relocation targets
-  const {
-    data: nodes,
-    isLoading: nodesLoading,
-  } = useQuery({
+  const { data: nodes, isLoading: nodesLoading } = useQuery({
     queryKey: ['cluster', id, 'nodes'],
     queryFn: () => apiClient.getNodes(id!),
     enabled: !!id,
   });
 
   // Fetch cluster settings to check allocation status
-  const {
-    data: clusterSettings,
-    isLoading: settingsLoading,
-  } = useQuery({
+  const { data: clusterSettings, isLoading: settingsLoading } = useQuery({
     queryKey: ['cluster', id, 'settings'],
     queryFn: async () => {
       const response = await apiClient.proxyRequest<Record<string, unknown>>(
@@ -132,19 +126,23 @@ export function ShardManagement() {
   // Check if shard allocation is enabled
   const shardAllocationEnabled = useMemo(() => {
     if (!clusterSettings) return true;
-    
+
     const transient = clusterSettings.transient as Record<string, unknown> | undefined;
     const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
-    
+
     const transientAllocation = transient?.cluster as Record<string, unknown> | undefined;
     const persistentAllocation = persistent?.cluster as Record<string, unknown> | undefined;
-    
+
     const transientRouting = transientAllocation?.routing as Record<string, unknown> | undefined;
     const persistentRouting = persistentAllocation?.routing as Record<string, unknown> | undefined;
-    
-    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    
+
+    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+
     const enableValue = transientEnable || persistentEnable || 'all';
     return enableValue === 'all';
   }, [clusterSettings]);
@@ -201,7 +199,17 @@ export function ShardManagement() {
 
   // Relocate shard mutation
   const relocateMutation = useMutation({
-    mutationFn: ({ index, shard, fromNode, toNode }: { index: string; shard: number; fromNode: string; toNode: string }) =>
+    mutationFn: ({
+      index,
+      shard,
+      fromNode,
+      toNode,
+    }: {
+      index: string;
+      shard: number;
+      fromNode: string;
+      toNode: string;
+    }) =>
       apiClient.proxyRequest(id!, 'POST', '/_cluster/reroute', {
         commands: [
           {
@@ -248,7 +256,7 @@ export function ShardManagement() {
     if (detailsModalOpen && selectedShard) {
       setShardDetailsLoading(true);
       setShardDetailsData(null); // Reset previous data
-      
+
       apiClient
         .getShardStats(id!, selectedShard.index, selectedShard.shard)
         .then((stats) => {
@@ -270,13 +278,18 @@ export function ShardManagement() {
 
   // Group shards by index - must be before early returns
   const shardsByIndex = useMemo(() => {
-    return shards?.reduce((acc, shard) => {
-      if (!acc[shard.index]) {
-        acc[shard.index] = [];
-      }
-      acc[shard.index].push(shard);
-      return acc;
-    }, {} as Record<string, ShardInfo[]>) || {};
+    return (
+      shards?.reduce(
+        (acc, shard) => {
+          if (!acc[shard.index]) {
+            acc[shard.index] = [];
+          }
+          acc[shard.index].push(shard);
+          return acc;
+        },
+        {} as Record<string, ShardInfo[]>
+      ) || {}
+    );
   }, [shards]);
 
   // Filter and sort indices - must be before early returns
@@ -285,19 +298,15 @@ export function ShardManagement() {
 
     // Apply name filter
     if (indexFilter) {
-      indices = indices.filter(index => 
-        index.toLowerCase().includes(indexFilter.toLowerCase())
-      );
+      indices = indices.filter((index) => index.toLowerCase().includes(indexFilter.toLowerCase()));
     }
 
     // Apply "show only affected" filter
     if (showOnlyAffected) {
-      indices = indices.filter(index => {
+      indices = indices.filter((index) => {
         const indexShards = shardsByIndex[index];
-        return indexShards.some(s => 
-          s.state === 'UNASSIGNED' || 
-          s.state === 'RELOCATING' || 
-          s.state === 'INITIALIZING'
+        return indexShards.some(
+          (s) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
         );
       });
     }
@@ -335,13 +344,17 @@ export function ShardManagement() {
   }
 
   // Group shards by state
-  const shardsByState = shards?.reduce((acc, shard) => {
-    if (!acc[shard.state]) {
-      acc[shard.state] = [];
-    }
-    acc[shard.state].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>) || {};
+  const shardsByState =
+    shards?.reduce(
+      (acc, shard) => {
+        if (!acc[shard.state]) {
+          acc[shard.state] = [];
+        }
+        acc[shard.state].push(shard);
+        return acc;
+      },
+      {} as Record<string, ShardInfo[]>
+    ) || {};
 
   // Count problem shards
   const unassignedCount = shardsByState['UNASSIGNED']?.length || 0;
@@ -350,18 +363,22 @@ export function ShardManagement() {
   const hasProblems = unassignedCount > 0 || relocatingCount > 0 || initializingCount > 0;
 
   // Group shards by node
-  const shardsByNode = shards?.reduce((acc, shard) => {
-    const node = shard.node || 'UNASSIGNED';
-    if (!acc[node]) {
-      acc[node] = [];
-    }
-    acc[node].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>) || {};
+  const shardsByNode =
+    shards?.reduce(
+      (acc, shard) => {
+        const node = shard.node || 'UNASSIGNED';
+        if (!acc[node]) {
+          acc[node] = [];
+        }
+        acc[node].push(shard);
+        return acc;
+      },
+      {} as Record<string, ShardInfo[]>
+    ) || {};
 
   // Separate unassigned shards
   const unassignedShards = shardsByNode['UNASSIGNED'] || [];
-  const assignedNodes = Object.keys(shardsByNode).filter(node => node !== 'UNASSIGNED');
+  const assignedNodes = Object.keys(shardsByNode).filter((node) => node !== 'UNASSIGNED');
 
   return (
     <FullWidthContainer>
@@ -422,11 +439,7 @@ export function ShardManagement() {
 
             {/* Expand/compress view */}
             <Tooltip label={expandedView ? 'Compress view' : 'Expand view'}>
-              <ActionIcon
-                size="lg"
-                variant="subtle"
-                onClick={() => setExpandedView(!expandedView)}
-              >
+              <ActionIcon size="lg" variant="subtle" onClick={() => setExpandedView(!expandedView)}>
                 {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
               </ActionIcon>
             </Tooltip>
@@ -483,16 +496,27 @@ export function ShardManagement() {
 
       {/* Problem shards alert */}
       {hasProblems && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Shard Issues Detected" color="yellow" mb="md">
+        <Alert
+          icon={<IconAlertCircle size={16} />}
+          title="Shard Issues Detected"
+          color="yellow"
+          mb="md"
+        >
           <Stack gap="xs">
             {unassignedCount > 0 && (
-              <Text size="sm">⚠️ {unassignedCount} unassigned shard{unassignedCount > 1 ? 's' : ''}</Text>
+              <Text size="sm">
+                ⚠️ {unassignedCount} unassigned shard{unassignedCount > 1 ? 's' : ''}
+              </Text>
             )}
             {relocatingCount > 0 && (
-              <Text size="sm">🔄 {relocatingCount} relocating shard{relocatingCount > 1 ? 's' : ''}</Text>
+              <Text size="sm">
+                🔄 {relocatingCount} relocating shard{relocatingCount > 1 ? 's' : ''}
+              </Text>
             )}
             {initializingCount > 0 && (
-              <Text size="sm">⏳ {initializingCount} initializing shard{initializingCount > 1 ? 's' : ''}</Text>
+              <Text size="sm">
+                ⏳ {initializingCount} initializing shard{initializingCount > 1 ? 's' : ''}
+              </Text>
             )}
           </Stack>
         </Alert>
@@ -503,12 +527,13 @@ export function ShardManagement() {
         {Object.entries(shardsByState).map(([state, stateShards]) => (
           <Card key={state} shadow="sm" padding="md">
             <Stack gap="xs">
-              <Text size="sm" c="dimmed">{state}</Text>
-              <Text size="xl" fw={700}>{stateShards.length}</Text>
-              <Badge
-                size="sm"
-                color={getShardStateColor(state as ShardInfo['state'])}
-              >
+              <Text size="sm" c="dimmed">
+                {state}
+              </Text>
+              <Text size="xl" fw={700}>
+                {stateShards.length}
+              </Text>
+              <Badge size="sm" color={getShardStateColor(state as ShardInfo['state'])}>
                 {state}
               </Badge>
             </Stack>
@@ -523,24 +548,28 @@ export function ShardManagement() {
             <Box>
               <Title order={3}>Unassigned Shards</Title>
               <Text size="sm" c="dimmed">
-                {unassignedShards.length} shard{unassignedShards.length > 1 ? 's' : ''} not allocated to any node
+                {unassignedShards.length} shard{unassignedShards.length > 1 ? 's' : ''} not
+                allocated to any node
               </Text>
             </Box>
             <Badge size="lg" color="red" variant="filled">
               {unassignedShards.length}
             </Badge>
           </Group>
-          
+
           <Stack gap="md">
             {/* Group unassigned shards by index */}
             {Object.entries(
-              unassignedShards.reduce((acc, shard) => {
-                if (!acc[shard.index]) {
-                  acc[shard.index] = [];
-                }
-                acc[shard.index].push(shard);
-                return acc;
-              }, {} as Record<string, ShardInfo[]>)
+              unassignedShards.reduce(
+                (acc, shard) => {
+                  if (!acc[shard.index]) {
+                    acc[shard.index] = [];
+                  }
+                  acc[shard.index].push(shard);
+                  return acc;
+                },
+                {} as Record<string, ShardInfo[]>
+              )
             )
               .filter(([index]) => {
                 // Apply index filter
@@ -549,12 +578,14 @@ export function ShardManagement() {
                 }
                 return true;
               })
-              .sort(([a], [b]) => sortAscending ? a.localeCompare(b) : b.localeCompare(a))
+              .sort(([a], [b]) => (sortAscending ? a.localeCompare(b) : b.localeCompare(a)))
               .map(([index, indexShards]) => (
                 <Card key={index} shadow="xs" padding="sm" withBorder bg="white">
                   <Stack gap="xs">
                     <Group justify="space-between">
-                      <Text size="sm" fw={500}>{index}</Text>
+                      <Text size="sm" fw={500}>
+                        {index}
+                      </Text>
                       <Badge size="sm" color="red" variant="light">
                         {indexShards.length} unassigned
                       </Badge>
@@ -572,11 +603,7 @@ export function ShardManagement() {
                             </div>
                           }
                         >
-                          <Badge
-                            size="lg"
-                            variant={shard.primary ? 'filled' : 'light'}
-                            color="red"
-                          >
+                          <Badge size="lg" variant={shard.primary ? 'filled' : 'light'} color="red">
                             {shard.shard}
                           </Badge>
                         </Tooltip>
@@ -591,24 +618,32 @@ export function ShardManagement() {
 
       {/* Shard allocation by node */}
       <Card shadow="sm" padding="lg" mb="md">
-        <Title order={3} mb="md">Shard Allocation by Node</Title>
+        <Title order={3} mb="md">
+          Shard Allocation by Node
+        </Title>
         <Stack gap="md">
-          {assignedNodes.map(node => {
+          {assignedNodes.map((node) => {
             const nodeShards = shardsByNode[node];
-            const nodeInfo = nodes?.find(n => n.name === node);
-            const primaryShards = nodeShards.filter(s => s.primary).length;
-            const replicaShards = nodeShards.filter(s => !s.primary).length;
+            const nodeInfo = nodes?.find((n) => n.name === node);
+            const primaryShards = nodeShards.filter((s) => s.primary).length;
+            const replicaShards = nodeShards.filter((s) => !s.primary).length;
 
             return (
               <Card key={node} shadow="xs" padding="md" withBorder>
                 <Stack gap="xs">
                   <Group justify="space-between">
                     <Box>
-                      <Text size="sm" fw={500}>{node}</Text>
+                      <Text size="sm" fw={500}>
+                        {node}
+                      </Text>
                       {nodeInfo && expandedView && (
                         <>
-                          <Text size="xs" c="dimmed">{nodeInfo.ip}</Text>
-                          <Text size="xs" c="dimmed">Roles: {nodeInfo.roles.join(', ')}</Text>
+                          <Text size="xs" c="dimmed">
+                            {nodeInfo.ip}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            Roles: {nodeInfo.roles.join(', ')}
+                          </Text>
                         </>
                       )}
                     </Box>
@@ -628,7 +663,9 @@ export function ShardManagement() {
                   {nodeInfo && (
                     <Group gap="md">
                       <Box style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Heap</Text>
+                        <Text size="xs" c="dimmed">
+                          Heap
+                        </Text>
                         <Progress
                           value={Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100)}
                           color={getColor(Math.round((nodeInfo.heapUsed / nodeInfo.heapMax) * 100))}
@@ -642,10 +679,14 @@ export function ShardManagement() {
                         )}
                       </Box>
                       <Box style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Disk</Text>
+                        <Text size="xs" c="dimmed">
+                          Disk
+                        </Text>
                         <Progress
                           value={Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100)}
-                          color={getColor(Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100))}
+                          color={getColor(
+                            Math.round((nodeInfo.diskUsed / nodeInfo.diskTotal) * 100)
+                          )}
                           size="sm"
                           radius="xs"
                         />
@@ -667,23 +708,25 @@ export function ShardManagement() {
       {/* Detailed shard list by index */}
       <Card shadow="sm" padding="lg">
         <Title order={3} mb="md">
-          Shards by Index ({filteredIndices.length} {filteredIndices.length === 1 ? 'index' : 'indices'})
+          Shards by Index ({filteredIndices.length}{' '}
+          {filteredIndices.length === 1 ? 'index' : 'indices'})
         </Title>
         <ScrollArea>
           <Stack gap="md">
-            {filteredIndices.map(index => {
+            {filteredIndices.map((index) => {
               const indexShards = shardsByIndex[index];
-              const hasIssues = indexShards.some(s => 
-                s.state === 'UNASSIGNED' || 
-                s.state === 'RELOCATING' || 
-                s.state === 'INITIALIZING'
+              const hasIssues = indexShards.some(
+                (s) =>
+                  s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
               );
 
               return (
                 <Card key={index} shadow="xs" padding="md" withBorder>
                   <Stack gap="xs">
                     <Group justify="space-between">
-                      <Text size="sm" fw={500}>{index}</Text>
+                      <Text size="sm" fw={500}>
+                        {index}
+                      </Text>
                       {hasIssues && (
                         <Badge size="sm" color="yellow">
                           Has Issues
@@ -700,8 +743,12 @@ export function ShardManagement() {
                               <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
                               <div>State: {shard.state}</div>
                               <div>Node: {shard.node || 'N/A'}</div>
-                              {shard.docs !== undefined && shard.docs !== null && <div>Docs: {shard.docs.toLocaleString()}</div>}
-                              {shard.store !== undefined && shard.store !== null && <div>Size: {formatBytes(shard.store)}</div>}
+                              {shard.docs !== undefined && shard.docs !== null && (
+                                <div>Docs: {shard.docs.toLocaleString()}</div>
+                              )}
+                              {shard.store !== undefined && shard.store !== null && (
+                                <div>Size: {formatBytes(shard.store)}</div>
+                              )}
                             </div>
                           }
                         >
@@ -712,8 +759,8 @@ export function ShardManagement() {
                               shard.state === 'STARTED'
                                 ? 'green'
                                 : shard.state === 'UNASSIGNED'
-                                ? 'red'
-                                : 'yellow'
+                                  ? 'red'
+                                  : 'yellow'
                             }
                             onClick={(e) => {
                               // Right-click or Ctrl+click for relocate, regular click for details
@@ -761,72 +808,78 @@ export function ShardManagement() {
               if (selectedShard.node) {
                 relocateMutation.mutate({
                   index: selectedShard.index,
-                shard: selectedShard.shard,
-                fromNode: selectedShard.node,
-                toNode,
-              });
+                  shard: selectedShard.shard,
+                  fromNode: selectedShard.node,
+                  toNode,
+                });
+              }
+            }}
+            isLoading={relocateMutation.isPending}
+          />
+
+          <Modal
+            opened={detailsModalOpen}
+            onClose={() => {
+              setDetailsModalOpen(false);
+              setShardDetailsData(null);
+            }}
+            title={
+              selectedShard ? (
+                <Group gap="xs">
+                  <Text size="lg" fw={600}>
+                    Shard Details:
+                  </Text>
+                  <Badge size="lg" variant="light" color="blue">
+                    {selectedShard.index}
+                  </Badge>
+                  <Text size="lg" c="dimmed">
+                    /
+                  </Text>
+                  <Badge size="lg" variant="filled" color="cyan">
+                    #{selectedShard.shard}
+                  </Badge>
+                  <Badge
+                    size="lg"
+                    variant={selectedShard.primary ? 'filled' : 'light'}
+                    color={selectedShard.primary ? 'green' : 'gray'}
+                  >
+                    {selectedShard.primary ? 'Primary' : 'Replica'}
+                  </Badge>
+                </Group>
+              ) : (
+                'Shard Details'
+              )
             }
-          }}
-          isLoading={relocateMutation.isPending}
-        />
-        
-        <Modal
-          opened={detailsModalOpen}
-          onClose={() => {
-            setDetailsModalOpen(false);
-            setShardDetailsData(null);
-          }}
-          title={
-            selectedShard ? (
-              <Group gap="xs">
-                <Text size="lg" fw={600}>Shard Details:</Text>
-                <Badge size="lg" variant="light" color="blue">{selectedShard.index}</Badge>
-                <Text size="lg" c="dimmed">/</Text>
-                <Badge size="lg" variant="filled" color="cyan">#{selectedShard.shard}</Badge>
-                <Badge 
-                  size="lg" 
-                  variant={selectedShard.primary ? 'filled' : 'light'} 
-                  color={selectedShard.primary ? 'green' : 'gray'}
-                >
-                  {selectedShard.primary ? 'Primary' : 'Replica'}
-                </Badge>
-              </Group>
-            ) : (
-              'Shard Details'
-            )
-          }
-          size="80%"
-          fullScreen={false}
-          styles={{
-            body: {
-              height: 'calc(100vh - 120px)',
-              display: 'flex',
-              flexDirection: 'column',
-            },
-          }}
-        >
-          <ScrollArea style={{ flex: 1 }}>
-            {shardDetailsLoading ? (
-              <Stack gap="xs">
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} width="70%" radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} width="50%" radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} radius="xs" />
-                <Skeleton height={20} width="80%" radius="xs" />
-              </Stack>
-            ) : (
-              <Code block>
-                {JSON.stringify(shardDetailsData || selectedShard, null, 2)}
-              </Code>
-            )}
-          </ScrollArea>
-        </Modal>
-      </>
+            size="80%"
+            fullScreen={false}
+            styles={{
+              body: {
+                height: 'calc(100vh - 120px)',
+                display: 'flex',
+                flexDirection: 'column',
+              },
+            }}
+          >
+            <ScrollArea style={{ flex: 1 }}>
+              {shardDetailsLoading ? (
+                <Stack gap="xs">
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} width="70%" radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} width="50%" radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} radius="xs" />
+                  <Skeleton height={20} width="80%" radius="xs" />
+                </Stack>
+              ) : (
+                <Code block>{JSON.stringify(shardDetailsData || selectedShard, null, 2)}</Code>
+              )}
+            </ScrollArea>
+          </Modal>
+        </>
       )}
     </FullWidthContainer>
   );
@@ -845,7 +898,7 @@ function formatBytes(bytes: number): string {
 
 /**
  * RelocateShardModal component for relocating shards
- * 
+ *
  * Requirements: 10.2, 10.3, 10.4
  */
 interface RelocateShardModalProps {
@@ -876,8 +929,8 @@ function RelocateShardModal({
 
   // Filter out the current node from available targets
   const availableNodes = nodes
-    .filter(node => node.name !== shard.node)
-    .map(node => ({
+    .filter((node) => node.name !== shard.node)
+    .map((node) => ({
       value: node.name,
       label: `${node.name} (${node.roles.join(', ')})`,
     }));
@@ -887,12 +940,7 @@ function RelocateShardModal({
   });
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Relocate Shard"
-      size="md"
-    >
+    <Modal opened={opened} onClose={onClose} title="Relocate Shard" size="md">
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <Alert icon={<IconAlertCircle size={16} />} title="Shard Information" color="blue">
@@ -923,7 +971,8 @@ function RelocateShardModal({
 
           <Alert icon={<IconAlertCircle size={16} />} title="Warning" color="yellow">
             <Text size="sm">
-              Relocating shards can impact cluster performance. Ensure the target node has sufficient resources.
+              Relocating shards can impact cluster performance. Ensure the target node has
+              sufficient resources.
             </Text>
           </Alert>
 

@@ -2,12 +2,12 @@ import { useMediaQuery } from '@mantine/hooks';
 
 /**
  * Hook to determine responsive page size for tables based on screen width
- * 
+ *
  * Returns:
  * - 10 for large/XL screens (≥1200px)
  * - 7 for medium screens (768-1199px)
  * - 5 for small screens (<768px)
- * 
+ *
  * @example
  * ```tsx
  * const defaultPageSize = useResponsivePageSize();
@@ -17,7 +17,7 @@ import { useMediaQuery } from '@mantine/hooks';
 export function useResponsivePageSize(): number {
   const isLarge = useMediaQuery('(min-width: 1200px)');
   const isMedium = useMediaQuery('(min-width: 768px)');
-  
+
   if (isLarge) return 10;
   if (isMedium) return 7;
   return 5;

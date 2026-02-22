@@ -44,61 +44,61 @@ describe('useTheme', () => {
 
   it('should default to system theme', () => {
     window.matchMedia = createMatchMediaMock(false);
-    
+
     const { result } = renderHook(() => useTheme(), {
       wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
     });
-    
+
     expect(result.current.theme).toBe('system');
   });
 
   it('should set theme to light', () => {
     window.matchMedia = createMatchMediaMock(false);
-    
+
     const { result } = renderHook(() => useTheme(), {
       wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
     });
-    
+
     act(() => {
       result.current.setTheme('light');
     });
-    
+
     expect(localStorageMock.getItem('secan-theme')).toBe('light');
   });
 
   it('should set theme to dark', () => {
     window.matchMedia = createMatchMediaMock(false);
-    
+
     const { result } = renderHook(() => useTheme(), {
       wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
     });
-    
+
     act(() => {
       result.current.setTheme('dark');
     });
-    
+
     expect(localStorageMock.getItem('secan-theme')).toBe('dark');
   });
 
   it('should restore theme from localStorage', () => {
     localStorageMock.setItem('secan-theme', 'dark');
     window.matchMedia = createMatchMediaMock(false);
-    
+
     const { result } = renderHook(() => useTheme(), {
       wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
     });
-    
+
     expect(result.current.theme).toBe('dark');
   });
 
   it('should handle corrupted localStorage data', () => {
     localStorageMock.setItem('secan-theme', 'invalid-theme');
     window.matchMedia = createMatchMediaMock(false);
-    
+
     const { result } = renderHook(() => useTheme(), {
       wrapper: ({ children }) => <MantineProvider>{children}</MantineProvider>,
     });
-    
+
     expect(result.current.theme).toBe('system');
   });
 });

@@ -5,24 +5,24 @@ const PREFERENCES_STORAGE_KEY = 'secan-preferences';
 
 /**
  * Hook for managing user preferences with localStorage persistence
- * 
+ *
  * Provides:
  * - Type-safe access to user preferences
  * - Automatic persistence to localStorage
  * - Graceful handling of corrupted data
  * - Reset functionality to restore defaults
- * 
+ *
  * Preferences include:
  * - Theme (light, dark, system)
  * - Refresh interval for auto-updating data
  * - Last selected cluster for quick navigation
  * - REST console history
- * 
+ *
  * @example
  * ```tsx
  * function MyComponent() {
  *   const { preferences, updatePreference, resetPreferences } = usePreferences();
- *   
+ *
  *   return (
  *     <div>
  *       <p>Refresh interval: {preferences.refreshInterval}ms</p>
@@ -40,35 +40,32 @@ export function usePreferences() {
   const loadPreferences = useCallback((): UserPreferences => {
     try {
       const stored = localStorage.getItem(PREFERENCES_STORAGE_KEY);
-      
+
       if (!stored) {
         return { ...DEFAULT_PREFERENCES };
       }
 
       const parsed = JSON.parse(stored);
-      
+
       // Validate that parsed data has the expected structure
       // If any required fields are missing or invalid, use defaults
       const preferences: UserPreferences = {
-        theme: 
+        theme:
           parsed.theme === 'light' || parsed.theme === 'dark' || parsed.theme === 'system'
             ? parsed.theme
             : DEFAULT_PREFERENCES.theme,
-        
-        refreshInterval: 
+
+        refreshInterval:
           typeof parsed.refreshInterval === 'number' && parsed.refreshInterval > 0
             ? parsed.refreshInterval
             : DEFAULT_PREFERENCES.refreshInterval,
-        
-        lastSelectedCluster: 
-          typeof parsed.lastSelectedCluster === 'string'
-            ? parsed.lastSelectedCluster
-            : undefined,
-        
-        restConsoleHistory: 
-          Array.isArray(parsed.restConsoleHistory)
-            ? parsed.restConsoleHistory
-            : DEFAULT_PREFERENCES.restConsoleHistory,
+
+        lastSelectedCluster:
+          typeof parsed.lastSelectedCluster === 'string' ? parsed.lastSelectedCluster : undefined,
+
+        restConsoleHistory: Array.isArray(parsed.restConsoleHistory)
+          ? parsed.restConsoleHistory
+          : DEFAULT_PREFERENCES.restConsoleHistory,
       };
 
       return preferences;
@@ -92,10 +89,10 @@ export function usePreferences() {
 
   /**
    * Update a single preference value
-   * 
+   *
    * @param key - The preference key to update
    * @param value - The new value for the preference
-   * 
+   *
    * @example
    * ```tsx
    * updatePreference('theme', 'dark');
@@ -115,11 +112,11 @@ export function usePreferences() {
 
   /**
    * Reset all preferences to default values
-   * 
+   *
    * This clears all stored preferences and restores the application
    * to its default state. The default preferences will be saved to
    * localStorage automatically.
-   * 
+   *
    * @example
    * ```tsx
    * <button onClick={resetPreferences}>Reset to defaults</button>

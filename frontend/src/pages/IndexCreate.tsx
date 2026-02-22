@@ -22,14 +22,14 @@ import { useTheme } from '../hooks/useTheme';
 
 /**
  * Validate index name format
- * 
+ *
  * Elasticsearch index name rules:
  * - Lowercase only
  * - Cannot include \, /, *, ?, ", <, >, |, ` ` (space), ,, #
  * - Cannot start with -, _, +
  * - Cannot be . or ..
  * - Cannot be longer than 255 bytes
- * 
+ *
  * Requirements: 6.2
  */
 function validateIndexName(name: string): string | null {
@@ -65,7 +65,7 @@ function validateIndexName(name: string): string | null {
 
 /**
  * Validate JSON string
- * 
+ *
  * Requirements: 6.5
  */
 function validateJSON(json: string): string | null {
@@ -83,13 +83,13 @@ function validateJSON(json: string): string | null {
 
 /**
  * IndexCreate component provides a form to create new indices
- * 
+ *
  * Features:
  * - Name field with validation
  * - JSON editors for settings and mappings with syntax highlighting
  * - JSON validation before submission
  * - Tabbed interface for organization
- * 
+ *
  * Requirements: 6.1, 6.2, 6.4, 6.5, 6.6, 6.7, 6.8
  */
 export function IndexCreate() {
@@ -99,7 +99,9 @@ export function IndexCreate() {
   const { resolvedTheme } = useTheme();
 
   const [indexName, setIndexName] = useState('');
-  const [settings, setSettings] = useState('{\n  "number_of_shards": 1,\n  "number_of_replicas": 1\n}');
+  const [settings, setSettings] = useState(
+    '{\n  "number_of_shards": 1,\n  "number_of_replicas": 1\n}'
+  );
   const [mappings, setMappings] = useState('{\n  "properties": {\n    \n  }\n}');
   const [activeTab, setActiveTab] = useState<string | null>('basic');
 
@@ -148,12 +150,7 @@ export function IndexCreate() {
       }
 
       // Create index via API
-      await apiClient.proxyRequest(
-        clusterId,
-        'PUT',
-        `/${indexName}`,
-        body
-      );
+      await apiClient.proxyRequest(clusterId, 'PUT', `/${indexName}`, body);
     },
     onSuccess: () => {
       // Invalidate indices query to refresh the list
@@ -271,7 +268,12 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Configure index settings such as number of shards and replicas
                 </Text>
-                <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                  }}
+                >
                   <Editor
                     height="300px"
                     defaultLanguage="json"
@@ -316,7 +318,12 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Define field types and properties for your documents
                 </Text>
-                <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                  }}
+                >
                   <Editor
                     height="300px"
                     defaultLanguage="json"

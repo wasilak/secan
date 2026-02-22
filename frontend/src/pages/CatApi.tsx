@@ -57,14 +57,14 @@ const CAT_ENDPOINT_DESCRIPTIONS: Record<string, string> = {
 
 /**
  * CatApi component provides access to Elasticsearch Cat APIs
- * 
+ *
  * Features:
  * - List available Cat API endpoints
  * - Display responses in formatted table
  * - Support sorting by column
  * - Support filtering results
  * - Show help text for endpoints
- * 
+ *
  * Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.7
  */
 export function CatApiPage() {
@@ -158,9 +158,7 @@ export function CatApiPage() {
     if (filterText.trim()) {
       const lowerFilter = filterText.toLowerCase();
       data = data.filter((row) =>
-        Object.values(row).some((value) =>
-          String(value).toLowerCase().includes(lowerFilter)
-        )
+        Object.values(row).some((value) => String(value).toLowerCase().includes(lowerFilter))
       );
     }
 
@@ -209,11 +207,7 @@ export function CatApiPage() {
             Access Elasticsearch Cat APIs for compact, human-readable cluster information
           </Text>
         </div>
-        <Button
-          leftSection={<IconRefresh size={16} />}
-          variant="light"
-          onClick={handleReset}
-        >
+        <Button leftSection={<IconRefresh size={16} />} variant="light" onClick={handleReset}>
           Reset
         </Button>
       </Group>
@@ -324,13 +318,12 @@ export function CatApiPage() {
                             <Text size="sm" fw={500}>
                               {column}
                             </Text>
-                            {sortColumn === column && (
-                              sortDirection === 'asc' ? (
+                            {sortColumn === column &&
+                              (sortDirection === 'asc' ? (
                                 <IconSortAscending size={14} />
                               ) : (
                                 <IconSortDescending size={14} />
-                              )
-                            )}
+                              ))}
                           </Group>
                         </Table.Th>
                       ))}

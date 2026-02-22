@@ -32,7 +32,7 @@ interface ClusterStatisticsProps {
   documentsHistory: DataPoint[];
   shardsHistory: DataPoint[];
   unassignedHistory: DataPoint[];
-  
+
   // Current stats
   stats?: {
     numberOfNodes?: number;
@@ -44,7 +44,7 @@ interface ClusterStatisticsProps {
     unassignedShards?: number;
     relocatingShards?: number;
   };
-  
+
   // Nodes data for role distribution
   nodes?: NodeInfo[];
 }
@@ -54,11 +54,11 @@ interface ClusterStatisticsProps {
  */
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
     second: '2-digit',
-    hour12: false 
+    hour12: false,
   });
 }
 
@@ -72,15 +72,16 @@ export function ClusterStatistics({
   nodes,
 }: ClusterStatisticsProps) {
   const { colorScheme } = useMantineColorScheme();
-  
+
   // Theme-aware tooltip styles
   const tooltipStyle = {
-    backgroundColor: colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+    backgroundColor:
+      colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
     border: `1px solid ${colorScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
     borderRadius: '4px',
     color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
   };
-  
+
   // Prepare time series data for area charts
   // Merge all histories by timestamp
   const timeSeriesData = nodesHistory.map((nodePoint, index) => ({
@@ -95,8 +96,8 @@ export function ClusterStatistics({
 
   // Calculate node counts by role for radar chart
   const roleCount = new Map<string, number>();
-  nodes?.forEach(node => {
-    node.roles.forEach(role => {
+  nodes?.forEach((node) => {
+    node.roles.forEach((role) => {
       roleCount.set(role, (roleCount.get(role) || 0) + 1);
     });
   });
@@ -109,17 +110,41 @@ export function ClusterStatistics({
 
   // Prepare node types data for donut chart
   const nodeTypesData = [
-    { name: 'Data Nodes', value: stats?.numberOfDataNodes || 0, color: 'var(--mantine-color-blue-6)' },
-    { name: 'Other Nodes', value: (stats?.numberOfNodes || 0) - (stats?.numberOfDataNodes || 0), color: 'var(--mantine-color-gray-6)' },
-  ].filter(item => item.value > 0);
+    {
+      name: 'Data Nodes',
+      value: stats?.numberOfDataNodes || 0,
+      color: 'var(--mantine-color-blue-6)',
+    },
+    {
+      name: 'Other Nodes',
+      value: (stats?.numberOfNodes || 0) - (stats?.numberOfDataNodes || 0),
+      color: 'var(--mantine-color-gray-6)',
+    },
+  ].filter((item) => item.value > 0);
 
   // Prepare shard types data for donut chart
   const shardTypesData = [
-    { name: 'Primary', value: stats?.activePrimaryShards || 0, color: 'var(--mantine-color-green-6)' },
-    { name: 'Replica', value: (stats?.activeShards || 0) - (stats?.activePrimaryShards || 0), color: 'var(--mantine-color-cyan-6)' },
-    { name: 'Unassigned', value: stats?.unassignedShards || 0, color: 'var(--mantine-color-red-6)' },
-    { name: 'Relocating', value: stats?.relocatingShards || 0, color: 'var(--mantine-color-yellow-6)' },
-  ].filter(item => item.value > 0);
+    {
+      name: 'Primary',
+      value: stats?.activePrimaryShards || 0,
+      color: 'var(--mantine-color-green-6)',
+    },
+    {
+      name: 'Replica',
+      value: (stats?.activeShards || 0) - (stats?.activePrimaryShards || 0),
+      color: 'var(--mantine-color-cyan-6)',
+    },
+    {
+      name: 'Unassigned',
+      value: stats?.unassignedShards || 0,
+      color: 'var(--mantine-color-red-6)',
+    },
+    {
+      name: 'Relocating',
+      value: stats?.relocatingShards || 0,
+      color: 'var(--mantine-color-yellow-6)',
+    },
+  ].filter((item) => item.value > 0);
 
   return (
     <Stack gap="md">
@@ -128,36 +153,55 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Nodes & Indices Over Time</Text>
+              <Text size="sm" fw={500}>
+                Nodes & Indices Over Time
+              </Text>
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="colorNodes" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.05}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-blue-6)" stopOpacity={0.3} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-blue-6)"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                     <linearGradient id="colorIndices" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-green-6)" stopOpacity={0.05}/>
+                      <stop
+                        offset="5%"
+                        stopColor="var(--mantine-color-green-6)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-green-6)"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                  <XAxis 
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
                     dataKey="time"
-                    stroke="var(--mantine-color-gray-6)" 
+                    stroke="var(--mantine-color-gray-6)"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                     height={40}
                     angle={-45}
                     textAnchor="end"
                   />
-                  <YAxis 
-                    stroke="var(--mantine-color-gray-6)" 
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Area
                     type="monotone"
                     dataKey="nodes"
@@ -189,36 +233,55 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Shards Over Time</Text>
+              <Text size="sm" fw={500}>
+                Shards Over Time
+              </Text>
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="colorShards" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-violet-6)" stopOpacity={0.05}/>
+                      <stop
+                        offset="5%"
+                        stopColor="var(--mantine-color-violet-6)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-violet-6)"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                     <linearGradient id="colorUnassigned" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.05}/>
+                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.3} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-red-6)"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-                  <XAxis 
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
                     dataKey="time"
-                    stroke="var(--mantine-color-gray-6)" 
+                    stroke="var(--mantine-color-gray-6)"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                     height={40}
                     angle={-45}
                     textAnchor="end"
                   />
-                  <YAxis 
-                    stroke="var(--mantine-color-gray-6)" 
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Area
                     type="monotone"
                     dataKey="shards"
@@ -251,26 +314,32 @@ export function ClusterStatistics({
       {/* Documents Time Series - Full Width */}
       <Card shadow="sm" padding="lg">
         <Stack gap="xs">
-          <Text size="sm" fw={500}>Documents Over Time</Text>
+          <Text size="sm" fw={500}>
+            Documents Over Time
+          </Text>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05}/>
+                  <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-dark-4)" opacity={0.3} />
-              <XAxis 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--mantine-color-dark-4)"
+                opacity={0.3}
+              />
+              <XAxis
                 dataKey="time"
-                stroke="var(--mantine-color-gray-6)" 
+                stroke="var(--mantine-color-gray-6)"
                 tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                 height={40}
                 angle={-45}
                 textAnchor="end"
               />
-              <YAxis 
-                stroke="var(--mantine-color-gray-6)" 
+              <YAxis
+                stroke="var(--mantine-color-gray-6)"
                 tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                 width={50}
                 tickFormatter={(value) => value.toLocaleString()}
@@ -300,7 +369,9 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Node Types</Text>
+              <Text size="sm" fw={500}>
+                Node Types
+              </Text>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
@@ -316,9 +387,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -329,7 +398,9 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Shard Distribution</Text>
+              <Text size="sm" fw={500}>
+                Shard Distribution
+              </Text>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
@@ -345,9 +416,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -358,16 +427,18 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Nodes by Role</Text>
+              <Text size="sm" fw={500}>
+                Nodes by Role
+              </Text>
               <ResponsiveContainer width="100%" height={200}>
                 <RadarChart data={nodeRolesData}>
                   <PolarGrid stroke="var(--mantine-color-dark-4)" />
-                  <PolarAngleAxis 
-                    dataKey="role" 
+                  <PolarAngleAxis
+                    dataKey="role"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                   />
-                  <PolarRadiusAxis 
-                    angle={90} 
+                  <PolarRadiusAxis
+                    angle={90}
                     domain={[0, 'dataMax']}
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
                   />
@@ -378,9 +449,7 @@ export function ClusterStatistics({
                     fill="var(--mantine-color-blue-6)"
                     fillOpacity={0.5}
                   />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                  />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Legend />
                 </RadarChart>
               </ResponsiveContainer>

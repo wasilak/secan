@@ -24,7 +24,7 @@ import type { AnalyzerInfo, FieldInfo } from '../types/api';
 
 /**
  * IndexAnalyzers component displays analyzers and fields configured for an index
- * 
+ *
  * Features:
  * - Display configured analyzers for index
  * - Show analyzer components
@@ -32,7 +32,7 @@ import type { AnalyzerInfo, FieldInfo } from '../types/api';
  * - Show which analyzer is used per field
  * - Support field filtering
  * - Show field properties
- * 
+ *
  * Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6
  */
 export function IndexAnalyzersPage() {
@@ -90,14 +90,18 @@ export function IndexAnalyzersPage() {
   }
 
   // Filter fields
-  const filteredFields = fieldsData?.fields.filter((field: FieldInfo) => {
-    const matchesName = !fieldFilter || field.name.toLowerCase().includes(fieldFilter.toLowerCase());
-    const matchesType = !typeFilter || field.type === typeFilter;
-    return matchesName && matchesType;
-  }) || [];
+  const filteredFields =
+    fieldsData?.fields.filter((field: FieldInfo) => {
+      const matchesName =
+        !fieldFilter || field.name.toLowerCase().includes(fieldFilter.toLowerCase());
+      const matchesType = !typeFilter || field.type === typeFilter;
+      return matchesName && matchesType;
+    }) || [];
 
   // Get unique field types for filter
-  const fieldTypes = Array.from(new Set(fieldsData?.fields.map((f: FieldInfo) => f.type) || [])).sort();
+  const fieldTypes = Array.from(
+    new Set(fieldsData?.fields.map((f: FieldInfo) => f.type) || [])
+  ).sort();
 
   return (
     <FullWidthContainer>
@@ -164,7 +168,7 @@ export function IndexAnalyzersPage() {
                   onChange={(value) => setTypeFilter(value || '')}
                   data={[
                     { value: '', label: 'All types' },
-                    ...fieldTypes.map(type => ({ value: type, label: type })),
+                    ...fieldTypes.map((type) => ({ value: type, label: type })),
                   ]}
                   clearable
                 />
@@ -257,7 +261,8 @@ export function IndexAnalyzersPage() {
           <Card shadow="sm" padding="lg">
             {Object.keys(analyzersData?.analyzers || {}).length === 0 ? (
               <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
-                No custom analyzers configured for this index. The index uses built-in Elasticsearch analyzers.
+                No custom analyzers configured for this index. The index uses built-in Elasticsearch
+                analyzers.
               </Alert>
             ) : (
               <Accordion variant="contained">
@@ -342,9 +347,7 @@ export function IndexAnalyzersPage() {
                       <Code>{name}</Code>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Code block>
-                        {JSON.stringify(config, null, 2)}
-                      </Code>
+                      <Code block>{JSON.stringify(config, null, 2)}</Code>
                     </Accordion.Panel>
                   </Accordion.Item>
                 ))}
@@ -368,9 +371,7 @@ export function IndexAnalyzersPage() {
                       <Code>{name}</Code>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Code block>
-                        {JSON.stringify(config, null, 2)}
-                      </Code>
+                      <Code block>{JSON.stringify(config, null, 2)}</Code>
                     </Accordion.Panel>
                   </Accordion.Item>
                 ))}

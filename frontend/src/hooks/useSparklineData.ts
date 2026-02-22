@@ -13,15 +13,15 @@ export interface DataPoint {
  * Hook to track historical data for sparklines and charts
  * Adds a new data point on EVERY refresh (even if value doesn't change)
  * Initializes with [0, currentValue] to show trend from baseline
- * 
+ *
  * When resetKey changes (e.g., switching to statistics tab), performs an immediate
  * data pull to populate graphs right away instead of waiting for the next refresh cycle
- * 
+ *
  * This ensures the time axis progresses properly on every refresh interval
  * by tracking lastRefreshTime from RefreshContext instead of value changes
- * 
+ *
  * Uses FIFO (First In, First Out) approach: when limit is reached, oldest data point is removed
- * 
+ *
  * @param currentValue - The current value to track
  * @param maxDataPoints - Maximum number of data points to keep (default: 50)
  * @param resetKey - Optional key that when changed, resets the data (useful for tab switching)
@@ -58,7 +58,7 @@ export function useSparklineData(
       const now = Date.now();
       setData([
         { value: 0, timestamp: now - 1000 }, // 1 second before for baseline
-        { value: currentValue, timestamp: now }
+        { value: currentValue, timestamp: now },
       ]);
       needsImmediateDataRef.current = false; // Clear the flag after initialization
       return;
@@ -69,14 +69,14 @@ export function useSparklineData(
     // FIFO: when limit is reached, remove oldest (first) data point
     setData((prev) => {
       const newData = [...prev, { value: currentValue, timestamp: Date.now() }];
-      
+
       // FIFO: Keep only the last maxDataPoints by removing from the beginning
       if (newData.length > maxDataPoints) {
         return newData.slice(newData.length - maxDataPoints);
       }
       return newData;
     });
-    
+
     needsImmediateDataRef.current = false; // Clear the flag after adding data
   }, [currentValue, lastRefreshTime, maxDataPoints]);
 
@@ -93,5 +93,5 @@ export function useSparklineData(
   if (withTimestamps) {
     return data;
   }
-  return data.map(d => d.value);
+  return data.map((d) => d.value);
 }

@@ -9,7 +9,10 @@ import {
 /**
  * Shard state icon and color mapping
  */
-const SHARD_STATE_CONFIG: Record<string, { icon: typeof IconCircleCheckFilled; color: string; label: string }> = {
+const SHARD_STATE_CONFIG: Record<
+  string,
+  { icon: typeof IconCircleCheckFilled; color: string; label: string }
+> = {
   STARTED: { icon: IconCircleCheckFilled, color: 'green', label: 'started' },
   UNASSIGNED: { icon: IconHourglass, color: 'red', label: 'unassigned' },
   INITIALIZING: { icon: IconProgress, color: 'yellow', label: 'initializing' },
@@ -17,11 +20,13 @@ const SHARD_STATE_CONFIG: Record<string, { icon: typeof IconCircleCheckFilled; c
 };
 
 export function getShardStateConfig(state: string) {
-  return SHARD_STATE_CONFIG[state] || { 
-    icon: IconAlertCircle, 
-    color: 'gray', 
-    label: state 
-  };
+  return (
+    SHARD_STATE_CONFIG[state] || {
+      icon: IconAlertCircle,
+      color: 'gray',
+      label: state,
+    }
+  );
 }
 
 /**
@@ -82,10 +87,7 @@ export function ShardStateFilterToggle({
               color={`var(--mantine-color-${config.color}-6)`}
               style={{ transition: 'opacity 150ms ease' }}
             />
-            <Text
-              size="xs"
-              style={{ transition: 'opacity 150ms ease' }}
-            >
+            <Text size="xs" style={{ transition: 'opacity 150ms ease' }}>
               {config.label}
             </Text>
           </Group>

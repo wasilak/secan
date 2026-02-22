@@ -1,10 +1,25 @@
-import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
+import {
+  AppShell as MantineAppShell,
+  Burger,
+  Group,
+  Text,
+  NavLink,
+  Drawer,
+  Stack,
+  Divider,
+  Loader,
+  Alert,
+  ActionIcon as PinButton,
+  Tooltip,
+  Badge,
+  Anchor,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { 
-  IconDashboard, 
-  IconServer, 
+import {
+  IconDashboard,
+  IconServer,
   IconPin,
   IconPinFilled,
   IconAlertCircle,
@@ -28,14 +43,14 @@ function HeaderTitle() {
   const location = useLocation();
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
-  
+
   // Check if we're in a cluster view
   const clusterMatch = location.pathname.match(/^\/cluster\/([^/]+)/);
   const clusterId = clusterMatch ? clusterMatch[1] : null;
-  
+
   // Get resolved cluster name
   const clusterName = useClusterName(clusterId || '');
-  
+
   // Fetch cluster stats if we're viewing a cluster
   const { data: clusterStats } = useQuery({
     queryKey: ['cluster', clusterId, 'stats'],
@@ -43,48 +58,35 @@ function HeaderTitle() {
     enabled: !!clusterId,
     refetchInterval: refreshInterval,
   });
-  
+
   if (!clusterId) {
     // Not in a cluster view - show app name
     return (
-      <Tooltip 
-        label="Secan - Secure Elasticsearch Admin" 
-        position="bottom"
-        withArrow
-      >
-        <Text 
-          size="xl"
-          fw={700} 
-          component="h1"
-          style={{ whiteSpace: 'nowrap', cursor: 'help' }}
-        >
+      <Tooltip label="Secan - Secure Elasticsearch Admin" position="bottom" withArrow>
+        <Text size="xl" fw={700} component="h1" style={{ whiteSpace: 'nowrap', cursor: 'help' }}>
           Secan
         </Text>
       </Tooltip>
     );
   }
-  
+
   // In cluster view - show breadcrumb with cluster name and health
   return (
     <Group gap="xs" wrap="nowrap">
-      <Tooltip 
-        label="Secan - Secure Elasticsearch Admin" 
-        position="bottom"
-        withArrow
-      >
+      <Tooltip label="Secan - Secure Elasticsearch Admin" position="bottom" withArrow>
         <Anchor
           component="button"
           onClick={() => navigate('/')}
           size="lg"
           fw={700}
           c="dimmed"
-          style={{ 
+          style={{
             textDecoration: 'none',
             whiteSpace: 'nowrap',
             cursor: 'help',
             '&:hover': {
               textDecoration: 'underline',
-            }
+            },
           }}
         >
           Secan
@@ -92,17 +94,12 @@ function HeaderTitle() {
       </Tooltip>
       <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)' }} />
       <Group gap={6} wrap="nowrap">
-        <Text 
-          size="lg"
-          fw={600}
-          component="h1"
-          style={{ whiteSpace: 'nowrap' }}
-        >
+        <Text size="lg" fw={600} component="h1" style={{ whiteSpace: 'nowrap' }}>
           {clusterName}
         </Text>
         {clusterStats?.health && (
-          <Badge 
-            size="sm" 
+          <Badge
+            size="sm"
             color={getHealthColor(clusterStats.health)}
             variant="dot"
             style={{ textTransform: 'lowercase' }}
@@ -118,17 +115,17 @@ function HeaderTitle() {
 /**
  * Cluster navigation item with resolved name
  */
-function ClusterNavItem({ 
-  clusterId, 
-  isActive, 
-  onClick 
-}: { 
-  clusterId: string; 
-  isActive: boolean; 
+function ClusterNavItem({
+  clusterId,
+  isActive,
+  onClick,
+}: {
+  clusterId: string;
+  isActive: boolean;
   onClick: () => void;
 }) {
   const clusterName = useClusterName(clusterId);
-  
+
   return (
     <NavLink
       href={`/cluster/${clusterId}`}
@@ -195,10 +192,12 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
         {clustersLoading && (
           <Group gap="xs" p="xs">
             <Loader size="xs" />
-            <Text size="sm" c="dimmed">Loading clusters...</Text>
+            <Text size="sm" c="dimmed">
+              Loading clusters...
+            </Text>
           </Group>
         )}
-        
+
         {clustersError && (
           <Alert
             icon={<IconAlertCircle size={14} />}
@@ -235,7 +234,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
 
 /**
  * AppShell component provides the main layout structure for the application.
- * 
+ *
  * Features:
  * - Header with app title
  * - Drawer navigation with burger menu toggle
@@ -249,7 +248,9 @@ export function AppShell() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const { isPinned, setIsPinned, drawerWidth } = useDrawer();
   const location = useLocation();
-  const [versionInfo, setVersionInfo] = useState<{ version: string; git_info: string } | null>(null);
+  const [versionInfo, setVersionInfo] = useState<{ version: string; git_info: string } | null>(
+    null
+  );
 
   // Fetch version information on component mount
   useEffect(() => {
@@ -276,14 +277,14 @@ export function AppShell() {
     if (location.pathname === '/') {
       return 'clusters';
     }
-    
+
     // Cluster view - only refresh data for that specific cluster
     const clusterMatch = location.pathname.match(/^\/cluster\/([^/]+)/);
     if (clusterMatch) {
       const clusterId = clusterMatch[1];
       return ['cluster', clusterId];
     }
-    
+
     // Default: refresh all (for other pages)
     return undefined;
   };
@@ -299,19 +300,23 @@ export function AppShell() {
     <>
       <MantineAppShell
         header={{ height: { base: 56, sm: 60 } }}
-        navbar={isPinned ? {
-          width: { base: drawerWidth.base, md: drawerWidth.md },
-          breakpoint: 'sm',
-        } : undefined}
+        navbar={
+          isPinned
+            ? {
+                width: { base: drawerWidth.base, md: drawerWidth.md },
+                breakpoint: 'sm',
+              }
+            : undefined
+        }
         padding="md"
       >
         {/* Header */}
         <MantineAppShell.Header>
-          <Group 
-            h="100%" 
-            px={{ base: 'sm', sm: 'md' }} 
-            justify="space-between" 
-            component="header" 
+          <Group
+            h="100%"
+            px={{ base: 'sm', sm: 'md' }}
+            justify="space-between"
+            component="header"
             role="banner"
             wrap="nowrap"
           >
@@ -333,16 +338,18 @@ export function AppShell() {
 
         {/* Static Navbar (when pinned) */}
         {isPinned && (
-          <MantineAppShell.Navbar 
-            p={{ base: 'sm', sm: 'md' }} 
-            component="nav" 
-            role="navigation" 
+          <MantineAppShell.Navbar
+            p={{ base: 'sm', sm: 'md' }}
+            component="nav"
+            role="navigation"
             aria-label="Main navigation"
             style={{ display: 'flex', flexDirection: 'column' }}
           >
             <MantineAppShell.Section>
               <Group justify="space-between" mb="md">
-                <Text size="sm" fw={500}>Navigation</Text>
+                <Text size="sm" fw={500}>
+                  Navigation
+                </Text>
                 <Tooltip label="Unpin navigation">
                   <PinButton
                     variant="subtle"
@@ -362,11 +369,7 @@ export function AppShell() {
 
             <MantineAppShell.Section>
               {isAuthenticated && user && (
-                <DrawerControls
-                  collapsed={false}
-                  user={user}
-                  onLogout={logout}
-                />
+                <DrawerControls collapsed={false} user={user} onLogout={logout} />
               )}
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
@@ -416,35 +419,35 @@ export function AppShell() {
         size="280px"
         styles={{
           title: { width: '100%' },
-          body: { 
-            display: 'flex', 
-            flexDirection: 'column', 
+          body: {
+            display: 'flex',
+            flexDirection: 'column',
             height: '100%',
             padding: 0,
           },
           content: {
             display: 'flex',
             flexDirection: 'column',
-          }
+          },
         }}
       >
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          height: '100%',
-          padding: 'var(--mantine-spacing-md)',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            padding: 'var(--mantine-spacing-md)',
+          }}
+        >
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
             <NavigationContent onNavigate={closeDrawer} />
           </div>
-          
-          <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: 'var(--mantine-spacing-md)' }}>
+
+          <div
+            style={{ flexShrink: 0, marginTop: 'auto', paddingTop: 'var(--mantine-spacing-md)' }}
+          >
             {isAuthenticated && user && (
-              <DrawerControls
-                collapsed={false}
-                user={user}
-                onLogout={logout}
-              />
+              <DrawerControls collapsed={false} user={user} onLogout={logout} />
             )}
             <Divider my="sm" />
             <Text size="xs" c="dimmed" ta="center" role="contentinfo">

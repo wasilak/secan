@@ -33,14 +33,14 @@ export interface SortableTableProps<T> {
 
 /**
  * SortableTable component provides a reusable table with sortable column headers.
- * 
+ *
  * Features:
  * - Three-state sorting: ascending -> descending -> unsorted
  * - Visual indicators for sort state (arrows)
  * - Support for default sort configuration
  * - Custom render functions for columns
  * - Optional row click handlers
- * 
+ *
  * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.7
  */
 export function SortableTable<T>({
@@ -110,9 +110,7 @@ export function SortableTable<T>({
       // Fallback: convert to string and compare
       const aStr = String(aValue);
       const bStr = String(bValue);
-      return sortConfig.direction === 'asc'
-        ? aStr.localeCompare(bStr)
-        : bStr.localeCompare(aStr);
+      return sortConfig.direction === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
 
     return sorted;

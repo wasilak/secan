@@ -52,21 +52,21 @@ describe('ThemeSelector', () => {
 
   it('should render theme toggle button', () => {
     render(<ThemeSelector />, { wrapper });
-    
+
     const button = screen.getByRole('button', { name: 'Toggle theme' });
     expect(button).toBeInTheDocument();
   });
 
   it('should have correct title attribute', () => {
     render(<ThemeSelector />, { wrapper });
-    
+
     const button = screen.getByRole('button', { name: 'Toggle theme' });
     expect(button).toHaveAttribute('title', 'Change theme');
   });
 
   it('should render with system theme icon by default', () => {
     render(<ThemeSelector />, { wrapper });
-    
+
     const button = screen.getByRole('button', { name: 'Toggle theme' });
     // Check that the button contains an SVG (icon)
     const svg = button.querySelector('svg');

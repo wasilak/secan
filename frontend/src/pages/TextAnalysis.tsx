@@ -40,7 +40,7 @@ const BUILT_IN_ANALYZERS = [
 
 /**
  * TextAnalysis component provides text analysis tools
- * 
+ *
  * Features:
  * - Text input for analysis
  * - Analyzer dropdown
@@ -48,7 +48,7 @@ const BUILT_IN_ANALYZERS = [
  * - Support analyzing by field
  * - Show analyzer chain
  * - Support custom analyzer definitions
- * 
+ *
  * Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6, 15.7, 15.8
  */
 export function TextAnalysisPage() {
@@ -111,10 +111,16 @@ export function TextAnalysisPage() {
         request.tokenizer = customTokenizer;
       }
       if (customFilters) {
-        request.filter = customFilters.split(',').map(f => f.trim()).filter(Boolean);
+        request.filter = customFilters
+          .split(',')
+          .map((f) => f.trim())
+          .filter(Boolean);
       }
       if (customCharFilters) {
-        request.charFilter = customCharFilters.split(',').map(f => f.trim()).filter(Boolean);
+        request.charFilter = customCharFilters
+          .split(',')
+          .map((f) => f.trim())
+          .filter(Boolean);
       }
     } else {
       request.analyzer = selectedAnalyzer;
@@ -154,11 +160,7 @@ export function TextAnalysisPage() {
             Test and debug search analysis chains
           </Text>
         </div>
-        <Button
-          leftSection={<IconRefresh size={16} />}
-          variant="light"
-          onClick={handleReset}
-        >
+        <Button leftSection={<IconRefresh size={16} />} variant="light" onClick={handleReset}>
           Reset
         </Button>
       </Group>
@@ -196,7 +198,7 @@ export function TextAnalysisPage() {
                   setSelectedField('');
                   setUseField(!!value);
                 }}
-                data={indices?.map(idx => ({ value: idx.name, label: idx.name })) || []}
+                data={indices?.map((idx) => ({ value: idx.name, label: idx.name })) || []}
                 searchable
                 clearable
                 disabled={!!customTokenizer}
@@ -208,12 +210,14 @@ export function TextAnalysisPage() {
                   placeholder="Select field"
                   value={selectedField}
                   onChange={(value) => setSelectedField(value || '')}
-                  data={fieldsData?.fields
-                    .filter(f => f.analyzer || f.type === 'text')
-                    .map(f => ({
-                      value: f.name,
-                      label: `${f.name} (${f.analyzer || 'default'})`,
-                    })) || []}
+                  data={
+                    fieldsData?.fields
+                      .filter((f) => f.analyzer || f.type === 'text')
+                      .map((f) => ({
+                        value: f.name,
+                        label: `${f.name} (${f.analyzer || 'default'})`,
+                      })) || []
+                  }
                   searchable
                   clearable
                 />
@@ -232,8 +236,8 @@ export function TextAnalysisPage() {
                   <Stack gap="sm">
                     <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
                       <Text size="sm">
-                        Define a custom analyzer by specifying tokenizer and filters.
-                        This will override the selected analyzer.
+                        Define a custom analyzer by specifying tokenizer and filters. This will
+                        override the selected analyzer.
                       </Text>
                     </Alert>
 
@@ -289,7 +293,9 @@ export function TextAnalysisPage() {
               {(customTokenizer || customFilters || customCharFilters) && (
                 <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">
                   <Stack gap="xs">
-                    <Text size="sm" fw={500}>Analyzer Chain:</Text>
+                    <Text size="sm" fw={500}>
+                      Analyzer Chain:
+                    </Text>
                     {customCharFilters && (
                       <Text size="sm">
                         <strong>Char Filters:</strong> {customCharFilters}
@@ -331,13 +337,25 @@ export function TextAnalysisPage() {
                         <Code>{token.token}</Code>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm" c="dimmed">{token.type}</Text>
+                        <Text size="sm" c="dimmed">
+                          {token.type}
+                        </Text>
                       </Table.Td>
                       <Table.Td>{token.startOffset}</Table.Td>
                       <Table.Td>{token.endOffset}</Table.Td>
                       <Table.Td>
                         {Object.entries(token)
-                          .filter(([key]) => !['token', 'startOffset', 'endOffset', 'type', 'position', 'positionLength'].includes(key))
+                          .filter(
+                            ([key]) =>
+                              ![
+                                'token',
+                                'startOffset',
+                                'endOffset',
+                                'type',
+                                'position',
+                                'positionLength',
+                              ].includes(key)
+                          )
                           .map(([key, value]) => (
                             <Text key={key} size="xs" c="dimmed">
                               {key}: {JSON.stringify(value)}

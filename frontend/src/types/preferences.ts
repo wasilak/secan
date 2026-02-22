@@ -13,20 +13,20 @@ export interface RequestHistoryItem {
 
 /**
  * User preferences stored in browser localStorage
- * 
+ *
  * These preferences persist across sessions and allow users to
  * customize their Secan experience.
  */
 export interface UserPreferences {
   /** Theme preference (light, dark, or system) */
   theme: Theme;
-  
+
   /** Auto-refresh interval in milliseconds (default: 30000 = 30 seconds) */
   refreshInterval: number;
-  
+
   /** Last selected cluster ID for quick navigation */
   lastSelectedCluster?: string;
-  
+
   /** REST console request history */
   restConsoleHistory: RequestHistoryItem[];
 }

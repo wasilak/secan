@@ -35,7 +35,7 @@ interface IndexOperationsProps {
 
 /**
  * IndexOperations component provides action buttons for index operations
- * 
+ *
  * Features:
  * - Open/close index
  * - Delete index with confirmation
@@ -45,14 +45,16 @@ interface IndexOperationsProps {
  * - Flush index
  * - Progress notifications
  * - Error handling
- * 
+ *
  * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8
  */
 export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
   const queryClient = useQueryClient();
   const { announceSuccess, announceError } = useScreenReader();
-  const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
-  const [forceMergeModalOpened, { open: openForceMergeModal, close: closeForceMergeModal }] = useDisclosure(false);
+  const [deleteModalOpened, { open: openDeleteModal, close: closeDeleteModal }] =
+    useDisclosure(false);
+  const [forceMergeModalOpened, { open: openForceMergeModal, close: closeForceMergeModal }] =
+    useDisclosure(false);
   const [confirmText, setConfirmText] = useState('');
   const [maxSegments, setMaxSegments] = useState<number | string>(1);
 
@@ -321,7 +323,11 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
       <Menu shadow="md" width={200}>
         <Menu.Target>
           <Tooltip label="Index operations">
-            <ActionIcon variant="subtle" color="gray" aria-label={`Operations for index ${index.name}`}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label={`Operations for index ${index.name}`}
+            >
               <IconDots size={16} aria-hidden="true" />
             </ActionIcon>
           </Tooltip>
@@ -329,7 +335,7 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
 
         <Menu.Dropdown>
           <Menu.Label>Index Operations</Menu.Label>
-          
+
           {index.status === 'close' ? (
             <Menu.Item
               leftSection={<IconFolderOpen size={14} aria-hidden="true" />}
@@ -405,8 +411,11 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
       >
         <Stack gap="md">
           <Text size="sm" id="delete-modal-description">
-            Are you sure you want to delete index <Text span fw={700}>{index.name}</Text>?
-            This action cannot be undone.
+            Are you sure you want to delete index{' '}
+            <Text span fw={700}>
+              {index.name}
+            </Text>
+            ? This action cannot be undone.
           </Text>
           <Text size="sm" c="dimmed">
             Type the index name to confirm:
@@ -456,7 +465,11 @@ export function IndexOperations({ clusterId, index }: IndexOperationsProps) {
       >
         <Stack gap="md">
           <Text size="sm" id="forcemerge-modal-description">
-            Force merge index <Text span fw={700}>{index.name}</Text> to reduce the number of segments.
+            Force merge index{' '}
+            <Text span fw={700}>
+              {index.name}
+            </Text>{' '}
+            to reduce the number of segments.
           </Text>
           <NumberInput
             label="Maximum number of segments"

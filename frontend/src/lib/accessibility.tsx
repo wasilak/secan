@@ -1,11 +1,11 @@
 /**
  * Accessibility utilities for Secan
- * 
+ *
  * Provides utilities for:
  * - Color contrast verification
  * - Screen reader announcements
  * - ARIA live regions
- * 
+ *
  * Requirements: 32.5, 32.6, 32.7
  */
 
@@ -63,11 +63,7 @@ export function getContrastRatio(color1: string, color2: string): number {
  * Check if color contrast meets WCAG AA standard
  * AA requires 4.5:1 for normal text, 3:1 for large text
  */
-export function meetsWCAGAA(
-  foreground: string,
-  background: string,
-  isLargeText = false
-): boolean {
+export function meetsWCAGAA(foreground: string, background: string, isLargeText = false): boolean {
   const ratio = getContrastRatio(foreground, background);
   const threshold = isLargeText ? 3 : 4.5;
   return ratio >= threshold;
@@ -77,11 +73,7 @@ export function meetsWCAGAA(
  * Check if color contrast meets WCAG AAA standard
  * AAA requires 7:1 for normal text, 4.5:1 for large text
  */
-export function meetsWCAGAAA(
-  foreground: string,
-  background: string,
-  isLargeText = false
-): boolean {
+export function meetsWCAGAAA(foreground: string, background: string, isLargeText = false): boolean {
   const ratio = getContrastRatio(foreground, background);
   const threshold = isLargeText ? 4.5 : 7;
   return ratio >= threshold;

@@ -15,17 +15,21 @@ interface DrawerControlsProps {
 
 /**
  * DrawerControls component displays user menu and theme selector at the bottom of the drawer.
- * 
+ *
  * Features:
  * - Shows icon-only when drawer is collapsed
  * - Shows icons with labels when drawer is expanded
  * - User menu with logout functionality
  * - Theme selector for light/dark/system modes
  * - Memoized for performance optimization
- * 
+ *
  * Requirements: 4.1, 4.2, 4.5, 4.6
  */
-export const DrawerControls = memo(function DrawerControls({ collapsed, user, onLogout }: DrawerControlsProps) {
+export const DrawerControls = memo(function DrawerControls({
+  collapsed,
+  user,
+  onLogout,
+}: DrawerControlsProps) {
   const { theme, setTheme } = useTheme();
   const { colorScheme } = useMantineColorScheme();
 
@@ -44,25 +48,24 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
   const rolesString = useMemo(() => user.roles.join(', '), [user.roles]);
 
   // Memoize theme change handler
-  const handleThemeChange = useCallback((newTheme: Theme) => {
-    setTheme(newTheme);
-  }, [setTheme]);
+  const handleThemeChange = useCallback(
+    (newTheme: Theme) => {
+      setTheme(newTheme);
+    },
+    [setTheme]
+  );
 
   if (collapsed) {
     // Icon-only display when drawer is collapsed
     return (
       <Stack gap="xs" align="center">
         <Divider style={{ width: '100%' }} />
-        
+
         {/* Theme selector - icon only */}
         <Menu shadow="md" width={200} position="right">
           <Menu.Target>
             <Tooltip label="Change theme" position="right">
-              <ActionIcon
-                variant="subtle"
-                size="lg"
-                aria-label="Toggle theme"
-              >
+              <ActionIcon variant="subtle" size="lg" aria-label="Toggle theme">
                 {themeIcon}
               </ActionIcon>
             </Tooltip>
@@ -70,7 +73,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
 
           <Menu.Dropdown>
             <Menu.Label>Theme</Menu.Label>
-            
+
             <Menu.Item
               leftSection={<IconSun size={16} />}
               onClick={() => handleThemeChange('light')}
@@ -78,7 +81,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
             >
               Light
             </Menu.Item>
-            
+
             <Menu.Item
               leftSection={<IconMoon size={16} />}
               onClick={() => handleThemeChange('dark')}
@@ -86,7 +89,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
             >
               Dark
             </Menu.Item>
-            
+
             <Menu.Item
               leftSection={<IconDeviceDesktop size={16} />}
               onClick={() => handleThemeChange('system')}
@@ -101,11 +104,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
         <Menu shadow="md" width={200} position="right">
           <Menu.Target>
             <Tooltip label={user.username} position="right">
-              <ActionIcon
-                variant="subtle"
-                size="lg"
-                aria-label="User menu"
-              >
+              <ActionIcon variant="subtle" size="lg" aria-label="User menu">
                 <Avatar size="sm" radius="xl" color="blue">
                   {userInitial}
                 </Avatar>
@@ -120,7 +119,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
                 {user.username}
               </Group>
             </Menu.Label>
-            
+
             <Menu.Item c="dimmed" disabled>
               Roles: {rolesString}
             </Menu.Item>
@@ -144,34 +143,32 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
   return (
     <Stack gap="sm">
       <Divider />
-      
+
       {/* Theme selector with label */}
       <Menu shadow="md" width={200}>
         <Menu.Target>
           <Group
             gap="sm"
-            style={{ 
+            style={{
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '4px',
               '&:hover': {
                 backgroundColor: 'var(--mantine-color-gray-light-hover)',
-              }
+              },
             }}
             role="button"
             aria-label="Toggle theme"
             tabIndex={0}
           >
             {themeIcon}
-            <Text size="sm">
-              Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}
-            </Text>
+            <Text size="sm">Theme: {theme.charAt(0).toUpperCase() + theme.slice(1)}</Text>
           </Group>
         </Menu.Target>
 
         <Menu.Dropdown>
           <Menu.Label>Theme</Menu.Label>
-          
+
           <Menu.Item
             leftSection={<IconSun size={16} />}
             onClick={() => handleThemeChange('light')}
@@ -179,7 +176,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
           >
             Light
           </Menu.Item>
-          
+
           <Menu.Item
             leftSection={<IconMoon size={16} />}
             onClick={() => handleThemeChange('dark')}
@@ -187,7 +184,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
           >
             Dark
           </Menu.Item>
-          
+
           <Menu.Item
             leftSection={<IconDeviceDesktop size={16} />}
             onClick={() => handleThemeChange('system')}
@@ -203,13 +200,13 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
         <Menu.Target>
           <Group
             gap="sm"
-            style={{ 
+            style={{
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '4px',
               '&:hover': {
                 backgroundColor: 'var(--mantine-color-gray-light-hover)',
-              }
+              },
             }}
             role="button"
             aria-label="User menu"
@@ -229,7 +226,7 @@ export const DrawerControls = memo(function DrawerControls({ collapsed, user, on
               {user.username}
             </Group>
           </Menu.Label>
-          
+
           <Menu.Item c="dimmed" disabled>
             Roles: {rolesString}
           </Menu.Item>

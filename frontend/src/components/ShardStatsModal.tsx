@@ -16,10 +16,10 @@ interface ShardStatsModalProps {
 
 /**
  * ShardStatsModal component
- * 
+ *
  * Displays detailed shard information in a modal dialog.
  * Shows shard number, type, index name, node, state, document count, and size.
- * 
+ *
  * Requirements: 4.5, 4.6
  */
 export function ShardStatsModal({
@@ -31,7 +31,7 @@ export function ShardStatsModal({
   const [detailedStats, setDetailedStats] = useState<DetailedShardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Fetch detailed shard stats when modal opens - Requirements: 4.6
   useEffect(() => {
     if (!opened || !shard || !clusterId || shard.state === 'UNASSIGNED') {
@@ -39,19 +39,15 @@ export function ShardStatsModal({
       setError(null);
       return;
     }
-    
+
     const fetchDetailedStats = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         // Call shard stats API - Requirements: 4.6
-        const stats = await apiClient.getShardStats(
-          clusterId,
-          shard.index,
-          shard.shard
-        );
-        
+        const stats = await apiClient.getShardStats(clusterId, shard.index, shard.shard);
+
         // Parse response and extract relevant metrics
         // The response structure depends on the Elasticsearch version
         // We'll extract segments, merges, refreshes, flushes if available
@@ -62,7 +58,7 @@ export function ShardStatsModal({
           refreshes: extractRefreshCount(stats),
           flushes: extractFlushCount(stats),
         };
-        
+
         setDetailedStats(parsedStats);
       } catch (err) {
         console.error('Failed to fetch detailed shard stats:', err);
@@ -71,101 +67,101 @@ export function ShardStatsModal({
         setLoading(false);
       }
     };
-    
+
     fetchDetailedStats();
   }, [opened, shard, clusterId]);
-  
+
   // Helper functions to extract metrics from ES response
   const extractSegmentCount = (stats: unknown): number | undefined => {
     try {
       const data = stats as Record<string, unknown>;
       const indices = data.indices as Record<string, unknown> | undefined;
       if (!indices) return undefined;
-      
+
       const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
       if (!indexData) return undefined;
-      
+
       const shards = indexData.shards as Record<string, unknown[]> | undefined;
       if (!shards) return undefined;
-      
+
       const shardArray = Object.values(shards)[0];
       if (!shardArray || shardArray.length === 0) return undefined;
-      
+
       const shardData = shardArray[0] as Record<string, unknown>;
       const segments = shardData.segments as Record<string, unknown> | undefined;
-      
+
       return segments?.count as number | undefined;
     } catch {
       return undefined;
     }
   };
-  
+
   const extractMergeCount = (stats: unknown): number | undefined => {
     try {
       const data = stats as Record<string, unknown>;
       const indices = data.indices as Record<string, unknown> | undefined;
       if (!indices) return undefined;
-      
+
       const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
       if (!indexData) return undefined;
-      
+
       const shards = indexData.shards as Record<string, unknown[]> | undefined;
       if (!shards) return undefined;
-      
+
       const shardArray = Object.values(shards)[0];
       if (!shardArray || shardArray.length === 0) return undefined;
-      
+
       const shardData = shardArray[0] as Record<string, unknown>;
       const merges = shardData.merges as Record<string, unknown> | undefined;
-      
+
       return merges?.current as number | undefined;
     } catch {
       return undefined;
     }
   };
-  
+
   const extractRefreshCount = (stats: unknown): number | undefined => {
     try {
       const data = stats as Record<string, unknown>;
       const indices = data.indices as Record<string, unknown> | undefined;
       if (!indices) return undefined;
-      
+
       const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
       if (!indexData) return undefined;
-      
+
       const shards = indexData.shards as Record<string, unknown[]> | undefined;
       if (!shards) return undefined;
-      
+
       const shardArray = Object.values(shards)[0];
       if (!shardArray || shardArray.length === 0) return undefined;
-      
+
       const shardData = shardArray[0] as Record<string, unknown>;
       const refresh = shardData.refresh as Record<string, unknown> | undefined;
-      
+
       return refresh?.total as number | undefined;
     } catch {
       return undefined;
     }
   };
-  
+
   const extractFlushCount = (stats: unknown): number | undefined => {
     try {
       const data = stats as Record<string, unknown>;
       const indices = data.indices as Record<string, unknown> | undefined;
       if (!indices) return undefined;
-      
+
       const indexData = Object.values(indices)[0] as Record<string, unknown> | undefined;
       if (!indexData) return undefined;
-      
+
       const shards = indexData.shards as Record<string, unknown[]> | undefined;
       if (!shards) return undefined;
-      
+
       const shardArray = Object.values(shards)[0];
       if (!shardArray || shardArray.length === 0) return undefined;
-      
+
       const shardData = shardArray[0] as Record<string, unknown>;
       const flush = shardData.flush as Record<string, unknown> | undefined;
-      
+
       return flush?.total as number | undefined;
     } catch {
       return undefined;
@@ -179,18 +175,18 @@ export function ShardStatsModal({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
-  
+
   // Format number with commas
   const formatNumber = (value?: number): string => {
     if (value === undefined) return 'N/A';
     return value.toLocaleString();
   };
-  
+
   // Get shard type label
   const getShardTypeLabel = (primary: boolean): string => {
     return primary ? 'Primary' : 'Replica';
   };
-  
+
   // Get shard state color
   const getStateColor = (state: string): string => {
     switch (state) {
@@ -206,11 +202,11 @@ export function ShardStatsModal({
         return 'gray';
     }
   };
-  
+
   if (!shard) {
     return <></>;
   }
-  
+
   return (
     <Modal
       opened={opened}
@@ -250,7 +246,7 @@ export function ShardStatsModal({
                   </Group>
                 </Table.Td>
               </Table.Tr>
-              
+
               {/* Index name - Requirements: 4.6 */}
               <Table.Tr>
                 <Table.Td fw={500}>Index Name</Table.Td>
@@ -260,7 +256,7 @@ export function ShardStatsModal({
                   </Text>
                 </Table.Td>
               </Table.Tr>
-              
+
               {/* Node name and ID - Requirements: 4.6 */}
               <Table.Tr>
                 <Table.Td fw={500}>Node</Table.Td>
@@ -276,7 +272,7 @@ export function ShardStatsModal({
                   )}
                 </Table.Td>
               </Table.Tr>
-              
+
               {/* Shard state - Requirements: 4.6 */}
               <Table.Tr>
                 <Table.Td fw={500}>State</Table.Td>
@@ -286,7 +282,7 @@ export function ShardStatsModal({
                   </Badge>
                 </Table.Td>
               </Table.Tr>
-              
+
               {/* Relocating node (if applicable) */}
               {shard.relocatingNode && (
                 <Table.Tr>
@@ -301,7 +297,7 @@ export function ShardStatsModal({
             </Table.Tbody>
           </Table>
         </Box>
-        
+
         {/* Shard statistics - Requirements: 4.6 */}
         <Box>
           <Text size="sm" fw={600} mb="xs">
@@ -318,7 +314,7 @@ export function ShardStatsModal({
                   <Text>{formatNumber(shard.docs)}</Text>
                 </Table.Td>
               </Table.Tr>
-              
+
               {/* Size in bytes - Requirements: 4.6 */}
               <Table.Tr>
                 <Table.Td fw={500}>Size</Table.Td>
@@ -336,14 +332,14 @@ export function ShardStatsModal({
             </Table.Tbody>
           </Table>
         </Box>
-        
+
         {/* Detailed statistics - Requirements: 4.6 */}
         {shard.state !== 'UNASSIGNED' && (
           <Box>
             <Text size="sm" fw={600} mb="xs">
               Detailed Statistics
             </Text>
-            
+
             {loading && (
               <Box p="md" style={{ textAlign: 'center' }}>
                 <Loader size="sm" />
@@ -352,13 +348,13 @@ export function ShardStatsModal({
                 </Text>
               </Box>
             )}
-            
+
             {error && (
               <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light">
                 {error}
               </Alert>
             )}
-            
+
             {!loading && !error && detailedStats && (
               <Table withTableBorder withColumnBorders>
                 <Table.Tbody>
@@ -371,7 +367,7 @@ export function ShardStatsModal({
                       <Text>{formatNumber(detailedStats.segments)}</Text>
                     </Table.Td>
                   </Table.Tr>
-                  
+
                   {/* Merges count - Requirements: 4.6 */}
                   <Table.Tr>
                     <Table.Td fw={500}>Merges (current)</Table.Td>
@@ -379,7 +375,7 @@ export function ShardStatsModal({
                       <Text>{formatNumber(detailedStats.merges)}</Text>
                     </Table.Td>
                   </Table.Tr>
-                  
+
                   {/* Refreshes count - Requirements: 4.6 */}
                   <Table.Tr>
                     <Table.Td fw={500}>Refreshes (total)</Table.Td>
@@ -387,7 +383,7 @@ export function ShardStatsModal({
                       <Text>{formatNumber(detailedStats.refreshes)}</Text>
                     </Table.Td>
                   </Table.Tr>
-                  
+
                   {/* Flushes count - Requirements: 4.6 */}
                   <Table.Tr>
                     <Table.Td fw={500}>Flushes (total)</Table.Td>
@@ -398,7 +394,7 @@ export function ShardStatsModal({
                 </Table.Tbody>
               </Table>
             )}
-            
+
             {!loading && !error && !detailedStats && (
               <Box
                 p="sm"
@@ -414,7 +410,7 @@ export function ShardStatsModal({
             )}
           </Box>
         )}
-        
+
         {/* Note for unassigned shards */}
         {shard.state === 'UNASSIGNED' && (
           <Box

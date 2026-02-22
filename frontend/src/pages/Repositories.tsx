@@ -29,13 +29,13 @@ import type { CreateRepositoryRequest, RepositoryType } from '../types/api';
 
 /**
  * Repositories component displays and manages snapshot repositories
- * 
+ *
  * Features:
  * - Display existing repositories
  * - Create new repositories (filesystem, S3, Azure, GCS, HDFS, URL)
  * - Delete repositories
  * - Show repository details
- * 
+ *
  * Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9, 17.10, 17.11
  */
 export function Repositories() {
@@ -107,10 +107,7 @@ export function Repositories() {
             Manage snapshot repositories for backup and restore operations
           </Text>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setCreateModalOpen(true)}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
           Create Repository
         </Button>
       </Group>
@@ -119,10 +116,7 @@ export function Repositories() {
         {!repositories || repositories.length === 0 ? (
           <Stack gap="md" align="center" py="xl">
             <Text c="dimmed">No repositories found</Text>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={() => setCreateModalOpen(true)}
-            >
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
               Create Repository
             </Button>
           </Stack>
@@ -143,7 +137,9 @@ export function Repositories() {
                     <Table.Td>
                       <Group gap="xs">
                         <IconFolder size={16} />
-                        <Text size="sm" fw={500}>{repo.name}</Text>
+                        <Text size="sm" fw={500}>
+                          {repo.name}
+                        </Text>
                       </Group>
                     </Table.Td>
                     <Table.Td>
@@ -168,7 +164,11 @@ export function Repositories() {
                           color="red"
                           variant="subtle"
                           onClick={() => {
-                            if (confirm(`Delete repository "${repo.name}"? This will not delete snapshots.`)) {
+                            if (
+                              confirm(
+                                `Delete repository "${repo.name}"? This will not delete snapshots.`
+                              )
+                            ) {
                               deleteMutation.mutate(repo.name);
                             }
                           }}
@@ -197,7 +197,7 @@ export function Repositories() {
 
 /**
  * CreateRepositoryModal component for creating new repositories
- * 
+ *
  * Requirements: 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9
  */
 interface CreateRepositoryModalProps {
@@ -237,7 +237,8 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
   });
 
   const createMutation = useMutation({
-    mutationFn: (request: CreateRepositoryRequest) => apiClient.createRepository(clusterId, request),
+    mutationFn: (request: CreateRepositoryRequest) =>
+      apiClient.createRepository(clusterId, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'repositories'] });
       notifications.show({
@@ -260,7 +261,7 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
   const handleSubmit = form.onSubmit((values) => {
     try {
       const settings = JSON.parse(values.settingsText);
-      
+
       const request: CreateRepositoryRequest = {
         name: values.name,
         type: values.type,
@@ -280,9 +281,9 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
   // Update settings template when type changes
   const handleTypeChange = (value: string | null) => {
     if (!value) return;
-    
+
     form.setFieldValue('type', value as RepositoryType);
-    
+
     // Set default settings based on type
     let defaultSettings = {};
     switch (value) {
@@ -320,17 +321,12 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
         };
         break;
     }
-    
+
     form.setFieldValue('settingsText', JSON.stringify(defaultSettings, null, 2));
   };
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="Create Repository"
-      size="lg"
-    >
+    <Modal opened={opened} onClose={onClose} title="Create Repository" size="lg">
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <TextInput

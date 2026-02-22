@@ -76,7 +76,7 @@ function StatCard({ title, value, description }: StatCardProps) {
 
 /**
  * IndexStatistics component displays detailed index statistics
- * 
+ *
  * Features:
  * - Display document count and storage size
  * - Show indexing statistics (operations, time, failures)
@@ -84,7 +84,7 @@ function StatCard({ title, value, description }: StatCardProps) {
  * - Show merge, refresh, and flush statistics
  * - Display segment information
  * - Support time range filtering (future enhancement)
- * 
+ *
  * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7
  */
 export function IndexStatistics() {
@@ -173,10 +173,7 @@ export function IndexStatistics() {
           >
             Refresh
           </Button>
-          <Button
-            variant="default"
-            onClick={() => navigate(`/cluster/${clusterId}`)}
-          >
+          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}`)}>
             Back to Cluster
           </Button>
         </Group>
@@ -294,7 +291,9 @@ export function IndexStatistics() {
                 <Table.Td>Average Query Time</Table.Td>
                 <Table.Td>
                   {currentStats.search.queryTotal > 0
-                    ? formatTime(currentStats.search.queryTimeInMillis / currentStats.search.queryTotal)
+                    ? formatTime(
+                        currentStats.search.queryTimeInMillis / currentStats.search.queryTotal
+                      )
                     : '0ms'}
                 </Table.Td>
               </Table.Tr>
@@ -401,7 +400,9 @@ export function IndexStatistics() {
                     <Table.Td>Average Refresh Time</Table.Td>
                     <Table.Td>
                       {currentStats.refresh.total > 0
-                        ? formatTime(currentStats.refresh.totalTimeInMillis / currentStats.refresh.total)
+                        ? formatTime(
+                            currentStats.refresh.totalTimeInMillis / currentStats.refresh.total
+                          )
                         : '0ms'}
                     </Table.Td>
                   </Table.Tr>
@@ -428,7 +429,9 @@ export function IndexStatistics() {
                     <Table.Td>Average Flush Time</Table.Td>
                     <Table.Td>
                       {currentStats.flush.total > 0
-                        ? formatTime(currentStats.flush.totalTimeInMillis / currentStats.flush.total)
+                        ? formatTime(
+                            currentStats.flush.totalTimeInMillis / currentStats.flush.total
+                          )
                         : '0ms'}
                     </Table.Td>
                   </Table.Tr>

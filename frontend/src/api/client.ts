@@ -54,16 +54,16 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 /**
  * API client for communicating with the Secan backend
- * 
+ *
  * Handles authentication, error handling, retry logic with exponential backoff,
  * and provides typed methods for all backend API endpoints.
- * 
+ *
  * Features:
  * - Automatic retry with exponential backoff for transient errors
  * - Session management with automatic redirect on 401
  * - Structured error handling with user-friendly messages
  * - Console logging for debugging
- * 
+ *
  * Requirements: 25.4, 29.6, 29.7
  */
 export class ApiClient {
@@ -72,7 +72,7 @@ export class ApiClient {
 
   constructor(baseURL: string = '/api', retryConfig?: Partial<RetryConfig>) {
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
-    
+
     this.client = axios.create({
       baseURL,
       withCredentials: true, // Include cookies for session management
@@ -102,17 +102,16 @@ export class ApiClient {
    */
   private calculateBackoffDelay(attempt: number): number {
     const delay =
-      this.retryConfig.initialDelayMs *
-      Math.pow(this.retryConfig.backoffMultiplier, attempt);
+      this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffMultiplier, attempt);
     return Math.min(delay, this.retryConfig.maxDelayMs);
   }
 
   /**
    * Determine if an error is retryable
-   * 
+   *
    * Network errors and 5xx server errors are retryable.
    * Authentication (401) and authorization (403) errors are not retryable.
-   * 
+   *
    * Requirements: 25.4
    */
   private isRetryableError(error: AxiosError): boolean {
@@ -144,12 +143,10 @@ export class ApiClient {
 
   /**
    * Execute a request with retry logic and exponential backoff
-   * 
+   *
    * Requirements: 25.4
    */
-  private async executeWithRetry<T>(
-    requestFn: () => Promise<T>
-  ): Promise<T> {
+  private async executeWithRetry<T>(requestFn: () => Promise<T>): Promise<T> {
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
@@ -194,9 +191,7 @@ export class ApiClient {
       // Session expired or invalid - redirect to login
       if (status === 401) {
         window.location.href = '/login';
-        return Promise.reject(
-          new ApiClientError('Authentication required', 401, data)
-        );
+        return Promise.reject(new ApiClientError('Authentication required', 401, data));
       }
 
       // Handle authorization errors (403)
@@ -213,9 +208,7 @@ export class ApiClient {
           : '/access-denied';
         window.location.href = redirectPath;
 
-        return Promise.reject(
-          new ApiClientError('Access forbidden', 403, data)
-        );
+        return Promise.reject(new ApiClientError('Access forbidden', 403, data));
       }
 
       // Try to parse Elasticsearch error from response body
@@ -242,20 +235,16 @@ export class ApiClient {
 
     // Handle network errors
     if (error.request) {
-      return Promise.reject(
-        new ApiClientError('Network error - unable to reach server', 0)
-      );
+      return Promise.reject(new ApiClientError('Network error - unable to reach server', 0));
     }
 
     // Handle other errors
-    return Promise.reject(
-      new ApiClientError(error.message || 'An unexpected error occurred', 0)
-    );
+    return Promise.reject(new ApiClientError(error.message || 'An unexpected error occurred', 0));
   }
 
   /**
    * Login with username and password
-   * 
+   *
    * Requirements: 21.5, 21.6
    */
   async login(username: string, password: string): Promise<void> {
@@ -265,7 +254,7 @@ export class ApiClient {
 
   /**
    * Logout and invalidate session
-   * 
+   *
    * Requirements: 21.5, 21.6
    */
   async logout(): Promise<void> {
@@ -274,7 +263,7 @@ export class ApiClient {
 
   /**
    * Get list of accessible clusters
-   * 
+   *
    * Requirements: 23.4, 25.4
    */
   async getClusters(): Promise<ClusterInfo[]> {
@@ -286,7 +275,7 @@ export class ApiClient {
 
   /**
    * Get cluster health information
-   * 
+   *
    * Requirements: 21.5, 21.6, 25.4
    */
   async getClusterHealth(clusterId: string): Promise<ClusterHealth> {
@@ -300,12 +289,12 @@ export class ApiClient {
 
   /**
    * Proxy a request to an Elasticsearch cluster
-   * 
+   *
    * This method forwards arbitrary requests to the Elasticsearch cluster,
    * allowing the frontend to interact with any Elasticsearch API.
-   * 
+   *
    * Returns both the response data and content-type header for proper formatting.
-   * 
+   *
    * Requirements: 21.5, 21.6, 23.4, 25.4
    */
   async proxyRequest<T = unknown>(
@@ -336,36 +325,32 @@ export class ApiClient {
 
   /**
    * Get cluster statistics for overview display
-   * 
+   *
    * Requirements: 4.1, 4.2, 4.3
    */
   async getClusterStats(clusterId: string): Promise<ClusterStats> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ClusterStats>(
-        `/clusters/${clusterId}/stats`
-      );
+      const response = await this.client.get<ClusterStats>(`/clusters/${clusterId}/stats`);
       return response.data;
     });
   }
 
   /**
    * Get list of nodes in a cluster
-   * 
+   *
    * Handles optional fields with default values:
    * - loadAverage defaults to undefined if not provided
    * - uptime defaults to undefined if not provided
    * - tags defaults to empty array if not provided
-   * 
+   *
    * Requirements: 4.6, 14.1, 14.2
    */
   async getNodes(clusterId: string): Promise<NodeInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<NodeInfo[]>(
-        `/clusters/${clusterId}/nodes`
-      );
-      
+      const response = await this.client.get<NodeInfo[]>(`/clusters/${clusterId}/nodes`);
+
       // Ensure optional fields have proper defaults
-      return response.data.map(node => ({
+      return response.data.map((node) => ({
         ...node,
         tags: node.tags ?? [],
         loadAverage: node.loadAverage ?? undefined,
@@ -377,7 +362,7 @@ export class ApiClient {
 
   /**
    * Get detailed statistics for a specific node
-   * 
+   *
    * Handles optional fields with default values:
    * - loadAverage defaults to undefined if not provided
    * - uptime defaults to undefined if not provided
@@ -388,7 +373,7 @@ export class ApiClient {
    * - fs defaults to undefined if not provided
    * - network defaults to undefined if not provided
    * - jvm defaults to undefined if not provided
-   * 
+   *
    * Requirements: 14.7, 14.8
    */
   async getNodeStats(clusterId: string, nodeId: string): Promise<NodeDetailStats> {
@@ -396,10 +381,10 @@ export class ApiClient {
       const response = await this.client.get<NodeDetailStats>(
         `/clusters/${clusterId}/nodes/${nodeId}/stats`
       );
-      
+
       // Ensure optional fields have proper defaults and validate numeric fields
       const data = response.data;
-      
+
       // Validate that numeric fields are not NaN
       const validateNumber = (value: number | undefined, fieldName: string): number | undefined => {
         if (value === undefined) return undefined;
@@ -409,7 +394,7 @@ export class ApiClient {
         }
         return value;
       };
-      
+
       return {
         ...data,
         cpuPercent: validateNumber(data.cpuPercent, 'cpuPercent'),
@@ -429,35 +414,31 @@ export class ApiClient {
 
   /**
    * Get list of indices in a cluster
-   * 
+   *
    * Requirements: 4.7
    */
   async getIndices(clusterId: string): Promise<IndexInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<IndexInfo[]>(
-        `/clusters/${clusterId}/indices`
-      );
+      const response = await this.client.get<IndexInfo[]>(`/clusters/${clusterId}/indices`);
       return response.data;
     });
   }
 
   /**
    * Get shard allocation information
-   * 
+   *
    * Requirements: 4.8
    */
   async getShards(clusterId: string): Promise<ShardInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ShardInfo[]>(
-        `/clusters/${clusterId}/shards`
-      );
+      const response = await this.client.get<ShardInfo[]>(`/clusters/${clusterId}/shards`);
       return response.data;
     });
   }
 
   /**
    * Get detailed statistics for a specific shard
-   * 
+   *
    * Requirements: 4.8
    */
   async getShardStats(clusterId: string, indexName: string, shardNum: number): Promise<unknown> {
@@ -471,7 +452,7 @@ export class ApiClient {
 
   /**
    * Open a closed index
-   * 
+   *
    * Requirements: 5.1
    */
   async openIndex(clusterId: string, indexName: string): Promise<void> {
@@ -482,7 +463,7 @@ export class ApiClient {
 
   /**
    * Close an open index
-   * 
+   *
    * Requirements: 5.2
    */
   async closeIndex(clusterId: string, indexName: string): Promise<void> {
@@ -493,7 +474,7 @@ export class ApiClient {
 
   /**
    * Delete an index
-   * 
+   *
    * Requirements: 5.3
    */
   async deleteIndex(clusterId: string, indexName: string): Promise<void> {
@@ -504,10 +485,14 @@ export class ApiClient {
 
   /**
    * Force merge an index
-   * 
+   *
    * Requirements: 5.4
    */
-  async forceMergeIndex(clusterId: string, indexName: string, maxNumSegments?: number): Promise<void> {
+  async forceMergeIndex(
+    clusterId: string,
+    indexName: string,
+    maxNumSegments?: number
+  ): Promise<void> {
     return this.executeWithRetry(async () => {
       const params = maxNumSegments ? `?max_num_segments=${maxNumSegments}` : '';
       await this.client.post(`/clusters/${clusterId}/${indexName}/_forcemerge${params}`);
@@ -516,7 +501,7 @@ export class ApiClient {
 
   /**
    * Clear cache for an index
-   * 
+   *
    * Requirements: 5.5
    */
   async clearCacheIndex(clusterId: string, indexName: string): Promise<void> {
@@ -527,7 +512,7 @@ export class ApiClient {
 
   /**
    * Refresh an index
-   * 
+   *
    * Requirements: 5.6
    */
   async refreshIndex(clusterId: string, indexName: string): Promise<void> {
@@ -701,7 +686,7 @@ export class ApiClient {
       const response = await this.client.get<Record<string, { aliases: Record<string, unknown> }>>(
         `/clusters/${clusterId}/_alias`
       );
-      
+
       // Transform the response into a flat array of alias info
       const aliases: AliasInfo[] = [];
       for (const [index, data] of Object.entries(response.data)) {
@@ -724,13 +709,13 @@ export class ApiClient {
 
   /**
    * Create or update an alias
-   * 
+   *
    * Requirements: 11.2, 11.3, 11.4, 11.5, 11.6
    */
   async createAlias(clusterId: string, request: CreateAliasRequest): Promise<void> {
     return this.executeWithRetry(async () => {
       // Build the actions array for atomic alias operations
-      const actions = request.indices.map(index => {
+      const actions = request.indices.map((index) => {
         const action: Record<string, unknown> = {
           add: {
             index,
@@ -764,7 +749,7 @@ export class ApiClient {
 
   /**
    * Delete an alias
-   * 
+   *
    * Requirements: 11.7
    */
   async deleteAlias(clusterId: string, index: string, alias: string): Promise<void> {
@@ -775,7 +760,7 @@ export class ApiClient {
 
   /**
    * Perform bulk alias operations atomically
-   * 
+   *
    * Requirements: 11.8
    */
   async bulkAliasOperations(
@@ -789,7 +774,7 @@ export class ApiClient {
 
   /**
    * Get all index templates in a cluster
-   * 
+   *
    * Requirements: 12.1
    */
   async getTemplates(clusterId: string): Promise<TemplateInfo[]> {
@@ -799,10 +784,12 @@ export class ApiClient {
         const response = await this.client.get<Record<string, unknown>>(
           `/clusters/${clusterId}/_index_template`
         );
-        
+
         const templates: TemplateInfo[] = [];
-        const data = response.data as { index_templates?: Array<{ name: string; index_template: unknown }> };
-        
+        const data = response.data as {
+          index_templates?: Array<{ name: string; index_template: unknown }>;
+        };
+
         if (data.index_templates) {
           for (const item of data.index_templates) {
             const template = item.index_template as Record<string, unknown>;
@@ -811,27 +798,43 @@ export class ApiClient {
               indexPatterns: template.index_patterns as string[],
               priority: template.priority as number | undefined,
               version: template.version as number | undefined,
-              settings: template.template ? (template.template as Record<string, unknown>).settings as Record<string, unknown> : undefined,
-              mappings: template.template ? (template.template as Record<string, unknown>).mappings as Record<string, unknown> : undefined,
-              aliases: template.template ? (template.template as Record<string, unknown>).aliases as Record<string, unknown> : undefined,
+              settings: template.template
+                ? ((template.template as Record<string, unknown>).settings as Record<
+                    string,
+                    unknown
+                  >)
+                : undefined,
+              mappings: template.template
+                ? ((template.template as Record<string, unknown>).mappings as Record<
+                    string,
+                    unknown
+                  >)
+                : undefined,
+              aliases: template.template
+                ? ((template.template as Record<string, unknown>).aliases as Record<
+                    string,
+                    unknown
+                  >)
+                : undefined,
               composable: true,
             });
           }
         }
-        
+
         return templates;
       } catch {
         // Fall back to legacy templates
         const response = await this.client.get<Record<string, unknown>>(
           `/clusters/${clusterId}/_template`
         );
-        
+
         const templates: TemplateInfo[] = [];
         for (const [name, config] of Object.entries(response.data)) {
           const template = config as Record<string, unknown>;
           templates.push({
             name,
-            indexPatterns: template.index_patterns as string[] || template.template as string[] || [],
+            indexPatterns:
+              (template.index_patterns as string[]) || (template.template as string[]) || [],
             order: template.order as number | undefined,
             settings: template.settings as Record<string, unknown> | undefined,
             mappings: template.mappings as Record<string, unknown> | undefined,
@@ -839,7 +842,7 @@ export class ApiClient {
             composable: false,
           });
         }
-        
+
         return templates;
       }
     });
@@ -847,7 +850,7 @@ export class ApiClient {
 
   /**
    * Create or update an index template
-   * 
+   *
    * Requirements: 12.2, 12.3, 12.4, 12.5
    */
   async createTemplate(clusterId: string, request: CreateTemplateRequest): Promise<void> {
@@ -910,7 +913,7 @@ export class ApiClient {
 
   /**
    * Delete an index template
-   * 
+   *
    * Requirements: 12.6
    */
   async deleteTemplate(clusterId: string, name: string, composable: boolean): Promise<void> {
@@ -925,10 +928,13 @@ export class ApiClient {
 
   /**
    * Get cluster settings
-   * 
+   *
    * Requirements: 13.1, 13.2
    */
-  async getClusterSettings(clusterId: string, includeDefaults: boolean = false): Promise<ClusterSettings> {
+  async getClusterSettings(
+    clusterId: string,
+    includeDefaults: boolean = false
+  ): Promise<ClusterSettings> {
     return this.executeWithRetry(async () => {
       const params = includeDefaults ? '?include_defaults=true' : '';
       const response = await this.client.get<ClusterSettings>(
@@ -940,7 +946,7 @@ export class ApiClient {
 
   /**
    * Update cluster settings
-   * 
+   *
    * Requirements: 13.3, 13.4, 13.5
    */
   async updateClusterSettings(
@@ -954,7 +960,7 @@ export class ApiClient {
 
   /**
    * Analyze text with specified analyzer or custom configuration
-   * 
+   *
    * Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6
    */
   async analyzeText(clusterId: string, request: AnalyzeTextRequest): Promise<AnalyzeTextResponse> {
@@ -979,9 +985,10 @@ export class ApiClient {
         body.field = request.field;
       }
 
-      const endpoint = request.field && request.index
-        ? `/clusters/${clusterId}/${request.index}/_analyze`
-        : `/clusters/${clusterId}/_analyze`;
+      const endpoint =
+        request.field && request.index
+          ? `/clusters/${clusterId}/${request.index}/_analyze`
+          : `/clusters/${clusterId}/_analyze`;
 
       const response = await this.client.post<AnalyzeTextResponse>(endpoint, body);
       return response.data;
@@ -990,17 +997,18 @@ export class ApiClient {
 
   /**
    * Get analyzers configured for an index
-   * 
+   *
    * Requirements: 16.1, 16.2
    */
   async getIndexAnalyzers(clusterId: string, indexName: string): Promise<IndexAnalyzersResponse> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<Record<string, { settings: { index: { analysis: unknown } } }>>(
-        `/clusters/${clusterId}/${indexName}/_settings`
-      );
+      const response = await this.client.get<
+        Record<string, { settings: { index: { analysis: unknown } } }>
+      >(`/clusters/${clusterId}/${indexName}/_settings`);
 
       const indexData = response.data[indexName];
-      const analysis = indexData?.settings?.index?.analysis as Record<string, Record<string, unknown>> || {};
+      const analysis =
+        (indexData?.settings?.index?.analysis as Record<string, Record<string, unknown>>) || {};
 
       return {
         analyzers: analysis.analyzer || {},
@@ -1013,28 +1021,28 @@ export class ApiClient {
 
   /**
    * Get fields configured for an index with their analyzers
-   * 
+   *
    * Requirements: 16.3, 16.4, 16.5, 16.6
    */
   async getIndexFields(clusterId: string, indexName: string): Promise<IndexFieldsResponse> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<Record<string, { mappings: { properties: Record<string, unknown> } }>>(
-        `/clusters/${clusterId}/${indexName}/_mapping`
-      );
+      const response = await this.client.get<
+        Record<string, { mappings: { properties: Record<string, unknown> } }>
+      >(`/clusters/${clusterId}/${indexName}/_mapping`);
 
       const indexData = response.data[indexName];
       const properties = indexData?.mappings?.properties || {};
 
       const fields: FieldInfo[] = [];
-      
+
       const extractFields = (props: Record<string, unknown>, prefix = '') => {
         for (const [name, config] of Object.entries(props)) {
           const fieldConfig = config as Record<string, unknown>;
           const fullName = prefix ? `${prefix}.${name}` : name;
-          
+
           fields.push({
             name: fullName,
-            type: fieldConfig.type as string || 'object',
+            type: (fieldConfig.type as string) || 'object',
             analyzer: fieldConfig.analyzer as string | undefined,
             searchAnalyzer: fieldConfig.search_analyzer as string | undefined,
             normalizer: fieldConfig.normalizer as string | undefined,
@@ -1059,14 +1067,14 @@ export class ApiClient {
 
   /**
    * Get all snapshot repositories in a cluster
-   * 
+   *
    * Requirements: 17.1
    */
   async getRepositories(clusterId: string): Promise<RepositoryInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<Record<string, { type: string; settings: Record<string, unknown> }>>(
-        `/clusters/${clusterId}/_snapshot`
-      );
+      const response = await this.client.get<
+        Record<string, { type: string; settings: Record<string, unknown> }>
+      >(`/clusters/${clusterId}/_snapshot`);
 
       const repositories: RepositoryInfo[] = [];
       for (const [name, config] of Object.entries(response.data)) {
@@ -1083,7 +1091,7 @@ export class ApiClient {
 
   /**
    * Create a snapshot repository
-   * 
+   *
    * Requirements: 17.2, 17.3, 17.4, 17.5, 17.6, 17.7, 17.8, 17.9
    */
   async createRepository(clusterId: string, request: CreateRepositoryRequest): Promise<void> {
@@ -1097,7 +1105,7 @@ export class ApiClient {
 
   /**
    * Delete a snapshot repository
-   * 
+   *
    * Requirements: 17.10
    */
   async deleteRepository(clusterId: string, name: string): Promise<void> {
@@ -1108,7 +1116,7 @@ export class ApiClient {
 
   /**
    * Get snapshots in a repository
-   * 
+   *
    * Requirements: 18.1
    */
   async getSnapshots(clusterId: string, repository: string): Promise<SnapshotInfo[]> {
@@ -1123,7 +1131,7 @@ export class ApiClient {
 
   /**
    * Create a snapshot
-   * 
+   *
    * Requirements: 18.2, 18.3, 18.4, 18.5
    */
   async createSnapshot(
@@ -1156,7 +1164,7 @@ export class ApiClient {
 
   /**
    * Delete a snapshot
-   * 
+   *
    * Requirements: 18.7
    */
   async deleteSnapshot(clusterId: string, repository: string, snapshot: string): Promise<void> {
@@ -1167,7 +1175,7 @@ export class ApiClient {
 
   /**
    * Restore a snapshot
-   * 
+   *
    * Requirements: 18.8, 18.9
    */
   async restoreSnapshot(
@@ -1210,7 +1218,7 @@ export class ApiClient {
 
   /**
    * Get available Cat API endpoints
-   * 
+   *
    * Requirements: 20.1
    */
   async getCatEndpoints(_clusterId: string): Promise<string[]> {
@@ -1243,7 +1251,7 @@ export class ApiClient {
 
   /**
    * Execute a Cat API request
-   * 
+   *
    * Requirements: 20.2, 20.3
    */
   async executeCatApi(
@@ -1268,7 +1276,7 @@ export class ApiClient {
 
   /**
    * Get help text for a Cat API endpoint
-   * 
+   *
    * Requirements: 20.7
    */
   async getCatApiHelp(clusterId: string, endpoint: string): Promise<string> {
@@ -1283,7 +1291,7 @@ export class ApiClient {
 
   /**
    * Get index statistics
-   * 
+   *
    * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
    */
   async getIndexStats(clusterId: string, indexName: string): Promise<IndexStats> {
@@ -1294,7 +1302,7 @@ export class ApiClient {
 
       // The response is an object with indices as keys
       const indexData = response.data.indices?.[indexName];
-      
+
       if (!indexData) {
         throw new Error(`Statistics not found for index: ${indexName}`);
       }
@@ -1305,11 +1313,11 @@ export class ApiClient {
 
   /**
    * Relocate a shard from one node to another
-   * 
+   *
    * Executes the Elasticsearch cluster reroute API to move a shard.
    * The shard will be copied to the destination node and then removed
    * from the source node.
-   * 
+   *
    * Requirements: 6.1, 6.2, 6.5, 6.6, 6.7
    */
   async relocateShard(

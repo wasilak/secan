@@ -4,7 +4,7 @@ import { useTheme, type Theme } from '../hooks/useTheme';
 
 /**
  * ThemeSelector component provides a UI for switching between light, dark, and system themes.
- * 
+ *
  * Features:
  * - Displays current theme with appropriate icon
  * - Menu with options for light, dark, and system modes
@@ -30,19 +30,14 @@ export function ThemeSelector() {
   return (
     <Menu shadow="md" width={200}>
       <Menu.Target>
-        <ActionIcon
-          variant="subtle"
-          size="lg"
-          aria-label="Toggle theme"
-          title="Change theme"
-        >
+        <ActionIcon variant="subtle" size="lg" aria-label="Toggle theme" title="Change theme">
           {getIcon()}
         </ActionIcon>
       </Menu.Target>
 
       <Menu.Dropdown>
         <Menu.Label>Theme</Menu.Label>
-        
+
         <Menu.Item
           leftSection={<IconSun size={16} />}
           onClick={() => handleThemeChange('light')}
@@ -50,7 +45,7 @@ export function ThemeSelector() {
         >
           Light
         </Menu.Item>
-        
+
         <Menu.Item
           leftSection={<IconMoon size={16} />}
           onClick={() => handleThemeChange('dark')}
@@ -58,7 +53,7 @@ export function ThemeSelector() {
         >
           Dark
         </Menu.Item>
-        
+
         <Menu.Item
           leftSection={<IconDeviceDesktop size={16} />}
           onClick={() => handleThemeChange('system')}

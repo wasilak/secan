@@ -15,7 +15,7 @@ import { useMemo } from 'react';
 
 /**
  * SpotlightSearch component provides keyboard-driven navigation
- * 
+ *
  * Features:
  * - Cmd/Ctrl+K to open search
  * - Context-aware navigation items
@@ -23,7 +23,7 @@ import { useMemo } from 'react';
  * - Cluster view: Shows nodes, indices, and tabs for current cluster
  * - Keyboard navigation support
  * - Search filtering
- * 
+ *
  * Requirements: 32.3, 32.4
  */
 export function SpotlightSearch() {
@@ -86,7 +86,7 @@ export function SpotlightSearch() {
         { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '?tab=shards' },
       ];
 
-      tabs.forEach(tab => {
+      tabs.forEach((tab) => {
         items.push({
           id: `cluster-${currentClusterId}-${tab.id}`,
           label: `${clusterName} - ${tab.label}`,
@@ -99,7 +99,7 @@ export function SpotlightSearch() {
 
       // Individual nodes
       if (nodes && nodes.length > 0) {
-        nodes.forEach(node => {
+        nodes.forEach((node) => {
           items.push({
             id: `node-${node.id}`,
             label: `Node: ${node.name}`,
@@ -113,12 +113,15 @@ export function SpotlightSearch() {
 
       // Individual indices
       if (indices && indices.length > 0) {
-        indices.forEach(index => {
+        indices.forEach((index) => {
           items.push({
             id: `index-${index.name}`,
             label: `Index: ${index.name}`,
             description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
-            onClick: () => navigate(`/cluster/${currentClusterId}?tab=indices&index=${encodeURIComponent(index.name)}`),
+            onClick: () =>
+              navigate(
+                `/cluster/${currentClusterId}?tab=indices&index=${encodeURIComponent(index.name)}`
+              ),
             leftSection: <IconDatabase size={20} />,
             keywords: ['index', index.name, currentClusterName],
           });
@@ -136,12 +139,13 @@ export function SpotlightSearch() {
           { id: 'shards', label: 'Shards', icon: IconCopy },
         ];
 
-        clusters.forEach(cluster => {
-          tabs.forEach(tab => {
-            const path = tab.id === 'overview' 
-              ? `/cluster/${cluster.id}` 
-              : `/cluster/${cluster.id}?tab=${tab.id}`;
-            
+        clusters.forEach((cluster) => {
+          tabs.forEach((tab) => {
+            const path =
+              tab.id === 'overview'
+                ? `/cluster/${cluster.id}`
+                : `/cluster/${cluster.id}?tab=${tab.id}`;
+
             items.push({
               id: `cluster-${cluster.id}-${tab.id}`,
               label: `${cluster.name} - ${tab.label}`,
@@ -165,8 +169,8 @@ export function SpotlightSearch() {
       highlightQuery
       searchProps={{
         leftSection: <IconSearch size={20} />,
-        placeholder: currentClusterId 
-          ? 'Search nodes, indices, and tabs...' 
+        placeholder: currentClusterId
+          ? 'Search nodes, indices, and tabs...'
           : 'Search clusters and tabs...',
         'aria-label': 'Search navigation',
       }}

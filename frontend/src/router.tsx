@@ -11,7 +11,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
+      >
         Loading...
       </div>
     );
@@ -50,26 +52,46 @@ function NodeDetailRedirect() {
 
 // Lazy-load page components for better performance
 // Requirements: 31.4 - Lazy-load components to reduce initial bundle size
-const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
-const ClusterView = lazy(() => import('./pages/ClusterView').then(m => ({ default: m.ClusterView })));
-const RestConsole = lazy(() => import('./pages/RestConsole').then(m => ({ default: m.RestConsole })));
-const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
-const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
-const IndexCreate = lazy(() => import('./pages/IndexCreate').then(m => ({ default: m.IndexCreate })));
-const Aliases = lazy(() => import('./pages/Aliases').then(m => ({ default: m.Aliases })));
-const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
-const ClusterSettingsPage = lazy(() => import('./pages/ClusterSettings').then(m => ({ default: m.ClusterSettingsPage })));
-const ShardManagement = lazy(() => import('./pages/ShardManagement').then(m => ({ default: m.ShardManagement })));
-const TextAnalysisPage = lazy(() => import('./pages/TextAnalysis').then(m => ({ default: m.TextAnalysisPage })));
-const IndexAnalyzersPage = lazy(() => import('./pages/IndexAnalyzers').then(m => ({ default: m.IndexAnalyzersPage })));
-const Repositories = lazy(() => import('./pages/Repositories').then(m => ({ default: m.Repositories })));
-const Snapshots = lazy(() => import('./pages/Snapshots').then(m => ({ default: m.Snapshots })));
-const CatApiPage = lazy(() => import('./pages/CatApi').then(m => ({ default: m.CatApiPage })));
-const IndexStatistics = lazy(() => import('./pages/IndexStatistics').then(m => ({ default: m.IndexStatistics })));
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const ClusterView = lazy(() =>
+  import('./pages/ClusterView').then((m) => ({ default: m.ClusterView }))
+);
+const RestConsole = lazy(() =>
+  import('./pages/RestConsole').then((m) => ({ default: m.RestConsole }))
+);
+const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
+const AccessDenied = lazy(() =>
+  import('./pages/AccessDenied').then((m) => ({ default: m.AccessDenied }))
+);
+const IndexCreate = lazy(() =>
+  import('./pages/IndexCreate').then((m) => ({ default: m.IndexCreate }))
+);
+const Aliases = lazy(() => import('./pages/Aliases').then((m) => ({ default: m.Aliases })));
+const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default: m.Templates })));
+const ClusterSettingsPage = lazy(() =>
+  import('./pages/ClusterSettings').then((m) => ({ default: m.ClusterSettingsPage }))
+);
+const ShardManagement = lazy(() =>
+  import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
+);
+const TextAnalysisPage = lazy(() =>
+  import('./pages/TextAnalysis').then((m) => ({ default: m.TextAnalysisPage }))
+);
+const IndexAnalyzersPage = lazy(() =>
+  import('./pages/IndexAnalyzers').then((m) => ({ default: m.IndexAnalyzersPage }))
+);
+const Repositories = lazy(() =>
+  import('./pages/Repositories').then((m) => ({ default: m.Repositories }))
+);
+const Snapshots = lazy(() => import('./pages/Snapshots').then((m) => ({ default: m.Snapshots })));
+const CatApiPage = lazy(() => import('./pages/CatApi').then((m) => ({ default: m.CatApiPage })));
+const IndexStatistics = lazy(() =>
+  import('./pages/IndexStatistics').then((m) => ({ default: m.IndexStatistics }))
+);
 
 /**
  * Main application router configuration
- * 
+ *
  * Routes:
  * - / - Dashboard (multi-cluster overview)
  * - /login - Login page
@@ -88,7 +110,7 @@ const IndexStatistics = lazy(() => import('./pages/IndexStatistics').then(m => (
  * - /cluster/:id/repositories - Manage snapshot repositories
  * - /cluster/:id/snapshots/:repository - Manage snapshots in a repository
  * - /cluster/:id/cat - Cat API access
- * 
+ *
  * Authentication redirects will be implemented when auth is integrated.
  */
 export const router = createBrowserRouter([

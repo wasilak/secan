@@ -5,14 +5,14 @@ import { useEffect, useState } from 'react';
 
 /**
  * RefreshControl component provides UI for controlling auto-refresh
- * 
+ *
  * Features:
  * - Dropdown to select refresh interval (5s, 10s, 15s, 30s, 1m, 2m, 5m, off)
  * - Manual refresh button
  * - Visual indicator when refreshing
  * - Countdown timer showing time until next refresh
  * - Scoped refresh support (only refresh relevant queries)
- * 
+ *
  * Requirements: Real-time cluster state updates
  */
 interface RefreshControlProps {
@@ -70,7 +70,7 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
             },
           }}
         />
-        
+
         {timeUntilRefresh !== null && interval > 0 && (
           <Text size="xs" c="dimmed" style={{ minWidth: '30px', textAlign: 'right' }}>
             {formatTimeRemaining(timeUntilRefresh)}
@@ -89,7 +89,7 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
           </ActionIcon>
         </Tooltip>
       </Group>
-      
+
       {/* Progress bar showing time until next refresh */}
       {interval > 0 && timeUntilRefresh !== null && (
         <Progress

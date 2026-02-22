@@ -1,8 +1,8 @@
 /**
  * REST Console utility functions
- * 
+ *
  * Provides request parsing and validation for the REST Console feature.
- * 
+ *
  * Requirements: 13.3, 13.4, 13.6
  */
 
@@ -15,7 +15,7 @@ const VALID_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PA
 
 /**
  * Parse a REST Console request string
- * 
+ *
  * Expected format:
  * ```
  * METHOD /endpoint
@@ -23,14 +23,14 @@ const VALID_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PA
  *   "optional": "json body"
  * }
  * ```
- * 
+ *
  * The first line must contain the HTTP method and endpoint path.
  * Subsequent lines are treated as the optional JSON body.
- * 
+ *
  * @param input - Raw request string from the console editor
  * @returns Parsed REST request
  * @throws Error if the request format is invalid
- * 
+ *
  * Requirements: 13.3, 13.4
  */
 export function parseRequest(input: string): RestRequest {
@@ -47,7 +47,7 @@ export function parseRequest(input: string): RestRequest {
 
   // Parse method and path from first line
   const parts = firstLine.split(/\s+/);
-  
+
   if (parts.length < 2) {
     throw new Error('Request must include both method and path (e.g., "GET /_cluster/health")');
   }
@@ -80,14 +80,14 @@ export function parseRequest(input: string): RestRequest {
 
 /**
  * Validate JSON body syntax
- * 
+ *
  * Attempts to parse the JSON body to ensure it's valid JSON.
  * Returns true if valid or if body is empty/undefined.
- * 
+ *
  * @param body - JSON body string to validate
  * @returns True if valid JSON or empty
  * @throws Error with descriptive message if JSON is invalid
- * 
+ *
  * Requirements: 13.7
  */
 export function validateJsonBody(body?: string): boolean {
@@ -108,7 +108,7 @@ export function validateJsonBody(body?: string): boolean {
 
 /**
  * Format JSON string with proper indentation
- * 
+ *
  * @param json - JSON string to format
  * @param indent - Number of spaces for indentation (default: 2)
  * @returns Formatted JSON string
@@ -125,18 +125,18 @@ export function formatJson(json: string, indent: number = 2): string {
 
 /**
  * Parse and validate a complete REST Console request
- * 
+ *
  * Combines parsing and validation into a single function.
- * 
+ *
  * @param input - Raw request string from the console editor
  * @returns Parsed and validated REST request
  * @throws Error if the request is invalid
- * 
+ *
  * Requirements: 13.3, 13.4, 13.7
  */
 export function parseAndValidateRequest(input: string): RestRequest {
   const request = parseRequest(input);
-  
+
   // Validate JSON body if present
   if (request.body) {
     validateJsonBody(request.body);

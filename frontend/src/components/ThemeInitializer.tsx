@@ -7,7 +7,7 @@ import { useTheme } from '../hooks/useTheme';
 export function ThemeInitializer() {
   // Call the hook to ensure listeners are set up
   useTheme();
-  
+
   // This component doesn't render anything - it's just for side effects
   return null;
 }

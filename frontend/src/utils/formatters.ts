@@ -1,18 +1,18 @@
 /**
  * Formatter utilities for node data display
- * 
+ *
  * Provides functions for formatting uptime, load average, and rates
  */
 
 /**
  * Format uptime in milliseconds to human-readable short format
- * 
+ *
  * Examples:
  * - 5 days, 3 hours -> "5d 3h"
  * - 2 hours, 45 minutes -> "2h 45m"
  * - 30 minutes -> "30m"
  * - 45 seconds -> "45s"
- * 
+ *
  * @param milliseconds - Uptime in milliseconds
  * @returns Human-readable uptime string
  */
@@ -39,12 +39,12 @@ export function formatUptime(milliseconds: number): string {
 
 /**
  * Format uptime in milliseconds to detailed human-readable format
- * 
+ *
  * Examples:
  * - 5 days, 3 hours, 24 minutes -> "5 days, 3 hours, 24 minutes"
  * - 2 hours, 45 minutes -> "2 hours, 45 minutes"
  * - 30 minutes -> "30 minutes"
- * 
+ *
  * @param milliseconds - Uptime in milliseconds
  * @returns Detailed human-readable uptime string
  */
@@ -75,7 +75,7 @@ export function formatUptimeDetailed(milliseconds: number): string {
 
 /**
  * Format load average to string with 2 decimal places
- * 
+ *
  * @param load - Load average value
  * @returns Formatted load average string
  */
@@ -88,12 +88,12 @@ export function formatLoadAverage(load: number): string {
 
 /**
  * Get color for load average based on CPU count
- * 
+ *
  * Color coding:
  * - Green: < 1.0 per CPU (healthy)
  * - Yellow: 1.0 - 1.5 per CPU (moderate load)
  * - Red: > 1.5 per CPU (high load)
- * 
+ *
  * @param load - Load average value
  * @param cpuCount - Number of CPUs (defaults to 1)
  * @returns Color string for Mantine theme
@@ -104,7 +104,7 @@ export function getLoadColor(load: number, cpuCount: number = 1): string {
   }
 
   const normalized = load / cpuCount;
-  
+
   if (normalized > 1.5) {
     return 'red';
   } else if (normalized >= 1.0) {
@@ -116,14 +116,14 @@ export function getLoadColor(load: number, cpuCount: number = 1): string {
 
 /**
  * Format rate from count and time in milliseconds
- * 
+ *
  * Calculates operations per second and formats with appropriate suffix
- * 
+ *
  * Examples:
  * - 1500 operations in 1000ms -> "1.5k/s"
  * - 50 operations in 1000ms -> "50.00/s"
  * - 0 operations -> "0/s"
- * 
+ *
  * @param count - Number of operations
  * @param timeMs - Time period in milliseconds
  * @returns Formatted rate string
@@ -144,12 +144,12 @@ export function formatRate(count: number, timeMs: number): string {
 
 /**
  * Format bytes to human-readable size
- * 
+ *
  * Examples:
  * - 1024 -> "1.00 KB"
  * - 1048576 -> "1.00 MB"
  * - 1073741824 -> "1.00 GB"
- * 
+ *
  * @param bytes - Size in bytes
  * @returns Formatted size string
  */

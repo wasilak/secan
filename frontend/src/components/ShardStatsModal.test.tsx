@@ -33,9 +33,7 @@ describe('ShardStatsModal', () => {
   });
 
   it('renders shard number and type', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('0')).toBeInTheDocument();
     // There are multiple "Primary" badges (in title and table), so use getAllByText
@@ -43,41 +41,31 @@ describe('ShardStatsModal', () => {
   });
 
   it('renders index name', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('test-index')).toBeInTheDocument();
   });
 
   it('renders node name', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('node-1')).toBeInTheDocument();
   });
 
   it('renders shard state', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('STARTED')).toBeInTheDocument();
   });
 
   it('renders document count', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('1,000')).toBeInTheDocument();
   });
 
   it('renders size in human-readable format', () => {
-    renderWithMantine(
-      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('1000.00 KB')).toBeInTheDocument();
   });
@@ -88,9 +76,7 @@ describe('ShardStatsModal', () => {
       primary: false,
     };
 
-    renderWithMantine(
-      <ShardStatsModal shard={replicaShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={replicaShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getAllByText('Replica')).toHaveLength(2); // Title and table
   });
@@ -102,9 +88,7 @@ describe('ShardStatsModal', () => {
       state: 'UNASSIGNED',
     };
 
-    renderWithMantine(
-      <ShardStatsModal shard={unassignedShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={unassignedShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('Unassigned')).toBeInTheDocument();
   });
@@ -116,9 +100,7 @@ describe('ShardStatsModal', () => {
       relocatingNode: 'node-2',
     };
 
-    renderWithMantine(
-      <ShardStatsModal shard={relocatingShard} opened={true} onClose={vi.fn()} />
-    );
+    renderWithMantine(<ShardStatsModal shard={relocatingShard} opened={true} onClose={vi.fn()} />);
 
     expect(screen.getByText('node-2')).toBeInTheDocument();
   });
@@ -174,12 +156,7 @@ describe('ShardStatsModal', () => {
     vi.mocked(apiClient.getShardStats).mockResolvedValue(mockStats);
 
     renderWithMantine(
-      <ShardStatsModal
-        shard={mockShard}
-        opened={true}
-        onClose={vi.fn()}
-        clusterId="test-cluster"
-      />
+      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} clusterId="test-cluster" />
     );
 
     // Should show loading state initially
@@ -213,19 +190,16 @@ describe('ShardStatsModal', () => {
     );
 
     expect(apiClient.getShardStats).not.toHaveBeenCalled();
-    expect(screen.getByText(/Detailed statistics are not available for unassigned shards/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Detailed statistics are not available for unassigned shards/)
+    ).toBeInTheDocument();
   });
 
   it('handles API errors gracefully', async () => {
     vi.mocked(apiClient.getShardStats).mockRejectedValue(new Error('API Error'));
 
     renderWithMantine(
-      <ShardStatsModal
-        shard={mockShard}
-        opened={true}
-        onClose={vi.fn()}
-        clusterId="test-cluster"
-      />
+      <ShardStatsModal shard={mockShard} opened={true} onClose={vi.fn()} clusterId="test-cluster" />
     );
 
     await waitFor(() => {

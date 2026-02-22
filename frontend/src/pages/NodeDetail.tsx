@@ -17,9 +17,9 @@ import {
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  IconAlertCircle, 
-  IconArrowLeft, 
+import {
+  IconAlertCircle,
+  IconArrowLeft,
   IconBrandElastic,
   IconCoffee,
   IconClock,
@@ -69,24 +69,24 @@ function formatNumber(value: number | undefined, decimals: number = 0): string {
 
 /**
  * NodeDetail component displays detailed statistics for a single node.
- * 
+ *
  * Features:
  * - Display detailed node statistics
  * - Show thread pool statistics
  * - Show queue sizes
  * - Display JVM version
- * 
+ *
  * Requirements: 14.7, 14.8
  */
 export function NodeDetail() {
   const { id: clusterId, nodeId } = useParams<{ id: string; nodeId: string }>();
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
-  
+
   // Get current page/route as reset key for sparkline data
   // This ensures data resets when navigating away from this page
   const resetKey = `node-${nodeId}`;
-  
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(clusterId);
 
@@ -112,19 +112,9 @@ export function NodeDetail() {
     true // withTimestamps
   ) as DataPoint[];
 
-  const diskHistory = useSparklineData(
-    nodeStats?.diskPercent,
-    50,
-    resetKey,
-    true
-  ) as DataPoint[];
+  const diskHistory = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true) as DataPoint[];
 
-  const cpuHistory = useSparklineData(
-    nodeStats?.cpuPercent,
-    50,
-    resetKey,
-    true
-  ) as DataPoint[];
+  const cpuHistory = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true) as DataPoint[];
 
   const loadHistory = useSparklineData(
     nodeStats?.loadAverage?.[0], // Use 1-minute load average
@@ -202,7 +192,9 @@ export function NodeDetail() {
           </div>
           {nodeStats.roles && nodeStats.roles.length > 0 && (
             <div>
-              <Text size="sm" c="dimmed" mb="xs">Roles</Text>
+              <Text size="sm" c="dimmed" mb="xs">
+                Roles
+              </Text>
               <Group gap="md">
                 {nodeStats.roles.map((role) => {
                   const roleInfo = getRoleIcon(role);
@@ -229,9 +221,13 @@ export function NodeDetail() {
                 <ThemeIcon size="sm" variant="light" color="blue">
                   <IconBrandElastic size={16} />
                 </ThemeIcon>
-                <Text size="sm" c="dimmed">ES Version</Text>
+                <Text size="sm" c="dimmed">
+                  ES Version
+                </Text>
               </Group>
-              <Text size="lg" fw={700}>{nodeStats.version || 'N/A'}</Text>
+              <Text size="lg" fw={700}>
+                {nodeStats.version || 'N/A'}
+              </Text>
             </Stack>
           </Card>
         </Grid.Col>
@@ -243,9 +239,13 @@ export function NodeDetail() {
                 <ThemeIcon size="sm" variant="light" color="grape">
                   <IconCoffee size={16} />
                 </ThemeIcon>
-                <Text size="sm" c="dimmed">JVM Version</Text>
+                <Text size="sm" c="dimmed">
+                  JVM Version
+                </Text>
               </Group>
-              <Text size="lg" fw={700}>{nodeStats.jvmVersion || 'N/A'}</Text>
+              <Text size="lg" fw={700}>
+                {nodeStats.jvmVersion || 'N/A'}
+              </Text>
             </Stack>
           </Card>
         </Grid.Col>
@@ -257,9 +257,13 @@ export function NodeDetail() {
                 <ThemeIcon size="sm" variant="light" color="teal">
                   <IconClock size={16} />
                 </ThemeIcon>
-                <Text size="sm" c="dimmed">Uptime</Text>
+                <Text size="sm" c="dimmed">
+                  Uptime
+                </Text>
               </Group>
-              <Text size="lg" fw={700}>{nodeStats.uptime || 'N/A'}</Text>
+              <Text size="lg" fw={700}>
+                {nodeStats.uptime || 'N/A'}
+              </Text>
             </Stack>
           </Card>
         </Grid.Col>
@@ -271,11 +275,13 @@ export function NodeDetail() {
                 <ThemeIcon size="sm" variant="light" color="green">
                   <IconCpu size={16} />
                 </ThemeIcon>
-                <Text size="sm" c="dimmed">CPU Usage</Text>
+                <Text size="sm" c="dimmed">
+                  CPU Usage
+                </Text>
               </Group>
               <Text size="lg" fw={700}>
-                {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent) 
-                  ? `${formatNumber(nodeStats.cpuPercent, 1)}%` 
+                {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent)
+                  ? `${formatNumber(nodeStats.cpuPercent, 1)}%`
                   : 'N/A'}
               </Text>
             </Stack>
@@ -289,25 +295,43 @@ export function NodeDetail() {
                 <ThemeIcon size="sm" variant="light" color="orange">
                   <IconActivity size={16} />
                 </ThemeIcon>
-                <Text size="sm" c="dimmed">Load Average</Text>
+                <Text size="sm" c="dimmed">
+                  Load Average
+                </Text>
               </Group>
-              {nodeStats.loadAverage && Array.isArray(nodeStats.loadAverage) && nodeStats.loadAverage.length >= 3 ? (
+              {nodeStats.loadAverage &&
+              Array.isArray(nodeStats.loadAverage) &&
+              nodeStats.loadAverage.length >= 3 ? (
                 <Group gap="xs">
                   <div>
-                    <Text size="xs" c="dimmed">1m</Text>
-                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[0], 2)}</Text>
+                    <Text size="xs" c="dimmed">
+                      1m
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {formatNumber(nodeStats.loadAverage[0], 2)}
+                    </Text>
                   </div>
                   <div>
-                    <Text size="xs" c="dimmed">5m</Text>
-                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[1], 2)}</Text>
+                    <Text size="xs" c="dimmed">
+                      5m
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {formatNumber(nodeStats.loadAverage[1], 2)}
+                    </Text>
                   </div>
                   <div>
-                    <Text size="xs" c="dimmed">15m</Text>
-                    <Text size="sm" fw={700}>{formatNumber(nodeStats.loadAverage[2], 2)}</Text>
+                    <Text size="xs" c="dimmed">
+                      15m
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {formatNumber(nodeStats.loadAverage[2], 2)}
+                    </Text>
                   </div>
                 </Group>
               ) : (
-                <Text size="lg" fw={700}>N/A</Text>
+                <Text size="lg" fw={700}>
+                  N/A
+                </Text>
               )}
             </Stack>
           </Card>
@@ -319,7 +343,9 @@ export function NodeDetail() {
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Heap Memory Usage</Text>
+              <Text size="sm" fw={500}>
+                Heap Memory Usage
+              </Text>
               {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
                 <>
                   <Progress
@@ -334,7 +360,9 @@ export function NodeDetail() {
                   </Text>
                 </>
               ) : (
-                <Text size="xs" c="dimmed">N/A</Text>
+                <Text size="xs" c="dimmed">
+                  N/A
+                </Text>
               )}
             </Stack>
           </Card>
@@ -343,7 +371,9 @@ export function NodeDetail() {
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
-              <Text size="sm" fw={500}>Disk Usage</Text>
+              <Text size="sm" fw={500}>
+                Disk Usage
+              </Text>
               {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
                 <>
                   <Progress
@@ -358,7 +388,9 @@ export function NodeDetail() {
                   </Text>
                 </>
               ) : (
-                <Text size="xs" c="dimmed">N/A</Text>
+                <Text size="xs" c="dimmed">
+                  N/A
+                </Text>
               )}
             </Stack>
           </Card>
@@ -396,24 +428,36 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Total Shards</Text>
-                        <Text size="xl" fw={700}>{nodeStats.shards.total}</Text>
+                        <Text size="sm" c="dimmed">
+                          Total Shards
+                        </Text>
+                        <Text size="xl" fw={700}>
+                          {nodeStats.shards.total}
+                        </Text>
                       </Stack>
                     </Card>
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Primary Shards</Text>
-                        <Text size="xl" fw={700} c="blue">{nodeStats.shards.primary}</Text>
+                        <Text size="sm" c="dimmed">
+                          Primary Shards
+                        </Text>
+                        <Text size="xl" fw={700} c="blue">
+                          {nodeStats.shards.primary}
+                        </Text>
                       </Stack>
                     </Card>
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Replica Shards</Text>
-                        <Text size="xl" fw={700} c="gray">{nodeStats.shards.replica}</Text>
+                        <Text size="sm" c="dimmed">
+                          Replica Shards
+                        </Text>
+                        <Text size="xl" fw={700} c="gray">
+                          {nodeStats.shards.replica}
+                        </Text>
                       </Stack>
                     </Card>
                   </Grid.Col>
@@ -423,22 +467,24 @@ export function NodeDetail() {
                 <Card withBorder>
                   <Group justify="space-between" align="center">
                     <div>
-                      <Text size="sm" fw={500} mb={4}>View Allocated Shards</Text>
+                      <Text size="sm" fw={500} mb={4}>
+                        View Allocated Shards
+                      </Text>
                       <Text size="xs" c="dimmed">
-                        See all {nodeStats.shards.total} shards allocated to this node in the cluster shards view
+                        See all {nodeStats.shards.total} shards allocated to this node in the
+                        cluster shards view
                       </Text>
                     </div>
                     <Anchor
                       href={`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`}
                       onClick={(e) => {
                         e.preventDefault();
-                        navigate(`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`);
+                        navigate(
+                          `/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`
+                        );
                       }}
                     >
-                      <Button
-                        variant="light"
-                        rightSection={<IconExternalLink size={16} />}
-                      >
+                      <Button variant="light" rightSection={<IconExternalLink size={16} />}>
                         View Shards
                       </Button>
                     </Anchor>
@@ -450,17 +496,25 @@ export function NodeDetail() {
             {/* Indexing Metrics */}
             {nodeStats.indexing && (
               <div>
-                <Title order={4} mb="sm">Indexing Statistics</Title>
+                <Title order={4} mb="sm">
+                  Indexing Statistics
+                </Title>
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Documents Indexed</Text>
+                        <Text size="sm" c="dimmed">
+                          Documents Indexed
+                        </Text>
                         <Text size="lg" fw={700}>
                           {nodeStats.indexing.indexTotal.toLocaleString()}
                         </Text>
                         <Text size="xs" c="dimmed">
-                          Rate: {formatRate(nodeStats.indexing.indexTotal, nodeStats.indexing.indexTimeInMillis)}
+                          Rate:{' '}
+                          {formatRate(
+                            nodeStats.indexing.indexTotal,
+                            nodeStats.indexing.indexTimeInMillis
+                          )}
                         </Text>
                       </Stack>
                     </Card>
@@ -468,7 +522,9 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Indexing Time</Text>
+                        <Text size="sm" c="dimmed">
+                          Indexing Time
+                        </Text>
                         <Text size="lg" fw={700}>
                           {(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s
                         </Text>
@@ -481,8 +537,14 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Index Failures</Text>
-                        <Text size="lg" fw={700} c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}>
+                        <Text size="sm" c="dimmed">
+                          Index Failures
+                        </Text>
+                        <Text
+                          size="lg"
+                          fw={700}
+                          c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}
+                        >
                           {nodeStats.indexing.indexFailed.toLocaleString()}
                         </Text>
                       </Stack>
@@ -491,7 +553,9 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Documents Deleted</Text>
+                        <Text size="sm" c="dimmed">
+                          Documents Deleted
+                        </Text>
                         <Text size="lg" fw={700}>
                           {nodeStats.indexing.deleteTotal.toLocaleString()}
                         </Text>
@@ -508,17 +572,25 @@ export function NodeDetail() {
             {/* Search Metrics */}
             {nodeStats.search && (
               <div>
-                <Title order={4} mb="sm">Search Statistics</Title>
+                <Title order={4} mb="sm">
+                  Search Statistics
+                </Title>
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Query Count</Text>
+                        <Text size="sm" c="dimmed">
+                          Query Count
+                        </Text>
                         <Text size="lg" fw={700}>
                           {nodeStats.search.queryTotal.toLocaleString()}
                         </Text>
                         <Text size="xs" c="dimmed">
-                          Rate: {formatRate(nodeStats.search.queryTotal, nodeStats.search.queryTimeInMillis)}
+                          Rate:{' '}
+                          {formatRate(
+                            nodeStats.search.queryTotal,
+                            nodeStats.search.queryTimeInMillis
+                          )}
                         </Text>
                       </Stack>
                     </Card>
@@ -526,7 +598,9 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Query Time</Text>
+                        <Text size="sm" c="dimmed">
+                          Query Time
+                        </Text>
                         <Text size="lg" fw={700}>
                           {(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s
                         </Text>
@@ -539,7 +613,9 @@ export function NodeDetail() {
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
                     <Card withBorder>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Fetch Count</Text>
+                        <Text size="sm" c="dimmed">
+                          Fetch Count
+                        </Text>
                         <Text size="lg" fw={700}>
                           {nodeStats.search.fetchTotal.toLocaleString()}
                         </Text>
@@ -556,32 +632,52 @@ export function NodeDetail() {
             {/* File System Information */}
             {nodeStats.fs && (
               <div>
-                <Title order={4} mb="sm">File System</Title>
+                <Title order={4} mb="sm">
+                  File System
+                </Title>
                 <Card withBorder>
                   <Grid>
                     <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Total</Text>
-                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.total)}</Text>
+                        <Text size="sm" c="dimmed">
+                          Total
+                        </Text>
+                        <Text size="lg" fw={700}>
+                          {formatBytes(nodeStats.fs.total)}
+                        </Text>
                       </Stack>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Available</Text>
-                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.available)}</Text>
+                        <Text size="sm" c="dimmed">
+                          Available
+                        </Text>
+                        <Text size="lg" fw={700}>
+                          {formatBytes(nodeStats.fs.available)}
+                        </Text>
                       </Stack>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Used</Text>
-                        <Text size="lg" fw={700}>{formatBytes(nodeStats.fs.used)}</Text>
+                        <Text size="sm" c="dimmed">
+                          Used
+                        </Text>
+                        <Text size="lg" fw={700}>
+                          {formatBytes(nodeStats.fs.used)}
+                        </Text>
                       </Stack>
                     </Grid.Col>
                     <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Path</Text>
-                        <Text size="sm" style={{ wordBreak: 'break-all' }}>{nodeStats.fs.path}</Text>
-                        <Text size="xs" c="dimmed">Type: {nodeStats.fs.type}</Text>
+                        <Text size="sm" c="dimmed">
+                          Path
+                        </Text>
+                        <Text size="sm" style={{ wordBreak: 'break-all' }}>
+                          {nodeStats.fs.path}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Type: {nodeStats.fs.type}
+                        </Text>
                       </Stack>
                     </Grid.Col>
                   </Grid>
@@ -597,8 +693,8 @@ export function NodeDetail() {
         <Stack gap="md">
           <Title order={3}>Thread Pool Statistics</Title>
           <Text size="sm" c="dimmed">
-            Thread pool statistics show the current state of various thread pools in the node.
-            Queue sizes indicate pending work, and rejected counts show when pools are overloaded.
+            Thread pool statistics show the current state of various thread pools in the node. Queue
+            sizes indicate pending work, and rejected counts show when pools are overloaded.
           </Text>
 
           {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
@@ -638,13 +734,7 @@ export function NodeDetail() {
 /**
  * ThreadPoolRow component displays a single thread pool's statistics
  */
-function ThreadPoolRow({
-  poolName,
-  stats,
-}: {
-  poolName: string;
-  stats: ThreadPoolStats;
-}) {
+function ThreadPoolRow({ poolName, stats }: { poolName: string; stats: ThreadPoolStats }) {
   // Safe value extraction with fallbacks
   const threads = stats?.threads ?? 0;
   const active = stats?.active ?? 0;
@@ -656,16 +746,18 @@ function ThreadPoolRow({
   // Highlight pools with high queue sizes or rejections
   const hasHighQueue = queue > 100;
   const hasRejections = rejected > 0;
-  const rowBg = hasRejections 
-    ? 'var(--mantine-color-red-light)' 
-    : hasHighQueue 
-    ? 'var(--mantine-color-yellow-light)' 
-    : undefined;
+  const rowBg = hasRejections
+    ? 'var(--mantine-color-red-light)'
+    : hasHighQueue
+      ? 'var(--mantine-color-yellow-light)'
+      : undefined;
 
   return (
     <Table.Tr style={{ backgroundColor: rowBg }}>
       <Table.Td>
-        <Text size="sm" fw={500}>{poolName}</Text>
+        <Text size="sm" fw={500}>
+          {poolName}
+        </Text>
       </Table.Td>
       <Table.Td>
         <Text size="sm">{threads}</Text>

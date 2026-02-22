@@ -51,10 +51,9 @@ impl Server {
         // Initialize OIDC provider if OIDC mode is configured
         let oidc_provider = if config.auth.mode == crate::config::AuthMode::Oidc {
             if let Some(oidc_config) = &config.auth.oidc {
-                let permission_resolver = crate::auth::PermissionResolver::new(
-                    config.auth.permissions.clone(),
-                );
-                
+                let permission_resolver =
+                    crate::auth::PermissionResolver::new(config.auth.permissions.clone());
+
                 let provider = crate::auth::OidcAuthProvider::new(
                     oidc_config.clone(),
                     Arc::new(session_manager.clone()),
@@ -62,7 +61,7 @@ impl Server {
                 )
                 .await
                 .context("Failed to initialize OIDC provider")?;
-                
+
                 Some(Arc::new(provider))
             } else {
                 None
@@ -317,7 +316,9 @@ mod tests {
                 .unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
-        let server = Server::new(config, cluster_manager, session_manager).await.unwrap();
+        let server = Server::new(config, cluster_manager, session_manager)
+            .await
+            .unwrap();
 
         assert_eq!(server.config.server.port, 27182);
     }
@@ -334,15 +335,15 @@ mod tests {
             es_version: 8,
         };
 
-        let cluster_manager = ClusterManager::new(
-            vec![cluster_config],
-            std::time::Duration::from_secs(30),
-        )
-        .await
-        .unwrap();
+        let cluster_manager =
+            ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
+                .await
+                .unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
-        let server = Server::new(config, cluster_manager, session_manager).await.unwrap();
+        let server = Server::new(config, cluster_manager, session_manager)
+            .await
+            .unwrap();
         let _router = server.router();
 
         // Router creation should succeed

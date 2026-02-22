@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 
 /**
  * Custom hook to manage favicon based on cluster health status
- * 
+ *
  * @param clusterHealth - The cluster health status ('green', 'yellow', 'red', or null)
- * 
+ *
  * When clusterHealth is null, displays neutral favicon (for clusters list or unknown state)
  * When clusterHealth is 'green', displays green favicon
  * When clusterHealth is 'yellow', displays yellow favicon

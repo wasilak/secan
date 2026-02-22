@@ -25,11 +25,11 @@ import {
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  IconAlertCircle, 
-  IconPlus, 
-  IconSettings, 
-  IconMap, 
-  IconDots, 
+  IconAlertCircle,
+  IconPlus,
+  IconSettings,
+  IconMap,
+  IconDots,
   IconSearch,
   IconLock,
   IconLockOpen,
@@ -113,28 +113,28 @@ function getIndexBackgroundColor(health: string): string {
 
 /**
  * ClusterView component displays detailed information about a single cluster.
- * 
+ *
  * Features:
  * - Display cluster health and statistics
  * - Show nodes, indices, and shards
  * - Auto-refresh at configurable intervals
- * 
+ *
  * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 14.1, 14.2, 14.3, 14.4, 14.5
  */
 export function ClusterView() {
   const { id } = useParams<{ id: string }>();
   const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Get resolved cluster name
   const clusterName = useClusterName(id || '');
-  
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
-  
+
   // Get active tab from URL, default to 'overview'
   const activeTab = searchParams.get('tab') || 'overview';
-  
+
   // Get index name from URL for modal
   const indexNameParam = searchParams.get('index');
   const indexTabParam = searchParams.get('indexTab');
@@ -244,11 +244,36 @@ export function ClusterView() {
   // Track historical data for sparklines
   // Pass activeTab as resetKey so data resets when switching to statistics tab
   // For statistics tab, request timestamps; for sparklines, just values
-  const nodesHistory = useSparklineData(stats?.numberOfNodes, 20, activeTab, activeTab === 'statistics');
-  const indicesHistory = useSparklineData(stats?.numberOfIndices, 20, activeTab, activeTab === 'statistics');
-  const documentsHistory = useSparklineData(stats?.numberOfDocuments, 20, activeTab, activeTab === 'statistics');
-  const shardsHistory = useSparklineData(stats?.activeShards, 20, activeTab, activeTab === 'statistics');
-  const unassignedHistory = useSparklineData(stats?.unassignedShards, 20, activeTab, activeTab === 'statistics');
+  const nodesHistory = useSparklineData(
+    stats?.numberOfNodes,
+    20,
+    activeTab,
+    activeTab === 'statistics'
+  );
+  const indicesHistory = useSparklineData(
+    stats?.numberOfIndices,
+    20,
+    activeTab,
+    activeTab === 'statistics'
+  );
+  const documentsHistory = useSparklineData(
+    stats?.numberOfDocuments,
+    20,
+    activeTab,
+    activeTab === 'statistics'
+  );
+  const shardsHistory = useSparklineData(
+    stats?.activeShards,
+    20,
+    activeTab,
+    activeTab === 'statistics'
+  );
+  const unassignedHistory = useSparklineData(
+    stats?.unassignedShards,
+    20,
+    activeTab,
+    activeTab === 'statistics'
+  );
 
   // Fetch nodes with auto-refresh
   const {
@@ -373,17 +398,21 @@ export function ClusterView() {
             {/* Cluster Statistics Cards */}
             <Grid>
               <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card 
-                  shadow="sm" 
-                  padding="md" 
+                <Card
+                  shadow="sm"
+                  padding="md"
                   style={{ cursor: 'pointer', height: '100%' }}
                   onClick={() => handleTabChange('nodes')}
                 >
                   <Stack gap={4}>
                     <Group justify="space-between" wrap="nowrap">
                       <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Nodes</Text>
-                        <Text size="xl" fw={700}>{stats?.numberOfNodes || 0}</Text>
+                        <Text size="xs" c="dimmed">
+                          Nodes
+                        </Text>
+                        <Text size="xl" fw={700}>
+                          {stats?.numberOfNodes || 0}
+                        </Text>
                       </div>
                       <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                         {stats?.numberOfDataNodes || 0} data
@@ -391,7 +420,11 @@ export function ClusterView() {
                     </Group>
                     {nodesHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={nodesHistory as number[]} color="var(--mantine-color-blue-6)" height={25} />
+                        <Sparkline
+                          data={nodesHistory as number[]}
+                          color="var(--mantine-color-blue-6)"
+                          height={25}
+                        />
                       </div>
                     )}
                   </Stack>
@@ -399,8 +432,8 @@ export function ClusterView() {
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card 
-                  shadow="sm" 
+                <Card
+                  shadow="sm"
                   padding="md"
                   style={{ cursor: 'pointer', height: '100%' }}
                   onClick={() => handleTabChange('indices')}
@@ -408,8 +441,12 @@ export function ClusterView() {
                   <Stack gap={4}>
                     <Group justify="space-between" wrap="nowrap">
                       <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Indices</Text>
-                        <Text size="xl" fw={700}>{stats?.numberOfIndices || 0}</Text>
+                        <Text size="xs" c="dimmed">
+                          Indices
+                        </Text>
+                        <Text size="xl" fw={700}>
+                          {stats?.numberOfIndices || 0}
+                        </Text>
                       </div>
                       <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                         {stats?.numberOfDataNodes || 0} data
@@ -417,7 +454,11 @@ export function ClusterView() {
                     </Group>
                     {indicesHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={indicesHistory as number[]} color="var(--mantine-color-green-6)" height={25} />
+                        <Sparkline
+                          data={indicesHistory as number[]}
+                          color="var(--mantine-color-green-6)"
+                          height={25}
+                        />
                       </div>
                     )}
                   </Stack>
@@ -425,8 +466,8 @@ export function ClusterView() {
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card 
-                  shadow="sm" 
+                <Card
+                  shadow="sm"
                   padding="md"
                   style={{ cursor: 'pointer', height: '100%' }}
                   onClick={() => handleTabChange('indices')}
@@ -434,8 +475,12 @@ export function ClusterView() {
                   <Stack gap={4}>
                     <Group justify="space-between" wrap="nowrap">
                       <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Documents</Text>
-                        <Text size="xl" fw={700}>{(stats?.numberOfDocuments || 0).toLocaleString()}</Text>
+                        <Text size="xs" c="dimmed">
+                          Documents
+                        </Text>
+                        <Text size="xl" fw={700}>
+                          {(stats?.numberOfDocuments || 0).toLocaleString()}
+                        </Text>
                       </div>
                       <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                         total
@@ -443,7 +488,11 @@ export function ClusterView() {
                     </Group>
                     {documentsHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={documentsHistory as number[]} color="var(--mantine-color-cyan-6)" height={25} />
+                        <Sparkline
+                          data={documentsHistory as number[]}
+                          color="var(--mantine-color-cyan-6)"
+                          height={25}
+                        />
                       </div>
                     )}
                   </Stack>
@@ -451,8 +500,8 @@ export function ClusterView() {
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card 
-                  shadow="sm" 
+                <Card
+                  shadow="sm"
                   padding="md"
                   style={{ cursor: 'pointer', height: '100%' }}
                   onClick={() => handleTabChange('shards')}
@@ -460,8 +509,12 @@ export function ClusterView() {
                   <Stack gap={4}>
                     <Group justify="space-between" wrap="nowrap">
                       <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Shards</Text>
-                        <Text size="xl" fw={700}>{stats?.activeShards || 0}</Text>
+                        <Text size="xs" c="dimmed">
+                          Shards
+                        </Text>
+                        <Text size="xl" fw={700}>
+                          {stats?.activeShards || 0}
+                        </Text>
                       </div>
                       <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                         {stats?.activePrimaryShards || 0} primary
@@ -469,7 +522,11 @@ export function ClusterView() {
                     </Group>
                     {shardsHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline data={shardsHistory as number[]} color="var(--mantine-color-violet-6)" height={25} />
+                        <Sparkline
+                          data={shardsHistory as number[]}
+                          color="var(--mantine-color-violet-6)"
+                          height={25}
+                        />
                       </div>
                     )}
                   </Stack>
@@ -477,8 +534,8 @@ export function ClusterView() {
               </Grid.Col>
 
               <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card 
-                  shadow="sm" 
+                <Card
+                  shadow="sm"
                   padding="md"
                   style={{ cursor: 'pointer', height: '100%' }}
                   onClick={() => handleTabChange('shards')}
@@ -486,7 +543,9 @@ export function ClusterView() {
                   <Stack gap={4}>
                     <Group justify="space-between" wrap="nowrap">
                       <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">Unassigned</Text>
+                        <Text size="xs" c="dimmed">
+                          Unassigned
+                        </Text>
                         <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
                           {stats?.unassignedShards || 0}
                         </Text>
@@ -497,10 +556,14 @@ export function ClusterView() {
                     </Group>
                     {unassignedHistory.length > 0 && (
                       <div style={{ marginTop: 4 }}>
-                        <Sparkline 
-                          data={unassignedHistory as number[]} 
-                          color={stats?.unassignedShards ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)'} 
-                          height={25} 
+                        <Sparkline
+                          data={unassignedHistory as number[]}
+                          color={
+                            stats?.unassignedShards
+                              ? 'var(--mantine-color-red-6)'
+                              : 'var(--mantine-color-gray-6)'
+                          }
+                          height={25}
                         />
                       </div>
                     )}
@@ -516,7 +579,9 @@ export function ClusterView() {
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <Card shadow="sm" padding="lg">
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Memory Usage</Text>
+                        <Text size="sm" c="dimmed">
+                          Memory Usage
+                        </Text>
                         <Progress
                           value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
                           color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
@@ -536,7 +601,9 @@ export function ClusterView() {
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <Card shadow="sm" padding="lg">
                       <Stack gap="xs">
-                        <Text size="sm" c="dimmed">Disk Usage</Text>
+                        <Text size="sm" c="dimmed">
+                          Disk Usage
+                        </Text>
                         <Progress
                           value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
                           color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
@@ -559,9 +626,9 @@ export function ClusterView() {
         {/* Topology Tab */}
         <Tabs.Panel value="topology" pt="md">
           <Card shadow="sm" padding="lg">
-            <ShardAllocationGrid 
-              nodes={nodes} 
-              indices={indices} 
+            <ShardAllocationGrid
+              nodes={nodes}
+              indices={indices}
               shards={shards}
               loading={nodesLoading || indicesLoading || shardsLoading}
               error={nodesError || indicesError || shardsError}
@@ -587,16 +654,21 @@ export function ClusterView() {
         {/* Nodes Tab */}
         <Tabs.Panel value="nodes" pt="md">
           <Card shadow="sm" padding="lg">
-            <NodesList nodes={nodes} loading={nodesLoading} error={nodesError} openNodeModal={openNodeModal} />
+            <NodesList
+              nodes={nodes}
+              loading={nodesLoading}
+              error={nodesError}
+              openNodeModal={openNodeModal}
+            />
           </Card>
         </Tabs.Panel>
 
         {/* Indices Tab */}
         <Tabs.Panel value="indices" pt="md">
           <Card shadow="sm" padding="lg">
-            <IndicesList 
-              indices={indices} 
-              loading={indicesLoading} 
+            <IndicesList
+              indices={indices}
+              loading={indicesLoading}
               error={indicesError}
               openIndexModal={openIndexModal}
             />
@@ -606,7 +678,12 @@ export function ClusterView() {
         {/* Shards Tab */}
         <Tabs.Panel value="shards" pt="md">
           <Card shadow="sm" padding="lg">
-            <ShardsList shards={shards} loading={shardsLoading} error={shardsError} openNodeModal={openNodeModal} />
+            <ShardsList
+              shards={shards}
+              loading={shardsLoading}
+              error={shardsError}
+              openNodeModal={openNodeModal}
+            />
           </Card>
         </Tabs.Panel>
 
@@ -673,17 +750,17 @@ function NodesList({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
-  
+
   // Get filters from URL
   const searchQuery = searchParams.get('nodesSearch') || '';
   // Get all unique roles from nodes
-  const allRoles = Array.from(new Set(nodes?.flatMap(n => n.roles) || []));
+  const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
   const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || allRoles;
   const expandedView = searchParams.get('nodesExpanded') === 'true';
-  
+
   // Debounce search query
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -691,7 +768,7 @@ function NodesList({
   // Update URL when filters change
   const updateFilters = (newSearch?: string, newRoles?: string[], newExpanded?: boolean) => {
     const params = new URLSearchParams(searchParams);
-    
+
     if (newSearch !== undefined) {
       if (newSearch) {
         params.set('nodesSearch', newSearch);
@@ -699,7 +776,7 @@ function NodesList({
         params.delete('nodesSearch');
       }
     }
-    
+
     if (newRoles !== undefined) {
       if (newRoles.length > 0) {
         params.set('roles', newRoles.join(','));
@@ -707,7 +784,7 @@ function NodesList({
         params.delete('roles');
       }
     }
-    
+
     if (newExpanded !== undefined) {
       if (newExpanded) {
         params.set('nodesExpanded', 'true');
@@ -715,25 +792,27 @@ function NodesList({
         params.delete('nodesExpanded');
       }
     }
-    
+
     setSearchParams(params);
   };
 
   const toggleRole = (role: string) => {
     const newRoles = selectedRoles.includes(role)
-      ? selectedRoles.filter(r => r !== role)
+      ? selectedRoles.filter((r) => r !== role)
       : [...selectedRoles, role];
     updateFilters(undefined, newRoles, undefined);
   };
 
   // Filter nodes based on debounced search query and selected roles
   const filteredNodes = nodes?.filter((node) => {
-    const matchesSearch = node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+    const matchesSearch =
+      node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
       node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase());
-    
-    const matchesRoles = selectedRoles.length === 0 || 
-      selectedRoles.some(role => node.roles.includes(role as NodeRole));
-    
+
+    const matchesRoles =
+      selectedRoles.length === 0 ||
+      selectedRoles.some((role) => node.roles.includes(role as NodeRole));
+
     return matchesSearch && matchesRoles;
   });
 
@@ -775,7 +854,7 @@ function NodesList({
             style={{ minWidth: 200 }}
           />
         </Group>
-        
+
         <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
           <ActionIcon
             variant="subtle"
@@ -789,9 +868,9 @@ function NodesList({
       </Group>
 
       {allRoles.length > 0 && (
-        <RoleFilterToggle 
-          roles={allRoles.sort()} 
-          selectedRoles={selectedRoles} 
+        <RoleFilterToggle
+          roles={allRoles.sort()}
+          selectedRoles={selectedRoles}
           onToggle={toggleRole}
         />
       )}
@@ -833,14 +912,20 @@ function NodesList({
                 >
                   <Table.Td>
                     <Group gap="xs" wrap="nowrap">
-                      <MasterIndicator 
-                        isMaster={node.isMaster} 
+                      <MasterIndicator
+                        isMaster={node.isMaster}
                         isMasterEligible={node.isMasterEligible}
                         size="md"
                       />
                       <div>
-                        <Text size="sm" fw={500}>{node.name}</Text>
-                        {!expandedView && node.ip && <Text size="xs" c="dimmed">{node.ip}</Text>}
+                        <Text size="sm" fw={500}>
+                          {node.name}
+                        </Text>
+                        {!expandedView && node.ip && (
+                          <Text size="xs" c="dimmed">
+                            {node.ip}
+                          </Text>
+                        )}
                       </div>
                     </Group>
                   </Table.Td>
@@ -889,21 +974,25 @@ function NodesList({
                           ))}
                         </Group>
                       ) : (
-                        <Text size="xs" c="dimmed">-</Text>
+                        <Text size="xs" c="dimmed">
+                          -
+                        </Text>
                       )}
                     </Table.Td>
                   )}
                   <Table.Td>
                     {node.loadAverage !== undefined ? (
-                      <Text 
-                        size="sm" 
+                      <Text
+                        size="sm"
                         c={getLoadColor(node.loadAverage)}
                         style={{ fontFamily: 'monospace' }}
                       >
                         {formatLoadAverage(node.loadAverage)}
                       </Text>
                     ) : (
-                      <Text size="sm" c="dimmed">N/A</Text>
+                      <Text size="sm" c="dimmed">
+                        N/A
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
@@ -914,7 +1003,9 @@ function NodesList({
                         </Text>
                       </Tooltip>
                     ) : (
-                      <Text size="sm" c="dimmed">N/A</Text>
+                      <Text size="sm" c="dimmed">
+                        N/A
+                      </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
@@ -957,7 +1048,9 @@ function NodesList({
                         </Text>
                       </Stack>
                     ) : (
-                      <Text size="sm" c="dimmed">N/A</Text>
+                      <Text size="sm" c="dimmed">
+                        N/A
+                      </Text>
                     )}
                   </Table.Td>
                 </Table.Tr>
@@ -989,32 +1082,43 @@ function IndicesList({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Get filters from URL
   const searchQuery = searchParams.get('indicesSearch') || '';
-  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || ['green', 'yellow', 'red'];
-  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || ['open', 'close'];
+  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [
+    'green',
+    'yellow',
+    'red',
+  ];
+  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
+    'open',
+    'close',
+  ];
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
   const showSpecialIndices = searchParams.get('showSpecial') === 'true';
-  
+
   // Confirmation modal state for close/delete operations
   const [confirmationModalOpened, setConfirmationModalOpened] = useState(false);
-  const [confirmationAction, setConfirmationAction] = useState<{ type: 'close' | 'delete'; indexName: string } | null>(null);
+  const [confirmationAction, setConfirmationAction] = useState<{
+    type: 'close' | 'delete';
+    indexName: string;
+  } | null>(null);
 
   // Bulk operations state
-  const { selectedIndices, isSelected, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
+  const { selectedIndices, isSelected, toggleSelection, selectAll, clearSelection, count } =
+    useBulkSelection();
   const [bulkModalOpened, setBulkModalOpened] = useState(false);
   const [selectedOperation, setSelectedOperation] = useState<BulkOperationType | null>(null);
-  
+
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
-  
+
   // Pagination state
   const currentPage = parseInt(searchParams.get('indicesPage') || '1', 10);
   const pageSize = parseInt(searchParams.get('indicesPageSize') || defaultPageSize.toString(), 10);
-  
+
   const handleIndicesPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('indicesPage', page.toString());
@@ -1062,32 +1166,28 @@ function IndicesList({
   const handleBulkSelectAll = () => {
     if (paginatedIndices) {
       // If all are already selected, clear selection; otherwise select all
-      const allSelected = paginatedIndices.every(index => selectedIndices.has(index.name));
+      const allSelected = paginatedIndices.every((index) => selectedIndices.has(index.name));
       if (allSelected) {
         clearSelection();
       } else {
-        selectAll(paginatedIndices.map(index => index.name));
+        selectAll(paginatedIndices.map((index) => index.name));
       }
     }
   };
-  
+
   // Debounce search query to avoid excessive filtering
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch shards to identify unassigned/problem shards
-  const {
-    data: shards,
-  } = useQuery({
+  const { data: shards } = useQuery({
     queryKey: ['cluster', id, 'shards'],
     queryFn: () => apiClient.getShards(id!),
     enabled: !!id,
   });
 
   // Fetch cluster settings to check allocation status
-  const {
-    data: clusterSettings,
-  } = useQuery({
+  const { data: clusterSettings } = useQuery({
     queryKey: ['cluster', id, 'settings'],
     queryFn: async () => {
       const response = await apiClient.proxyRequest<Record<string, unknown>>(
@@ -1103,19 +1203,23 @@ function IndicesList({
   // Check if shard allocation is enabled
   const shardAllocationEnabled = (() => {
     if (!clusterSettings) return true;
-    
+
     const transient = clusterSettings.transient as Record<string, unknown> | undefined;
     const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
-    
+
     const transientAllocation = transient?.cluster as Record<string, unknown> | undefined;
     const persistentAllocation = persistent?.cluster as Record<string, unknown> | undefined;
-    
+
     const transientRouting = transientAllocation?.routing as Record<string, unknown> | undefined;
     const persistentRouting = persistentAllocation?.routing as Record<string, unknown> | undefined;
-    
-    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    
+
+    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+
     const enableValue = transientEnable || persistentEnable || 'all';
     return enableValue === 'all';
   })();
@@ -1300,7 +1404,7 @@ function IndicesList({
   // Update URL when filters change
   const updateFilters = (newSearch?: string, newHealth?: string[], newStatus?: string[]) => {
     const params = new URLSearchParams(searchParams);
-    
+
     if (newSearch !== undefined) {
       if (newSearch) {
         params.set('indicesSearch', newSearch);
@@ -1308,7 +1412,7 @@ function IndicesList({
         params.delete('indicesSearch');
       }
     }
-    
+
     if (newHealth !== undefined) {
       if (newHealth.length > 0) {
         params.set('health', newHealth.join(','));
@@ -1316,7 +1420,7 @@ function IndicesList({
         params.delete('health');
       }
     }
-    
+
     if (newStatus !== undefined) {
       if (newStatus.length > 0) {
         params.set('status', newStatus.join(','));
@@ -1324,7 +1428,7 @@ function IndicesList({
         params.delete('status');
       }
     }
-    
+
     setSearchParams(params);
   };
 
@@ -1339,31 +1443,36 @@ function IndicesList({
   };
 
   // Group shards by index to identify problem indices
-  const shardsByIndex = shards?.reduce((acc, shard) => {
-    if (!acc[shard.index]) {
-      acc[shard.index] = [];
-    }
-    acc[shard.index].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>) || {};
+  const shardsByIndex =
+    shards?.reduce(
+      (acc, shard) => {
+        if (!acc[shard.index]) {
+          acc[shard.index] = [];
+        }
+        acc[shard.index].push(shard);
+        return acc;
+      },
+      {} as Record<string, ShardInfo[]>
+    ) || {};
 
   // Identify unassigned shards
-  const unassignedShards = shards?.filter(s => s.state === 'UNASSIGNED') || [];
-  const unassignedByIndex = unassignedShards.reduce((acc, shard) => {
-    if (!acc[shard.index]) {
-      acc[shard.index] = [];
-    }
-    acc[shard.index].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>);
+  const unassignedShards = shards?.filter((s) => s.state === 'UNASSIGNED') || [];
+  const unassignedByIndex = unassignedShards.reduce(
+    (acc, shard) => {
+      if (!acc[shard.index]) {
+        acc[shard.index] = [];
+      }
+      acc[shard.index].push(shard);
+      return acc;
+    },
+    {} as Record<string, ShardInfo[]>
+  );
 
   // Check if an index has problems
   const hasProblems = (indexName: string) => {
     const indexShards = shardsByIndex[indexName] || [];
-    return indexShards.some(s => 
-      s.state === 'UNASSIGNED' || 
-      s.state === 'RELOCATING' || 
-      s.state === 'INITIALIZING'
+    return indexShards.some(
+      (s) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
     );
   };
 
@@ -1371,11 +1480,14 @@ function IndicesList({
   let filteredIndices = indices?.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     // Closed indices have health "unknown", so bypass health filter for them
-    const matchesHealth = index.status === 'close' || selectedHealth.length === 0 || selectedHealth.includes(index.health);
+    const matchesHealth =
+      index.status === 'close' ||
+      selectedHealth.length === 0 ||
+      selectedHealth.includes(index.health);
     const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
     const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
-    
+
     return matchesSearch && matchesHealth && matchesStatus && matchesAffected && matchesSpecial;
   });
 
@@ -1516,12 +1628,13 @@ function IndicesList({
             onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
             style={{ flex: 1, maxWidth: 300 }}
           />
-          
+
           {/* Health filter toggles */}
           <Group gap="md" wrap="wrap">
             {['green', 'yellow', 'red'].map((health) => {
               const isSelected = selectedHealth.includes(health);
-              const healthColor = health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : 'red';
+              const healthColor =
+                health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : 'red';
               return (
                 <Group
                   key={health}
@@ -1533,7 +1646,7 @@ function IndicesList({
                   }}
                   onClick={() => {
                     const newHealth = isSelected
-                      ? selectedHealth.filter(h => h !== health)
+                      ? selectedHealth.filter((h) => h !== health)
                       : [...selectedHealth, health];
                     updateFilters(undefined, newHealth, undefined);
                   }}
@@ -1543,18 +1656,20 @@ function IndicesList({
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       const newHealth = isSelected
-                        ? selectedHealth.filter(h => h !== health)
+                        ? selectedHealth.filter((h) => h !== health)
                         : [...selectedHealth, health];
                       updateFilters(undefined, newHealth, undefined);
                     }
                   }}
                 >
-                  <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: `var(--mantine-color-${healthColor}-6)`,
-                  }} />
+                  <div
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: `var(--mantine-color-${healthColor}-6)`,
+                    }}
+                  />
                   <Text size="xs" style={{ textTransform: 'capitalize' }}>
                     {health}
                   </Text>
@@ -1562,7 +1677,7 @@ function IndicesList({
               );
             })}
           </Group>
-          
+
           {/* Status filter toggles */}
           <Group gap="md" wrap="wrap">
             {[
@@ -1581,7 +1696,7 @@ function IndicesList({
                   }}
                   onClick={() => {
                     const newStatus = isSelected
-                      ? selectedStatus.filter(s => s !== value)
+                      ? selectedStatus.filter((s) => s !== value)
                       : [...selectedStatus, value];
                     updateFilters(undefined, undefined, newStatus);
                   }}
@@ -1591,16 +1706,14 @@ function IndicesList({
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       const newStatus = isSelected
-                        ? selectedStatus.filter(s => s !== value)
+                        ? selectedStatus.filter((s) => s !== value)
                         : [...selectedStatus, value];
                       updateFilters(undefined, undefined, newStatus);
                     }
                   }}
                 >
                   <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
-                  <Text size="xs">
-                    {label}
-                  </Text>
+                  <Text size="xs">{label}</Text>
                 </Group>
               );
             })}
@@ -1627,17 +1740,17 @@ function IndicesList({
             >
               <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
               <Text size="xs">affected</Text>
-              </Group>
-              )}
+            </Group>
+          )}
 
           {/* Show special indices toggle */}
           <Group
-             gap={4}
-             style={{
-               cursor: 'pointer',
-               opacity: showSpecialIndices ? 1 : 0.5,
-               transition: 'opacity 150ms ease',
-             }}
+            gap={4}
+            style={{
+              cursor: 'pointer',
+              opacity: showSpecialIndices ? 1 : 0.5,
+              transition: 'opacity 150ms ease',
+            }}
             onClick={() => updateParam('showSpecial', !showSpecialIndices)}
             role="button"
             tabIndex={0}
@@ -1650,19 +1763,19 @@ function IndicesList({
           >
             <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
             <Text size="xs">special</Text>
-            </Group>
-            </Group>
+          </Group>
+        </Group>
 
-            {/* Bulk operations menu */}
-            {count > 0 && (
-              <BulkOperationsMenu
-                selectedIndices={selectedIndices}
-                indices={indices || []}
-                onOperationSelect={handleBulkOperationSelect}
-              />
-            )}
+        {/* Bulk operations menu */}
+        {count > 0 && (
+          <BulkOperationsMenu
+            selectedIndices={selectedIndices}
+            indices={indices || []}
+            onOperationSelect={handleBulkOperationSelect}
+          />
+        )}
 
-            {id && (
+        {id && (
           <Button
             leftSection={<IconPlus size={16} />}
             onClick={() => navigate(`/cluster/${id}/indices/create`)}
@@ -1732,7 +1845,9 @@ function IndicesList({
                     </Table.Td>
                     <Table.Td>
                       <Stack gap={2}>
-                        <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>{index.name}</Text>
+                        <Text size="sm" fw={500} style={{ textDecoration: 'underline' }}>
+                          {index.name}
+                        </Text>
                         {expandedView && hasProblems(index.name) && (
                           <Badge size="xs" color="yellow" variant="light">
                             Has Issues
@@ -1746,7 +1861,11 @@ function IndicesList({
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Badge size="sm" variant="light" color={index.status === 'open' ? 'green' : 'gray'}>
+                      <Badge
+                        size="sm"
+                        variant="light"
+                        color={index.status === 'open' ? 'green' : 'gray'}
+                      >
                         {index.status}
                       </Badge>
                     </Table.Td>
@@ -1758,7 +1877,9 @@ function IndicesList({
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">
-                        {expandedView ? `${index.primaryShards + index.replicaShards}` : `${index.primaryShards}p / ${index.replicaShards}r`}
+                        {expandedView
+                          ? `${index.primaryShards + index.replicaShards}`
+                          : `${index.primaryShards}p / ${index.replicaShards}r`}
                       </Text>
                     </Table.Td>
                     {expandedView && (
@@ -1776,7 +1897,9 @@ function IndicesList({
                         <Tooltip
                           label={
                             <Stack gap={4}>
-                              <Text size="xs" fw={600}>Unassigned Shards:</Text>
+                              <Text size="xs" fw={600}>
+                                Unassigned Shards:
+                              </Text>
                               {unassignedByIndex[index.name]?.map((shard, idx) => (
                                 <Group key={idx} gap={4}>
                                   <Text size="xs">Shard {shard.shard}</Text>
@@ -1793,7 +1916,9 @@ function IndicesList({
                           </Badge>
                         </Tooltip>
                       ) : (
-                        <Text size="sm" c="dimmed">-</Text>
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
                       )}
                     </Table.Td>
                     <Table.Td onClick={(e) => e.stopPropagation()}>
@@ -1834,20 +1959,25 @@ function IndicesList({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // Open index operation
-                                apiClient.openIndex(id!, index.name).then(() => {
-                                  notifications.show({
-                                    title: 'Success',
-                                    message: `Index ${index.name} opened successfully`,
-                                    color: 'green',
+                                apiClient
+                                  .openIndex(id!, index.name)
+                                  .then(() => {
+                                    notifications.show({
+                                      title: 'Success',
+                                      message: `Index ${index.name} opened successfully`,
+                                      color: 'green',
+                                    });
+                                    queryClient.invalidateQueries({
+                                      queryKey: ['cluster', id, 'indices'],
+                                    });
+                                  })
+                                  .catch((error: Error) => {
+                                    notifications.show({
+                                      title: 'Error',
+                                      message: `Failed to open index: ${error.message}`,
+                                      color: 'red',
+                                    });
                                   });
-                                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
-                                }).catch((error: Error) => {
-                                  notifications.show({
-                                    title: 'Error',
-                                    message: `Failed to open index: ${error.message}`,
-                                    color: 'red',
-                                  });
-                                });
                               }}
                             >
                               Open Index
@@ -1870,19 +2000,22 @@ function IndicesList({
                             onClick={(e) => {
                               e.stopPropagation();
                               // Refresh index operation
-                              apiClient.refreshIndex(id!, index.name).then(() => {
-                                notifications.show({
-                                  title: 'Success',
-                                  message: `Index ${index.name} refreshed successfully`,
-                                  color: 'green',
+                              apiClient
+                                .refreshIndex(id!, index.name)
+                                .then(() => {
+                                  notifications.show({
+                                    title: 'Success',
+                                    message: `Index ${index.name} refreshed successfully`,
+                                    color: 'green',
+                                  });
+                                })
+                                .catch((error: Error) => {
+                                  notifications.show({
+                                    title: 'Error',
+                                    message: `Failed to refresh index: ${error.message}`,
+                                    color: 'red',
+                                  });
                                 });
-                              }).catch((error: Error) => {
-                                notifications.show({
-                                  title: 'Error',
-                                  message: `Failed to refresh index: ${error.message}`,
-                                  color: 'red',
-                                });
-                              });
                             }}
                           >
                             Refresh
@@ -1911,7 +2044,7 @@ function IndicesList({
           </Table>
         </ScrollArea>
       )}
-      
+
       {/* Pagination */}
       {filteredIndices && filteredIndices.length > pageSize && (
         <TablePagination
@@ -1955,9 +2088,10 @@ function IndicesList({
               onClick={() => {
                 if (!id || !confirmationAction) return;
 
-                const action = confirmationAction.type === 'close'
-                  ? apiClient.closeIndex(id, confirmationAction.indexName)
-                  : apiClient.deleteIndex(id, confirmationAction.indexName);
+                const action =
+                  confirmationAction.type === 'close'
+                    ? apiClient.closeIndex(id, confirmationAction.indexName)
+                    : apiClient.deleteIndex(id, confirmationAction.indexName);
 
                 action
                   .then(() => {
@@ -2031,7 +2165,7 @@ function ShardDetailsModal({
     if (opened && shard) {
       setLoading(true);
       setDetailedStats(null); // Reset previous data
-      
+
       apiClient
         .getShardStats(clusterId, shard.index, shard.shard)
         .then((stats) => {
@@ -2059,13 +2193,21 @@ function ShardDetailsModal({
       onClose={onClose}
       title={
         <Group gap="xs">
-          <Text size="lg" fw={600}>Shard Details:</Text>
-          <Badge size="lg" variant="light" color="blue">{shard.index}</Badge>
-          <Text size="lg" c="dimmed">/</Text>
-          <Badge size="lg" variant="filled" color="cyan">#{shard.shard}</Badge>
-          <Badge 
-            size="lg" 
-            variant={shard.primary ? 'filled' : 'light'} 
+          <Text size="lg" fw={600}>
+            Shard Details:
+          </Text>
+          <Badge size="lg" variant="light" color="blue">
+            {shard.index}
+          </Badge>
+          <Text size="lg" c="dimmed">
+            /
+          </Text>
+          <Badge size="lg" variant="filled" color="cyan">
+            #{shard.shard}
+          </Badge>
+          <Badge
+            size="lg"
+            variant={shard.primary ? 'filled' : 'light'}
             color={shard.primary ? 'green' : 'gray'}
           >
             {shard.primary ? 'Primary' : 'Replica'}
@@ -2097,9 +2239,7 @@ function ShardDetailsModal({
             <Skeleton height={20} width="80%" radius="xs" />
           </Stack>
         ) : (
-          <Code block>
-            {JSON.stringify(detailedStats || shard, null, 2)}
-          </Code>
+          <Code block>{JSON.stringify(detailedStats || shard, null, 2)}</Code>
         )}
       </ScrollArea>
     </Modal>
@@ -2131,50 +2271,50 @@ function ShardAllocationGrid({
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Modal state for shard details
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
   const [modalOpened, setModalOpened] = useState(false);
-  
+
   // Context menu state
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
-  
+
   // Relocation mode state
   const [relocationMode, setRelocationMode] = useState(false);
   const [validDestinationNodes, setValidDestinationNodes] = useState<string[]>([]);
-  
+
   // Relocation confirmation modal state
   const [relocationConfirmOpened, setRelocationConfirmOpened] = useState(false);
   const [relocationSourceNode, setRelocationSourceNode] = useState<NodeInfo | null>(null);
   const [relocationDestinationNode, setRelocationDestinationNode] = useState<NodeInfo | null>(null);
   const [relocationInProgress, setRelocationInProgress] = useState(false);
-  
+
   // No destinations state - show in banner instead of modal
   const [showNoDestinationsMessage, setShowNoDestinationsMessage] = useState(false);
-  
+
   // Shard state filter - all states selected by default
   const SHARD_STATES = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
   const selectedStatesParam = searchParams.get('shardStates');
-  const selectedShardStates = selectedStatesParam 
+  const selectedShardStates = selectedStatesParam
     ? selectedStatesParam.split(',').filter(Boolean)
     : [...SHARD_STATES];
-  
+
   // Get UI state from URL
   const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
   const showSpecial = searchParams.get('showSpecial') === 'true';
   const expandedView = searchParams.get('overviewExpanded') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
-  
+
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
-  
+
   // Pagination state
   const currentPage = parseInt(searchParams.get('overviewPage') || '1', 10);
   const pageSize = parseInt(searchParams.get('overviewPageSize') || defaultPageSize.toString(), 10);
-  
+
   const handleOverviewPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('overviewPage', page.toString());
@@ -2187,18 +2327,18 @@ function ShardAllocationGrid({
     params.set('overviewPage', '1'); // Reset to first page when changing page size
     setSearchParams(params);
   };
-  
+
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Handler to open shard context menu
   const handleShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
     event.stopPropagation();
-    
+
     // Don't allow clicking other shards during relocation mode
     if (relocationMode) {
       return;
     }
-    
+
     setSelectedShard(shard);
     setContextMenuShard(shard);
     setContextMenuPosition({
@@ -2207,61 +2347,62 @@ function ShardAllocationGrid({
     });
     setContextMenuOpened(true);
   };
-  
+
   // Handle context menu close
   const handleContextMenuClose = () => {
     setContextMenuOpened(false);
     setContextMenuShard(null);
   };
-  
+
   // Handle show shard stats
   const handleShowStats = (shard: ShardInfo) => {
     setSelectedShard(shard);
     setModalOpened(true);
     handleContextMenuClose();
   };
-  
+
   // Handle select for relocation
   const handleSelectForRelocation = (shard: ShardInfo) => {
     console.log('[ClusterView] handleSelectForRelocation called with shard:', shard);
-    
+
     if (!nodes || !shards) {
       console.error('[ClusterView] Cannot enter relocation mode: nodes or shards not available');
       return;
     }
-    
+
     // Enter relocation mode
     // Calculate valid destination nodes for this shard
     const validDestinations: string[] = [];
-    
+
     for (const node of nodes) {
       // Skip source node
       if (node.id === shard.node || node.name === shard.node) {
         continue;
       }
-      
+
       // Skip if node already has this shard (same index and shard number)
       // Check the shards array to see if this node has the same shard
-      const nodeHasThisShard = shards.some((s: ShardInfo) => 
-        (s.node === node.id || s.node === node.name) && 
-        s.index === shard.index && 
-        s.shard === shard.shard
+      const nodeHasThisShard = shards.some(
+        (s: ShardInfo) =>
+          (s.node === node.id || s.node === node.name) &&
+          s.index === shard.index &&
+          s.shard === shard.shard
       );
-      
+
       if (nodeHasThisShard) {
         continue;
       }
-      
+
       // Skip non-data nodes
       if (!node.roles.includes('data')) {
         continue;
       }
-      
+
       validDestinations.push(node.id);
     }
-    
+
     console.log('[ClusterView] Valid destinations:', validDestinations);
-    
+
     // Check if there are any valid destinations
     if (validDestinations.length === 0) {
       // Show message in banner explaining why relocation is not possible
@@ -2270,13 +2411,13 @@ function ShardAllocationGrid({
       handleContextMenuClose();
       return;
     }
-    
+
     // Set relocation mode state
     setRelocationMode(true);
     setSelectedShard(shard);
     setValidDestinationNodes(validDestinations);
     setShowNoDestinationsMessage(false);
-    
+
     handleContextMenuClose();
   };
 
@@ -2290,7 +2431,7 @@ function ShardAllocationGrid({
     }
     setSearchParams(newParams);
   };
-  
+
   // Update shard state filter
   const updateShardStates = (states: string[]) => {
     const newParams = new URLSearchParams(searchParams);
@@ -2307,9 +2448,7 @@ function ShardAllocationGrid({
   };
 
   // Fetch cluster settings to check allocation status
-  const {
-    data: clusterSettings,
-  } = useQuery({
+  const { data: clusterSettings } = useQuery({
     queryKey: ['cluster', id, 'settings'],
     queryFn: async () => {
       const response = await apiClient.proxyRequest<Record<string, unknown>>(
@@ -2325,19 +2464,23 @@ function ShardAllocationGrid({
   // Check if shard allocation is enabled
   const shardAllocationEnabled = (() => {
     if (!clusterSettings) return true;
-    
+
     const transient = clusterSettings.transient as Record<string, unknown> | undefined;
     const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
-    
+
     const transientAllocation = transient?.cluster as Record<string, unknown> | undefined;
     const persistentAllocation = persistent?.cluster as Record<string, unknown> | undefined;
-    
+
     const transientRouting = transientAllocation?.routing as Record<string, unknown> | undefined;
     const persistentRouting = persistentAllocation?.routing as Record<string, unknown> | undefined;
-    
-    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as string | undefined;
-    
+
+    const transientEnable = (transientRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+    const persistentEnable = (persistentRouting?.allocation as Record<string, unknown>)?.enable as
+      | string
+      | undefined;
+
     const enableValue = transientEnable || persistentEnable || 'all';
     return enableValue === 'all';
   })();
@@ -2420,32 +2563,31 @@ function ShardAllocationGrid({
   }
 
   // Filter shards by selected states first
-  const filteredShards = shards.filter(shard => 
-    selectedShardStates.includes(shard.state)
-  );
+  const filteredShards = shards.filter((shard) => selectedShardStates.includes(shard.state));
 
   // Identify unassigned shards (from filtered shards)
-  const unassignedShards = filteredShards.filter(s => s.state === 'UNASSIGNED');
-  const unassignedByIndex = unassignedShards.reduce((acc, shard) => {
-    if (!acc[shard.index]) {
-      acc[shard.index] = [];
-    }
-    acc[shard.index].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>);
+  const unassignedShards = filteredShards.filter((s) => s.state === 'UNASSIGNED');
+  const unassignedByIndex = unassignedShards.reduce(
+    (acc, shard) => {
+      if (!acc[shard.index]) {
+        acc[shard.index] = [];
+      }
+      acc[shard.index].push(shard);
+      return acc;
+    },
+    {} as Record<string, ShardInfo[]>
+  );
 
   // Check if an index has problems (using filtered shards)
   const hasProblems = (indexName: string) => {
-    const indexShards = filteredShards.filter(s => s.index === indexName);
-    return indexShards.some(s => 
-      s.state === 'UNASSIGNED' || 
-      s.state === 'RELOCATING' || 
-      s.state === 'INITIALIZING'
+    const indexShards = filteredShards.filter((s) => s.index === indexName);
+    return indexShards.some(
+      (s) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
     );
   };
 
   // Get set of indices that have shards after shard state filtering
-  const indicesWithFilteredShards = new Set(filteredShards.map(s => s.index));
+  const indicesWithFilteredShards = new Set(filteredShards.map((s) => s.index));
 
   // Filter indices based on search and filters
   // IMPORTANT: Indices must have shards matching the selected shard states to be shown
@@ -2469,35 +2611,35 @@ function ShardAllocationGrid({
   // Group shards by node and index
   // Build a map of node identifiers (id, name, ip) to node name for matching
   const nodeIdentifierMap = new Map<string, string>();
-  nodes.forEach(node => {
+  nodes.forEach((node) => {
     nodeIdentifierMap.set(node.id, node.name);
     nodeIdentifierMap.set(node.name, node.name);
     if (node.ip) {
       nodeIdentifierMap.set(node.ip, node.name);
     }
   });
-  
+
   const shardsByNodeAndIndex = new Map<string, Map<string, ShardInfo[]>>();
-  
+
   filteredShards.forEach((shard) => {
     if (!shard.node) return; // Skip unassigned shards for grid view
-    
+
     // Try to find the node name using the identifier map
     const nodeName = nodeIdentifierMap.get(shard.node);
     if (!nodeName) {
       // If we can't find a match, skip this shard
       return;
     }
-    
+
     if (!shardsByNodeAndIndex.has(nodeName)) {
       shardsByNodeAndIndex.set(nodeName, new Map());
     }
-    
+
     const nodeShards = shardsByNodeAndIndex.get(nodeName)!;
     if (!nodeShards.has(shard.index)) {
       nodeShards.set(shard.index, []);
     }
-    
+
     nodeShards.get(shard.index)!.push(shard);
   });
 
@@ -2514,7 +2656,7 @@ function ShardAllocationGrid({
           onSelectForRelocation={handleSelectForRelocation}
         />
       )}
-      
+
       {/* Shard Details Modal */}
       <ShardDetailsModal
         shard={selectedShard}
@@ -2542,12 +2684,14 @@ function ShardAllocationGrid({
               Cancel Relocation
             </Button>
           )}
-          
+
           {/* Shard allocation lock/unlock - disabled during relocation mode */}
           {shardAllocationEnabled ? (
             <Menu shadow="md" width={200} disabled={relocationMode}>
               <Menu.Target>
-                <Tooltip label={relocationMode ? 'Disabled during relocation' : 'Disable shard allocation'}>
+                <Tooltip
+                  label={relocationMode ? 'Disabled during relocation' : 'Disable shard allocation'}
+                >
                   <ActionIcon
                     size="md"
                     variant="subtle"
@@ -2582,7 +2726,9 @@ function ShardAllocationGrid({
               </Menu.Dropdown>
             </Menu>
           ) : (
-            <Tooltip label={relocationMode ? 'Disabled during relocation' : 'Enable shard allocation'}>
+            <Tooltip
+              label={relocationMode ? 'Disabled during relocation' : 'Enable shard allocation'}
+            >
               <ActionIcon
                 size="md"
                 variant="subtle"
@@ -2597,7 +2743,15 @@ function ShardAllocationGrid({
           )}
 
           {/* Expand/compress view - disabled during relocation mode */}
-          <Tooltip label={relocationMode ? 'Disabled during relocation' : (expandedView ? 'Compress view' : 'Expand view')}>
+          <Tooltip
+            label={
+              relocationMode
+                ? 'Disabled during relocation'
+                : expandedView
+                  ? 'Compress view'
+                  : 'Expand view'
+            }
+          >
             <ActionIcon
               size="md"
               variant="subtle"
@@ -2620,26 +2774,26 @@ function ShardAllocationGrid({
             size="xs"
             disabled={relocationMode}
           />
-          
+
           <ShardStateFilterToggle
             states={Array.from(SHARD_STATES)}
             selectedStates={selectedShardStates}
             onToggle={(state) => {
               const newStates = selectedShardStates.includes(state)
-                ? selectedShardStates.filter(s => s !== state)
+                ? selectedShardStates.filter((s) => s !== state)
                 : [...selectedShardStates, state];
               updateShardStates(newStates);
             }}
           />
-          
+
           <Checkbox
-            label={`closed (${indices.filter(i => i.status !== 'open').length})`}
+            label={`closed (${indices.filter((i) => i.status !== 'open').length})`}
             checked={showClosed}
             onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
             size="xs"
             disabled={relocationMode}
           />
-          
+
           <Group
             gap={4}
             style={{
@@ -2659,7 +2813,7 @@ function ShardAllocationGrid({
             }}
           >
             <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-            <Text size="xs">special ({indices.filter(i => i.name.startsWith('.')).length})</Text>
+            <Text size="xs">special ({indices.filter((i) => i.name.startsWith('.')).length})</Text>
           </Group>
 
           {unassignedShards.length > 0 && (
@@ -2683,14 +2837,14 @@ function ShardAllocationGrid({
             >
               <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
               <Text size="xs">affected ({unassignedShards.length})</Text>
-              </Group>
-              )}
+            </Group>
+          )}
         </Group>
 
         {/* Right side: Stats and Activity */}
         {(() => {
-          const relocatingShards = shards.filter(s => s.state === 'RELOCATING');
-          const initializingShards = shards.filter(s => s.state === 'INITIALIZING');
+          const relocatingShards = shards.filter((s) => s.state === 'RELOCATING');
+          const initializingShards = shards.filter((s) => s.state === 'INITIALIZING');
           const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
 
           if (hasActivity) {
@@ -2712,13 +2866,22 @@ function ShardAllocationGrid({
             return (
               <Group gap="xs">
                 <Text size="xs">
-                  <Text component="span" fw={600}>{nodes.filter(n => n.roles.includes('data')).length}</Text> nodes
+                  <Text component="span" fw={600}>
+                    {nodes.filter((n) => n.roles.includes('data')).length}
+                  </Text>{' '}
+                  nodes
                 </Text>
                 <Text size="xs">
-                  <Text component="span" fw={600}>{filteredIndicesData.length}</Text> indices
+                  <Text component="span" fw={600}>
+                    {filteredIndicesData.length}
+                  </Text>{' '}
+                  indices
                 </Text>
                 <Text size="xs">
-                  <Text component="span" fw={600}>{filteredShards.length}</Text> shards
+                  <Text component="span" fw={600}>
+                    {filteredShards.length}
+                  </Text>{' '}
+                  shards
                 </Text>
                 {unassignedShards.length > 0 && (
                   <Badge color="red" variant="filled" size="sm">
@@ -2736,7 +2899,12 @@ function ShardAllocationGrid({
         <Alert color="violet" variant="light">
           <Group justify="space-between">
             <Text size="sm">
-              <Text component="span" fw={600}>Cannot Relocate:</Text> Shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.
+              <Text component="span" fw={600}>
+                Cannot Relocate:
+              </Text>{' '}
+              Shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index
+              "{selectedShard.index}" cannot be relocated. All data nodes either already host this
+              shard or are the source node.
             </Text>
             <Button
               size="xs"
@@ -2752,12 +2920,17 @@ function ShardAllocationGrid({
           </Group>
         </Alert>
       )}
-      
+
       {relocationMode && selectedShard && !showNoDestinationsMessage && (
         <Alert color="violet" variant="light">
           <Group justify="space-between">
             <Text size="sm">
-              <Text component="span" fw={600}>Relocation Mode:</Text> Select a destination node for shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}". Purple dashed boxes show valid destinations.
+              <Text component="span" fw={600}>
+                Relocation Mode:
+              </Text>{' '}
+              Select a destination node for shard {selectedShard.shard} (
+              {selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}".
+              Purple dashed boxes show valid destinations.
             </Text>
             <Button
               size="xs"
@@ -2775,23 +2948,31 @@ function ShardAllocationGrid({
         </Alert>
       )}
 
-
-
       {/* Shard allocation grid */}
       <ScrollArea>
         <div style={{ minWidth: '800px' }}>
           <Table striped withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
+                <Table.Th
+                  style={{
+                    width: '120px',
+                    minWidth: '120px',
+                    maxWidth: '120px',
+                    position: 'sticky',
+                    left: 0,
+                    backgroundColor: 'var(--mantine-color-body)',
+                    zIndex: 1,
+                  }}
+                >
                   Node
                 </Table.Th>
                 {paginatedIndices.map((index) => (
                   <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
                     <Stack gap={4}>
-                      <Text 
-                        size="xs" 
-                        fw={500} 
+                      <Text
+                        size="xs"
+                        fw={500}
                         truncate="end"
                         title={index.name}
                         style={{ cursor: 'pointer', textDecoration: 'underline' }}
@@ -2819,7 +3000,16 @@ function ShardAllocationGrid({
               {/* Unassigned shards row */}
               {unassignedShards.length > 0 && (
                 <Table.Tr>
-                  <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, zIndex: 1 }}>
+                  <Table.Td
+                    style={{
+                      width: '120px',
+                      minWidth: '120px',
+                      maxWidth: '120px',
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 1,
+                    }}
+                  >
                     <Stack gap={2}>
                       <Text size="xs" fw={700} c="red">
                         Unassigned
@@ -2831,14 +3021,14 @@ function ShardAllocationGrid({
                   </Table.Td>
                   {paginatedIndices.map((index) => {
                     const indexUnassigned = unassignedByIndex[index.name] || [];
-                    
+
                     return (
-                      <Table.Td 
-                        key={`unassigned-${index.name}`} 
-                        style={{ 
-                          padding: '4px', 
-                          textAlign: 'center', 
-                          backgroundColor: getIndexBackgroundColor(index.health)
+                      <Table.Td
+                        key={`unassigned-${index.name}`}
+                        style={{
+                          padding: '4px',
+                          textAlign: 'center',
+                          backgroundColor: getIndexBackgroundColor(index.health),
                         }}
                       >
                         {indexUnassigned.length > 0 ? (
@@ -2866,8 +3056,8 @@ function ShardAllocationGrid({
                                     fontSize: '10px',
                                     fontWeight: 600,
                                     borderRadius: '2px',
-                                    border: shard.primary 
-                                      ? '2px solid var(--mantine-color-red-9)' 
+                                    border: shard.primary
+                                      ? '2px solid var(--mantine-color-red-9)'
                                       : '2px dashed var(--mantine-color-red-9)',
                                     cursor: 'pointer',
                                   }}
@@ -2879,221 +3069,266 @@ function ShardAllocationGrid({
                             ))}
                           </Group>
                         ) : (
-                          <Text size="xs" c="dimmed">-</Text>
+                          <Text size="xs" c="dimmed">
+                            -
+                          </Text>
                         )}
                       </Table.Td>
                     );
                   })}
                 </Table.Tr>
               )}
-              
+
               {/* Node rows */}
               {/* Filter to show only nodes with data role - Requirements: 10.1, 10.2, 10.3 */}
-              {nodes.filter(node => node.roles.includes('data')).map((node) => {
-                const nodeShards = shardsByNodeAndIndex.get(node.name);
-                
-                return (
-                  <Table.Tr key={node.id}>
-                    <Table.Td style={{ width: '120px', minWidth: '120px', maxWidth: '120px', position: 'sticky', left: 0, backgroundColor: 'var(--mantine-color-body)', zIndex: 1 }}>
-                      <Stack gap={4}>
-                        <Group gap={4}>
-                          {openNodeModal ? (
-                            <Anchor
-                              component="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openNodeModal(node.id);
-                              }}
-                              style={{ 
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
+              {nodes
+                .filter((node) => node.roles.includes('data'))
+                .map((node) => {
+                  const nodeShards = shardsByNodeAndIndex.get(node.name);
+
+                  return (
+                    <Table.Tr key={node.id}>
+                      <Table.Td
+                        style={{
+                          width: '120px',
+                          minWidth: '120px',
+                          maxWidth: '120px',
+                          position: 'sticky',
+                          left: 0,
+                          backgroundColor: 'var(--mantine-color-body)',
+                          zIndex: 1,
+                        }}
+                      >
+                        <Stack gap={4}>
+                          <Group gap={4}>
+                            {openNodeModal ? (
+                              <Anchor
+                                component="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   openNodeModal(node.id);
-                                }
-                              }}
-                            >
-                              <Text size="xs" fw={500} truncate="end" title={node.name} style={{ textDecoration: 'inherit' }}>
+                                }}
+                                style={{
+                                  textDecoration: 'none',
+                                  cursor: 'pointer',
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openNodeModal(node.id);
+                                  }
+                                }}
+                              >
+                                <Text
+                                  size="xs"
+                                  fw={500}
+                                  truncate="end"
+                                  title={node.name}
+                                  style={{ textDecoration: 'inherit' }}
+                                >
+                                  {node.name}
+                                </Text>
+                              </Anchor>
+                            ) : (
+                              <Text size="xs" fw={500} truncate="end" title={node.name}>
                                 {node.name}
                               </Text>
-                            </Anchor>
-                          ) : (
-                            <Text size="xs" fw={500} truncate="end" title={node.name}>
-                              {node.name}
-                            </Text>
-                          )}
-                        </Group>
-                        <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
-                          {node.ip}
-                        </Text>
-                        {expandedView ? (
-                          <Group gap="md" wrap="wrap">
-                            {node.roles.map((role) => {
-                              const roleInfo = getRoleIcon(role);
-                              const Icon = roleInfo.icon;
-                              return (
-                                <Group key={role} gap={4}>
-                                  <Icon size={14} color={`var(--mantine-color-${roleInfo.color}-6)`} />
-                                  <Text size="xs">{roleInfo.label}</Text>
-                                </Group>
-                              );
-                            })}
+                            )}
                           </Group>
-                        ) : (
-                          <RoleIcons roles={node.roles} size={16} />
-                        )}
-                        {expandedView && (
-                          <>
-                            {/* Node stats badges - similar to original Cerebro */}
-                            <Group gap={4} wrap="wrap">
-                              <Badge size="xs" color="teal" variant="filled">
-                                {node.id.substring(0, 8)}
-                              </Badge>
-                              <Badge size="xs" color="teal" variant="filled">
-                                {node.roles.length}
-                              </Badge>
-                              <Badge size="xs" color="teal" variant="filled">
-                                {formatBytes(node.heapMax)}
-                              </Badge>
-                              <Badge size="xs" color="teal" variant="filled">
-                                {formatBytes(node.diskTotal)}
-                              </Badge>
-                              {node.cpuPercent !== undefined && (
-                                <Badge size="xs" color="teal" variant="filled">
-                                  {node.cpuPercent}%
-                                </Badge>
-                              )}
-                            </Group>
-                          </>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    {paginatedIndices.map((index) => {
-                      const indexShards = nodeShards?.get(index.name) || [];
-                      
-                      return (
-                        <Table.Td 
-                          key={`${node.id}-${index.name}`} 
-                          style={{ 
-                            padding: '4px', 
-                            textAlign: 'center',
-                            backgroundColor: getIndexBackgroundColor(index.health)
-                          }}
-                        >
-                          {indexShards.length > 0 || (relocationMode && validDestinationNodes.includes(node.id) && selectedShard?.index === index.name) ? (
-                            <Group gap={2} justify="center" wrap="wrap">
-                              {indexShards.map((shard, idx) => (
-                                <Tooltip
-                                  key={`${shard.shard}-${shard.primary}-${idx}`}
-                                  label={
-                                    <div>
-                                      <div>Shard: {shard.shard}</div>
-                                      <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
-                                      <div>State: {shard.state}</div>
-                                      <div>Node: {shard.node || 'N/A'}</div>
-                                      {shard.docs !== undefined && shard.docs !== null && <div>Docs: {shard.docs.toLocaleString()}</div>}
-                                      {shard.store !== undefined && shard.store !== null && <div>Size: {formatBytes(shard.store)}</div>}
-                                    </div>
-                                  }
-                                >
-                                  <div
-                                    style={{
-                                      width: '24px',
-                                      height: '24px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      backgroundColor: shard.state === 'STARTED' 
-                                        ? (shard.primary ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-green-7)')
-                                        : shard.state === 'RELOCATING'
-                                        ? 'var(--mantine-color-yellow-6)'
-                                        : 'var(--mantine-color-red-6)',
-                                      color: 'white',
-                                      fontSize: '10px',
-                                      fontWeight: 600,
-                                      borderRadius: '2px',
-                                      border: shard.primary 
-                                        ? '2px solid var(--mantine-color-green-9)' 
-                                        : '2px dashed var(--mantine-color-green-9)',
-                                      cursor: relocationMode ? 'not-allowed' : 'pointer',
-                                      opacity: relocationMode ? 0.5 : 1,
-                                    }}
-                                    onClick={(e) => handleShardClick(shard, e)}
-                                  >
-                                    {shard.shard}
-                                  </div>
-                                </Tooltip>
-                              ))}
-                              
-                              {/* Destination indicator - show purple dashed border when in relocation mode */}
-                              {relocationMode && validDestinationNodes.includes(node.id) && selectedShard?.index === index.name && (
-                                <Tooltip label={`Click to relocate shard ${selectedShard.shard} here`}>
-                                  <div
-                                    style={{
-                                      width: '24px',
-                                      height: '24px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      backgroundColor: 'transparent',
-                                      color: 'var(--mantine-color-violet-6)',
-                                      fontSize: '10px',
-                                      fontWeight: 600,
-                                      borderRadius: '2px',
-                                      border: '2px dashed var(--mantine-color-violet-6)',
-                                      cursor: 'pointer',
-                                    }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      
-                                      if (!selectedShard || !id) {
-                                        console.error('[ClusterView] Cannot relocate: missing shard or cluster ID');
-                                        return;
-                                      }
-                                      
-                                      // Find source node
-                                      const sourceNode = nodes.find(n => 
-                                        n.id === selectedShard.node || n.name === selectedShard.node
-                                      );
-                                      
-                                      if (!sourceNode) {
-                                        console.error('[ClusterView] Cannot find source node for shard');
-                                        notifications.show({
-                                          color: 'red',
-                                          title: 'Relocation Failed',
-                                          message: 'Could not find source node for this shard',
-                                          autoClose: 5000,
-                                        });
-                                        return;
-                                      }
-                                      
-                                      // Set modal state and open confirmation dialog
-                                      setRelocationSourceNode(sourceNode);
-                                      setRelocationDestinationNode(node);
-                                      setRelocationConfirmOpened(true);
-                                    }}
-                                  >
-                                    {selectedShard.shard}
-                                  </div>
-                                </Tooltip>
-                              )}
+                          <Text size="xs" c="dimmed" truncate="end" title={node.ip}>
+                            {node.ip}
+                          </Text>
+                          {expandedView ? (
+                            <Group gap="md" wrap="wrap">
+                              {node.roles.map((role) => {
+                                const roleInfo = getRoleIcon(role);
+                                const Icon = roleInfo.icon;
+                                return (
+                                  <Group key={role} gap={4}>
+                                    <Icon
+                                      size={14}
+                                      color={`var(--mantine-color-${roleInfo.color}-6)`}
+                                    />
+                                    <Text size="xs">{roleInfo.label}</Text>
+                                  </Group>
+                                );
+                              })}
                             </Group>
                           ) : (
-                            <Text size="xs" c="dimmed">-</Text>
+                            <RoleIcons roles={node.roles} size={16} />
                           )}
-                        </Table.Td>
-                      );
-                    })}
-                  </Table.Tr>
-                );
-              })}
+                          {expandedView && (
+                            <>
+                              {/* Node stats badges - similar to original Cerebro */}
+                              <Group gap={4} wrap="wrap">
+                                <Badge size="xs" color="teal" variant="filled">
+                                  {node.id.substring(0, 8)}
+                                </Badge>
+                                <Badge size="xs" color="teal" variant="filled">
+                                  {node.roles.length}
+                                </Badge>
+                                <Badge size="xs" color="teal" variant="filled">
+                                  {formatBytes(node.heapMax)}
+                                </Badge>
+                                <Badge size="xs" color="teal" variant="filled">
+                                  {formatBytes(node.diskTotal)}
+                                </Badge>
+                                {node.cpuPercent !== undefined && (
+                                  <Badge size="xs" color="teal" variant="filled">
+                                    {node.cpuPercent}%
+                                  </Badge>
+                                )}
+                              </Group>
+                            </>
+                          )}
+                        </Stack>
+                      </Table.Td>
+                      {paginatedIndices.map((index) => {
+                        const indexShards = nodeShards?.get(index.name) || [];
+
+                        return (
+                          <Table.Td
+                            key={`${node.id}-${index.name}`}
+                            style={{
+                              padding: '4px',
+                              textAlign: 'center',
+                              backgroundColor: getIndexBackgroundColor(index.health),
+                            }}
+                          >
+                            {indexShards.length > 0 ||
+                            (relocationMode &&
+                              validDestinationNodes.includes(node.id) &&
+                              selectedShard?.index === index.name) ? (
+                              <Group gap={2} justify="center" wrap="wrap">
+                                {indexShards.map((shard, idx) => (
+                                  <Tooltip
+                                    key={`${shard.shard}-${shard.primary}-${idx}`}
+                                    label={
+                                      <div>
+                                        <div>Shard: {shard.shard}</div>
+                                        <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+                                        <div>State: {shard.state}</div>
+                                        <div>Node: {shard.node || 'N/A'}</div>
+                                        {shard.docs !== undefined && shard.docs !== null && (
+                                          <div>Docs: {shard.docs.toLocaleString()}</div>
+                                        )}
+                                        {shard.store !== undefined && shard.store !== null && (
+                                          <div>Size: {formatBytes(shard.store)}</div>
+                                        )}
+                                      </div>
+                                    }
+                                  >
+                                    <div
+                                      style={{
+                                        width: '24px',
+                                        height: '24px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor:
+                                          shard.state === 'STARTED'
+                                            ? shard.primary
+                                              ? 'var(--mantine-color-green-6)'
+                                              : 'var(--mantine-color-green-7)'
+                                            : shard.state === 'RELOCATING'
+                                              ? 'var(--mantine-color-yellow-6)'
+                                              : 'var(--mantine-color-red-6)',
+                                        color: 'white',
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        borderRadius: '2px',
+                                        border: shard.primary
+                                          ? '2px solid var(--mantine-color-green-9)'
+                                          : '2px dashed var(--mantine-color-green-9)',
+                                        cursor: relocationMode ? 'not-allowed' : 'pointer',
+                                        opacity: relocationMode ? 0.5 : 1,
+                                      }}
+                                      onClick={(e) => handleShardClick(shard, e)}
+                                    >
+                                      {shard.shard}
+                                    </div>
+                                  </Tooltip>
+                                ))}
+
+                                {/* Destination indicator - show purple dashed border when in relocation mode */}
+                                {relocationMode &&
+                                  validDestinationNodes.includes(node.id) &&
+                                  selectedShard?.index === index.name && (
+                                    <Tooltip
+                                      label={`Click to relocate shard ${selectedShard.shard} here`}
+                                    >
+                                      <div
+                                        style={{
+                                          width: '24px',
+                                          height: '24px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          backgroundColor: 'transparent',
+                                          color: 'var(--mantine-color-violet-6)',
+                                          fontSize: '10px',
+                                          fontWeight: 600,
+                                          borderRadius: '2px',
+                                          border: '2px dashed var(--mantine-color-violet-6)',
+                                          cursor: 'pointer',
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+
+                                          if (!selectedShard || !id) {
+                                            console.error(
+                                              '[ClusterView] Cannot relocate: missing shard or cluster ID'
+                                            );
+                                            return;
+                                          }
+
+                                          // Find source node
+                                          const sourceNode = nodes.find(
+                                            (n) =>
+                                              n.id === selectedShard.node ||
+                                              n.name === selectedShard.node
+                                          );
+
+                                          if (!sourceNode) {
+                                            console.error(
+                                              '[ClusterView] Cannot find source node for shard'
+                                            );
+                                            notifications.show({
+                                              color: 'red',
+                                              title: 'Relocation Failed',
+                                              message: 'Could not find source node for this shard',
+                                              autoClose: 5000,
+                                            });
+                                            return;
+                                          }
+
+                                          // Set modal state and open confirmation dialog
+                                          setRelocationSourceNode(sourceNode);
+                                          setRelocationDestinationNode(node);
+                                          setRelocationConfirmOpened(true);
+                                        }}
+                                      >
+                                        {selectedShard.shard}
+                                      </div>
+                                    </Tooltip>
+                                  )}
+                              </Group>
+                            ) : (
+                              <Text size="xs" c="dimmed">
+                                -
+                              </Text>
+                            )}
+                          </Table.Td>
+                        );
+                      })}
+                    </Table.Tr>
+                  );
+                })}
             </Table.Tbody>
           </Table>
         </div>
       </ScrollArea>
-      
+
       {/* Pagination */}
       {filteredIndicesData.length > pageSize && (
         <TablePagination
@@ -3105,7 +3340,7 @@ function ShardAllocationGrid({
           onPageSizeChange={handleOverviewPageSizeChange}
         />
       )}
-      
+
       {/* Relocation Confirmation Modal */}
       <Modal
         opened={relocationConfirmOpened}
@@ -3121,46 +3356,63 @@ function ShardAllocationGrid({
         size="md"
       >
         <Stack gap="md">
-          <Text size="sm">
-            You are about to relocate the following shard:
-          </Text>
-          
+          <Text size="sm">You are about to relocate the following shard:</Text>
+
           <Card withBorder padding="md">
             <Stack gap="xs">
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Index:</Text>
-                <Text size="sm" fw={600}>{selectedShard?.index}</Text>
+                <Text size="sm" c="dimmed">
+                  Index:
+                </Text>
+                <Text size="sm" fw={600}>
+                  {selectedShard?.index}
+                </Text>
               </Group>
-              
+
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Shard Number:</Text>
-                <Text size="sm" fw={600}>{selectedShard?.shard}</Text>
+                <Text size="sm" c="dimmed">
+                  Shard Number:
+                </Text>
+                <Text size="sm" fw={600}>
+                  {selectedShard?.shard}
+                </Text>
               </Group>
-              
+
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Shard Type:</Text>
+                <Text size="sm" c="dimmed">
+                  Shard Type:
+                </Text>
                 <Badge size="sm" color={selectedShard?.primary ? 'blue' : 'gray'}>
                   {selectedShard?.primary ? 'Primary' : 'Replica'}
                 </Badge>
               </Group>
-              
+
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Source Node:</Text>
-                <Text size="sm" fw={600}>{relocationSourceNode?.name}</Text>
+                <Text size="sm" c="dimmed">
+                  Source Node:
+                </Text>
+                <Text size="sm" fw={600}>
+                  {relocationSourceNode?.name}
+                </Text>
               </Group>
-              
+
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Destination Node:</Text>
-                <Text size="sm" fw={600} c="violet">{relocationDestinationNode?.name}</Text>
+                <Text size="sm" c="dimmed">
+                  Destination Node:
+                </Text>
+                <Text size="sm" fw={600} c="violet">
+                  {relocationDestinationNode?.name}
+                </Text>
               </Group>
             </Stack>
           </Card>
-          
+
           <Text size="sm" c="dimmed">
-            This operation will move the shard from {relocationSourceNode?.name} to {relocationDestinationNode?.name}. 
-            The shard will be temporarily unavailable during relocation.
+            This operation will move the shard from {relocationSourceNode?.name} to{' '}
+            {relocationDestinationNode?.name}. The shard will be temporarily unavailable during
+            relocation.
           </Text>
-          
+
           <Group justify="flex-end" gap="sm">
             <Button
               variant="subtle"
@@ -3174,16 +3426,16 @@ function ShardAllocationGrid({
             >
               Cancel
             </Button>
-            
+
             <Button
               color="violet"
               onClick={async () => {
                 if (!selectedShard || !id || !relocationSourceNode || !relocationDestinationNode) {
                   return;
                 }
-                
+
                 setRelocationInProgress(true);
-                
+
                 try {
                   // Call the backend API to relocate the shard
                   await apiClient.relocateShard(id, {
@@ -3192,7 +3444,7 @@ function ShardAllocationGrid({
                     from_node: relocationSourceNode.id,
                     to_node: relocationDestinationNode.id,
                   });
-                  
+
                   // Show success notification
                   notifications.show({
                     color: 'green',
@@ -3200,7 +3452,7 @@ function ShardAllocationGrid({
                     message: `Shard ${selectedShard.shard} of index "${selectedShard.index}" is being relocated from ${relocationSourceNode.name} to ${relocationDestinationNode.name}.`,
                     autoClose: 5000,
                   });
-                  
+
                   // Exit relocation mode and close modal
                   setRelocationMode(false);
                   setSelectedShard(null);
@@ -3208,17 +3460,17 @@ function ShardAllocationGrid({
                   setRelocationConfirmOpened(false);
                   setRelocationSourceNode(null);
                   setRelocationDestinationNode(null);
-                  
+
                   // Invalidate queries to refresh data
                   queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
                 } catch (error) {
                   // Show error notification
                   let errorMessage = 'An unexpected error occurred';
-                  
+
                   if (error instanceof Error) {
                     errorMessage = error.message;
                   }
-                  
+
                   notifications.show({
                     color: 'red',
                     title: 'Relocation Failed',
@@ -3240,8 +3492,6 @@ function ShardAllocationGrid({
   );
 }
 
-
-
 /**
  * ShardsList component displays detailed shard information in table format with filtering
  * Requirements: 4.8, 31.7
@@ -3261,15 +3511,20 @@ function ShardsList({
   const [searchParams, setSearchParams] = useSearchParams();
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
-  
+
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
   const nodeFilter = searchParams.get('nodeFilter') || '';
-  const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || ['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED'];
+  const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [
+    'STARTED',
+    'INITIALIZING',
+    'RELOCATING',
+    'UNASSIGNED',
+  ];
   const showPrimaries = searchParams.get('showPrimaries') !== 'false'; // Default to true
   const showReplicas = searchParams.get('showReplicas') !== 'false'; // Default to true
   const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
-  
+
   // Initialize search with nodeFilter if present
   useEffect(() => {
     if (nodeFilter && !searchQuery) {
@@ -3279,14 +3534,14 @@ function ShardsList({
       setSearchParams(params, { replace: true });
     }
   }, [nodeFilter, searchQuery, searchParams, setSearchParams]);
-  
+
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();
-  
+
   // Pagination state
   const currentPage = parseInt(searchParams.get('shardsPage') || '1', 10);
   const pageSize = parseInt(searchParams.get('shardsPageSize') || defaultPageSize.toString(), 10);
-  
+
   const handleShardsPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('shardsPage', page.toString());
@@ -3299,7 +3554,7 @@ function ShardsList({
     params.set('shardsPage', '1'); // Reset to first page when changing page size
     setSearchParams(params);
   };
-  
+
   // Handle shard click to open details modal
   const handleShardClick = (shard: ShardInfo) => {
     setSelectedShard(shard);
@@ -3307,9 +3562,14 @@ function ShardsList({
   };
 
   // Update URL when filters change
-  const updateFilters = (newSearch?: string, newStates?: string[], newShowPrimaries?: boolean, newShowReplicas?: boolean) => {
+  const updateFilters = (
+    newSearch?: string,
+    newStates?: string[],
+    newShowPrimaries?: boolean,
+    newShowReplicas?: boolean
+  ) => {
     const params = new URLSearchParams(searchParams);
-    
+
     if (newSearch !== undefined) {
       if (newSearch) {
         params.set('shardsSearch', newSearch);
@@ -3317,7 +3577,7 @@ function ShardsList({
         params.delete('shardsSearch');
       }
     }
-    
+
     if (newStates !== undefined) {
       if (newStates.length > 0) {
         params.set('shardStates', newStates.join(','));
@@ -3325,7 +3585,7 @@ function ShardsList({
         params.delete('shardStates');
       }
     }
-    
+
     if (newShowPrimaries !== undefined) {
       if (newShowPrimaries) {
         params.delete('showPrimaries');
@@ -3333,7 +3593,7 @@ function ShardsList({
         params.set('showPrimaries', 'false');
       }
     }
-    
+
     if (newShowReplicas !== undefined) {
       if (newShowReplicas) {
         params.delete('showReplicas');
@@ -3341,21 +3601,22 @@ function ShardsList({
         params.set('showReplicas', 'false');
       }
     }
-    
+
     setSearchParams(params);
   };
 
   // Filter shards - use searchQuery directly, not debounced, for immediate filtering
   const filteredShards = shards?.filter((shard) => {
-    const matchesSearch = shard.index.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      shard.index.toLowerCase().includes(searchQuery.toLowerCase()) ||
       shard.node?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesState = selectedStates.length === 0 || selectedStates.includes(shard.state);
-    
+
     const matchesType = (showPrimaries && shard.primary) || (showReplicas && !shard.primary);
-    
+
     const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
-    
+
     return matchesSearch && matchesState && matchesType && matchesSpecial;
   });
   if (loading) {
@@ -3380,13 +3641,16 @@ function ShardsList({
   }
 
   // Group shards by state for visualization
-  const shardsByState = (filteredShards || []).reduce((acc, shard) => {
-    if (!acc[shard.state]) {
-      acc[shard.state] = [];
-    }
-    acc[shard.state].push(shard);
-    return acc;
-  }, {} as Record<string, ShardInfo[]>);
+  const shardsByState = (filteredShards || []).reduce(
+    (acc, shard) => {
+      if (!acc[shard.state]) {
+        acc[shard.state] = [];
+      }
+      acc[shard.state].push(shard);
+      return acc;
+    },
+    {} as Record<string, ShardInfo[]>
+  );
 
   // Pagination
   const totalPages = Math.ceil((filteredShards?.length || 0) / pageSize);
@@ -3406,64 +3670,62 @@ function ShardsList({
           onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined, undefined)}
           style={{ flex: 1, maxWidth: 300 }}
         />
-        
+
         <ShardStateFilterToggle
           states={['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED']}
           selectedStates={selectedStates}
           onToggle={(state) => {
             const newStates = selectedStates.includes(state)
-              ? selectedStates.filter(s => s !== state)
+              ? selectedStates.filter((s) => s !== state)
               : [...selectedStates, state];
             updateFilters(undefined, newStates, undefined, undefined);
           }}
         />
-        
+
         {/* Shard type filter toggles */}
-         <Group gap="md" wrap="wrap">
-           {[
-              { label: 'primaries', icon: IconStar, color: 'yellow', isShown: showPrimaries },
-              { label: 'replicas', icon: IconCopy, color: 'blue', isShown: showReplicas },
-            ].map(({ label, icon: Icon, color, isShown }) => {
-              const isPrimary = label === 'primaries';
-             return (
-               <Group
-                 key={label}
-                 gap={4}
-                 style={{
-                   cursor: 'pointer',
-                   opacity: isShown ? 1 : 0.5,
-                   transition: 'opacity 150ms ease',
-                 }}
-                 onClick={() => {
-                   updateFilters(
-                     undefined,
-                     undefined,
-                     isPrimary ? !showPrimaries : undefined,
-                     isPrimary ? undefined : !showReplicas
-                   );
-                 }}
-                 role="button"
-                 tabIndex={0}
-                 onKeyDown={(e) => {
-                   if (e.key === 'Enter' || e.key === ' ') {
-                     e.preventDefault();
-                     updateFilters(
-                       undefined,
-                       undefined,
-                       isPrimary ? !showPrimaries : undefined,
-                       isPrimary ? undefined : !showReplicas
-                     );
-                   }
-                 }}
-               >
-                 <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
-                 <Text size="xs">
-                   {label}
-                 </Text>
-               </Group>
-             );
-           })}
-         </Group>
+        <Group gap="md" wrap="wrap">
+          {[
+            { label: 'primaries', icon: IconStar, color: 'yellow', isShown: showPrimaries },
+            { label: 'replicas', icon: IconCopy, color: 'blue', isShown: showReplicas },
+          ].map(({ label, icon: Icon, color, isShown }) => {
+            const isPrimary = label === 'primaries';
+            return (
+              <Group
+                key={label}
+                gap={4}
+                style={{
+                  cursor: 'pointer',
+                  opacity: isShown ? 1 : 0.5,
+                  transition: 'opacity 150ms ease',
+                }}
+                onClick={() => {
+                  updateFilters(
+                    undefined,
+                    undefined,
+                    isPrimary ? !showPrimaries : undefined,
+                    isPrimary ? undefined : !showReplicas
+                  );
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    updateFilters(
+                      undefined,
+                      undefined,
+                      isPrimary ? !showPrimaries : undefined,
+                      isPrimary ? undefined : !showReplicas
+                    );
+                  }
+                }}
+              >
+                <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
+                <Text size="xs">{label}</Text>
+              </Group>
+            );
+          })}
+        </Group>
 
         <Group
           gap={4}
@@ -3498,15 +3760,15 @@ function ShardsList({
         >
           <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
           <Text size="xs">special</Text>
-          </Group>
-          </Group>
+        </Group>
+      </Group>
 
-          {/* Shard statistics cards */}
+      {/* Shard statistics cards */}
       <ShardStatsCards
         stats={{
           totalShards: filteredShards?.length || 0,
-          primaryShards: filteredShards?.filter(s => s.primary).length || 0,
-          replicaShards: filteredShards?.filter(s => !s.primary).length || 0,
+          primaryShards: filteredShards?.filter((s) => s.primary).length || 0,
+          replicaShards: filteredShards?.filter((s) => !s.primary).length || 0,
           unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
           relocatingShards: shardsByState['RELOCATING']?.length || 0,
           initializingShards: shardsByState['INITIALIZING']?.length || 0,
@@ -3534,9 +3796,9 @@ function ShardsList({
             <Table.Tbody>
               {paginatedShards?.map((shard, idx) => {
                 const isUnassigned = shard.state === 'UNASSIGNED';
-                
+
                 return (
-                  <Table.Tr 
+                  <Table.Tr
                     key={`${shard.index}-${shard.shard}-${idx}`}
                     style={{
                       backgroundColor: isUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
@@ -3558,10 +3820,7 @@ function ShardsList({
                     <Table.Td>
                       <Group gap="xs">
                         <ShardTypeBadge primary={shard.primary} />
-                        <Badge
-                          size="sm"
-                          color={getShardStateColor(shard.state)}
-                        >
+                        <Badge size="sm" color={getShardStateColor(shard.state)}>
                           {shard.state}
                         </Badge>
                       </Group>
@@ -3577,7 +3836,7 @@ function ShardsList({
                               openNodeModal(shard.node);
                             }
                           }}
-                          style={{ 
+                          style={{
                             textDecoration: 'none',
                             cursor: 'pointer',
                           }}
@@ -3591,14 +3850,10 @@ function ShardsList({
                       )}
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">
-                        {shard.docs.toLocaleString()}
-                      </Text>
+                      <Text size="sm">{shard.docs.toLocaleString()}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">
-                        {formatBytes(shard.store)}
-                      </Text>
+                      <Text size="sm">{formatBytes(shard.store)}</Text>
                     </Table.Td>
                   </Table.Tr>
                 );
@@ -3607,7 +3862,7 @@ function ShardsList({
           </Table>
         </ScrollArea>
       )}
-      
+
       {/* Pagination */}
       {filteredShards && filteredShards.length > pageSize && (
         <TablePagination

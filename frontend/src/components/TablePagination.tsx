@@ -12,7 +12,7 @@ interface TablePaginationProps {
 
 /**
  * TablePagination component provides pagination controls with per-page selector
- * 
+ *
  * Features:
  * - Page navigation
  * - Configurable page size
@@ -44,7 +44,7 @@ export function TablePagination({
               onPageSizeChange(parseInt(value, 10));
             }
           }}
-          data={pageSizeOptions.map(size => ({
+          data={pageSizeOptions.map((size) => ({
             value: size.toString(),
             label: size.toString(),
           }))}
@@ -53,12 +53,7 @@ export function TablePagination({
         />
       </Group>
 
-      <Pagination
-        total={totalPages}
-        value={currentPage}
-        onChange={onPageChange}
-        size="sm"
-      />
+      <Pagination total={totalPages} value={currentPage} onChange={onPageChange} size="sm" />
 
       <Text size="sm" c="dimmed" style={{ minWidth: '120px', textAlign: 'right' }}>
         {startItem}-{endItem} of {totalItems}

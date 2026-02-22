@@ -22,23 +22,30 @@ export function AccessDenied() {
 
   return (
     <Container size="sm" py="xl">
-      <Box style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Paper shadow="md" p="xl" radius="md" withBorder w="100%" ta="center">
           <IconLock size={64} stroke={1.5} style={{ marginBottom: '1.5rem' }} />
-          
+
           <Title order={2} mb="md">
             Access Denied
           </Title>
-          
+
           <Text size="lg" c="dimmed" mb="md">
             {clusterName
               ? `You don't have permission to access the cluster "${clusterName}".`
               : "You don't have permission to access this resource."}
           </Text>
-          
+
           <Text size="sm" c="dimmed" mb="xl">
-            Your account doesn't have the necessary permissions to view or interact with this cluster.
-            Please contact your administrator if you believe you should have access.
+            Your account doesn't have the necessary permissions to view or interact with this
+            cluster. Please contact your administrator if you believe you should have access.
           </Text>
 
           <Group justify="center">

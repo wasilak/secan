@@ -7,7 +7,7 @@ import type { ShardInfo } from '../types/api';
 
 /**
  * Test suite for ShardCell component
- * 
+ *
  * Tests:
  * - All shard states render correctly with proper colors
  * - Click handling works
@@ -15,7 +15,7 @@ import type { ShardInfo } from '../types/api';
  * - Destination indicator styling
  * - Selected state animation
  * - Accessibility features
- * 
+ *
  * Requirements: 3.5, 3.6
  */
 describe('ShardCell', () => {
@@ -45,7 +45,7 @@ describe('ShardCell', () => {
     it('renders STARTED shard', () => {
       const shard = createShard({ state: 'STARTED' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
       expect(cell.textContent).toBe('0');
@@ -54,7 +54,7 @@ describe('ShardCell', () => {
     it('renders INITIALIZING shard', () => {
       const shard = createShard({ state: 'INITIALIZING' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -62,7 +62,7 @@ describe('ShardCell', () => {
     it('renders RELOCATING shard', () => {
       const shard = createShard({ state: 'RELOCATING' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -70,7 +70,7 @@ describe('ShardCell', () => {
     it('renders UNASSIGNED shard', () => {
       const shard = createShard({ state: 'UNASSIGNED', node: undefined });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -80,7 +80,7 @@ describe('ShardCell', () => {
     it('renders primary shard', () => {
       const shard = createShard({ primary: true, state: 'STARTED' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -88,7 +88,7 @@ describe('ShardCell', () => {
     it('renders replica shard', () => {
       const shard = createShard({ primary: false, state: 'STARTED' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -96,7 +96,7 @@ describe('ShardCell', () => {
     it('shows primary indicator dot for primary shards', () => {
       const shard = createShard({ primary: true, state: 'STARTED' });
       const { container } = render(<ShardCell shard={shard} />, { wrapper });
-      
+
       // Check for the primary indicator dot
       const indicator = container.querySelector('[aria-hidden="true"]');
       expect(indicator).toBeTruthy();
@@ -105,7 +105,7 @@ describe('ShardCell', () => {
     it('does not show primary indicator dot for replica shards', () => {
       const shard = createShard({ primary: false, state: 'STARTED' });
       const { container } = render(<ShardCell shard={shard} />, { wrapper });
-      
+
       // Check that there's no primary indicator dot
       const indicator = container.querySelector('[aria-hidden="true"]');
       expect(indicator).toBeFalsy();
@@ -114,7 +114,7 @@ describe('ShardCell', () => {
     it('does not show primary indicator dot for unassigned shards', () => {
       const shard = createShard({ primary: true, state: 'UNASSIGNED', node: undefined });
       const { container } = render(<ShardCell shard={shard} />, { wrapper });
-      
+
       // Check that there's no primary indicator dot for unassigned
       const indicator = container.querySelector('[aria-hidden="true"]');
       expect(indicator).toBeFalsy();
@@ -124,22 +124,16 @@ describe('ShardCell', () => {
   describe('Destination indicator styling', () => {
     it('renders destination indicator', () => {
       const shard = createShard({ state: 'STARTED' });
-      render(
-        <ShardCell shard={shard} isDestinationIndicator={true} />,
-        { wrapper }
-      );
-      
+      render(<ShardCell shard={shard} isDestinationIndicator={true} />, { wrapper });
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
 
     it('renders normal shard', () => {
       const shard = createShard({ state: 'STARTED' });
-      render(
-        <ShardCell shard={shard} isDestinationIndicator={false} />,
-        { wrapper }
-      );
-      
+      render(<ShardCell shard={shard} isDestinationIndicator={false} />, { wrapper });
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -148,36 +142,27 @@ describe('ShardCell', () => {
   describe('Selected state', () => {
     it('renders selected shard', () => {
       const shard = createShard({ state: 'STARTED' });
-      render(
-        <ShardCell shard={shard} isSelected={true} />,
-        { wrapper }
-      );
-      
+      render(<ShardCell shard={shard} isSelected={true} />, { wrapper });
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
 
     it('renders non-selected shard', () => {
       const shard = createShard({ state: 'STARTED' });
-      render(
-        <ShardCell shard={shard} isSelected={false} />,
-        { wrapper }
-      );
-      
+      render(<ShardCell shard={shard} isSelected={false} />, { wrapper });
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
 
     it('applies pulsing animation to selected shard', () => {
       const shard = createShard({ state: 'STARTED' });
-      const { container } = render(
-        <ShardCell shard={shard} isSelected={true} />,
-        { wrapper }
-      );
-      
+      const { container } = render(<ShardCell shard={shard} isSelected={true} />, { wrapper });
+
       const cell = container.querySelector('[role="gridcell"]');
       expect(cell).toBeTruthy();
-      
+
       // Check for animation
       const style = window.getComputedStyle(cell!);
       expect(style.animation).toContain('pulse');
@@ -189,12 +174,12 @@ describe('ShardCell', () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
       const shard = createShard({ state: 'STARTED' });
-      
+
       render(<ShardCell shard={shard} onClick={onClick} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       await user.click(cell);
-      
+
       expect(onClick).toHaveBeenCalledTimes(1);
       // onClick receives both shard and event
       expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
@@ -204,13 +189,13 @@ describe('ShardCell', () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
       const shard = createShard({ state: 'STARTED' });
-      
+
       render(<ShardCell shard={shard} onClick={onClick} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       cell.focus();
       await user.keyboard('{Enter}');
-      
+
       expect(onClick).toHaveBeenCalledTimes(1);
       // onClick receives both shard and event
       expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
@@ -220,13 +205,13 @@ describe('ShardCell', () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
       const shard = createShard({ state: 'STARTED' });
-      
+
       render(<ShardCell shard={shard} onClick={onClick} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       cell.focus();
       await user.keyboard(' ');
-      
+
       expect(onClick).toHaveBeenCalledTimes(1);
       // onClick receives both shard and event
       expect(onClick).toHaveBeenCalledWith(shard, expect.any(Object));
@@ -235,11 +220,11 @@ describe('ShardCell', () => {
     it('does not call onClick when no handler is provided', async () => {
       const user = userEvent.setup();
       const shard = createShard({ state: 'STARTED' });
-      
+
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
-      
+
       // Should not throw error
       await user.click(cell);
       expect(true).toBe(true);
@@ -249,10 +234,10 @@ describe('ShardCell', () => {
       const onClick = vi.fn();
       const shard = createShard({ state: 'STARTED' });
       const { container } = render(<ShardCell shard={shard} onClick={onClick} />, { wrapper });
-      
+
       const cell = container.querySelector('[role="gridcell"]');
       expect(cell).toBeTruthy();
-      
+
       const style = window.getComputedStyle(cell!);
       expect(style.cursor).toBe('pointer');
     });
@@ -260,10 +245,10 @@ describe('ShardCell', () => {
     it('shows default cursor when onClick is not provided', () => {
       const shard = createShard({ state: 'STARTED' });
       const { container } = render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = container.querySelector('[role="gridcell"]');
       expect(cell).toBeTruthy();
-      
+
       const style = window.getComputedStyle(cell!);
       expect(style.cursor).toBe('default');
     });
@@ -273,14 +258,14 @@ describe('ShardCell', () => {
     it('displays the correct shard number', () => {
       const shard = createShard({ shard: 5 });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       expect(screen.getByText('5')).toBeTruthy();
     });
 
     it('displays shard number 0', () => {
       const shard = createShard({ shard: 0 });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       expect(screen.getByText('0')).toBeTruthy();
     });
   });
@@ -289,7 +274,7 @@ describe('ShardCell', () => {
     it('has proper ARIA role', () => {
       const shard = createShard({ state: 'STARTED' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell).toBeTruthy();
     });
@@ -302,7 +287,7 @@ describe('ShardCell', () => {
         state: 'STARTED',
       });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell.getAttribute('aria-label')).toBe(
         'Shard 3 of index logs-2024, primary, state STARTED'
@@ -317,7 +302,7 @@ describe('ShardCell', () => {
         state: 'INITIALIZING',
       });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell.getAttribute('aria-label')).toBe(
         'Shard 2 of index logs-2024, replica, state INITIALIZING'
@@ -328,7 +313,7 @@ describe('ShardCell', () => {
       const onClick = vi.fn();
       const shard = createShard({ state: 'STARTED' });
       render(<ShardCell shard={shard} onClick={onClick} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell.getAttribute('tabIndex')).toBe('0');
     });
@@ -336,7 +321,7 @@ describe('ShardCell', () => {
     it('is not focusable when onClick is not provided', () => {
       const shard = createShard({ state: 'STARTED' });
       render(<ShardCell shard={shard} />, { wrapper });
-      
+
       const cell = screen.getByRole('gridcell');
       expect(cell.getAttribute('tabIndex')).toBe('-1');
     });

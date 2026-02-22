@@ -80,7 +80,9 @@ describe('usePreferences', () => {
 
       const { result } = renderHook(() => usePreferences());
 
-      expect(result.current.preferences.restConsoleHistory).toEqual(DEFAULT_PREFERENCES.restConsoleHistory);
+      expect(result.current.preferences.restConsoleHistory).toEqual(
+        DEFAULT_PREFERENCES.restConsoleHistory
+      );
     });
   });
 
@@ -232,7 +234,10 @@ describe('usePreferences', () => {
       act(() => {
         result1.current.updatePreference('theme', testPreferences.theme);
         result1.current.updatePreference('refreshInterval', testPreferences.refreshInterval);
-        result1.current.updatePreference('lastSelectedCluster', testPreferences.lastSelectedCluster);
+        result1.current.updatePreference(
+          'lastSelectedCluster',
+          testPreferences.lastSelectedCluster
+        );
         result1.current.updatePreference('restConsoleHistory', testPreferences.restConsoleHistory);
       });
 

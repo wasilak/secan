@@ -1,15 +1,5 @@
 import { useState } from 'react';
-import {
-  Title,
-  Text,
-  Card,
-  Group,
-  Stack,
-  Button,
-  Alert,
-  Tabs,
-  Badge,
-} from '@mantine/core';
+import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -22,13 +12,13 @@ import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 
 /**
  * ClusterSettings component displays and manages cluster settings
- * 
+ *
  * Features:
  * - Display persistent and transient settings
  * - Distinguish visually between setting types
  * - JSON editor for modifications
  * - Show default settings
- * 
+ *
  * Requirements: 13.1, 13.2, 13.3, 13.5, 13.6
  */
 export function ClusterSettingsPage() {
@@ -150,14 +140,13 @@ export function ClusterSettingsPage() {
       <Alert icon={<IconAlertCircle size={16} />} title="Important" color="blue" mb="md">
         <Stack gap="xs">
           <Text size="sm">
-            <strong>Persistent settings:</strong> Survive cluster restarts and apply across all nodes
+            <strong>Persistent settings:</strong> Survive cluster restarts and apply across all
+            nodes
           </Text>
           <Text size="sm">
             <strong>Transient settings:</strong> Do not survive cluster restarts
           </Text>
-          <Text size="sm">
-            Transient settings take precedence over persistent settings.
-          </Text>
+          <Text size="sm">Transient settings take precedence over persistent settings.</Text>
         </Stack>
       </Alert>
 

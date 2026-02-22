@@ -8,7 +8,11 @@ import {
   IconLock,
   IconLockOpen,
 } from '@tabler/icons-react';
-import { validateBulkOperation, getBulkOperationDisplayName, hasValidIndices } from '../utils/bulk-operations';
+import {
+  validateBulkOperation,
+  getBulkOperationDisplayName,
+  hasValidIndices,
+} from '../utils/bulk-operations';
 import type { BulkOperationType, IndexInfo } from '../types/api';
 
 export interface BulkOperationsMenuProps {
@@ -111,9 +115,7 @@ export function BulkOperationsMenu({
       </Menu.Target>
 
       <Menu.Dropdown>
-        <Menu.Label>
-          Bulk Operations ({selectedCount} selected)
-        </Menu.Label>
+        <Menu.Label>Bulk Operations ({selectedCount} selected)</Menu.Label>
         <Menu.Divider />
 
         {availableOperations.map((op) => (
@@ -122,11 +124,13 @@ export function BulkOperationsMenu({
             leftSection={op.icon}
             onClick={() => !op.disabled && onOperationSelect(op.type)}
             disabled={op.disabled}
-            rightSection={!op.disabled && op.validCount < selectedCount ? (
-              <Text size="xs" c="dimmed">
-                ({op.validCount}/{selectedCount})
-              </Text>
-            ) : null}
+            rightSection={
+              !op.disabled && op.validCount < selectedCount ? (
+                <Text size="xs" c="dimmed">
+                  ({op.validCount}/{selectedCount})
+                </Text>
+              ) : null
+            }
           >
             <Group gap="xs" justify="space-between">
               <Text size="sm">{op.label}</Text>

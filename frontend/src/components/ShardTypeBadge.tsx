@@ -2,7 +2,7 @@ import { Badge } from '@mantine/core';
 
 /**
  * ShardTypeBadge component displays a badge indicating whether a shard is primary or replica
- * 
+ *
  * Requirements: 11.4
  */
 interface ShardTypeBadgeProps {
@@ -12,11 +12,7 @@ interface ShardTypeBadgeProps {
 
 export function ShardTypeBadge({ primary }: ShardTypeBadgeProps) {
   return (
-    <Badge 
-      size="xs" 
-      variant="light"
-      color={primary ? 'blue' : 'gray'}
-    >
+    <Badge size="xs" variant="light" color={primary ? 'blue' : 'gray'}>
       {primary ? 'P' : 'R'}
     </Badge>
   );

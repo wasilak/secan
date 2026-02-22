@@ -48,16 +48,16 @@ describe('formatUptime', () => {
 
 describe('formatUptimeDetailed', () => {
   it('should format days, hours, and minutes', () => {
-    const fiveDaysThreeHoursTwentyFourMinutes = 
+    const fiveDaysThreeHoursTwentyFourMinutes =
       5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000 + 24 * 60 * 1000;
-    expect(formatUptimeDetailed(fiveDaysThreeHoursTwentyFourMinutes))
-      .toBe('5 days, 3 hours, 24 minutes');
+    expect(formatUptimeDetailed(fiveDaysThreeHoursTwentyFourMinutes)).toBe(
+      '5 days, 3 hours, 24 minutes'
+    );
   });
 
   it('should format hours and minutes', () => {
     const twoHoursFortyFiveMinutes = 2 * 60 * 60 * 1000 + 45 * 60 * 1000;
-    expect(formatUptimeDetailed(twoHoursFortyFiveMinutes))
-      .toBe('2 hours, 45 minutes');
+    expect(formatUptimeDetailed(twoHoursFortyFiveMinutes)).toBe('2 hours, 45 minutes');
   });
 
   it('should format minutes only', () => {
@@ -66,10 +66,8 @@ describe('formatUptimeDetailed', () => {
   });
 
   it('should handle singular forms', () => {
-    const oneDayOneHourOneMinute = 
-      1 * 24 * 60 * 60 * 1000 + 1 * 60 * 60 * 1000 + 1 * 60 * 1000;
-    expect(formatUptimeDetailed(oneDayOneHourOneMinute))
-      .toBe('1 day, 1 hour, 1 minute');
+    const oneDayOneHourOneMinute = 1 * 24 * 60 * 60 * 1000 + 1 * 60 * 60 * 1000 + 1 * 60 * 1000;
+    expect(formatUptimeDetailed(oneDayOneHourOneMinute)).toBe('1 day, 1 hour, 1 minute');
   });
 
   it('should handle zero', () => {

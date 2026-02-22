@@ -88,7 +88,13 @@ export interface ClusterStats {
 /**
  * Node role types
  */
-export type NodeRole = 'master' | 'data' | 'ingest' | 'coordinating' | 'ml' | 'remote_cluster_client';
+export type NodeRole =
+  | 'master'
+  | 'data'
+  | 'ingest'
+  | 'coordinating'
+  | 'ml'
+  | 'remote_cluster_client';
 
 /**
  * Node information
@@ -168,10 +174,13 @@ export interface NetworkStats {
  * JVM statistics
  */
 export interface JvmStats {
-  gcCollectors: Record<string, {
-    collectionCount: number;
-    collectionTimeInMillis: number;
-  }>;
+  gcCollectors: Record<
+    string,
+    {
+      collectionCount: number;
+      collectionTimeInMillis: number;
+    }
+  >;
 }
 
 /**
@@ -238,7 +247,7 @@ export interface IndexInfo {
 
 /**
  * Shard information
- * 
+ *
  * Requirements: 9.1, 9.2, 9.3
  */
 export interface ShardInfo {
@@ -280,8 +289,8 @@ export interface NodeWithShards extends NodeInfo {
  */
 export interface IndexMetadata extends IndexInfo {
   shardCount: number; // Total number of shards (primary + replicas)
-  docsCount: number;  // Total document count
-  size: number;       // Total size in bytes
+  docsCount: number; // Total document count
+  size: number; // Total size in bytes
 }
 
 /**

@@ -188,15 +188,23 @@ pub async fn login(
     }
 
     // Find user in config
-    let users = state.config.auth.local_users.as_ref().ok_or_else(|| ErrorResponse {
-        error: "not_configured".to_string(),
-        message: "Local users not configured".to_string(),
-    })?;
+    let users = state
+        .config
+        .auth
+        .local_users
+        .as_ref()
+        .ok_or_else(|| ErrorResponse {
+            error: "not_configured".to_string(),
+            message: "Local users not configured".to_string(),
+        })?;
 
-    let user = users.iter().find(|u| u.username == payload.username).ok_or_else(|| ErrorResponse {
-        error: "invalid_credentials".to_string(),
-        message: "Invalid username or password".to_string(),
-    })?;
+    let user = users
+        .iter()
+        .find(|u| u.username == payload.username)
+        .ok_or_else(|| ErrorResponse {
+            error: "invalid_credentials".to_string(),
+            message: "Invalid username or password".to_string(),
+        })?;
 
     // Verify password
     let password_valid = verify_password(&payload.password, &user.password_hash).map_err(|e| {
@@ -223,7 +231,7 @@ pub async fn login(
         "Resolving cluster access"
     );
     let accessible_clusters = permission_resolver.resolve_cluster_access(&user.groups);
-    
+
     tracing::debug!(
         accessible_clusters = ?accessible_clusters,
         "Resolved cluster access"
@@ -237,7 +245,8 @@ pub async fn login(
         accessible_clusters.clone(),
     );
 
-    let token = state.session_manager
+    let token = state
+        .session_manager
         .create_session_with_clusters(auth_user, accessible_clusters.clone())
         .await
         .map_err(|e| {
@@ -261,13 +270,13 @@ pub async fn login(
             success: true,
             message: "Login successful".to_string(),
             session_token: Some(token.clone()),
-        }).unwrap()
+        })
+        .unwrap(),
     ));
-    
-    response.headers_mut().insert(
-        http::header::SET_COOKIE,
-        create_session_cookie(&token),
-    );
+
+    response
+        .headers_mut()
+        .insert(http::header::SET_COOKIE, create_session_cookie(&token));
     response.headers_mut().insert(
         http::header::CONTENT_TYPE,
         http::HeaderValue::from_static("application/json"),
@@ -290,7 +299,10 @@ pub async fn get_current_user(
 
 /// Build session cookie
 fn create_session_cookie(token: &str) -> http::HeaderValue {
-    let cookie_value = format!("session_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600", token);
+    let cookie_value = format!(
+        "session_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600",
+        token
+    );
     http::HeaderValue::from_str(&cookie_value).unwrap()
 }
 

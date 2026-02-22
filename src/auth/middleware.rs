@@ -76,7 +76,7 @@ pub async fn auth_middleware(
             if is_api_request(path) {
                 return Err(AuthError::MissingSessionToken);
             }
-            
+
             let redirect_url = build_login_redirect_url(&request);
             tracing::debug!(
                 path = %path,
@@ -106,7 +106,7 @@ pub async fn auth_middleware(
             if is_api_request(path) {
                 return Err(AuthError::InvalidSession);
             }
-            
+
             let redirect_url = build_login_redirect_url(&request);
             tracing::debug!(
                 path = %path,

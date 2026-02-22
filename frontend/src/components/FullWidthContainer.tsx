@@ -5,12 +5,12 @@ import { useDrawer } from '../contexts/DrawerContext';
 /**
  * FullWidthContainer component provides a full-width layout with responsive padding
  * and drawer-aware width calculation.
- * 
+ *
  * This component replaces the constrained Container component to allow content
  * to use the full viewport width while maintaining appropriate padding for readability.
  * When the drawer is pinned, it automatically adjusts the content width to account
  * for the drawer width.
- * 
+ *
  * Features:
  * - 100% width to fill available space
  * - Responsive horizontal padding (1rem base, scales with breakpoints)
@@ -19,7 +19,7 @@ import { useDrawer } from '../contexts/DrawerContext';
  * - Automatically adjusts width when drawer is pinned
  * - Smooth transitions when drawer pin state changes
  * - Memoized for performance optimization
- * 
+ *
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.13, 2.14, 2.15
  */
 
@@ -44,13 +44,16 @@ export const FullWidthContainer = memo(function FullWidthContainer({
   const { isPinned, drawerWidth } = useDrawer();
 
   // Memoize default padding to avoid recreation on every render
-  const defaultPadding = useMemo(() => ({
-    base: '1rem',
-    sm: '1rem',
-    md: '1.5rem',
-    lg: '2rem',
-    xl: '2rem',
-  }), []);
+  const defaultPadding = useMemo(
+    () => ({
+      base: '1rem',
+      sm: '1rem',
+      md: '1.5rem',
+      lg: '2rem',
+      xl: '2rem',
+    }),
+    []
+  );
 
   // Resolve padding value
   const resolvedPadding = padding || defaultPadding;
@@ -91,13 +94,16 @@ export const FullWidthContainer = memo(function FullWidthContainer({
   }, [resolvedPadding]);
 
   // Memoize combined style
-  const combinedStyle = useMemo(() => ({
-    width: calculatedWidth,
-    maxWidth: calculatedMaxWidth,
-    transition: 'width 0.2s ease, max-width 0.2s ease',
-    ...(typeof resolvedPadding === 'string' ? paddingStyle : {}),
-    ...style,
-  }), [calculatedWidth, calculatedMaxWidth, resolvedPadding, paddingStyle, style]);
+  const combinedStyle = useMemo(
+    () => ({
+      width: calculatedWidth,
+      maxWidth: calculatedMaxWidth,
+      transition: 'width 0.2s ease, max-width 0.2s ease',
+      ...(typeof resolvedPadding === 'string' ? paddingStyle : {}),
+      ...style,
+    }),
+    [calculatedWidth, calculatedMaxWidth, resolvedPadding, paddingStyle, style]
+  );
 
   return (
     <Box

@@ -7,11 +7,7 @@ import type { ShardInfo, NodeWithShards } from '../types/api';
 
 // Helper to render with Mantine provider
 function renderWithProviders(component: React.ReactElement) {
-  return render(
-    <MantineProvider>
-      {component}
-    </MantineProvider>
-  );
+  return render(<MantineProvider>{component}</MantineProvider>);
 }
 
 describe('RelocationConfirmDialog', () => {
@@ -24,7 +20,7 @@ describe('RelocationConfirmDialog', () => {
     docs: 1000,
     store: 1024000,
   };
-  
+
   const mockSourceNode: NodeWithShards = {
     id: 'node-1',
     name: 'node-1-name',
@@ -38,7 +34,7 @@ describe('RelocationConfirmDialog', () => {
     isMasterEligible: true,
     shards: new Map(),
   };
-  
+
   const mockDestinationNode: NodeWithShards = {
     id: 'node-2',
     name: 'node-2-name',
@@ -52,11 +48,11 @@ describe('RelocationConfirmDialog', () => {
     isMasterEligible: false,
     shards: new Map(),
   };
-  
+
   it('renders dialog when opened', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -67,14 +63,14 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText('Confirm Shard Relocation')).toBeInTheDocument();
   });
-  
+
   it('displays shard details correctly', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -85,15 +81,15 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText('test-index')).toBeInTheDocument();
     expect(screen.getByText('0 (primary)')).toBeInTheDocument();
   });
-  
+
   it('displays source node details correctly', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -104,16 +100,16 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText('node-1-name')).toBeInTheDocument();
     expect(screen.getByText('10.0.0.1')).toBeInTheDocument();
     expect(screen.getByText('node-1')).toBeInTheDocument();
   });
-  
+
   it('displays destination node details correctly', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -124,16 +120,16 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText('node-2-name')).toBeInTheDocument();
     expect(screen.getByText('10.0.0.2')).toBeInTheDocument();
     expect(screen.getByText('node-2')).toBeInTheDocument();
   });
-  
+
   it('displays warning message', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -144,15 +140,15 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText(/Shard relocation may impact cluster performance/)).toBeInTheDocument();
   });
-  
+
   it('calls onClose when Cancel button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -163,19 +159,19 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     const cancelButton = screen.getByRole('button', { name: /cancel/i });
     await user.click(cancelButton);
-    
+
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
-  
+
   it('calls onConfirm when Relocate Shard button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockResolvedValue(undefined);
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -186,20 +182,20 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     const confirmButton = screen.getByRole('button', { name: /relocate shard/i });
     await user.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(onConfirm).toHaveBeenCalledTimes(1);
     });
   });
-  
+
   it('closes dialog after successful confirmation', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockResolvedValue(undefined);
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -210,21 +206,21 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     const confirmButton = screen.getByRole('button', { name: /relocate shard/i });
     await user.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
-  
+
   it('handles confirmation errors gracefully', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockRejectedValue(new Error('Relocation failed'));
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -235,24 +231,24 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     const confirmButton = screen.getByRole('button', { name: /relocate shard/i });
     await user.click(confirmButton);
-    
+
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
-    
+
     // Dialog should not close on error
     expect(onClose).not.toHaveBeenCalled();
-    
+
     consoleErrorSpy.mockRestore();
   });
-  
+
   it('does not render when shard is null', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={null}
@@ -263,15 +259,15 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     // Modal should not be visible
     expect(screen.queryByText('Confirm Shard Relocation')).not.toBeInTheDocument();
   });
-  
+
   it('does not render when sourceNode is null', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -282,15 +278,15 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     // Modal should not be visible
     expect(screen.queryByText('Confirm Shard Relocation')).not.toBeInTheDocument();
   });
-  
+
   it('does not render when destinationNode is null', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -301,20 +297,20 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     // Modal should not be visible
     expect(screen.queryByText('Confirm Shard Relocation')).not.toBeInTheDocument();
   });
-  
+
   it('displays replica shard type correctly', () => {
     const onClose = vi.fn();
     const onConfirm = vi.fn();
-    
+
     const replicaShard: ShardInfo = {
       ...mockShard,
       primary: false,
     };
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={replicaShard}
@@ -325,15 +321,15 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     expect(screen.getByText('0 (replica)')).toBeInTheDocument();
   });
-  
+
   it('disables buttons while loading', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     const onConfirm = vi.fn().mockImplementation(() => new Promise(() => {})); // Never resolves
-    
+
     renderWithProviders(
       <RelocationConfirmDialog
         shard={mockShard}
@@ -344,10 +340,10 @@ describe('RelocationConfirmDialog', () => {
         onConfirm={onConfirm}
       />
     );
-    
+
     const confirmButton = screen.getByRole('button', { name: /relocate shard/i });
     await user.click(confirmButton);
-    
+
     // Wait for loading state
     await waitFor(() => {
       const cancelButton = screen.getByRole('button', { name: /cancel/i });

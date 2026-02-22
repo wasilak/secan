@@ -45,17 +45,20 @@ const mockNodes: NodeWithShards[] = [
     isMaster: true,
     isMasterEligible: true,
     shards: new Map([
-      ['test-index', [
-        {
-          index: 'test-index',
-          shard: 0,
-          primary: true,
-          state: 'STARTED',
-          node: 'node-1',
-          docs: 1000,
-          store: 1024000,
-        },
-      ]],
+      [
+        'test-index',
+        [
+          {
+            index: 'test-index',
+            shard: 0,
+            primary: true,
+            state: 'STARTED',
+            node: 'node-1',
+            docs: 1000,
+            store: 1024000,
+          },
+        ],
+      ],
     ]),
   },
   {
@@ -103,7 +106,7 @@ const mockShards: ShardInfo[] = [
 
 /**
  * Progress Tracking Tests
- * 
+ *
  * These tests verify the relocation progress tracking functionality:
  * - Requirements: 7.1, 7.2, 7.3, 7.7, 7.8, 7.9, 7.10, 7.12
  */
@@ -111,15 +114,15 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
   beforeEach(() => {
     // Reset store state
     useShardGridStore.getState().reset();
-    
+
     // Reset mocks
     vi.clearAllMocks();
-    
+
     // Mock initial API responses
     vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
     vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
     vi.mocked(apiClient.getShards).mockResolvedValue(mockShards);
-    
+
     // Use fake timers for controlling intervals
     vi.useFakeTimers();
   });
@@ -132,7 +135,7 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
   it('starts polling after successful relocation initiation - Requirements: 7.2, 7.3', async () => {
     // Mock successful relocation
     vi.mocked(apiClient.relocateShard).mockResolvedValue(undefined);
-    
+
     // Simulate relocation initiation
     const shard: ShardInfo = {
       index: 'test-index',
@@ -143,23 +146,23 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Add shard to relocating set
     useShardGridStore.getState().addRelocatingShard(shard);
-    
+
     // Start polling with a mock interval ID
     const intervalId = window.setInterval(() => {}, 2000);
     useShardGridStore.getState().startPolling(intervalId);
-    
+
     // Get fresh state after updates
     const state = useShardGridStore.getState();
-    
+
     // Verify polling state
     expect(state.isPolling).toBe(true);
     expect(state.pollingIntervalId).toBe(intervalId);
     expect(state.pollingStartTime).toBeDefined();
     expect(state.pollingStartTime).toBeGreaterThan(0);
-    
+
     // Cleanup
     clearInterval(intervalId);
   });
@@ -178,26 +181,32 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
         storeSize: 1024000,
       },
     ];
-    
+
     vi.mocked(apiClient.getShards).mockResolvedValue(relocatingShards);
-    
+
     renderWithProviders(<ShardGrid clusterId="test-cluster" refreshInterval={2000} />);
-    
+
     // Wait for initial data fetch with increased timeout
-    await waitFor(() => {
-      expect(apiClient.getShards).toHaveBeenCalled();
-    }, { timeout: 10000 });
-    
+    await waitFor(
+      () => {
+        expect(apiClient.getShards).toHaveBeenCalled();
+      },
+      { timeout: 10000 }
+    );
+
     // Verify the component loaded successfully with increased timeout
-    await waitFor(() => {
-      const state = useShardGridStore.getState();
-      expect(state.loading).toBe(false);
-    }, { timeout: 10000 });
+    await waitFor(
+      () => {
+        const state = useShardGridStore.getState();
+        expect(state.loading).toBe(false);
+      },
+      { timeout: 10000 }
+    );
   }, 15000); // Increase test timeout to 15 seconds
 
   it('detects relocation completion when shard becomes STARTED - Requirements: 7.7, 7.8', async () => {
     const store = useShardGridStore.getState();
-    
+
     // Setup initial relocating state
     const relocatingShard: ShardInfo = {
       index: 'test-index',
@@ -209,13 +218,13 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Add to relocating set
     store.addRelocatingShard(relocatingShard);
-    
+
     // Verify shard is being tracked
     expect(store.isShardRelocating(relocatingShard)).toBe(true);
-    
+
     // Simulate completion - shard is now STARTED on destination node
     const completedShard: ShardInfo = {
       index: 'test-index',
@@ -226,10 +235,10 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Remove from relocating set (this would happen in fetchClusterState)
     store.removeRelocatingShard(completedShard);
-    
+
     // Verify shard is no longer being tracked
     expect(store.isShardRelocating(completedShard)).toBe(false);
   });
@@ -238,18 +247,18 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
     // Start polling
     const intervalId = window.setInterval(() => {}, 2000);
     useShardGridStore.getState().startPolling(intervalId);
-    
+
     // Get fresh state after starting
     let state = useShardGridStore.getState();
     expect(state.isPolling).toBe(true);
     expect(state.pollingIntervalId).toBe(intervalId);
-    
+
     // Stop polling
     useShardGridStore.getState().stopPolling();
-    
+
     // Get fresh state after stopping
     state = useShardGridStore.getState();
-    
+
     // Verify polling stopped
     expect(state.isPolling).toBe(false);
     expect(state.pollingIntervalId).toBeNull();
@@ -258,7 +267,7 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
 
   it('handles relocation failure when shard becomes UNASSIGNED - Requirements: 7.9', async () => {
     const store = useShardGridStore.getState();
-    
+
     // Setup initial relocating state
     const relocatingShard: ShardInfo = {
       index: 'test-index',
@@ -270,10 +279,10 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Add to relocating set
     store.addRelocatingShard(relocatingShard);
-    
+
     // Simulate failure - shard becomes UNASSIGNED
     const failedShard: ShardInfo = {
       index: 'test-index',
@@ -283,10 +292,10 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Remove from relocating set (this would happen in fetchClusterState)
     store.removeRelocatingShard(failedShard);
-    
+
     // Verify shard is no longer being tracked
     expect(store.isShardRelocating(failedShard)).toBe(false);
   });
@@ -303,27 +312,27 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     useShardGridStore.getState().addRelocatingShard(relocatingShard);
-    
+
     // Start polling
     const intervalId = window.setInterval(() => {}, 2000);
     useShardGridStore.getState().startPolling(intervalId);
-    
+
     const state = useShardGridStore.getState();
     const startTime = state.pollingStartTime!;
     expect(startTime).toBeGreaterThan(0);
-    
+
     // Advance time by 5 minutes (300000 ms)
     const FIVE_MINUTES = 5 * 60 * 1000;
     vi.advanceTimersByTime(FIVE_MINUTES + 1000);
-    
+
     // Check if timeout would be detected
     const currentTime = Date.now();
     const elapsed = currentTime - startTime;
-    
+
     expect(elapsed).toBeGreaterThan(FIVE_MINUTES);
-    
+
     // Cleanup
     clearInterval(intervalId);
   });
@@ -334,14 +343,17 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
     vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
     vi.mocked(apiClient.getShards).mockResolvedValue(mockShards);
     vi.mocked(apiClient.relocateShard).mockResolvedValue(undefined);
-    
+
     renderWithProviders(<ShardGrid clusterId="test-cluster" refreshInterval={30000} />);
-    
+
     // Wait for initial render with increased timeout
-    await waitFor(() => {
-      expect(useShardGridStore.getState().loading).toBe(false);
-    }, { timeout: 10000 });
-    
+    await waitFor(
+      () => {
+        expect(useShardGridStore.getState().loading).toBe(false);
+      },
+      { timeout: 10000 }
+    );
+
     // Simulate starting relocation
     const shard: ShardInfo = {
       index: 'test-index',
@@ -352,23 +364,23 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       storeSize: 1024000,
     };
-    
+
     useShardGridStore.getState().addRelocatingShard(shard);
-    
+
     // Start polling
     const intervalId = window.setInterval(() => {
       // This would call fetchClusterState in the real component
     }, 2000);
-    
+
     useShardGridStore.getState().startPolling(intervalId);
-    
+
     // Get fresh state
     const state = useShardGridStore.getState();
-    
+
     // Verify polling interval is set
     expect(state.pollingIntervalId).toBe(intervalId);
     expect(state.isPolling).toBe(true);
-    
+
     // Cleanup
     clearInterval(intervalId);
     useShardGridStore.getState().stopPolling();
@@ -386,7 +398,7 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     const shard2: ShardInfo = {
       index: 'index-2',
       shard: 1,
@@ -397,24 +409,24 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 2000,
       store: 2048000,
     };
-    
+
     useShardGridStore.getState().addRelocatingShard(shard1);
     useShardGridStore.getState().addRelocatingShard(shard2);
-    
+
     // Get fresh state
     const state = useShardGridStore.getState();
-    
+
     // Verify both shards are being tracked
     expect(state.isShardRelocating(shard1)).toBe(true);
     expect(state.isShardRelocating(shard2)).toBe(true);
     expect(state.relocatingShards.size).toBe(2);
-    
+
     // Complete one shard
     useShardGridStore.getState().removeRelocatingShard(shard1);
-    
+
     // Get fresh state after removal
     const updatedState = useShardGridStore.getState();
-    
+
     // Verify only one shard is still being tracked
     expect(updatedState.isShardRelocating(shard1)).toBe(false);
     expect(updatedState.isShardRelocating(shard2)).toBe(true);
@@ -433,7 +445,7 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     const shard2: ShardInfo = {
       index: 'index-2',
       shard: 1,
@@ -444,31 +456,31 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 2000,
       store: 2048000,
     };
-    
+
     useShardGridStore.getState().addRelocatingShard(shard1);
     useShardGridStore.getState().addRelocatingShard(shard2);
-    
+
     // Start polling
     const intervalId = window.setInterval(() => {}, 2000);
     useShardGridStore.getState().startPolling(intervalId);
-    
+
     let state = useShardGridStore.getState();
     expect(state.isPolling).toBe(true);
-    
+
     // Complete first shard
     useShardGridStore.getState().removeRelocatingShard(shard1);
-    
+
     // Polling should continue because shard2 is still relocating
     state = useShardGridStore.getState();
     expect(state.relocatingShards.size).toBe(1);
-    
+
     // Complete second shard
     useShardGridStore.getState().removeRelocatingShard(shard2);
-    
+
     // Now polling should stop (in the real component)
     state = useShardGridStore.getState();
     expect(state.relocatingShards.size).toBe(0);
-    
+
     // Cleanup
     clearInterval(intervalId);
   });
@@ -484,12 +496,12 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     useShardGridStore.getState().addRelocatingShard(primaryShard);
-    
+
     let state = useShardGridStore.getState();
     expect(state.isShardRelocating(primaryShard)).toBe(true);
-    
+
     // Test replica shard with same index and shard number
     const replicaShard: ShardInfo = {
       index: 'test-index',
@@ -500,16 +512,16 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       docs: 1000,
       store: 1024000,
     };
-    
+
     // Replica should be tracked separately
     state = useShardGridStore.getState();
     expect(state.isShardRelocating(replicaShard)).toBe(false);
-    
+
     useShardGridStore.getState().addRelocatingShard(replicaShard);
-    
+
     state = useShardGridStore.getState();
     expect(state.isShardRelocating(replicaShard)).toBe(true);
-    
+
     // Both should be tracked
     expect(state.relocatingShards.size).toBe(2);
   });

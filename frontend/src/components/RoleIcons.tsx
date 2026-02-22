@@ -93,7 +93,7 @@ export function RoleLegend({ roles }: { roles: string[] }) {
 export function RoleOption({ role }: { role: string }) {
   const roleInfo = getRoleIcon(role);
   const Icon = roleInfo.icon;
-  
+
   return (
     <Group gap="xs">
       <Icon size={16} color={`var(--mantine-color-${roleInfo.color}-6)`} />
@@ -106,12 +106,12 @@ export function RoleOption({ role }: { role: string }) {
  * RoleFilterToggle component - clickable roles that toggle on/off
  * Displays as a legend-style filter with icons and text labels
  */
-export function RoleFilterToggle({ 
-  roles, 
-  selectedRoles, 
-  onToggle 
-}: { 
-  roles: string[]; 
+export function RoleFilterToggle({
+  roles,
+  selectedRoles,
+  onToggle,
+}: {
+  roles: string[];
   selectedRoles: string[];
   onToggle: (role: string) => void;
 }) {
@@ -121,10 +121,10 @@ export function RoleFilterToggle({
         const roleInfo = getRoleIcon(role);
         const Icon = roleInfo.icon;
         const isSelected = selectedRoles.includes(role);
-        
+
         return (
-          <Group 
-            key={role} 
+          <Group
+            key={role}
             gap={6}
             style={{
               cursor: 'pointer',
@@ -141,15 +141,12 @@ export function RoleFilterToggle({
             role="button"
             tabIndex={0}
           >
-            <Icon 
-              size={16} 
+            <Icon
+              size={16}
               color={`var(--mantine-color-${roleInfo.color}-6)`}
               style={{ transition: 'opacity 150ms ease' }}
             />
-            <Text 
-              size="xs"
-              style={{ transition: 'opacity 150ms ease' }}
-            >
+            <Text size="xs" style={{ transition: 'opacity 150ms ease' }}>
               {roleInfo.label}
             </Text>
           </Group>

@@ -59,9 +59,12 @@ export function useBulkSelection(): UseBulkSelectionReturn {
    * Check if an index is selected
    * O(1) operation
    */
-  const isSelected = useCallback((indexName: string): boolean => {
-    return selectedIndices.has(indexName);
-  }, [selectedIndices]);
+  const isSelected = useCallback(
+    (indexName: string): boolean => {
+      return selectedIndices.has(indexName);
+    },
+    [selectedIndices]
+  );
 
   /**
    * Toggle selection for an index
@@ -69,7 +72,7 @@ export function useBulkSelection(): UseBulkSelectionReturn {
    * O(1) operation
    */
   const toggleSelection = useCallback((indexName: string) => {
-    setSelectedIndices(prev => {
+    setSelectedIndices((prev) => {
       const next = new Set(prev);
       if (next.has(indexName)) {
         next.delete(indexName);

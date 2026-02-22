@@ -11,11 +11,11 @@ interface SparklineProps {
   fillOpacity?: number;
 }
 
-export function Sparkline({ 
-  data, 
-  color = 'var(--mantine-color-blue-6)', 
+export function Sparkline({
+  data,
+  color = 'var(--mantine-color-blue-6)',
   height = 30,
-  fillOpacity = 0.6
+  fillOpacity = 0.6,
 }: SparklineProps) {
   // Convert array to chart data format
   const chartData = data.map((value, index) => ({ value, index }));

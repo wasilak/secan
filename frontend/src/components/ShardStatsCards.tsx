@@ -17,7 +17,7 @@ interface ShardStatsCardsProps {
 /**
  * ShardStatsCards component displays shard statistics in compact cards
  * matching the visual style of overview statistics cards.
- * 
+ *
  * Requirements: 14.2, 14.3, 14.4, 14.5
  */
 export function ShardStatsCards({ stats }: ShardStatsCardsProps) {

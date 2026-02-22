@@ -15,10 +15,10 @@ export interface ErrorDetails {
 
 /**
  * Parse error from various sources into a structured format
- * 
+ *
  * @param error - Error object from API call or other source
  * @returns Structured error details
- * 
+ *
  * Requirements: 29.6, 29.7
  */
 export function parseError(error: unknown): ErrorDetails {
@@ -39,7 +39,7 @@ export function parseError(error: unknown): ErrorDetails {
       statusCode: number;
       error?: ApiError;
     };
-    
+
     // Try to extract Elasticsearch error from the error property
     if (apiError.error) {
       const esError = extractElasticsearchError(apiError.error);
@@ -52,7 +52,7 @@ export function parseError(error: unknown): ErrorDetails {
         };
       }
     }
-    
+
     return {
       error: 'api_error',
       message: apiError.message,
@@ -63,12 +63,21 @@ export function parseError(error: unknown): ErrorDetails {
 
   // Handle Axios/Fetch errors with response
   if (error && typeof error === 'object' && 'response' in error) {
-    const response = (error as { response?: { data?: ApiError; status?: number; statusText?: string; headers?: Record<string, string> } }).response;
-    
+    const response = (
+      error as {
+        response?: {
+          data?: ApiError;
+          status?: number;
+          statusText?: string;
+          headers?: Record<string, string>;
+        };
+      }
+    ).response;
+
     if (response?.data) {
       // Try to extract Elasticsearch error if present
       const esError = extractElasticsearchError(response.data);
-      
+
       return {
         error: response.data.error || 'api_error',
         message: esError || response.data.message || 'An error occurred',
@@ -77,7 +86,7 @@ export function parseError(error: unknown): ErrorDetails {
         requestId: response.headers?.['x-request-id'],
       };
     }
-    
+
     return {
       error: 'http_error',
       message: `HTTP ${response?.status || 'Unknown'}: ${response?.statusText || 'Request failed'}`,
@@ -88,7 +97,7 @@ export function parseError(error: unknown): ErrorDetails {
   // Handle network errors
   if (error && typeof error === 'object' && 'message' in error) {
     const err = error as Error;
-    
+
     if (err.message.includes('Network') || err.message.includes('fetch')) {
       return {
         error: 'network_error',
@@ -96,7 +105,7 @@ export function parseError(error: unknown): ErrorDetails {
         details: err.message,
       };
     }
-    
+
     return {
       error: 'error',
       message: err.message,
@@ -122,80 +131,88 @@ export function parseError(error: unknown): ErrorDetails {
 
 /**
  * Extract Elasticsearch error message from API error response
- * 
+ *
  * @param data - API error response data
  * @returns Elasticsearch error message if found, null otherwise
  */
 function extractElasticsearchError(data: ApiError | Record<string, unknown>): string | null {
   // Cast to a generic object to check for error structure
   const errorData = data as Record<string, unknown>;
-  
+
   // Check if this is directly an Elasticsearch error response
   // Elasticsearch error structure: { error: { type: string, reason: string, root_cause: [...] }, status: number }
   if (errorData.error && typeof errorData.error === 'object') {
     const esError = errorData.error as Record<string, unknown>;
-    
+
     // Get the main error reason
     if (esError.reason && typeof esError.reason === 'string') {
       let message = `Elasticsearch: ${esError.reason}`;
-      
+
       // Add error type if available
       if (esError.type && typeof esError.type === 'string') {
         message = `Elasticsearch (${esError.type}): ${esError.reason}`;
       }
-      
+
       // Add root cause if available and different from main reason
-      if (esError.root_cause && Array.isArray(esError.root_cause) && esError.root_cause.length > 0) {
+      if (
+        esError.root_cause &&
+        Array.isArray(esError.root_cause) &&
+        esError.root_cause.length > 0
+      ) {
         const rootCause = esError.root_cause[0] as Record<string, unknown>;
         if (rootCause.reason && rootCause.reason !== esError.reason) {
           message += `\nRoot cause: ${rootCause.reason}`;
         }
       }
-      
+
       return message;
     }
   }
-  
+
   // Check if details contains Elasticsearch error structure (legacy path)
   if ('details' in errorData && errorData.details && typeof errorData.details === 'object') {
     const details = errorData.details as Record<string, unknown>;
-    
+
     if (details.error && typeof details.error === 'object') {
       const esError = details.error as Record<string, unknown>;
-      
+
       if (esError.reason && typeof esError.reason === 'string') {
         let message = `Elasticsearch: ${esError.reason}`;
-        
+
         if (esError.type && typeof esError.type === 'string') {
           message = `Elasticsearch (${esError.type}): ${esError.reason}`;
         }
-        
-        if (esError.root_cause && Array.isArray(esError.root_cause) && esError.root_cause.length > 0) {
+
+        if (
+          esError.root_cause &&
+          Array.isArray(esError.root_cause) &&
+          esError.root_cause.length > 0
+        ) {
           const rootCause = esError.root_cause[0] as Record<string, unknown>;
           if (rootCause.reason && rootCause.reason !== esError.reason) {
             message += `\nRoot cause: ${rootCause.reason}`;
           }
         }
-        
+
         return message;
       }
     }
   }
-  
+
   return null;
 }
 
 /**
  * Display a user-friendly error notification
- * 
+ *
  * @param error - Error object to display
  * @param title - Optional custom title for the notification
- * 
+ *
  * Requirements: 29.6
  */
 export function showErrorNotification(error: unknown, title?: string) {
   const errorDetails = parseError(error);
-  
+
   notifications.show({
     title: title || 'Error',
     message: errorDetails.message,
@@ -207,7 +224,7 @@ export function showErrorNotification(error: unknown, title?: string) {
 
 /**
  * Display a warning notification
- * 
+ *
  * @param message - Warning message to display
  * @param title - Optional custom title for the notification
  */
@@ -223,31 +240,31 @@ export function showWarningNotification(message: string, title?: string) {
 
 /**
  * Format error details for display in expandable sections
- * 
+ *
  * @param errorDetails - Structured error details
  * @returns Formatted error details as a string
- * 
+ *
  * Requirements: 29.7
  */
 export function formatErrorDetails(errorDetails: ErrorDetails): string {
   const parts: string[] = [];
-  
+
   if (errorDetails.error) {
     parts.push(`Error Code: ${errorDetails.error}`);
   }
-  
+
   if (errorDetails.statusCode) {
     parts.push(`Status Code: ${errorDetails.statusCode}`);
   }
-  
+
   if (errorDetails.requestId) {
     parts.push(`Request ID: ${errorDetails.requestId}`);
   }
-  
+
   if (errorDetails.details) {
     parts.push(`Details: ${JSON.stringify(errorDetails.details, null, 2)}`);
   }
-  
+
   return parts.join('\n');
 }
 
@@ -261,7 +278,7 @@ export interface ErrorFallbackProps {
 
 /**
  * Get a user-friendly error message based on error type
- * 
+ *
  * @param error - Error object
  * @returns User-friendly error message
  */
@@ -277,6 +294,6 @@ export function getUserFriendlyMessage(error: ErrorDetails): string {
     cluster_not_found: 'The specified cluster was not found.',
     proxy_failed: 'Failed to communicate with the Elasticsearch cluster.',
   };
-  
+
   return errorMessages[error.error || ''] || error.message;
 }

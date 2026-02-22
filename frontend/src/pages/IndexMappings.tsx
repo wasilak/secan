@@ -1,14 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Title,
-  Text,
-  Card,
-  Button,
-  Stack,
-  Group,
-  Alert,
-  Box,
-} from '@mantine/core';
+import { Title, Text, Card, Button, Stack, Group, Alert, Box } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,7 +13,7 @@ import { parseError } from '../lib/errorHandling';
 
 /**
  * Validate JSON string
- * 
+ *
  * Requirements: 8.3
  */
 function validateJSON(json: string): string | null {
@@ -40,13 +31,13 @@ function validateJSON(json: string): string | null {
 
 /**
  * IndexMappings component displays and allows editing of index mappings
- * 
+ *
  * Features:
  * - Fetch and display current mappings as JSON
  * - JSON editor for adding/modifying fields with syntax highlighting
  * - JSON validation before submission
  * - Informational notes about mapping restrictions
- * 
+ *
  * Requirements: 8.1, 8.2, 8.3, 8.5, 8.6, 8.7, 8.8
  */
 export function IndexMappings() {
@@ -111,12 +102,7 @@ export function IndexMappings() {
       const parsedMappings = JSON.parse(mappings);
 
       // Update mappings via API
-      await apiClient.proxyRequest(
-        clusterId,
-        'PUT',
-        `/${indexName}/_mapping`,
-        parsedMappings
-      );
+      await apiClient.proxyRequest(clusterId, 'PUT', `/${indexName}/_mapping`, parsedMappings);
     },
     onSuccess: () => {
       // Invalidate queries to refresh data
@@ -200,10 +186,7 @@ export function IndexMappings() {
             {indexName}
           </Text>
         </div>
-        <Button
-          variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-        >
+        <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
           Back to Indices
         </Button>
       </Group>
@@ -212,14 +195,13 @@ export function IndexMappings() {
         <Alert icon={<IconInfoCircle size={16} />} color="yellow" title="Mapping Restrictions">
           <Text size="sm">
             <strong>Important:</strong> Existing field mappings cannot be changed or deleted.
-            <br />
-            • You can only <strong>add new fields</strong> to the mappings
+            <br />• You can only <strong>add new fields</strong> to the mappings
             <br />
             • Field types cannot be changed once set (e.g., cannot change from "text" to "keyword")
             <br />
             • Fields cannot be removed from mappings
-            <br />
-            • To change field types, you must reindex your data into a new index with the correct mappings
+            <br />• To change field types, you must reindex your data into a new index with the
+            correct mappings
           </Text>
         </Alert>
 
@@ -232,7 +214,12 @@ export function IndexMappings() {
               <Text size="xs" c="dimmed" mb="sm">
                 Add new fields to the mappings below and click "Update Mappings" to apply changes
               </Text>
-              <Box style={{ border: '1px solid var(--mantine-color-gray-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+              <Box
+                style={{
+                  border: '1px solid var(--mantine-color-gray-4)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                }}
+              >
                 <Editor
                   height="500px"
                   defaultLanguage="json"
@@ -272,18 +259,13 @@ export function IndexMappings() {
             <Alert color="blue" title="Common Field Types">
               <Text size="sm">
                 • <strong>text</strong>: Full-text searchable fields (analyzed)
-                <br />
-                • <strong>keyword</strong>: Exact-value fields (not analyzed, used for filtering, sorting, aggregations)
-                <br />
-                • <strong>integer, long, short, byte</strong>: Numeric integer types
-                <br />
-                • <strong>float, double</strong>: Floating-point numeric types
-                <br />
-                • <strong>boolean</strong>: True/false values
-                <br />
-                • <strong>date</strong>: Date/time values
-                <br />
-                • <strong>object</strong>: JSON objects (nested fields)
+                <br />• <strong>keyword</strong>: Exact-value fields (not analyzed, used for
+                filtering, sorting, aggregations)
+                <br />• <strong>integer, long, short, byte</strong>: Numeric integer types
+                <br />• <strong>float, double</strong>: Floating-point numeric types
+                <br />• <strong>boolean</strong>: True/false values
+                <br />• <strong>date</strong>: Date/time values
+                <br />• <strong>object</strong>: JSON objects (nested fields)
                 <br />• <strong>nested</strong>: Array of objects with independent querying
               </Text>
             </Alert>

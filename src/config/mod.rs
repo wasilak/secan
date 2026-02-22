@@ -509,7 +509,10 @@ impl Config {
                 let substituted = Self::substitute_env_vars(&content);
 
                 // Add as string source with substituted content
-                builder = builder.add_source(config::File::from_str(&substituted, config::FileFormat::Yaml));
+                builder = builder.add_source(config::File::from_str(
+                    &substituted,
+                    config::FileFormat::Yaml,
+                ));
             }
         }
 
@@ -619,17 +622,17 @@ impl Config {
     /// Supports ${VAR} and ${VAR:-default} syntax
     fn substitute_env_vars(content: &str) -> String {
         use std::env;
-        
+
         // Match ${VAR:-default} or ${VAR}
         let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
-        
+
         re.replace_all(content, |caps: &regex::Captures| {
             let var_name = &caps[1];
             let default_value = caps.get(2).map(|m| m.as_str());
-            
-            env::var(var_name)
-                .unwrap_or_else(|_| default_value.unwrap_or("").to_string())
-        }).into_owned()
+
+            env::var(var_name).unwrap_or_else(|_| default_value.unwrap_or("").to_string())
+        })
+        .into_owned()
     }
 }
 
@@ -805,16 +808,16 @@ mod tests {
     /// Supports ${VAR} and ${VAR:-default} syntax
     fn substitute_env_vars(content: &str) -> String {
         use std::env;
-        
+
         // Match ${VAR:-default} or ${VAR}
         let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
-        
+
         re.replace_all(content, |caps: &regex::Captures| {
             let var_name = &caps[1];
             let default_value = caps.get(2).map(|m| m.as_str());
-            
-            env::var(var_name)
-                .unwrap_or_else(|_| default_value.unwrap_or("").to_string())
-        }).into_owned()
+
+            env::var(var_name).unwrap_or_else(|_| default_value.unwrap_or("").to_string())
+        })
+        .into_owned()
     }
 }

@@ -14,9 +14,7 @@ import {
   Box,
   Skeleton,
 } from '@mantine/core';
-import {
-  IconAlertCircle,
-} from '@tabler/icons-react';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { HealthStatus } from '../types/api';
@@ -42,7 +40,7 @@ interface ClusterSummary {
 
 /**
  * Dashboard component displays an overview of all configured clusters.
- * 
+ *
  * Features:
  * - Display all clusters in table format
  * - Show cluster health status (green, yellow, red, unreachable)
@@ -50,7 +48,7 @@ interface ClusterSummary {
  * - Auto-refresh at configurable intervals
  * - Navigate to cluster detail view on click
  * - Sort clusters by various metrics
- * 
+ *
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.10, 3.11
  */
 export function Dashboard() {
@@ -97,7 +95,7 @@ export function Dashboard() {
         clusters.map(async (cluster): Promise<ClusterSummary> => {
           try {
             const stats = await apiClient.getClusterStats(cluster.id);
-            
+
             return {
               id: cluster.id,
               name: cluster.name,
@@ -156,7 +154,11 @@ export function Dashboard() {
       label: 'Health',
       sortable: true,
       render: (value) => (
-        <Badge color={getHealthColor(value as HealthStatus | 'unreachable')} variant="filled" aria-label={`Health status: ${value}`}>
+        <Badge
+          color={getHealthColor(value as HealthStatus | 'unreachable')}
+          variant="filled"
+          aria-label={`Health status: ${value}`}
+        >
           {value as string}
         </Badge>
       ),
@@ -225,14 +227,8 @@ export function Dashboard() {
         <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
-        <Alert
-          icon={<IconAlertCircle size={16} />}
-          title="Error loading clusters"
-          color="red"
-        >
-          {clustersError instanceof Error
-            ? clustersError.message
-            : 'Failed to load cluster list'}
+        <Alert icon={<IconAlertCircle size={16} />} title="Error loading clusters" color="red">
+          {clustersError instanceof Error ? clustersError.message : 'Failed to load cluster list'}
         </Alert>
       </Stack>
     );
@@ -245,13 +241,9 @@ export function Dashboard() {
         <Title order={1} className="text-responsive-xl">
           Dashboard
         </Title>
-        <Alert
-          icon={<IconAlertCircle size={16} />}
-          title="No clusters configured"
-          color="blue"
-        >
-          No Elasticsearch or OpenSearch clusters are configured. Please check your
-          configuration file.
+        <Alert icon={<IconAlertCircle size={16} />} title="No clusters configured" color="blue">
+          No Elasticsearch or OpenSearch clusters are configured. Please check your configuration
+          file.
         </Alert>
       </Stack>
     );
@@ -260,7 +252,9 @@ export function Dashboard() {
   return (
     <Stack gap="md" p="md">
       <Group justify="space-between" wrap="wrap">
-        <Title order={1} className="text-responsive-xl">Dashboard</Title>
+        <Title order={1} className="text-responsive-xl">
+          Dashboard
+        </Title>
       </Group>
 
       {/* Cluster Health Summary with RingProgress */}
@@ -273,7 +267,10 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (clusterSummaries.filter(c => c.health === 'green').length / clusterSummaries.length) * 100,
+                    value:
+                      (clusterSummaries.filter((c) => c.health === 'green').length /
+                        clusterSummaries.length) *
+                      100,
                     color: 'green',
                   },
                 ]}
@@ -281,7 +278,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {clusterSummaries.filter(c => c.health === 'green').length}
+                        {clusterSummaries.filter((c) => c.health === 'green').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Green
@@ -302,7 +299,10 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (clusterSummaries.filter(c => c.health === 'yellow').length / clusterSummaries.length) * 100,
+                    value:
+                      (clusterSummaries.filter((c) => c.health === 'yellow').length /
+                        clusterSummaries.length) *
+                      100,
                     color: 'yellow',
                   },
                 ]}
@@ -310,7 +310,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {clusterSummaries.filter(c => c.health === 'yellow').length}
+                        {clusterSummaries.filter((c) => c.health === 'yellow').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Yellow
@@ -331,7 +331,10 @@ export function Dashboard() {
                 thickness={12}
                 sections={[
                   {
-                    value: (clusterSummaries.filter(c => c.health === 'red').length / clusterSummaries.length) * 100,
+                    value:
+                      (clusterSummaries.filter((c) => c.health === 'red').length /
+                        clusterSummaries.length) *
+                      100,
                     color: 'red',
                   },
                 ]}
@@ -339,7 +342,7 @@ export function Dashboard() {
                   <Center>
                     <Stack gap={0} align="center">
                       <Text size="xl" fw={700}>
-                        {clusterSummaries.filter(c => c.health === 'red').length}
+                        {clusterSummaries.filter((c) => c.health === 'red').length}
                       </Text>
                       <Text size="xs" c="dimmed">
                         Red

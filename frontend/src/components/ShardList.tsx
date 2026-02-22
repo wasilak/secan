@@ -4,7 +4,7 @@ import { formatBytes } from '../utils/formatters';
 
 /**
  * ShardList component displays a table of shards allocated to a node
- * 
+ *
  * Shows shard details including index name, shard number, type (primary/replica),
  * state, document count, and size
  */
@@ -74,10 +74,14 @@ export function ShardList({ shards, loading }: ShardListProps) {
                 </Badge>
               </Table.Td>
               <Table.Td>
-                {shard.docs !== undefined && shard.docs !== null ? shard.docs.toLocaleString() : 'N/A'}
+                {shard.docs !== undefined && shard.docs !== null
+                  ? shard.docs.toLocaleString()
+                  : 'N/A'}
               </Table.Td>
               <Table.Td>
-                {shard.store !== undefined && shard.store !== null ? formatBytes(shard.store) : 'N/A'}
+                {shard.store !== undefined && shard.store !== null
+                  ? formatBytes(shard.store)
+                  : 'N/A'}
               </Table.Td>
             </Table.Tr>
           ))}
