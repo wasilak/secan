@@ -262,10 +262,10 @@ jobs:
           path: docs/dist/
           retention-days: 1
 
-  # Stage 3a: Deploy documentation (parallel with create-release, only on release tags)
+  # Stage 3a: Deploy documentation (after successful release, only on release tags)
   deploy-docs:
     name: Deploy Documentation to GitHub Pages
-    needs: build-docs
+    needs: [build-docs, create-release]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
