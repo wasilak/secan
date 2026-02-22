@@ -259,6 +259,7 @@ mod tests {
                 local_users: None,
                 oidc: None,
                 roles: vec![],
+                permissions: vec![],
             },
             clusters: vec![],
             cache: crate::config::CacheConfig::default(),

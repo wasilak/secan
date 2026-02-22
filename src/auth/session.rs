@@ -28,6 +28,9 @@ pub struct Session {
     pub username: String,
     /// User roles for RBAC
     pub roles: Vec<String>,
+    /// Cluster IDs accessible to this user (or "*" for all clusters)
+    #[serde(default)]
+    pub accessible_clusters: Vec<String>,
     /// When the session was created
     pub created_at: DateTime<Utc>,
     /// When the session expires
@@ -45,6 +48,18 @@ impl Session {
         roles: Vec<String>,
         timeout_minutes: u64,
     ) -> Self {
+        Self::new_with_clusters(token, user_id, username, roles, Vec::new(), timeout_minutes)
+    }
+
+    /// Create a new session with accessible clusters
+    pub fn new_with_clusters(
+        token: String,
+        user_id: String,
+        username: String,
+        roles: Vec<String>,
+        accessible_clusters: Vec<String>,
+        timeout_minutes: u64,
+    ) -> Self {
         let now = Utc::now();
         let expires_at = now + Duration::minutes(timeout_minutes as i64);
 
@@ -53,6 +68,7 @@ impl Session {
             user_id,
             username,
             roles,
+            accessible_clusters,
             created_at: now,
             expires_at,
             last_activity: now,
@@ -180,12 +196,22 @@ impl SessionManager {
 
     /// Create a new session for a user
     pub async fn create_session(&self, user: AuthUser) -> anyhow::Result<String> {
+        self.create_session_with_clusters(user, Vec::new()).await
+    }
+
+    /// Create a new session for a user with accessible clusters
+    pub async fn create_session_with_clusters(
+        &self,
+        user: AuthUser,
+        accessible_clusters: Vec<String>,
+    ) -> anyhow::Result<String> {
         let token = generate_token();
-        let session = Session::new(
+        let session = Session::new_with_clusters(
             token.clone(),
             user.id,
             user.username,
             user.roles,
+            accessible_clusters.clone(),
             self.config.timeout_minutes,
         );
 
@@ -194,6 +220,7 @@ impl SessionManager {
         tracing::info!(
             token = %token,
             timeout_minutes = self.config.timeout_minutes,
+            clusters = accessible_clusters.len(),
             "Session created"
         );
 
@@ -574,5 +601,86 @@ mod tests {
         }
 
         assert_eq!(manager.active_session_count().await, 3);
+    }
+
+    #[tokio::test]
+    async fn test_session_with_accessible_clusters() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new(
+            "user123".to_string(),
+            "testuser".to_string(),
+            vec!["admin".to_string()],
+        );
+
+        let clusters = vec![
+            "prod-1".to_string(),
+            "prod-2".to_string(),
+            "dev-1".to_string(),
+        ];
+
+        let token = manager
+            .create_session_with_clusters(user, clusters.clone())
+            .await
+            .unwrap();
+
+        // Verify session has accessible clusters
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_some());
+        let session = session.unwrap();
+        assert_eq!(session.accessible_clusters, clusters);
+        assert_eq!(session.accessible_clusters.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_session_with_wildcard_cluster() {
+        let config = SessionConfig::new(60);
+        let manager = SessionManager::new(config);
+
+        let user = AuthUser::new(
+            "user123".to_string(),
+            "testuser".to_string(),
+            vec!["admin".to_string()],
+        );
+
+        let clusters = vec!["*".to_string()];
+
+        let token = manager
+            .create_session_with_clusters(user, clusters.clone())
+            .await
+            .unwrap();
+
+        // Verify session has wildcard cluster
+        let session = manager.validate_session(&token).await.unwrap();
+        assert!(session.is_some());
+        let session = session.unwrap();
+        assert_eq!(session.accessible_clusters, vec!["*".to_string()]);
+    }
+
+    #[test]
+    fn test_session_new_with_clusters() {
+        let token = "test_token".to_string();
+        let user_id = "user123".to_string();
+        let username = "testuser".to_string();
+        let roles = vec!["admin".to_string()];
+        let clusters = vec!["prod-1".to_string(), "prod-2".to_string()];
+        let timeout_minutes = 60;
+
+        let session = Session::new_with_clusters(
+            token.clone(),
+            user_id.clone(),
+            username.clone(),
+            roles.clone(),
+            clusters.clone(),
+            timeout_minutes,
+        );
+
+        assert_eq!(session.token, token);
+        assert_eq!(session.user_id, user_id);
+        assert_eq!(session.username, username);
+        assert_eq!(session.roles, roles);
+        assert_eq!(session.accessible_clusters, clusters);
+        assert!(!session.is_expired());
     }
 }

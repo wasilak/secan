@@ -44,6 +44,8 @@ pub struct IdTokenClaims {
     pub preferred_username: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub groups: Option<Vec<String>>,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// JSON Web Key Set
@@ -299,13 +301,36 @@ impl OidcAuthProvider {
             .or_else(|| claims.email.clone())
             .unwrap_or_else(|| claims.sub.clone());
 
-        let roles = claims.groups.clone().unwrap_or_default();
+        // Extract groups from the configured claim key
+        let roles = self.extract_groups(claims);
 
         AuthUser {
             id: claims.sub.clone(),
             username,
             roles,
         }
+    }
+
+    /// Extract groups from claims using the configured groups_claim_key
+    fn extract_groups(&self, claims: &IdTokenClaims) -> Vec<String> {
+        // First try to get groups from the configured claim key
+        if let Some(value) = claims.extra.get(&self.config.groups_claim_key) {
+            if let Some(groups) = value.as_array() {
+                return groups
+                    .iter()
+                    .filter_map(|g| g.as_str().map(String::from))
+                    .collect();
+            }
+        }
+
+        // Fall back to the hardcoded "groups" field for backward compatibility
+        if self.config.groups_claim_key != "groups" {
+            if let Some(groups) = &claims.groups {
+                return groups.clone();
+            }
+        }
+
+        Vec::new()
     }
 
     /// Create a session for an authenticated user
@@ -340,6 +365,15 @@ mod tests {
 
     #[test]
     fn test_extract_user_info() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "groups".to_string(),
+            serde_json::Value::Array(vec![
+                serde_json::Value::String("admin".to_string()),
+                serde_json::Value::String("users".to_string()),
+            ]),
+        );
+
         let claims = IdTokenClaims {
             iss: "https://auth.example.com".to_string(),
             sub: "user123".to_string(),
@@ -350,6 +384,7 @@ mod tests {
             name: Some("Test User".to_string()),
             preferred_username: Some("testuser".to_string()),
             groups: Some(vec!["admin".to_string(), "users".to_string()]),
+            extra,
         };
 
         let config = OidcConfig {
@@ -357,6 +392,7 @@ mod tests {
             client_id: "client-id".to_string(),
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
+            groups_claim_key: "groups".to_string(),
         };
 
         let metadata = OidcProviderMetadata {
@@ -397,6 +433,7 @@ mod tests {
             client_id: "my-client".to_string(),
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
+            groups_claim_key: "groups".to_string(),
         };
 
         let metadata = OidcProviderMetadata {
@@ -428,5 +465,122 @@ mod tests {
         assert!(url.contains("redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback"));
         assert!(url.contains("response_type=code"));
         assert!(url.contains("state=random-state"));
+    }
+
+    #[test]
+    fn test_extract_user_info_with_custom_claim_key() {
+        let mut extra = serde_json::Map::new();
+        extra.insert(
+            "departments".to_string(),
+            serde_json::Value::Array(vec![
+                serde_json::Value::String("engineering".to_string()),
+                serde_json::Value::String("admin".to_string()),
+            ]),
+        );
+
+        let claims = IdTokenClaims {
+            iss: "https://auth.example.com".to_string(),
+            sub: "user123".to_string(),
+            aud: "client-id".to_string(),
+            exp: 9999999999,
+            iat: 1234567890,
+            email: Some("user@example.com".to_string()),
+            name: Some("Test User".to_string()),
+            preferred_username: Some("testuser".to_string()),
+            groups: None,
+            extra,
+        };
+
+        let config = OidcConfig {
+            discovery_url: "https://auth.example.com/.well-known/openid-configuration".to_string(),
+            client_id: "client-id".to_string(),
+            client_secret: "secret".to_string(),
+            redirect_uri: "https://app.example.com/callback".to_string(),
+            groups_claim_key: "departments".to_string(),
+        };
+
+        let metadata = OidcProviderMetadata {
+            issuer: "https://auth.example.com".to_string(),
+            authorization_endpoint: "https://auth.example.com/authorize".to_string(),
+            token_endpoint: "https://auth.example.com/token".to_string(),
+            userinfo_endpoint: Some("https://auth.example.com/userinfo".to_string()),
+            jwks_uri: "https://auth.example.com/jwks".to_string(),
+            response_types_supported: vec!["code".to_string()],
+            subject_types_supported: vec!["public".to_string()],
+            id_token_signing_alg_values_supported: vec!["RS256".to_string()],
+        };
+
+        let jwks = Jwks { keys: vec![] };
+        let http_client = reqwest::Client::new();
+        let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+
+        let provider = OidcAuthProvider {
+            config,
+            metadata,
+            jwks,
+            http_client,
+            session_manager,
+        };
+
+        let user = provider.extract_user_info(&claims);
+
+        assert_eq!(user.id, "user123");
+        assert_eq!(user.username, "testuser");
+        assert_eq!(user.roles, vec!["engineering", "admin"]);
+    }
+
+    #[test]
+    fn test_extract_user_info_with_missing_groups_claim() {
+        let extra = serde_json::Map::new();
+
+        let claims = IdTokenClaims {
+            iss: "https://auth.example.com".to_string(),
+            sub: "user123".to_string(),
+            aud: "client-id".to_string(),
+            exp: 9999999999,
+            iat: 1234567890,
+            email: Some("user@example.com".to_string()),
+            name: Some("Test User".to_string()),
+            preferred_username: Some("testuser".to_string()),
+            groups: None,
+            extra,
+        };
+
+        let config = OidcConfig {
+            discovery_url: "https://auth.example.com/.well-known/openid-configuration".to_string(),
+            client_id: "client-id".to_string(),
+            client_secret: "secret".to_string(),
+            redirect_uri: "https://app.example.com/callback".to_string(),
+            groups_claim_key: "groups".to_string(),
+        };
+
+        let metadata = OidcProviderMetadata {
+            issuer: "https://auth.example.com".to_string(),
+            authorization_endpoint: "https://auth.example.com/authorize".to_string(),
+            token_endpoint: "https://auth.example.com/token".to_string(),
+            userinfo_endpoint: Some("https://auth.example.com/userinfo".to_string()),
+            jwks_uri: "https://auth.example.com/jwks".to_string(),
+            response_types_supported: vec!["code".to_string()],
+            subject_types_supported: vec!["public".to_string()],
+            id_token_signing_alg_values_supported: vec!["RS256".to_string()],
+        };
+
+        let jwks = Jwks { keys: vec![] };
+        let http_client = reqwest::Client::new();
+        let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+
+        let provider = OidcAuthProvider {
+            config,
+            metadata,
+            jwks,
+            http_client,
+            session_manager,
+        };
+
+        let user = provider.extract_user_info(&claims);
+
+        assert_eq!(user.id, "user123");
+        assert_eq!(user.username, "testuser");
+        assert!(user.roles.is_empty());
     }
 }

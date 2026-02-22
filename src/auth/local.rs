@@ -68,14 +68,14 @@ impl LocalAuthProvider {
                     let auth_user = AuthUser::new(
                         user.username.clone(),
                         user.username.clone(),
-                        user.roles.clone(),
+                        user.groups.clone(),
                     );
 
                     let token = self.session_manager.create_session(auth_user).await?;
 
                     tracing::info!(
                         username = %username,
-                        roles = ?user.roles,
+                        groups = ?user.groups,
                         "User authenticated successfully"
                     );
 
@@ -159,7 +159,7 @@ impl LocalAuthProvider {
                     let auth_user = AuthUser::new(
                         user.username.clone(),
                         user.username.clone(),
-                        user.roles.clone(),
+                        user.groups.clone(),
                     );
 
                     let token = self.session_manager.create_session(auth_user).await?;
@@ -167,7 +167,7 @@ impl LocalAuthProvider {
                     tracing::info!(
                         username = %username,
                         ip = %ip_address,
-                        roles = ?user.roles,
+                        groups = ?user.groups,
                         "User authenticated successfully"
                     );
 
@@ -249,12 +249,12 @@ mod tests {
             LocalUser {
                 username: "admin".to_string(),
                 password_hash: hash_password("admin123").unwrap(),
-                roles: vec!["admin".to_string()],
+                groups: vec!["admin".to_string()],
             },
             LocalUser {
                 username: "developer".to_string(),
                 password_hash: hash_password("dev123").unwrap(),
-                roles: vec!["developer".to_string()],
+                groups: vec!["developer".to_string()],
             },
         ]
     }

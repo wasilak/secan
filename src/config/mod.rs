@@ -59,6 +59,15 @@ pub struct TlsServerConfig {
     pub key_file: PathBuf,
 }
 
+/// Group to cluster mapping for permission configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupClusterMapping {
+    /// Group name (or "*" for all groups)
+    pub group: String,
+    /// List of cluster IDs accessible to this group (or "*" for all clusters)
+    pub clusters: Vec<String>,
+}
+
 /// Authentication configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
@@ -71,6 +80,8 @@ pub struct AuthConfig {
     pub oidc: Option<OidcConfig>,
     #[serde(default)]
     pub roles: Vec<RoleConfig>,
+    #[serde(default)]
+    pub permissions: Vec<GroupClusterMapping>,
 }
 
 fn default_session_timeout() -> u64 {
@@ -91,7 +102,7 @@ pub enum AuthMode {
 pub struct LocalUser {
     pub username: String,
     pub password_hash: String,
-    pub roles: Vec<String>,
+    pub groups: Vec<String>,
 }
 
 /// OIDC configuration
@@ -101,6 +112,12 @@ pub struct OidcConfig {
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
+    #[serde(default = "default_groups_claim_key")]
+    pub groups_claim_key: String,
+}
+
+fn default_groups_claim_key() -> String {
+    "groups".to_string()
 }
 
 /// Role configuration for RBAC
@@ -263,6 +280,10 @@ impl AuthConfig {
             role.validate()?;
         }
 
+        for perm in &self.permissions {
+            perm.validate()?;
+        }
+
         Ok(())
     }
 }
@@ -299,6 +320,25 @@ impl OidcConfig {
 
         if self.redirect_uri.is_empty() {
             anyhow::bail!("OIDC redirect URI cannot be empty");
+        }
+
+        if self.groups_claim_key.is_empty() {
+            anyhow::bail!("OIDC groups_claim_key cannot be empty");
+        }
+
+        Ok(())
+    }
+}
+
+impl GroupClusterMapping {
+    /// Validate group cluster mapping configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.group.is_empty() {
+            anyhow::bail!("Group name cannot be empty");
+        }
+
+        if self.clusters.is_empty() {
+            anyhow::bail!("Group '{}' must have at least one cluster", self.group);
         }
 
         Ok(())
@@ -588,6 +628,7 @@ impl Default for AuthConfig {
             local_users: None,
             oidc: None,
             roles: Vec::new(),
+            permissions: Vec::new(),
         }
     }
 }
@@ -629,6 +670,7 @@ mod tests {
             local_users: None,
             oidc: None,
             roles: Vec::new(),
+            permissions: Vec::new(),
         };
 
         // Should fail without users
@@ -638,7 +680,7 @@ mod tests {
         config.local_users = Some(vec![LocalUser {
             username: "admin".to_string(),
             password_hash: "$2b$12$test".to_string(),
-            roles: vec!["admin".to_string()],
+            groups: vec!["admin".to_string()],
         }]);
         assert!(config.validate().is_ok());
     }
@@ -651,6 +693,7 @@ mod tests {
             local_users: None,
             oidc: None,
             roles: Vec::new(),
+            permissions: Vec::new(),
         };
 
         // Should fail without OIDC config
@@ -662,6 +705,7 @@ mod tests {
             client_id: "secan".to_string(),
             client_secret: "secret".to_string(),
             redirect_uri: "https://secan.example.com/api/auth/oidc/redirect".to_string(),
+            groups_claim_key: "groups".to_string(),
         });
         assert!(config.validate().is_ok());
     }
