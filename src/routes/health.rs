@@ -69,17 +69,11 @@ pub async fn get_version() -> (StatusCode, Json<VersionResponse>) {
     tracing::debug!("Version check requested");
 
     let version = env!("CARGO_PKG_VERSION").to_string();
-    
+
     // Try to get git info (tag or branch)
     let git_info = get_git_info().unwrap_or_else(|_| "unknown".to_string());
 
-    (
-        StatusCode::OK,
-        Json(VersionResponse {
-            version,
-            git_info,
-        }),
-    )
+    (StatusCode::OK, Json(VersionResponse { version, git_info }))
 }
 
 /// Get git information from the current commit
