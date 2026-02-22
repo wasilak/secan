@@ -87,7 +87,7 @@ pub async fn get_version() -> (StatusCode, Json<VersionResponse>) {
 fn get_git_info() -> Result<String, Box<dyn std::error::Error>> {
     // Try to get the latest tag that matches v*.*.* pattern
     let tag_output = Command::new("git")
-        .args(&["describe", "--tags", "--match", "v*.*.*", "--exact-match"])
+        .args(["describe", "--tags", "--match", "v*.*.*", "--exact-match"])
         .output();
 
     if let Ok(output) = tag_output {
@@ -99,7 +99,7 @@ fn get_git_info() -> Result<String, Box<dyn std::error::Error>> {
 
     // Fall back to branch name
     let branch_output = Command::new("git")
-        .args(&["rev-parse", "--abbrev-ref", "HEAD"])
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .output()?;
 
     if branch_output.status.success() {
