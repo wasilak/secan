@@ -301,7 +301,7 @@ jobs:
   # Stage 3b: Create release (parallel with deploy-docs, only on v*.*.* tags)
   create-release:
     name: Create GitHub Release
-    needs: [build-binaries, build-docker, build-docs]
+    needs: [build-binaries, build-docker]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -324,10 +324,10 @@ jobs:
         run: |
           set -e
           echo "Verifying release artifacts..."
-          
+
           # List downloaded artifacts
           ls -lah artifacts/
-          
+
           # Check that we have artifacts
           artifact_count=$(find artifacts -type f -name "secan-*" ! -name "*.sha256" | wc -l)
           if [ $artifact_count -eq 0 ]; then
@@ -335,7 +335,7 @@ jobs:
             exit 1
           fi
           echo "✓ Found $artifact_count binary artifacts"
-          
+
           # Verify we have binaries for all platforms
           expected_binaries=("secan-linux-x86_64" "secan-linux-aarch64" "secan-macos-x86_64" "secan-macos-aarch64")
           for binary in "${expected_binaries[@]}"; do
