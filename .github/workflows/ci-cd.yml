@@ -57,11 +57,11 @@ jobs:
       - name: Run frontend linting
         run: just lint-frontend
 
-  # Stage 2a: Build release binaries (on all branches/tags)
+  # Stage 2a: Build release binaries (skip PRs)
   build-binaries:
     name: Build Release Binaries
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -166,11 +166,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images (amd64 on main/branches, multiarch on tags, push only on tags)
+  # Stage 2b: Build Docker images (skip PRs; amd64 on branches, multiarch on tags, push only on tags)
   build-docker:
     name: Build Docker Image
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -225,11 +225,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Stage 2c: Build documentation (always build, push only on release tags)
+  # Stage 2c: Build documentation (skip PRs, deploy only on release tags)
   build-docs:
     name: Build Documentation
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -262,9 +262,9 @@ jobs:
           path: docs/dist/
           retention-days: 1
 
-  # Stage 2d: Deploy documentation (only on release tags)
+  # Stage 3a: Deploy documentation (parallel with create-release, only on release tags)
   deploy-docs:
-    name: Deploy Documentation
+    name: Deploy Documentation to GitHub Pages
     needs: build-docs
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -294,7 +294,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  # Stage 3: Create release (only on v*.*.* tags, after all builds succeed)
+  # Stage 3b: Create release (parallel with deploy-docs, only on v*.*.* tags)
   create-release:
     name: Create GitHub Release
     needs: [build-binaries, build-docker, deploy-docs]
