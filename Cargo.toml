@@ -49,7 +49,6 @@ thiserror = "2"
 anyhow = "1"
 
 # Environment variables
-dotenvy = "0.15"
 regex = "1"
 
 # Logging
