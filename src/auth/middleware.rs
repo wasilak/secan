@@ -147,6 +147,16 @@ fn is_public_path(path: &str) -> bool {
         return true;
     }
 
+    // Frontend login page
+    if path == "/login" {
+        return true;
+    }
+
+    // Frontend access denied page
+    if path.starts_with("/access-denied") {
+        return true;
+    }
+
     // Static assets (CSS, JS, images, etc.)
     if path.starts_with("/assets/")
         || path.starts_with("/favicon")
@@ -182,7 +192,8 @@ fn build_login_redirect_url(request: &Request) -> String {
     // URL encode the original path
     let redirect_to = urlencoding::encode(&full_path);
 
-    format!("/api/auth/login?redirect_to={}", redirect_to)
+    // Redirect to frontend login page (not API endpoint)
+    format!("/login?redirect_to={}", redirect_to)
 }
 
 /// Extract session token from cookies
