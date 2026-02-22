@@ -27,9 +27,11 @@ logs/
 .env
 .env.local
 
-# Documentation
-*.md
+# Documentation (but keep README.md for Rust documentation)
 docs/
+CONTRIBUTING.md
+CHANGELOG.md
+LICENSE.md
 
 # CI/CD
 .github/
