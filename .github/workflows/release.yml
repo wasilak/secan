@@ -10,9 +10,54 @@ permissions:
   packages: write
 
 jobs:
+  # Validate code before building release
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.46.0
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --include=dev
+
+      - name: Run backend tests
+        run: just test-backend
+
+      - name: Run backend linting
+        run: just lint-backend
+
+      - name: Run frontend tests
+        run: just test-frontend
+
+      - name: Run frontend linting
+        run: just lint-frontend
+
   # Build frontend assets once and share across all platform builds
   build-frontend:
     name: Build Frontend Assets
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -122,7 +167,7 @@ jobs:
             target/${{ matrix.target }}/release/secan-${{ matrix.name }}.tar.gz.sha256
           retention-days: 1
 
-  # Create GitHub release with all binaries
+  # Verify and create GitHub release with all binaries
   create-release:
     name: Create GitHub Release
     needs: build-binaries
@@ -139,6 +184,40 @@ jobs:
           pattern: binary-*
           path: artifacts
           merge-multiple: true
+
+      - name: Verify artifacts exist and are valid
+        run: |
+          set -e
+          echo "Verifying release artifacts..."
+          
+          # Check that we have artifacts
+          artifact_count=$(find artifacts -name "secan-*.tar.gz" | wc -l)
+          if [ $artifact_count -eq 0 ]; then
+            echo "ERROR: No binary artifacts found!"
+            exit 1
+          fi
+          echo "✓ Found $artifact_count binary artifacts"
+          
+          # Verify each archive has corresponding checksum
+          for archive in artifacts/secan-*.tar.gz; do
+            if [ ! -f "${archive}.sha256" ]; then
+              echo "ERROR: Missing checksum for $archive"
+              exit 1
+            fi
+            echo "✓ Checksum verified for $(basename $archive)"
+          done
+          
+          # Verify checksums are valid
+          cd artifacts
+          for checksum_file in secan-*.tar.gz.sha256; do
+            if ! sha256sum -c "$checksum_file" --ignore-missing > /dev/null 2>&1; then
+              echo "ERROR: Checksum validation failed for $checksum_file"
+              exit 1
+            fi
+            echo "✓ Checksum valid: $checksum_file"
+          done
+          
+          echo "All artifacts verified successfully!"
 
       - name: Determine if pre-release
         id: prerelease
