@@ -135,9 +135,9 @@ async fn main() -> anyhow::Result<()> {
     let cleanup_handle = Arc::new(session_manager.clone()).start_cleanup_task();
     info!("Session cleanup task started");
 
-    // Create and start server
+    // Create and start server (async to initialize OIDC provider if configured)
     info!("Creating server...");
-    let server = Server::new(config, cluster_manager, session_manager);
+    let server = Server::new(config, cluster_manager, session_manager).await?;
 
     info!("Starting server...");
 

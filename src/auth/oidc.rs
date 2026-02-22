@@ -348,8 +348,9 @@ impl OidcAuthProvider {
     /// Create a session for an authenticated user
     pub async fn create_session(&self, claims: &IdTokenClaims) -> Result<String> {
         let user = self.extract_user_info(claims);
+        let accessible_clusters = user.accessible_clusters.clone();
         self.session_manager
-            .create_session(user)
+            .create_session_with_clusters(user, accessible_clusters)
             .await
             .context("Failed to create session")
     }

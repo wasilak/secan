@@ -1,6 +1,7 @@
 use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
+use anyhow::Context;
 use axum::{
     http::Method,
     middleware,
@@ -22,6 +23,8 @@ pub struct Server {
     pub cluster_manager: Arc<ClusterManager>,
     /// Session manager for user sessions
     pub session_manager: Arc<SessionManager>,
+    /// OIDC provider (initialized if OIDC mode is configured)
+    pub oidc_provider: Option<Arc<crate::auth::OidcAuthProvider>>,
 }
 
 impl Server {
@@ -40,16 +43,40 @@ impl Server {
     /// # Requirements
     ///
     /// Validates: Requirements 1.2
-    pub fn new(
+    pub async fn new(
         config: Config,
         cluster_manager: ClusterManager,
         session_manager: SessionManager,
-    ) -> Self {
-        Self {
+    ) -> anyhow::Result<Self> {
+        // Initialize OIDC provider if OIDC mode is configured
+        let oidc_provider = if config.auth.mode == crate::config::AuthMode::Oidc {
+            if let Some(oidc_config) = &config.auth.oidc {
+                let permission_resolver = crate::auth::PermissionResolver::new(
+                    config.auth.permissions.clone(),
+                );
+                
+                let provider = crate::auth::OidcAuthProvider::new(
+                    oidc_config.clone(),
+                    Arc::new(session_manager.clone()),
+                    permission_resolver,
+                )
+                .await
+                .context("Failed to initialize OIDC provider")?;
+                
+                Some(Arc::new(provider))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
             config: Arc::new(config),
             cluster_manager: Arc::new(cluster_manager),
             session_manager: Arc::new(session_manager),
-        }
+            oidc_provider,
+        })
     }
 
     /// Create the Axum router with all API routes and middleware
@@ -64,7 +91,7 @@ impl Server {
     pub fn router(&self) -> Router {
         // Create auth state for authentication routes
         let auth_routes_state = crate::routes::AuthState {
-            oidc_provider: None, // TODO: Initialize OIDC provider if configured
+            oidc_provider: self.oidc_provider.clone(),
             session_manager: self.session_manager.clone(),
             config: self.config.clone(),
         };
