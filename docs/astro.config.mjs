@@ -33,6 +33,12 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Authentication & Authorization',
+					items: [
+						{ label: 'Overview', slug: 'authentication' },
+					],
+				},
+				{
 					label: 'Configuration',
 					items: [
 						{ label: 'Authentication', slug: 'configuration/authentication' },
