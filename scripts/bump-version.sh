@@ -16,6 +16,11 @@ fi
 # Get current version from Cargo.toml
 CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
 
+if [ "$CURRENT_VERSION" = "$VERSION" ]; then
+    echo "ERROR: Current version is already $VERSION. Nothing to bump."
+    exit 1
+fi
+
 echo "Bumping version from $CURRENT_VERSION to $VERSION"
 
 # Update Cargo.toml
