@@ -4,7 +4,7 @@ use axum::{
     extract::{Request, State},
     http::{header, StatusCode},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
 };
 use std::sync::Arc;
 
@@ -36,6 +36,7 @@ pub struct AuthenticatedUser(pub AuthUser);
 /// - Supports Open mode (no authentication required)
 /// - Attaches user information to request context
 /// - Returns 401 for invalid/expired sessions
+/// - Returns 302 redirect to login for unauthenticated requests on protected paths
 pub async fn auth_middleware(
     State(auth_state): State<Arc<AuthState>>,
     mut request: Request,
@@ -59,8 +60,27 @@ pub async fn auth_middleware(
         return Ok(next.run(request).await);
     }
 
+    // Check if this is a public path that doesn't require authentication
+    let path = request.uri().path();
+    if is_public_path(path) {
+        tracing::debug!(path = %path, "Public path, skipping authentication");
+        return Ok(next.run(request).await);
+    }
+
     // Extract session token from cookies
-    let token = extract_session_token(&request)?;
+    let token = match extract_session_token(&request) {
+        Ok(token) => token,
+        Err(_) => {
+            // No session token - redirect to login with redirect_to parameter
+            let redirect_url = build_login_redirect_url(&request);
+            tracing::debug!(
+                path = %path,
+                redirect_url = %redirect_url,
+                "No session token, redirecting to login"
+            );
+            return Ok(Redirect::to(&redirect_url).into_response());
+        }
+    };
 
     // Validate session token
     let session = auth_state
@@ -73,10 +93,20 @@ pub async fn auth_middleware(
         })?;
 
     // Check if session is valid
-    let session = session.ok_or_else(|| {
-        tracing::debug!(token = %token, "Invalid or expired session");
-        AuthError::InvalidSession
-    })?;
+    let session = match session {
+        Some(s) => s,
+        None => {
+            // Invalid or expired session - redirect to login
+            let redirect_url = build_login_redirect_url(&request);
+            tracing::debug!(
+                path = %path,
+                token = %token,
+                redirect_url = %redirect_url,
+                "Invalid session, redirecting to login"
+            );
+            return Ok(Redirect::to(&redirect_url).into_response());
+        }
+    };
 
     // Create AuthUser from session with accessible clusters
     let user = AuthUser::new_with_clusters(
@@ -98,6 +128,61 @@ pub async fn auth_middleware(
 
     // Continue to next middleware/handler
     Ok(next.run(request).await)
+}
+
+/// Check if a path is public and doesn't require authentication
+fn is_public_path(path: &str) -> bool {
+    // Health and readiness endpoints
+    if path == "/health" || path == "/ready" {
+        return true;
+    }
+
+    // API version endpoint
+    if path == "/api/version" {
+        return true;
+    }
+
+    // Authentication endpoints (login, logout, OIDC callbacks)
+    if path.starts_with("/api/auth/") {
+        return true;
+    }
+
+    // Static assets (CSS, JS, images, etc.)
+    if path.starts_with("/assets/")
+        || path.starts_with("/favicon")
+        || path.ends_with(".css")
+        || path.ends_with(".js")
+        || path.ends_with(".png")
+        || path.ends_with(".jpg")
+        || path.ends_with(".svg")
+    {
+        return true;
+    }
+
+    // Root path (login page or dashboard)
+    if path == "/" || path == "" {
+        return true;
+    }
+
+    false
+}
+
+/// Build login URL with redirect_to parameter
+fn build_login_redirect_url(request: &Request) -> String {
+    let path = request.uri().path();
+    let query = request.uri().query().unwrap_or("");
+
+    // Build the full path with query if present
+    let full_path = if query.is_empty() {
+        path.to_string()
+    } else {
+        format!("{}?{}", path, query)
+    };
+
+    // URL encode the original path
+    let redirect_to = urlencoding::encode(&full_path);
+
+    format!("/api/auth/login?redirect_to={}", redirect_to)
 }
 
 /// Extract session token from cookies
@@ -207,7 +292,8 @@ mod tests {
 
         let response = app.oneshot(request).await.unwrap();
 
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        // Should redirect to login (303) instead of returning 401
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
     #[tokio::test]
@@ -222,7 +308,8 @@ mod tests {
 
         let response = app.oneshot(request).await.unwrap();
 
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        // Should redirect to login (303) for invalid session
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
     #[tokio::test]
@@ -298,7 +385,8 @@ mod tests {
 
         let response = app.oneshot(request).await.unwrap();
 
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        // Should redirect to login (303) instead of returning 401
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
     }
 
     #[tokio::test]
