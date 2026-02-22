@@ -158,7 +158,8 @@ fn is_public_path(path: &str) -> bool {
     }
 
     // Authentication endpoints (login, logout, OIDC callbacks)
-    if path.starts_with("/api/auth/") {
+    // Note: /api/auth/me requires authentication
+    if path.starts_with("/api/auth/") && path != "/api/auth/me" {
         return true;
     }
 
