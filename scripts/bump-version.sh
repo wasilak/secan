@@ -30,6 +30,9 @@ git add Cargo.toml frontend/package.json
 # Commit version bump
 git commit -m "chore: bump version to $VERSION"
 
+# Create annotated tag
+git tag -a "v$VERSION" -m "Release v$VERSION"
+
 echo "Version bumped to $VERSION"
-echo "Tag later with: git tag -a v$VERSION -m 'Release v$VERSION'"
+echo "Tag created: v$VERSION"
 echo "Push with: git push && git push origin v$VERSION"
