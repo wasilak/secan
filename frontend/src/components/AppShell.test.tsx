@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 import { DrawerProvider } from '../contexts/DrawerContext';
 import { RefreshProvider } from '../contexts/RefreshContext';
+import { AuthProvider } from '../contexts/AuthContext';
 
 // Helper to render with required providers
 const renderWithProviders = (component: React.ReactElement) => {
@@ -20,11 +21,13 @@ const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <RefreshProvider>
-          <DrawerProvider>
-            <BrowserRouter>{component}</BrowserRouter>
-          </DrawerProvider>
-        </RefreshProvider>
+        <AuthProvider>
+          <RefreshProvider>
+            <DrawerProvider>
+              <BrowserRouter>{component}</BrowserRouter>
+            </DrawerProvider>
+          </RefreshProvider>
+        </AuthProvider>
       </MantineProvider>
     </QueryClientProvider>
   );

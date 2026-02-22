@@ -10,6 +10,7 @@ import { RestConsole } from './pages/RestConsole';
 import { Login } from './pages/Login';
 import { DrawerProvider } from './contexts/DrawerContext';
 import { RefreshProvider } from './contexts/RefreshContext';
+import { AuthProvider } from './contexts/AuthContext';
 
 // Helper to render with router and providers
 const renderWithRouter = (initialEntries: string[]) => {
@@ -54,11 +55,13 @@ const renderWithRouter = (initialEntries: string[]) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
-        <RefreshProvider>
-          <DrawerProvider>
-            <RouterProvider router={router} />
-          </DrawerProvider>
-        </RefreshProvider>
+        <AuthProvider>
+          <RefreshProvider>
+            <DrawerProvider>
+              <RouterProvider router={router} />
+            </DrawerProvider>
+          </RefreshProvider>
+        </AuthProvider>
       </MantineProvider>
     </QueryClientProvider>
   );

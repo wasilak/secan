@@ -35,10 +35,12 @@ export function useFaviconManager(clusterHealth: 'green' | 'yellow' | 'red' | nu
       faviconPath = '/favicon-neutral.svg';
     }
 
-    // Force favicon reload by removing and re-adding the link
-    // This is necessary because simply changing href doesn't always trigger browser reload
-    const newFaviconLink = faviconLink.cloneNode() as HTMLLinkElement;
-    newFaviconLink.href = faviconPath;
-    faviconLink.parentNode?.replaceChild(newFaviconLink, faviconLink);
+    // Update favicon href
+    // Force reload by temporarily removing and re-adding href
+    const originalHref = faviconLink.href;
+    faviconLink.removeAttribute('href');
+    // Force reflow
+    void faviconLink.offsetHeight;
+    faviconLink.href = faviconPath;
   }, [clusterHealth]);
 }
