@@ -16,24 +16,24 @@ fi
 # Get current version from Cargo.toml
 CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
 
-if [ "$CURRENT_VERSION" = "$VERSION" ]; then
-    echo "ERROR: Current version is already $VERSION. Nothing to bump."
-    exit 1
-fi
-
 echo "Bumping version from $CURRENT_VERSION to $VERSION"
 
-# Update Cargo.toml
-sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/" Cargo.toml
+# Only update and commit if version differs
+if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+    # Update Cargo.toml
+    sed -i '' "s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/" Cargo.toml
 
-# Update frontend/package.json
-sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" frontend/package.json
+    # Update frontend/package.json
+    sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" frontend/package.json
 
-# Stage changes
-git add Cargo.toml frontend/package.json
+    # Stage changes
+    git add Cargo.toml frontend/package.json
 
-# Commit version bump
-git commit -m "chore: bump version to $VERSION"
+    # Commit version bump
+    git commit -m "chore: bump version to $VERSION"
+else
+    echo "Version already $VERSION, skipping file updates"
+fi
 
 # Create annotated tag
 git tag -a "v$VERSION" -m "Release v$VERSION" -f
