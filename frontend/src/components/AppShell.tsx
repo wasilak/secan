@@ -1,6 +1,7 @@
 import { AppShell as MantineAppShell, Burger, Group, Text, NavLink, Drawer, Stack, Divider, Loader, Alert, ActionIcon as PinButton, Tooltip, Badge, Anchor } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { 
   IconDashboard, 
   IconServer, 
@@ -248,6 +249,26 @@ export function AppShell() {
   const { isPinned, setIsPinned, drawerWidth } = useDrawer();
   const navigate = useNavigate();
   const location = useLocation();
+  const [versionInfo, setVersionInfo] = useState<{ version: string; git_info: string } | null>(null);
+
+  // Fetch version information on component mount
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const response = await fetch('/api/version');
+        if (response.ok) {
+          const data = await response.json();
+          setVersionInfo(data);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch version info:', error);
+        // Fall back to default if fetch fails
+        setVersionInfo({ version: '1.0.0', git_info: 'unknown' });
+      }
+    };
+
+    fetchVersion();
+  }, []);
 
   // Determine refresh scope based on current route
   const getRefreshScope = (): string | string[] | undefined => {
@@ -355,8 +376,13 @@ export function AppShell() {
               />
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-                Secan v0.1.0
+                Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
               </Text>
+              {versionInfo?.git_info && (
+                <Text size="xs" c="dimmed" ta="center" style={{ marginTop: 4 }}>
+                  {versionInfo.git_info}
+                </Text>
+              )}
             </MantineAppShell.Section>
           </MantineAppShell.Navbar>
         )}
@@ -426,8 +452,13 @@ export function AppShell() {
             />
             <Divider my="sm" />
             <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-              Secan v0.1.0
+              Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
             </Text>
+            {versionInfo?.git_info && (
+              <Text size="xs" c="dimmed" ta="center" style={{ marginTop: 4 }}>
+                {versionInfo.git_info}
+              </Text>
+            )}
           </div>
         </div>
       </Drawer>

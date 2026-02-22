@@ -81,9 +81,10 @@ impl Server {
 
         // Build the router with all routes
         Router::new()
-            // Health and readiness endpoints (no auth required)
+            // Health, readiness, and version endpoints (no auth required)
             .route("/health", get(crate::routes::health::health_check))
             .route("/ready", get(crate::routes::health::readiness_check))
+            .route("/api/version", get(crate::routes::health::get_version))
             // Authentication routes
             .route("/api/auth/login", post(crate::routes::auth::login))
             .route("/api/auth/logout", post(crate::routes::auth::logout))
