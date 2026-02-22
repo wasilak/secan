@@ -1,3 +1,4 @@
+use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::{ClusterInfo, Manager as ClusterManager};
 use axum::{
     extract::{Path, State},
@@ -61,17 +62,56 @@ pub struct RelocateShardRequest {
 /// Validates: Requirements 2.15
 pub async fn list_clusters(
     State(state): State<ClusterState>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Vec<ClusterInfo>>, ClusterErrorResponse> {
     tracing::debug!("Listing all clusters");
 
-    // TODO: Extract authenticated user from request
-    // TODO: Filter clusters based on RBAC
+    // Get all clusters from manager
+    let all_clusters = state.cluster_manager.list_clusters().await;
 
-    let clusters = state.cluster_manager.list_clusters().await;
+    // Extract authenticated user if available (Open mode may not have it)
+    let Some(user) = user_ext else {
+        tracing::debug!("No authenticated user, returning all clusters (Open mode)");
+        return Ok(Json(all_clusters));
+    };
 
-    tracing::debug!("Returning {} cluster(s)", clusters.len());
+    tracing::debug!(
+        user = %user.0.0.username,
+        accessible_clusters = ?user.0.0.accessible_clusters,
+        "Filtering clusters for user"
+    );
 
-    Ok(Json(clusters))
+    // Filter clusters based on user's accessible clusters
+    let filtered_clusters = filter_clusters_by_access(&all_clusters, &user.0.0.accessible_clusters);
+
+    tracing::debug!(
+        total = all_clusters.len(),
+        accessible = filtered_clusters.len(),
+        "Returning filtered cluster list"
+    );
+
+    Ok(Json(filtered_clusters))
+}
+
+/// Filter clusters based on user's accessible cluster IDs
+///
+/// If user has wildcard ("*") access, return all clusters.
+/// Otherwise, return only clusters whose ID is in the accessible list.
+fn filter_clusters_by_access(
+    all_clusters: &[ClusterInfo],
+    accessible_clusters: &[String],
+) -> Vec<ClusterInfo> {
+    // Check for wildcard access
+    if accessible_clusters.iter().any(|c| c == "*") {
+        return all_clusters.to_vec();
+    }
+
+    // Filter to only accessible clusters
+    all_clusters
+        .iter()
+        .filter(|cluster| accessible_clusters.contains(&cluster.id))
+        .cloned()
+        .collect()
 }
 
 /// Get cluster statistics using SDK typed methods
