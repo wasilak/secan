@@ -24,8 +24,8 @@ RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 
 WORKDIR /app
 
-# Copy Cargo files from root (cached layer for dependencies)
-COPY Cargo.toml Cargo.lock ./
+# Copy Cargo files and README from root (cached layer for dependencies)
+COPY Cargo.toml Cargo.lock README.md ./
 
 # Create dummy main.rs to cache dependencies
 RUN mkdir src && \
