@@ -18,6 +18,7 @@ import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
 import { useClusterName } from '../hooks/useClusterName';
+import { useAuth } from '../contexts/AuthContext';
 import { getHealthColor } from '../utils/colors';
 
 /**
@@ -247,7 +248,6 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const { isPinned, setIsPinned, drawerWidth } = useDrawer();
-  const navigate = useNavigate();
   const location = useLocation();
   const [versionInfo, setVersionInfo] = useState<{ version: string; git_info: string } | null>(null);
 
@@ -288,16 +288,8 @@ export function AppShell() {
     return undefined;
   };
 
-  // TODO: Replace with actual user data from auth context
-  const user = {
-    username: 'admin',
-    roles: ['admin'],
-  };
-
-  const handleLogout = () => {
-    // TODO: Implement actual logout logic
-    navigate('/login');
-  };
+  // Get user from auth context
+  const { user, isAuthenticated, logout } = useAuth();
 
   const togglePin = () => {
     setIsPinned(!isPinned);
@@ -369,11 +361,13 @@ export function AppShell() {
             </MantineAppShell.Section>
 
             <MantineAppShell.Section>
-              <DrawerControls 
-                collapsed={false} 
-                user={user} 
-                onLogout={handleLogout} 
-              />
+              {isAuthenticated && user && (
+                <DrawerControls
+                  collapsed={false}
+                  user={user}
+                  onLogout={logout}
+                />
+              )}
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
                 Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
@@ -445,11 +439,13 @@ export function AppShell() {
           </div>
           
           <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: 'var(--mantine-spacing-md)' }}>
-            <DrawerControls 
-              collapsed={false} 
-              user={user} 
-              onLogout={handleLogout} 
-            />
+            {isAuthenticated && user && (
+              <DrawerControls
+                collapsed={false}
+                user={user}
+                onLogout={logout}
+              />
+            )}
             <Divider my="sm" />
             <Text size="xs" c="dimmed" ta="center" role="contentinfo">
               Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
