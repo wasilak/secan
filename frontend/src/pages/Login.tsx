@@ -16,7 +16,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Get redirect_to from query params
+  // Get redirect_to from query params, default to dashboard
   const searchParams = new URLSearchParams(location.search);
   const redirectPath = searchParams.get('redirect_to') || '/';
 

@@ -35,8 +35,8 @@ pub struct AuthenticatedUser(pub AuthUser);
 /// - Validates tokens using SessionManager
 /// - Supports Open mode (no authentication required)
 /// - Attaches user information to request context
-/// - Returns 401 for invalid/expired sessions
-/// - Returns 302 redirect to login for unauthenticated requests on protected paths
+/// - Returns 401 for invalid/expired sessions on API endpoints
+/// - Returns 302 redirect to login for unauthenticated browser requests
 pub async fn auth_middleware(
     State(auth_state): State<Arc<AuthState>>,
     mut request: Request,
@@ -71,7 +71,12 @@ pub async fn auth_middleware(
     let token = match extract_session_token(&request) {
         Ok(token) => token,
         Err(_) => {
-            // No session token - redirect to login with redirect_to parameter
+            // No session token
+            // For API requests, return 401; for browser requests, redirect to login
+            if is_api_request(path) {
+                return Err(AuthError::MissingSessionToken);
+            }
+            
             let redirect_url = build_login_redirect_url(&request);
             tracing::debug!(
                 path = %path,
@@ -96,7 +101,12 @@ pub async fn auth_middleware(
     let session = match session {
         Some(s) => s,
         None => {
-            // Invalid or expired session - redirect to login
+            // Invalid or expired session
+            // For API requests, return 401; for browser requests, redirect to login
+            if is_api_request(path) {
+                return Err(AuthError::InvalidSession);
+            }
+            
             let redirect_url = build_login_redirect_url(&request);
             tracing::debug!(
                 path = %path,
@@ -128,6 +138,11 @@ pub async fn auth_middleware(
 
     // Continue to next middleware/handler
     Ok(next.run(request).await)
+}
+
+/// Check if a path is an API endpoint
+fn is_api_request(path: &str) -> bool {
+    path.starts_with("/api/")
 }
 
 /// Check if a path is public and doesn't require authentication

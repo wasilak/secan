@@ -46,32 +46,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Check authentication status on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Use dedicated auth endpoint
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
+  const checkAuth = async () => {
+    try {
+      // Use dedicated auth endpoint
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        setUser({
+          username: userData.username,
+          roles: userData.groups || [],
         });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          setUser({
-            username: userData.username,
-            roles: userData.groups || [],
-          });
-        } else {
-          // Not authenticated
-          setUser(null);
-        }
-      } catch (error) {
-        // Network error or not authenticated
+      } else {
+        // Not authenticated
         setUser(null);
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      // Network error or not authenticated
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Run auth check on mount
+  useEffect(() => {
     checkAuth();
   }, []);
 
@@ -91,7 +92,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(error.message || 'Invalid username or password');
     }
 
-    // User will be loaded by checkAuth on next render
+    // After successful login, refetch user to update state
+    await checkAuth();
   };
 
   /**
