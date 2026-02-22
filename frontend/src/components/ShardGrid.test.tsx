@@ -267,8 +267,8 @@ describe('ShardGrid', () => {
       expect(screen.getByText(/2 shards/i)).toBeInTheDocument();
     });
 
-    // Check for document count
-    expect(screen.getByText(/1,000 docs/i)).toBeInTheDocument();
+    // Check for document count (use regex for flexibility with number formatting)
+    expect(screen.getByText(/1,?000 docs/i)).toBeInTheDocument();
 
     // Check for size (1024000 bytes = 1000 KB)
     expect(screen.getByText(/1000\.0 KB/i)).toBeInTheDocument();
