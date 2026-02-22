@@ -52,7 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
       });
-      
+
       if (response.ok) {
         const userData = await response.json();
         setUser({
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Not authenticated
         setUser(null);
       }
-    } catch (error) {
+    } catch {
       // Network error or not authenticated
       setUser(null);
     } finally {
@@ -105,7 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.warn('Logout failed:', error);
     }
-    
+
     setUser(null);
   };
 

@@ -1,4 +1,15 @@
-import { Container, Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Box, Alert } from '@mantine/core';
+import {
+  Container,
+  Paper,
+  Title,
+  Text,
+  TextInput,
+  PasswordInput,
+  Button,
+  Stack,
+  Box,
+  Alert,
+} from '@mantine/core';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,7 +40,7 @@ export function Login() {
       await login(username, password);
       // Redirect to original path or dashboard
       navigate(redirectPath, { replace: true });
-    } catch (err) {
+    } catch {
       setError('Invalid username or password');
     } finally {
       setLoading(false);
@@ -53,31 +64,31 @@ export function Login() {
             </Alert>
           )}
 
-        <form onSubmit={handleSubmit}>
-          <Stack gap="md">
-            <TextInput
-              label="Username"
-              placeholder="Enter your username"
-              value={username}
-              onChange={(e) => setUsername(e.currentTarget.value)}
-              required
-            />
+          <form onSubmit={handleSubmit}>
+            <Stack gap="md">
+              <TextInput
+                label="Username"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.currentTarget.value)}
+                required
+              />
 
-            <PasswordInput
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.currentTarget.value)}
-              required
-            />
+              <PasswordInput
+                label="Password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.currentTarget.value)}
+                required
+              />
 
-            <Button type="submit" fullWidth loading={loading}>
-              Sign In
-            </Button>
-          </Stack>
-        </form>
-      </Paper>
-    </Container>
+              <Button type="submit" fullWidth loading={loading}>
+                Sign In
+              </Button>
+            </Stack>
+          </form>
+        </Paper>
+      </Container>
     </Box>
   );
 }
