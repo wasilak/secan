@@ -2807,6 +2807,7 @@ dependencies = [
  "openidconnect",
  "proptest",
  "rand 0.10.0",
+ "regex",
  "reqwest 0.12.28",
  "rust-embed",
  "rustls 0.23.36",

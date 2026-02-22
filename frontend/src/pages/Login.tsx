@@ -76,10 +76,6 @@ export function Login() {
             </Button>
           </Stack>
         </form>
-
-        <Text size="xs" c="dimmed" ta="center" mt="xl">
-          Local authentication (config.yaml)
-        </Text>
       </Paper>
     </Container>
     </Box>
