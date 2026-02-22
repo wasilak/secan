@@ -183,7 +183,7 @@ export class ApiClient {
 
   /**
    * Handle API errors consistently
-   * 
+   *
    * Requirements: 21.5, 21.6, 23.4, 25.4
    */
   private handleError(error: AxiosError<ApiError>): Promise<never> {
@@ -200,7 +200,19 @@ export class ApiClient {
       }
 
       // Handle authorization errors (403)
+      // User doesn't have permission to access the resource
       if (status === 403) {
+        // Extract cluster name from the request URL if available
+        const url = error.config?.url || '';
+        const clusterMatch = url.match(/\/clusters\/([^/]+)/);
+        const clusterName = clusterMatch ? clusterMatch[1] : undefined;
+
+        // Redirect to access denied page with optional cluster name
+        const redirectPath = clusterName
+          ? `/access-denied/${encodeURIComponent(clusterName)}`
+          : '/access-denied';
+        window.location.href = redirectPath;
+
         return Promise.reject(
           new ApiClientError('Access forbidden', 403, data)
         );
