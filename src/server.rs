@@ -317,13 +317,13 @@ mod tests {
                 .unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
-        let server = Server::new(config, cluster_manager, session_manager);
+        let server = Server::new(config, cluster_manager, session_manager).await.unwrap();
 
         assert_eq!(server.config.server.port, 27182);
     }
 
-    #[test]
-    fn test_router_creation() {
+    #[tokio::test]
+    async fn test_router_creation() {
         let config = create_test_config();
         let cluster_config = ClusterConfig {
             id: "test".to_string(),
@@ -334,17 +334,15 @@ mod tests {
             es_version: 8,
         };
 
-        // Use tokio runtime for async operations
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        let cluster_manager = rt
-            .block_on(ClusterManager::new(
-                vec![cluster_config],
-                std::time::Duration::from_secs(30),
-            ))
-            .unwrap();
+        let cluster_manager = ClusterManager::new(
+            vec![cluster_config],
+            std::time::Duration::from_secs(30),
+        )
+        .await
+        .unwrap();
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
-        let server = Server::new(config, cluster_manager, session_manager);
+        let server = Server::new(config, cluster_manager, session_manager).await.unwrap();
         let _router = server.router();
 
         // Router creation should succeed

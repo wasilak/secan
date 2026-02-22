@@ -154,10 +154,11 @@ mod tests {
 
     #[test]
     fn test_user_can_access_cluster_wildcard() {
-        let user = crate::auth::AuthUser::new(
+        let user = crate::auth::AuthUser::new_with_clusters(
             "user1".to_string(),
             "testuser".to_string(),
             vec!["*".to_string()],
+            vec!["*".to_string()], // Wildcard cluster access
         );
 
         assert!(user_can_access_cluster(&user, "any-cluster"));

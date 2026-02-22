@@ -818,29 +818,3 @@ mod tests {
         }).into_owned()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_role_config_validation() {
-        let role = RoleConfig {
-            name: "admin".to_string(),
-            cluster_patterns: vec!["*".to_string()],
-        };
-        assert!(role.validate().is_ok());
-
-        let role = RoleConfig {
-            name: String::new(),
-            cluster_patterns: vec!["*".to_string()],
-        };
-        assert!(role.validate().is_err());
-
-        let role = RoleConfig {
-            name: "admin".to_string(),
-            cluster_patterns: Vec::new(),
-        };
-        assert!(role.validate().is_err());
-    }
-}
