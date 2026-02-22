@@ -174,7 +174,7 @@ pub async fn oidc_callback(
 pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, ErrorResponse> {
+) -> Result<Response, ErrorResponse> {
     use crate::auth::local::verify_password;
     use crate::auth::AuthUser;
     use crate::auth::PermissionResolver;
@@ -242,28 +242,43 @@ pub async fn login(
         "User authenticated successfully"
     );
 
-    Ok(Json(LoginResponse {
-        success: true,
-        message: "Login successful".to_string(),
-        session_token: Some(token),
-    }))
+    // Create response with session cookie
+    let mut response = axum::response::Response::new(axum::body::Body::from(
+        serde_json::to_string(&LoginResponse {
+            success: true,
+            message: "Login successful".to_string(),
+            session_token: Some(token.clone()),
+        }).unwrap()
+    ));
+    
+    response.headers_mut().insert(
+        http::header::SET_COOKIE,
+        create_session_cookie(&token),
+    );
+    response.headers_mut().insert(
+        http::header::CONTENT_TYPE,
+        http::HeaderValue::from_static("application/json"),
+    );
+
+    Ok(response)
 }
 
 /// Get current user info
 ///
 /// Returns authenticated user information or 401 if not authenticated
 pub async fn get_current_user(
-    user: Option<Extension<AuthenticatedUser>>,
-) -> Result<Json<UserInfoResponse>, ErrorResponse> {
-    let user = user.ok_or_else(|| ErrorResponse {
-        error: "unauthorized".to_string(),
-        message: "Not authenticated".to_string(),
-    })?;
+    Extension(user): Extension<AuthenticatedUser>,
+) -> Json<UserInfoResponse> {
+    Json(UserInfoResponse {
+        username: user.0.username.clone(),
+        groups: user.0.roles.clone(),
+    })
+}
 
-    Ok(Json(UserInfoResponse {
-        username: user.0.0.username.clone(),
-        groups: user.0.0.roles.clone(),
-    }))
+/// Build session cookie
+fn create_session_cookie(token: &str) -> http::HeaderValue {
+    let cookie_value = format!("session_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600", token);
+    http::HeaderValue::from_str(&cookie_value).unwrap()
 }
 
 /// Logout endpoint
