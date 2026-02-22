@@ -79,13 +79,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Login with username and password
    */
   const login = async (username: string, password: string) => {
-    await apiClient.login(username, password);
-    
-    // Set user after successful login
-    setUser({
-      username,
-      roles: ['user'], // TODO: Get actual roles from backend
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, password }),
     });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Login failed' }));
+      throw new Error(error.message || 'Invalid username or password');
+    }
+
+    // User will be loaded by checkAuth on next render
   };
 
   /**

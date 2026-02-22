@@ -14,6 +14,7 @@ use std::sync::Arc;
 pub struct AuthState {
     pub oidc_provider: Option<Arc<OidcAuthProvider>>,
     pub session_manager: Arc<SessionManager>,
+    pub config: Arc<crate::config::Config>,
 }
 
 /// Login request for local users
@@ -174,7 +175,9 @@ pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ErrorResponse> {
-    use crate::auth::local::LocalAuthProvider;
+    use crate::auth::local::verify_password;
+    use crate::auth::AuthUser;
+    use crate::auth::PermissionResolver;
     use crate::config::AuthMode;
 
     // Only support local users mode for now
@@ -185,20 +188,66 @@ pub async fn login(
         });
     }
 
-    // For local users mode, we need to validate against config
-    // This is a simplified implementation - in production, use a proper auth provider
-    tracing::info!(
-        username = %payload.username,
-        auth_method = "local",
-        "Authentication attempt"
+    // Find user in config
+    let users = state.config.auth.local_users.as_ref().ok_or_else(|| ErrorResponse {
+        error: "not_configured".to_string(),
+        message: "Local users not configured".to_string(),
+    })?;
+
+    let user = users.iter().find(|u| u.username == payload.username).ok_or_else(|| ErrorResponse {
+        error: "invalid_credentials".to_string(),
+        message: "Invalid username or password".to_string(),
+    })?;
+
+    // Verify password
+    let password_valid = verify_password(&payload.password, &user.password_hash).map_err(|e| {
+        tracing::error!(error = %e, "Password verification failed");
+        ErrorResponse {
+            error: "internal_error".to_string(),
+            message: "Authentication error".to_string(),
+        }
+    })?;
+
+    if !password_valid {
+        tracing::warn!(username = %payload.username, "Invalid password");
+        return Err(ErrorResponse {
+            error: "invalid_credentials".to_string(),
+            message: "Invalid username or password".to_string(),
+        });
+    }
+
+    // Resolve accessible clusters
+    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
+    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.groups);
+
+    // Create session
+    let auth_user = AuthUser::new_with_clusters(
+        user.username.clone(),
+        user.username.clone(),
+        user.groups.clone(),
+        accessible_clusters.clone(),
     );
 
-    // TODO: Get local users from config and validate password
-    // For now, return not implemented
-    Err(ErrorResponse {
-        error: "not_implemented".to_string(),
-        message: "Local user authentication requires config implementation".to_string(),
-    })
+    let token = state.session_manager.create_session(auth_user).await.map_err(|e| {
+        tracing::error!(error = %e, "Session creation failed");
+        ErrorResponse {
+            error: "internal_error".to_string(),
+            message: "Failed to create session".to_string(),
+        }
+    })?;
+
+    tracing::info!(
+        username = %payload.username,
+        groups = ?user.groups,
+        accessible_clusters = ?accessible_clusters,
+        "User authenticated successfully"
+    );
+
+    Ok(Json(LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+        session_token: Some(token),
+    }))
 }
 
 /// Get current user info

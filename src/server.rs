@@ -66,6 +66,7 @@ impl Server {
         let auth_routes_state = crate::routes::AuthState {
             oidc_provider: None, // TODO: Initialize OIDC provider if configured
             session_manager: self.session_manager.clone(),
+            config: self.config.clone(),
         };
 
         // Create auth state for middleware
