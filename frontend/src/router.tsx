@@ -31,6 +31,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m
 const ClusterView = lazy(() => import('./pages/ClusterView').then(m => ({ default: m.ClusterView })));
 const RestConsole = lazy(() => import('./pages/RestConsole').then(m => ({ default: m.RestConsole })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 const IndexCreate = lazy(() => import('./pages/IndexCreate').then(m => ({ default: m.IndexCreate })));
 const Aliases = lazy(() => import('./pages/Aliases').then(m => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then(m => ({ default: m.Templates })));
@@ -73,6 +74,22 @@ export const router = createBrowserRouter([
     element: (
       <LazyRoute>
         <Login />
+      </LazyRoute>
+    ),
+  },
+  {
+    path: '/access-denied',
+    element: (
+      <LazyRoute>
+        <AccessDenied />
+      </LazyRoute>
+    ),
+  },
+  {
+    path: '/access-denied/:clusterName',
+    element: (
+      <LazyRoute>
+        <AccessDenied />
       </LazyRoute>
     ),
   },
