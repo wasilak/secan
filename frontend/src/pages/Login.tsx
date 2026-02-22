@@ -1,34 +1,39 @@
-import { Container, Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Box } from '@mantine/core';
-import { useNavigate } from 'react-router-dom';
+import { Container, Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Box, Alert } from '@mantine/core';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { IconAlertCircle } from '@tabler/icons-react';
 
 /**
  * Login component provides authentication interface.
- * 
- * Features (to be implemented):
- * - Local user authentication with username/password
- * - OIDC authentication redirect
- * - Form validation
- * - Error handling
- * - Redirect to dashboard after successful login
  */
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Get redirect_to from query params
+  const searchParams = new URLSearchParams(location.search);
+  const redirectPath = searchParams.get('redirect_to') || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    // TODO: Implement actual authentication
-    
-    // Simulate login
-    setTimeout(() => {
+    try {
+      await login(username, password);
+      // Redirect to original path or dashboard
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setError('Invalid username or password');
+    } finally {
       setLoading(false);
-      navigate('/');
-    }, 1000);
+    }
   };
 
   return (
@@ -41,6 +46,12 @@ export function Login() {
           <Text size="sm" c="dimmed" ta="center" mb="xl">
             Elasticsearch Cluster Management Tool
           </Text>
+
+          {error && (
+            <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md">
+              {error}
+            </Alert>
+          )}
 
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
@@ -67,7 +78,7 @@ export function Login() {
         </form>
 
         <Text size="xs" c="dimmed" ta="center" mt="xl">
-          Authentication integration coming soon
+          Local authentication (config.yaml)
         </Text>
       </Paper>
     </Container>

@@ -169,11 +169,6 @@ fn is_public_path(path: &str) -> bool {
         return true;
     }
 
-    // Root path (login page or dashboard)
-    if path == "/" || path == "" {
-        return true;
-    }
-
     false
 }
 

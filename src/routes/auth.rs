@@ -1,9 +1,10 @@
+use crate::auth::middleware::AuthenticatedUser;
 use crate::auth::{OidcAuthProvider, SessionManager};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect, Response},
-    Json,
+    Extension, Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -43,6 +44,13 @@ pub struct OidcCallbackQuery {
 pub struct ErrorResponse {
     pub error: String,
     pub message: String,
+}
+
+/// User info response
+#[derive(Debug, Serialize)]
+pub struct UserInfoResponse {
+    pub username: String,
+    pub groups: Vec<String>,
 }
 
 impl IntoResponse for ErrorResponse {
@@ -163,32 +171,51 @@ pub async fn oidc_callback(
 ///
 /// Validates: Requirements 29.2, 30.4
 pub async fn login(
-    State(_state): State<AuthState>,
+    State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ErrorResponse> {
-    // TODO: Implement local user authentication
-    // TODO: Validate credentials
-    // TODO: Create session
-    // TODO: Set session cookie
+    use crate::auth::local::LocalAuthProvider;
+    use crate::config::AuthMode;
 
-    // Log authentication attempt (sanitized - no password)
+    // Only support local users mode for now
+    if state.oidc_provider.is_some() {
+        return Err(ErrorResponse {
+            error: "not_supported".to_string(),
+            message: "OIDC login not implemented yet".to_string(),
+        });
+    }
+
+    // For local users mode, we need to validate against config
+    // This is a simplified implementation - in production, use a proper auth provider
     tracing::info!(
         username = %payload.username,
         auth_method = "local",
         "Authentication attempt"
     );
 
-    tracing::warn!(
-        username = %payload.username,
-        auth_method = "local",
-        reason = "not_implemented",
-        "Authentication failed"
-    );
-
+    // TODO: Get local users from config and validate password
+    // For now, return not implemented
     Err(ErrorResponse {
         error: "not_implemented".to_string(),
-        message: "Local user authentication not yet implemented".to_string(),
+        message: "Local user authentication requires config implementation".to_string(),
     })
+}
+
+/// Get current user info
+///
+/// Returns authenticated user information or 401 if not authenticated
+pub async fn get_current_user(
+    user: Option<Extension<AuthenticatedUser>>,
+) -> Result<Json<UserInfoResponse>, ErrorResponse> {
+    let user = user.ok_or_else(|| ErrorResponse {
+        error: "unauthorized".to_string(),
+        message: "Not authenticated".to_string(),
+    })?;
+
+    Ok(Json(UserInfoResponse {
+        username: user.0.0.username.clone(),
+        groups: user.0.0.roles.clone(),
+    }))
 }
 
 /// Logout endpoint

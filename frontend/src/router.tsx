@@ -1,7 +1,30 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate, useParams } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { LazyRoute } from './components/LazyRoute';
+import { useAuth } from './contexts/AuthContext';
+
+// Protected route component - redirects to login if not authenticated
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Redirect to login with the current path as redirect_to
+    const redirectPath = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?redirect_to=${redirectPath}`} replace />;
+  }
+
+  return <>{children}</>;
+}
 
 // Redirect component for index edit URLs
 function IndexEditRedirect() {
@@ -95,7 +118,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,

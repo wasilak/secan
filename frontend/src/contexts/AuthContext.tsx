@@ -49,18 +49,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Try to fetch clusters - if it succeeds, we're authenticated
-        // If it fails with 401, we're not authenticated
-        await apiClient.getClusters();
-        
-        // For now, use a placeholder user
-        // TODO: Implement actual user endpoint
-        setUser({
-          username: 'admin',
-          roles: ['admin'],
+        // Use dedicated auth endpoint
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
         });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setUser({
+            username: userData.username,
+            roles: userData.groups || [],
+          });
+        } else {
+          // Not authenticated
+          setUser(null);
+        }
       } catch (error) {
-        // Not authenticated or error - clear user
+        // Network error or not authenticated
         setUser(null);
       } finally {
         setIsLoading(false);
