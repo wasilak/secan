@@ -474,10 +474,10 @@ impl Config {
     ///
     /// Priority (highest to lowest):
     /// 1. Environment variables (SECAN_* with _ separator, supports array indices like SECAN_CLUSTERS_0_ID)
-    /// 2. Configuration files (config.yaml, config.local.yaml, config.toml)
+    /// 2. Configuration files (config.yaml, config.local.yaml, config.toml) - supports ${VAR} substitution
     /// 3. Default values (hardcoded)
     pub fn load() -> anyhow::Result<Self> {
-        use config::{Config as ConfigRs, Environment, File};
+        use config::{Config as ConfigRs, Environment};
         use std::path::Path;
 
         let mut builder = ConfigRs::builder()
@@ -495,6 +495,7 @@ impl Config {
             )?;
 
         // Add optional config files (medium priority)
+        // Support ${VAR} environment variable substitution in config files
         for filename in &[
             "config.yaml",
             "config.local.yaml",
@@ -503,7 +504,12 @@ impl Config {
             "config.toml",
         ] {
             if Path::new(filename).exists() {
-                builder = builder.add_source(File::from(Path::new(filename)));
+                // Read file content and substitute environment variables
+                let content = std::fs::read_to_string(filename)?;
+                let substituted = envsubst::substitute(content, &std::env::vars().collect::<std::collections::HashMap<_, _>>())?;
+                
+                // Add as string source with substituted content
+                builder = builder.add_source(config::File::from_str(&substituted, config::FileFormat::Yaml));
             }
         }
 

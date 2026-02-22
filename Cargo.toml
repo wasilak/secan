@@ -50,6 +50,7 @@ anyhow = "1"
 
 # Environment variables
 dotenvy = "0.15"
+envsubst = "0.2"
 
 # Logging
 tracing = "0.1"
