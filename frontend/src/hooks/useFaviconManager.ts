@@ -37,7 +37,6 @@ export function useFaviconManager(clusterHealth: 'green' | 'yellow' | 'red' | nu
 
     // Update favicon href
     // Force reload by temporarily removing and re-adding href
-    const originalHref = faviconLink.href;
     faviconLink.removeAttribute('href');
     // Force reflow
     void faviconLink.offsetHeight;
