@@ -13,6 +13,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          mantine: ['@mantine/core', '@mantine/hooks', '@mantine/notifications', '@mantine/spotlight'],
+          tabler: ['@tabler/icons-react'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 3000,

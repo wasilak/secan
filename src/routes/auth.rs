@@ -178,7 +178,6 @@ pub async fn login(
     use crate::auth::local::verify_password;
     use crate::auth::AuthUser;
     use crate::auth::PermissionResolver;
-    use crate::config::AuthMode;
 
     // Only support local users mode for now
     if state.oidc_provider.is_some() {
