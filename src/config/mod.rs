@@ -495,7 +495,7 @@ impl Config {
             )?;
 
         // Add optional config files (medium priority)
-        // Support ${VAR} environment variable substitution in config files
+        // Support ${VAR} and ${VAR:-default} environment variable substitution in config files
         for filename in &[
             "config.yaml",
             "config.local.yaml",
@@ -506,8 +506,8 @@ impl Config {
             if Path::new(filename).exists() {
                 // Read file content and substitute environment variables
                 let content = std::fs::read_to_string(filename)?;
-                let substituted = envsubst::substitute(content, &std::env::vars().collect::<std::collections::HashMap<_, _>>())?;
-                
+                let substituted = Self::substitute_env_vars(&content);
+
                 // Add as string source with substituted content
                 builder = builder.add_source(config::File::from_str(&substituted, config::FileFormat::Yaml));
             }
@@ -613,6 +613,23 @@ impl Config {
         // (Allow some non-numeric keys for flexibility)
         let numeric_keys = map.keys().filter(|k| k.parse::<usize>().is_ok()).count();
         numeric_keys > 0 && numeric_keys == map.len()
+    }
+
+    /// Substitute environment variables in content
+    /// Supports ${VAR} and ${VAR:-default} syntax
+    fn substitute_env_vars(content: &str) -> String {
+        use std::env;
+        
+        // Match ${VAR:-default} or ${VAR}
+        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
+        
+        re.replace_all(content, |caps: &regex::Captures| {
+            let var_name = &caps[1];
+            let default_value = caps.get(2).map(|m| m.as_str());
+            
+            env::var(var_name)
+                .unwrap_or_else(|_| default_value.unwrap_or("").to_string())
+        }).into_owned()
     }
 }
 
@@ -783,6 +800,28 @@ mod tests {
         let auth = ClusterAuth::None;
         assert!(auth.validate(cluster_id).is_ok());
     }
+
+    /// Substitute environment variables in content
+    /// Supports ${VAR} and ${VAR:-default} syntax
+    fn substitute_env_vars(content: &str) -> String {
+        use std::env;
+        
+        // Match ${VAR:-default} or ${VAR}
+        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
+        
+        re.replace_all(content, |caps: &regex::Captures| {
+            let var_name = &caps[1];
+            let default_value = caps.get(2).map(|m| m.as_str());
+            
+            env::var(var_name)
+                .unwrap_or_else(|_| default_value.unwrap_or("").to_string())
+        }).into_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     #[test]
     fn test_role_config_validation() {
