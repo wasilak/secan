@@ -7,6 +7,11 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load .env file if it exists
+    // This allows setting environment variables via .env file
+    // Note: Environment variables take precedence over config file values
+    dotenvy::dotenv().ok();
+
     // Initialize tracing with JSON formatting for structured logging
     // Supports configurable log levels via RUST_LOG environment variable
     tracing_subscriber::fmt()

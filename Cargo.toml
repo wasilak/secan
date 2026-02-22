@@ -48,6 +48,9 @@ openidconnect = "3"
 thiserror = "2"
 anyhow = "1"
 
+# Environment variables
+dotenvy = "0.15"
+
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
