@@ -2,11 +2,79 @@ use secan::auth::{SessionConfig, SessionManager};
 use secan::cluster::Manager as ClusterManager;
 use secan::config::Config;
 use secan::Server;
+use std::env;
 use std::sync::Arc;
 use tracing::info;
 
+/// Generate bcrypt password hash
+fn generate_password_hash(password: &str) -> Result<String, anyhow::Error> {
+    use bcrypt::{hash, DEFAULT_COST};
+    hash(password, DEFAULT_COST)
+        .map_err(|e| anyhow::anyhow!("Failed to generate password hash: {}", e))
+}
+
+/// Print usage information
+fn print_usage() {
+    eprintln!("Secan - Elasticsearch Cluster Management Tool");
+    eprintln!();
+    eprintln!("Usage:");
+    eprintln!("  secan [OPTIONS]              Start the server");
+    eprintln!("  secan hash-password <pass>   Generate bcrypt password hash");
+    eprintln!();
+    eprintln!("Options:");
+    eprintln!("  -h, --help    Print help");
+    eprintln!("  -V, --version Print version");
+    eprintln!();
+    eprintln!("Examples:");
+    eprintln!("  secan hash-password mypassword");
+    eprintln!("  secan");
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = env::args().collect();
+
+    // Handle subcommands
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "hash-password" => {
+                if args.len() < 3 {
+                    eprintln!("Error: Password required");
+                    eprintln!("Usage: secan hash-password <password>");
+                    std::process::exit(1);
+                }
+                
+                let password = &args[2];
+                let hash = generate_password_hash(password)?;
+                
+                println!("Password hash for '{password}':");
+                println!("{hash}");
+                println!();
+                println!("Add to config.yaml:");
+                println!("  local_users:");
+                println!("    - username: \"your-username\"");
+                println!("      password_hash: \"{hash}\"");
+                println!("      groups:");
+                println!("        - \"admin\"");
+                
+                return Ok(());
+            }
+            "-h" | "--help" => {
+                print_usage();
+                return Ok(());
+            }
+            "-V" | "--version" => {
+                println!("Secan {}", env!("CARGO_PKG_VERSION"));
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unknown command: {}", args[1]);
+                eprintln!("Run 'secan --help' for usage information");
+                std::process::exit(1);
+            }
+        }
+    }
+
     // Initialize tracing with JSON formatting for structured logging
     // Supports configurable log levels via RUST_LOG environment variable
     tracing_subscriber::fmt()
