@@ -126,7 +126,8 @@ export function SpotlightSearch() {
       }
     } else {
       // In dashboard view - show all clusters with their tabs
-      if (clusters && clusters.length > 0) {
+      // Ensure clusters is an array before iterating
+      if (Array.isArray(clusters) && clusters.length > 0) {
         const tabs = [
           { id: 'overview', label: 'Overview', icon: IconChartBar },
           { id: 'statistics', label: 'Statistics', icon: IconChartBar },

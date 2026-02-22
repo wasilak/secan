@@ -209,14 +209,14 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
             Failed to load clusters
           </Alert>
         )}
-        
-        {!clustersLoading && !clustersError && clusters && clusters.length === 0 && (
+
+        {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length === 0 && (
           <Text size="sm" c="dimmed" p="xs">
             No clusters configured
           </Text>
         )}
-        
-        {!clustersLoading && !clustersError && clusters && clusters.length > 0 && (
+
+        {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length > 0 && (
           <>
             {clusters.map((cluster) => (
               <ClusterNavItem
