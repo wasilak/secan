@@ -45,11 +45,12 @@ pub async fn auth_middleware(
     if auth_state.auth_mode == AuthMode::Open {
         tracing::debug!("Open mode: allowing request without authentication");
 
-        // Create a default user for Open mode
-        let open_user = AuthUser::new(
+        // Create a default user for Open mode with full cluster access
+        let open_user = AuthUser::new_with_clusters(
             "open".to_string(),
             "open".to_string(),
             vec!["*".to_string()], // Full access in Open mode
+            vec!["*".to_string()], // Full cluster access in Open mode
         );
 
         request
@@ -77,12 +78,18 @@ pub async fn auth_middleware(
         AuthError::InvalidSession
     })?;
 
-    // Create AuthUser from session
-    let user = AuthUser::new(session.user_id, session.username, session.roles);
+    // Create AuthUser from session with accessible clusters
+    let user = AuthUser::new_with_clusters(
+        session.user_id,
+        session.username,
+        session.roles,
+        session.accessible_clusters,
+    );
 
     tracing::debug!(
         user_id = %user.id,
         username = %user.username,
+        clusters = ?user.accessible_clusters,
         "User authenticated successfully"
     );
 

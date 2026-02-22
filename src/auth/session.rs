@@ -97,6 +97,9 @@ pub struct AuthUser {
     pub username: String,
     /// User roles for RBAC
     pub roles: Vec<String>,
+    /// Cluster IDs accessible to this user (or "*" for all clusters)
+    #[serde(default)]
+    pub accessible_clusters: Vec<String>,
 }
 
 impl AuthUser {
@@ -105,6 +108,22 @@ impl AuthUser {
             id,
             username,
             roles,
+            accessible_clusters: Vec::new(),
+        }
+    }
+
+    /// Create a new AuthUser with accessible clusters
+    pub fn new_with_clusters(
+        id: String,
+        username: String,
+        roles: Vec<String>,
+        accessible_clusters: Vec<String>,
+    ) -> Self {
+        Self {
+            id,
+            username,
+            roles,
+            accessible_clusters,
         }
     }
 }

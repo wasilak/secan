@@ -1,4 +1,4 @@
-use crate::auth::{AuthUser, SessionManager};
+use crate::auth::{AuthUser, PermissionResolver, SessionManager};
 use crate::config::OidcConfig;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -73,13 +73,18 @@ pub struct OidcAuthProvider {
     jwks: Jwks,
     http_client: reqwest::Client,
     session_manager: Arc<SessionManager>,
+    permission_resolver: PermissionResolver,
 }
 
 impl OidcAuthProvider {
     /// Create a new OIDC authentication provider
     ///
     /// This performs OIDC discovery and fetches the provider's public keys
-    pub async fn new(config: OidcConfig, session_manager: Arc<SessionManager>) -> Result<Self> {
+    pub async fn new(
+        config: OidcConfig,
+        session_manager: Arc<SessionManager>,
+        permission_resolver: PermissionResolver,
+    ) -> Result<Self> {
         let http_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
@@ -101,6 +106,7 @@ impl OidcAuthProvider {
             jwks,
             http_client,
             session_manager,
+            permission_resolver,
         })
     }
 
@@ -302,13 +308,19 @@ impl OidcAuthProvider {
             .unwrap_or_else(|| claims.sub.clone());
 
         // Extract groups from the configured claim key
-        let roles = self.extract_groups(claims);
+        let groups = self.extract_groups(claims);
 
-        AuthUser {
-            id: claims.sub.clone(),
+        // Resolve accessible clusters based on groups
+        let accessible_clusters = self
+            .permission_resolver
+            .resolve_cluster_access(&groups);
+
+        AuthUser::new_with_clusters(
+            claims.sub.clone(),
             username,
-            roles,
-        }
+            groups,
+            accessible_clusters,
+        )
     }
 
     /// Extract groups from claims using the configured groups_claim_key
@@ -410,6 +422,7 @@ mod tests {
 
         let http_client = reqwest::Client::new();
         let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+        let permission_resolver = PermissionResolver::empty();
 
         let provider = OidcAuthProvider {
             config,
@@ -417,13 +430,14 @@ mod tests {
             jwks,
             http_client,
             session_manager,
+            permission_resolver,
         };
 
         let user = provider.extract_user_info(&claims);
 
         assert_eq!(user.id, "user123");
         assert_eq!(user.username, "testuser");
-        assert_eq!(user.roles, vec!["admin", "users"]);
+        assert_eq!(user.accessible_clusters.len(), 0); // No mappings configured
     }
 
     #[test]
@@ -450,6 +464,7 @@ mod tests {
         let jwks = Jwks { keys: vec![] };
         let http_client = reqwest::Client::new();
         let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+        let permission_resolver = PermissionResolver::empty();
 
         let provider = OidcAuthProvider {
             config,
@@ -457,6 +472,7 @@ mod tests {
             jwks,
             http_client,
             session_manager,
+            permission_resolver,
         };
 
         let url = provider.get_authorization_url("random-state");
@@ -513,6 +529,7 @@ mod tests {
         let jwks = Jwks { keys: vec![] };
         let http_client = reqwest::Client::new();
         let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+        let permission_resolver = PermissionResolver::empty();
 
         let provider = OidcAuthProvider {
             config,
@@ -520,13 +537,14 @@ mod tests {
             jwks,
             http_client,
             session_manager,
+            permission_resolver,
         };
 
         let user = provider.extract_user_info(&claims);
 
         assert_eq!(user.id, "user123");
         assert_eq!(user.username, "testuser");
-        assert_eq!(user.roles, vec!["engineering", "admin"]);
+        assert_eq!(user.accessible_clusters.len(), 0); // No mappings configured
     }
 
     #[test]
@@ -568,6 +586,7 @@ mod tests {
         let jwks = Jwks { keys: vec![] };
         let http_client = reqwest::Client::new();
         let session_manager = Arc::new(SessionManager::new(crate::auth::SessionConfig::new(60)));
+        let permission_resolver = PermissionResolver::empty();
 
         let provider = OidcAuthProvider {
             config,
@@ -575,12 +594,13 @@ mod tests {
             jwks,
             http_client,
             session_manager,
+            permission_resolver,
         };
 
         let user = provider.extract_user_info(&claims);
 
         assert_eq!(user.id, "user123");
         assert_eq!(user.username, "testuser");
-        assert!(user.roles.is_empty());
+        assert!(user.accessible_clusters.is_empty());
     }
 }
