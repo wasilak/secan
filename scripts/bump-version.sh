@@ -46,7 +46,9 @@ if f"slug: '{version}'" not in content:
     new_version_entry = f"{{ slug: '{version}', label: 'v{version}.x' }},\n\t\t\t\t\t"
     replacement = r'\1' + new_version_entry
     updated_content = re.sub(pattern, replacement, content)
+    print(f"✓ Added version {version} to docs config")
 else:
+    print(f"Version {version} already in config, skipping")
     updated_content = content
 
 with open(config_file, 'w') as f:
