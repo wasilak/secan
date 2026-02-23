@@ -268,6 +268,24 @@ jobs:
        with:
          just-version: 1.46.0
 
+     - name: Add version to docs config (for release tags only)
+       if: startsWith(github.ref, 'refs/tags/v')
+       run: |
+         # Extract version from tag (e.g., v1.2.0 → 1.2)
+         VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//' | grep -oE '^[0-9]+\.[0-9]+')
+         
+         # Add to versions array in astro.config.mjs
+         python3 << 'EOF'
+         import re
+         version = "$VERSION"
+         with open('docs/astro.config.mjs', 'r') as f:
+             content = f.read()
+         pattern = r'(versions:\s*\[\s*)'
+         replacement = r'\1' + f"{{ slug: '{version}', label: 'v{version}.x' }},\n\t\t\t\t\t"
+         with open('docs/astro.config.mjs', 'w') as f:
+             f.write(re.sub(pattern, replacement, content))
+         EOF
+
      - name: Build documentation
        run: just docs-build-complete
 
