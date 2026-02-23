@@ -268,14 +268,6 @@ jobs:
        with:
          just-version: 1.46.0
 
-     - name: Add version to docs config (for release tags)
-       if: startsWith(github.ref, 'refs/tags/v')
-       run: |
-         chmod +x scripts/add-docs-version.sh
-         ./scripts/add-docs-version.sh "${{ github.ref_name }}"
-         echo "Config after update:"
-         grep -A 6 "versions:" docs/astro.config.mjs
-
      - name: Build documentation
        run: just docs-build-complete
 
