@@ -19,34 +19,32 @@
 
 ## Workflow: Creating a New Release
 
-### Step 1: Bump Version
+### One Command
 ```bash
-just version-bump v1.1.0
+just version-bump 1.1.0
 ```
-This creates a git tag `v1.1.0`.
 
-### Step 2: Push with Tags
+This automatically:
+1. Updates `Cargo.toml` with new version
+2. Updates `frontend/package.json` with new version
+3. Adds `1.1` to `docs/astro.config.mjs` versions array
+4. Commits all changes: `chore: bump version to 1.1.0`
+5. Creates git tag: `v1.1.0`
+
+### Push to Deploy
 ```bash
 git push origin main --tags
 # or
 git ptf  # if alias is configured
 ```
 
-### Step 3: GitHub Actions Automatically:
+### GitHub Actions Automatically:
 
 **For tags matching `v*.*.*`:**
 
 1. **build-docs job:**
-   - Extracts version from tag (e.g., `v1.1.0` → `1.1`)
-   - Runs script: `./scripts/update-docs-version.sh v1.1.0`
-   - Script updates `docs/astro.config.mjs` to add:
-     ```javascript
-     versions: [
-       { slug: '1.1', label: 'v1.1.x' },  // ← newly added
-       { slug: '0.2', label: 'v0.2.x' },  // ← existing
-     ]
-     ```
    - Builds documentation with `just docs-build-complete`
+   - Reads versions from `docs/astro.config.mjs` (already includes new version)
    - Creates archived version directories:
      - `docs/dist/1.1/` ← v1.1.0 docs (frozen)
      - `docs/dist/0.2/` ← v0.2 docs (frozen)
@@ -90,7 +88,7 @@ docs/
 
 - **astro.config.mjs** - Starlight + Mermaid + Versions configuration
 - **src/content.config.ts** - Content collections with versions loader
-- **scripts/update-docs-version.sh** - Updates config for new releases
+- **scripts/bump-version.sh** - Updates version + docs config + creates tag
 - **docs/src/content/docs/getting-started/architecture.md** - Example Mermaid diagram
 - **.github/workflows/ci-cd.yml** - Build and deploy automation
 
@@ -155,6 +153,7 @@ All diagram types supported: flowchart, sequence, state, class, ER, etc.
 
 ## Next Steps
 
-1. Test by creating a release: `just version-bump v0.3.0 && git push origin main --tags`
-2. Watch GitHub Actions complete docs build and deploy
-3. Verify at https://wasilak.github.io/secan/ and https://wasilak.github.io/secan/0.3/
+1. Test by creating a release: `just version-bump 0.3.0`
+2. Push: `git push origin main --tags`
+3. Watch GitHub Actions complete docs build and deploy
+4. Verify at https://wasilak.github.io/secan/ and https://wasilak.github.io/secan/0.3/
