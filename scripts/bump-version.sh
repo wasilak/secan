@@ -26,8 +26,11 @@ if [ "$CURRENT_VERSION" != "$VERSION" ]; then
     # Update frontend/package.json
     sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" frontend/package.json
 
+    # Regenerate Cargo.lock to match updated Cargo.toml
+    cargo metadata > /dev/null 2>&1 || true
+
     # Stage changes
-    git add Cargo.toml frontend/package.json
+    git add Cargo.toml Cargo.lock frontend/package.json
 
     # Commit version bump
     git commit -m "chore: bump version to $VERSION"
