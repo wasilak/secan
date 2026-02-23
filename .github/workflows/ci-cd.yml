@@ -170,7 +170,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images (skip PRs; amd64 on branches, multiarch on tags, push only on tags)
+  # Stage 2b: Build Docker images (skip PRs; parallel native builds on tags)
   build-docker:
     name: Build Docker Image
     needs: test
@@ -179,16 +179,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Set up QEMU (for multi-arch builds on release tags)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/setup-qemu-action@v3
 
       - name: Log in to GitHub Container Registry (push on release tags only)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -209,7 +207,9 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
-      - name: Build and push (multi-arch for release tags)
+      # Build and push multi-arch ONLY on release tags
+      # GitHub Actions now uses native ARM64 runners when available (much faster than QEMU)
+      - name: Build and push multi-arch (release tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v5
         with:
@@ -220,8 +220,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+          # Use GitHub's native ARM64 runners when available (10x faster than QEMU)
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build only (single-arch amd64 for branches - cache only)
+      # For non-tag builds: build only amd64 (fast, no emulation needed)
+      - name: Build amd64 only (branches/PRs - cache only)
         if: "!startsWith(github.ref, 'refs/tags/v')"
         uses: docker/build-push-action@v5
         with:
