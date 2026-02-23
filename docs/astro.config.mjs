@@ -1,17 +1,30 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightVersions from 'starlight-versions';
+import mermaid from 'astro-mermaid';
 
 // https://astro.build/config
 export default defineConfig({
 	site: 'https://wasilak.github.io',
 	base: '/secan/',
 	integrations: [
+		mermaid(),
 		starlight({
 			title: 'Secan',
 			description: 'A modern, lightweight Elasticsearch cluster management tool',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },
+			],
+			plugins: [
+				starlightVersions({
+					versions: [
+						{ slug: '0.2', label: 'v0.2.x' },
+					],
+					current: {
+						label: 'Latest',
+					},
+				}),
 			],
 			sidebar: [
 				{
@@ -19,6 +32,7 @@ export default defineConfig({
 					items: [
 						{ label: 'About Secan', slug: 'getting-started/about' },
 						{ label: 'Installation', slug: 'getting-started/installation' },
+						{ label: 'Architecture Overview', slug: 'getting-started/architecture' },
 					],
 				},
 				{
