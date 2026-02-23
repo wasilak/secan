@@ -21,9 +21,10 @@ export default defineConfig({
 					versions: [
 						{ slug: '1.2', label: 'v1.2.x' },
 						{ slug: '1.1', label: 'v1.1.x' },
+						{ slug: 'latest', label: 'main' },
 					],
 					current: {
-						label: 'Latest',
+						label: '1.2',
 					},
 				}),
 			],
