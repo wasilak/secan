@@ -55,7 +55,8 @@ pub struct RelocateShardRequest {
 
 /// List all configured clusters
 ///
-/// Returns a list of all clusters the user has access to
+/// Returns a list of all clusters the user has access to.
+/// If cluster name is not provided in config, fetches it from Elasticsearch API.
 ///
 /// # Requirements
 ///
@@ -91,7 +92,32 @@ pub async fn list_clusters(
         "Returning filtered cluster list"
     );
 
-    Ok(Json(filtered_clusters))
+    // Fetch actual cluster names from health API for clusters without name in config
+    let mut result_clusters = Vec::new();
+    for cluster_info in filtered_clusters {
+        if cluster_info.name.is_none() {
+            // Fetch cluster name from health API
+            if let Ok(cluster) = state.cluster_manager.get_cluster(&cluster_info.id).await {
+                if let Ok(health) = cluster.health().await {
+                    let cluster_name = health["cluster_name"]
+                        .as_str()
+                        .unwrap_or(&cluster_info.id)
+                        .to_string();
+
+                    result_clusters.push(ClusterInfo {
+                        id: cluster_info.id,
+                        name: Some(cluster_name),
+                        nodes: cluster_info.nodes,
+                        accessible: cluster_info.accessible,
+                    });
+                    continue;
+                }
+            }
+        }
+        result_clusters.push(cluster_info);
+    }
+
+    Ok(Json(result_clusters))
 }
 
 /// Filter clusters based on user's accessible cluster IDs
