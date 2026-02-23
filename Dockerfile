@@ -66,12 +66,9 @@ COPY --from=backend-builder /app/target/release/secan /app/secan
 # Copy default configuration
 COPY config.example.yaml /app/config.yaml
 
-# Copy entrypoint script
-COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-
 # Change ownership
-RUN chown secan:secan /app/secan /app/config.yaml /app/docker-entrypoint.sh && \
-    chmod +x /app/docker-entrypoint.sh && \
+RUN chown secan:secan /app/secan /app/config.yaml && \
+    chmod +x /app/secan && \
     chmod 644 /app/config.yaml
 
 # Switch to non-root user
@@ -89,5 +86,5 @@ ENV SECAN_SERVER_HOST=0.0.0.0 \
     SECAN_SERVER_PORT=27182 \
     RUST_LOG=info
 
-# Run the application with entrypoint
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Run the application
+CMD ["/app/secan"]
