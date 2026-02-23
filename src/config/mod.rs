@@ -803,21 +803,4 @@ mod tests {
         let auth = ClusterAuth::None;
         assert!(auth.validate(cluster_id).is_ok());
     }
-
-    /// Substitute environment variables in content
-    /// Supports ${VAR} and ${VAR:-default} syntax
-    fn substitute_env_vars(content: &str) -> String {
-        use std::env;
-
-        // Match ${VAR:-default} or ${VAR}
-        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
-
-        re.replace_all(content, |caps: &regex::Captures| {
-            let var_name = &caps[1];
-            let default_value = caps.get(2).map(|m| m.as_str());
-
-            env::var(var_name).unwrap_or_else(|_| default_value.unwrap_or("").to_string())
-        })
-        .into_owned()
-    }
 }

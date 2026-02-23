@@ -60,7 +60,8 @@ lint: lint-backend lint-frontend
 [group('lint')]
 lint-backend:
     # Run Rust linter
-    cargo clippy
+    # Use -- -D warnings to match CI/CD strictness (catches dead_code, unused imports, etc.)
+    cargo clippy -- -D warnings
     cargo fmt --check
 
 [group('lint')]
