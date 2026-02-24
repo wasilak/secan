@@ -18,9 +18,6 @@ CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(
 
 echo "Bumping version from $CURRENT_VERSION to $VERSION"
 
-# Extract major.minor for docs versioning (e.g., "1.0.1" -> "1.0")
-DOCS_VERSION=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
-
 # Only update and commit if version differs
 if [ "$CURRENT_VERSION" != "$VERSION" ]; then
     # Update Cargo.toml

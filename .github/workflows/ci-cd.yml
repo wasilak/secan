@@ -241,60 +241,103 @@ jobs:
 
   # Stage 2c: Build documentation (skip PRs, deploy only on release tags)
   build-docs:
-   name: Build Documentation
-   needs: test
-   if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
-   runs-on: ubuntu-latest
-   steps:
-     - name: Checkout code
-       uses: actions/checkout@v4
-       with:
-         fetch-depth: 0
+    name: Build Documentation
+    needs: test
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-     - name: Install Rust toolchain
-       uses: actions-rust-lang/setup-rust-toolchain@v1
-       with:
-         toolchain: stable
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
 
-     - name: Setup Node.js
-       uses: actions/setup-node@v4
-       with:
-         node-version: latest
-         cache: "npm"
-         cache-dependency-path: docs/package-lock.json
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          cache: "npm"
+          cache-dependency-path: docs/package-lock.json
 
-     - name: Setup Just
-       uses: extractions/setup-just@v3
-       with:
-         just-version: 1.46.0
+      - name: Setup Just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.46.0
 
-     - name: Add version to docs config (for release tags only)
-       if: startsWith(github.ref, 'refs/tags/v')
-       run: |
-         # Extract version from tag (e.g., v1.2.0 → 1.2)
-         VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//' | grep -oE '^[0-9]+\.[0-9]+')
-         
-         # Add to versions array in astro.config.mjs
-         python3 << 'EOF'
-         import re
-         version = "$VERSION"
-         with open('docs/astro.config.mjs', 'r') as f:
-             content = f.read()
-         pattern = r'(versions:\s*\[\s*)'
-         replacement = r'\1' + f"{{ slug: '{version}', label: 'v{version}.x' }},\n\t\t\t\t\t"
-         with open('docs/astro.config.mjs', 'w') as f:
-             f.write(re.sub(pattern, replacement, content))
-         EOF
+      - name: Build versioned documentation
+        run: |
+          # Get all tags and group by major.minor, keeping latest patch
+          echo "Finding all version tags..."
+          VERSIONS=$(git tag -l 'v*.*.*' | sort -V | python3 << 'PYTHON_EOF'
+          import sys
+          from collections import defaultdict
+          tags = [line.strip() for line in sys.stdin if line.strip()]
+          versions_dict = defaultdict(str)
+          for tag in tags:
+              version = tag.lstrip('v')
+              major_minor = '.'.join(version.split('.')[:2])
+              versions_dict[major_minor] = version
+          for v in sorted(versions_dict.keys(), key=lambda x: [int(n) for n in x.split('.')]):
+              print(f"v{versions_dict[v]}")
+          PYTHON_EOF
+          )
+          
+          mkdir -p final-dist
+          
+          # Build current version (main/latest)
+          echo "Building latest version from main..."
+          just docs-build-complete
+          cp -r docs/dist/* final-dist/
+          
+          # Build versioned docs from tags
+          if [ -n "$VERSIONS" ]; then
+            for tag in $VERSIONS; do
+              VERSION=${tag#v}
+              MAJOR_MINOR="${VERSION%.*}"
+              
+              echo "Building docs for $MAJOR_MINOR from tag $tag..."
+              git checkout $tag
+              
+              # Update config temporarily to add version
+              python3 << PYTHON_EOF
+          import re
+          with open('docs/astro.config.mjs', 'r') as f:
+              content = f.read()
+          pattern = r'(versions:\s*\[\s*)'
+          replacement = r'\1' + "{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' },\n\t\t\t\t\t"
+          with open('docs/astro.config.mjs', 'w') as f:
+              f.write(re.sub(pattern, replacement, content))
+          PYTHON_EOF
+              
+              # Build docs for this version
+              just docs-build-complete
+              
+              # Copy to final dist under version path
+              mkdir -p final-dist/$MAJOR_MINOR
+              cp -r docs/dist/* final-dist/$MAJOR_MINOR/
+              
+              # Restore config
+              git checkout docs/astro.config.mjs
+            done
+          fi
+          
+          # Return to main branch for final steps
+          git checkout main
+          
+          # Replace docs/dist with final combined version
+          rm -rf docs/dist
+          mv final-dist docs/dist
 
-     - name: Build documentation
-       run: just docs-build-complete
-
-     - name: Upload documentation artifact
-       uses: actions/upload-artifact@v4
-       with:
-         name: docs-site
-         path: docs/dist/
-         retention-days: 1
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: docs/dist/
+          retention-days: 1
 
   # Stage 3a: Deploy documentation (on main branch and release tags)
   deploy-docs:
