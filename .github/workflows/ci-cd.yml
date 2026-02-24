@@ -13,9 +13,44 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # Stage 1: Test everything
+  # Detect what changed to skip unnecessary jobs
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs-only: ${{ steps.changes.outputs.docs-only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect if only docs changed
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # On push: compare with previous commit
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # On PR: compare with base branch
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }} HEAD 2>/dev/null || echo "")
+          else
+            # On workflow_dispatch: assume we need full build
+            CHANGED_FILES=""
+          fi
+          
+          NON_DOCS_FILES=$(echo "$CHANGED_FILES" | grep -v '^docs/' | wc -l)
+          
+          if [[ $NON_DOCS_FILES -eq 0 && ! -z "$CHANGED_FILES" ]]; then
+            echo "docs-only=true" >> $GITHUB_OUTPUT
+          else
+            echo "docs-only=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Stage 1: Test everything (skip if only docs changed)
   test:
     name: Test Suite
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs-only == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -61,11 +96,11 @@ jobs:
       - name: Run frontend linting
         run: just lint-frontend
 
-  # Stage 2a: Build release binaries (skip PRs)
+  # Stage 2a: Build release binaries (skip PRs and docs-only changes)
   build-binaries:
     name: Build Release Binaries
-    needs: test
-    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
+    needs: [detect-changes, test]
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull') && needs.detect-changes.outputs.docs-only == 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -170,11 +205,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images (skip PRs; parallel native builds on tags)
+  # Stage 2b: Build Docker images (skip PRs and docs-only changes)
   build-docker:
     name: Build Docker Image
-    needs: test
-    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
+    needs: [detect-changes, test]
+    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull') && needs.detect-changes.outputs.docs-only == 'false'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -239,11 +274,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Stage 2c: Build documentation (skip PRs, deploy only on release tags)
+  # Stage 2c: Build documentation (always on main and tags)
   build-docs:
     name: Build Documentation
-    needs: test
-    if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
+    needs: detect-changes
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
