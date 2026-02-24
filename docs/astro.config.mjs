@@ -17,14 +17,7 @@ export default defineConfig({
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },
 			],
 			plugins: [
-				starlightVersions({
-					versions: [
-						{ slug: '1.1', label: 'v1.1.x' },
-					],
-					current: {
-						label: 'Latest (v1.2.x)',
-					},
-				}),
+				starlightVersions(),
 			],
 			sidebar: [
 				{
