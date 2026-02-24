@@ -271,81 +271,20 @@ jobs:
         with:
           just-version: 1.46.0
 
-      - name: Build versioned documentation
+      - name: Build documentation
         run: |
-          # Get all tags and group by major.minor, keeping latest patch
-          echo "Finding all version tags..."
-          echo "DEBUG: All tags:"
-          git tag -l
-          echo "DEBUG: Tags matching v*.*.*:"
-          git tag -l 'v*.*.*'
-          
-          # Create Python script to process tags
-          cat > /tmp/process_versions.py << 'PYTHON_EOF'
-          import sys
-          from collections import defaultdict
-          
-          tags = [line.strip() for line in sys.stdin if line.strip()]
-          print(f"DEBUG: Found {len(tags)} tags", file=sys.stderr)
-          for tag in tags:
-              print(f"DEBUG: Tag: {tag}", file=sys.stderr)
-          
-          versions_dict = defaultdict(str)
-          for tag in tags:
-              version = tag.lstrip('v')
-              major_minor = '.'.join(version.split('.')[:2])
-              versions_dict[major_minor] = version
-          
-          for v in sorted(versions_dict.keys(), key=lambda x: [int(n) for n in x.split('.')]):
-              print(f"v{versions_dict[v]}")
-          PYTHON_EOF
-          
-          VERSIONS=$(git tag -l 'v*.*.*' | sort -V 2>/dev/null | python3 /tmp/process_versions.py)
-          
-          echo "DEBUG: VERSIONS variable:"
-          echo "$VERSIONS"
-          
-          mkdir -p final-dist
-          
-          # Build main version first
-          echo "Building main version from main branch..."
+          # Build docs from current commit (main or tag)
           just docs-build-complete
-          mkdir -p final-dist/main
-          cp -r docs/dist/* final-dist/main/
           
-          # Build versioned docs from tags
-          while IFS= read -r tag; do
-            if [ -z "$tag" ]; then continue; fi
+          # If this is a release tag, also copy to versioned folder
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${{ github.ref_name }}"  # e.g., v1.2.0
+            MAJOR_MINOR="${VERSION%.*}"       # e.g., 1.2
             
-            VERSION=${tag#v}
-            MAJOR_MINOR="${VERSION%.*}"
-            
-            echo "Building docs for $MAJOR_MINOR from tag $tag..."
-            git checkout $tag
-            
-            # Update config by adding version to versions array
-            sed -i '' "s/versions: \[/versions: [{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' }, /" docs/astro.config.mjs
-            
-            # Build docs for this version
-            just docs-build-complete
-            
-            # Copy to final dist under version path
-            mkdir -p final-dist/$MAJOR_MINOR
-            cp -r docs/dist/* final-dist/$MAJOR_MINOR/
-            
-            # Restore config
-            git checkout docs/astro.config.mjs
-          done <<< "$VERSIONS"
-          
-          # Return to main branch for final steps
-          git checkout main
-          
-          # Copy latest version to root for backwards compatibility
-          cp -r final-dist/main/* final-dist/
-          
-          # Replace docs/dist with final combined version
-          rm -rf docs/dist
-          mv final-dist docs/dist
+            echo "Release tag detected: $VERSION -> storing in version $MAJOR_MINOR"
+            mkdir -p docs/dist/$MAJOR_MINOR
+            cp -r docs/dist/* docs/dist/$MAJOR_MINOR/ 2>/dev/null || true
+          fi
 
       - name: Upload documentation artifact
         uses: actions/upload-artifact@v4
