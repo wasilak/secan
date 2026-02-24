@@ -251,6 +251,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch all tags
+        run: git fetch --tags
+
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -272,7 +275,12 @@ jobs:
         run: |
           # Get all tags and group by major.minor, keeping latest patch
           echo "Finding all version tags..."
-          VERSIONS=$(git tag -l 'v*.*.*' | sort -V | python3 << 'PYTHON_EOF'
+          echo "DEBUG: All tags:"
+          git tag -l
+          echo "DEBUG: Tags matching v*.*.*:"
+          git tag -l 'v*.*.*'
+          
+          VERSIONS=$(git tag -l 'v*.*.*' | sort -V 2>/dev/null | python3 << 'PYTHON_EOF'
           import sys
           from collections import defaultdict
           tags = [line.strip() for line in sys.stdin if line.strip()]
