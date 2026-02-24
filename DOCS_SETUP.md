@@ -19,7 +19,7 @@
 
 ## Workflow: Creating a New Release
 
-### One Command
+### Step 1: Update Version
 ```bash
 just version-bump 1.1.0
 ```
@@ -27,40 +27,51 @@ just version-bump 1.1.0
 This automatically:
 1. Updates `Cargo.toml` with new version
 2. Updates `frontend/package.json` with new version
-3. Adds `1.1` to `docs/astro.config.mjs` versions array
-4. Commits all changes: `chore: bump version to 1.1.0`
-5. Creates git tag: `v1.1.0`
+3. Commits all changes: `chore: bump version to 1.1.0`
 
-### Push to Deploy
+### Step 2: Register Version in Docs (IMPORTANT)
+Edit `docs/astro.config.mjs` and add the new version to the versions array:
+```javascript
+versions: [
+  { slug: '1.1', label: 'v1.1.x' },  // ← Add this line
+  { slug: '1.0', label: 'v1.0.x' },
+  { slug: '0.2', label: 'v0.2.x' },
+],
+```
+
+Commit this change:
 ```bash
-git push origin main --tags
-# or
-git ptf  # if alias is configured
+git add docs/astro.config.mjs
+git commit -m "docs: add v1.1 to version selector"
+git push origin main
+```
+
+### Step 3: Create Release Tag
+```bash
+git tag -a "v1.1.0" -m "Release v1.1.0"
+git push origin v1.1.0
 ```
 
 ### GitHub Actions Automatically:
 
 **For tags matching `v*.*.*`:**
-
 1. **build-docs job:**
-   - Builds documentation with `just docs-build-complete`
-   - Reads versions from `docs/astro.config.mjs` (already includes new version)
-   - Creates archived version directories:
-     - `docs/dist/1.1/` ← v1.1.0 docs (frozen)
-     - `docs/dist/0.2/` ← v0.2 docs (frozen)
-     - `docs/dist/` ← current/latest docs
+   - Builds docs from the tagged commit
+   - Since astro.config.mjs lists all versions, the version selector includes all of them
+   - Copies built docs to `/secan/1.1/` (if tag is v1.1.0, extracts major.minor)
 
 2. **deploy-docs job:**
-   - Deploys entire `docs/dist/` to GitHub Pages
+   - Deploys to GitHub Pages
    - Results in:
      - `https://wasilak.github.io/secan/` → latest (main branch)
-     - `https://wasilak.github.io/secan/1.1/` → v1.1.0
-     - `https://wasilak.github.io/secan/0.2/` → v0.2
+     - `https://wasilak.github.io/secan/1.1/` → v1.1.0 docs (with full version selector)
+     - `https://wasilak.github.io/secan/1.0/` → v1.0.0 docs (with full version selector)
+     - `https://wasilak.github.io/secan/0.2/` → v0.2.0 docs (with full version selector)
 
 **For main branch pushes:**
-- Builds current docs as "Latest" version
+- Builds current docs as "Latest"
 - Deploys to `/secan/` 
-- Version selector includes all archived versions + Latest
+- Version selector reflects all versions currently in astro.config.mjs
 
 ## File Structure After Release
 
