@@ -1,7 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import starlightVersions from 'starlight-versions';
 import mermaid from 'astro-mermaid';
 
 // https://astro.build/config
@@ -15,14 +14,6 @@ export default defineConfig({
 			description: 'A modern, lightweight Elasticsearch cluster management tool',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },
-			],
-			plugins: [
-				starlightVersions({
-					versions: [],
-					current: {
-						label: 'Latest',
-					},
-				}),
 			],
 			sidebar: [
 				{

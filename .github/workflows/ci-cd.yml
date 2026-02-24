@@ -302,15 +302,33 @@ jobs:
               echo "Building docs for $MAJOR_MINOR from tag $tag..."
               git checkout $tag
               
-              # Update config temporarily to add version
+              # Add versioning plugin and version to config
               python3 << PYTHON_EOF
           import re
           with open('docs/astro.config.mjs', 'r') as f:
               content = f.read()
-          pattern = r'(versions:\s*\[\s*)'
-          replacement = r'\1' + "{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' },\n\t\t\t\t\t"
+          
+          # Add import for starlightVersions if not present
+          if 'starlightVersions' not in content:
+              content = content.replace(
+                  "import mermaid from 'astro-mermaid';",
+                  "import starlightVersions from 'starlight-versions';\nimport mermaid from 'astro-mermaid';"
+              )
+          
+          # Add plugins array if not present
+          if 'plugins:' not in content:
+              content = content.replace(
+                  "social: [\n\t\t\t\t{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },\n\t\t\t],",
+                  "social: [\n\t\t\t\t{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },\n\t\t\t],\n\t\t\tplugins: [\n\t\t\t\tstarlightVersions({\n\t\t\t\t\tversions: [{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' }],\n\t\t\t\t\tcurrent: { label: 'Latest' },\n\t\t\t\t}),\n\t\t\t],"
+              )
+          else:
+              # Add version to existing versions array
+              pattern = r'(versions:\s*\[\s*)'
+              replacement = r'\1' + "{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' },\n\t\t\t\t\t"
+              content = re.sub(pattern, replacement, content)
+          
           with open('docs/astro.config.mjs', 'w') as f:
-              f.write(re.sub(pattern, replacement, content))
+              f.write(content)
           PYTHON_EOF
               
               # Build docs for this version
