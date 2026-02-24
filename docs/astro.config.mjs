@@ -19,7 +19,7 @@ export default defineConfig({
 			plugins: [
 				starlightVersions({
 					versions: [
-						{ slug: '1.0', label: 'v1.0.x' },
+						{ slug: '1.1', label: 'v1.1.x' },
 					],
 					current: {
 						label: 'Latest',
