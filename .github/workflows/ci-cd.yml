@@ -280,9 +280,11 @@ jobs:
           echo "DEBUG: Tags matching v*.*.*:"
           git tag -l 'v*.*.*'
           
-          VERSIONS=$(git tag -l 'v*.*.*' | sort -V 2>/dev/null | python3 << 'PYTHON_EOF'
+          # Create Python script to process tags
+          cat > /tmp/process_versions.py << 'PYTHON_EOF'
           import sys
           from collections import defaultdict
+          
           tags = [line.strip() for line in sys.stdin if line.strip()]
           print(f"DEBUG: Found {len(tags)} tags", file=sys.stderr)
           for tag in tags:
@@ -293,10 +295,12 @@ jobs:
               version = tag.lstrip('v')
               major_minor = '.'.join(version.split('.')[:2])
               versions_dict[major_minor] = version
+          
           for v in sorted(versions_dict.keys(), key=lambda x: [int(n) for n in x.split('.')]):
               print(f"v{versions_dict[v]}")
           PYTHON_EOF
-          )
+          
+          VERSIONS=$(git tag -l 'v*.*.*' | sort -V 2>/dev/null | python3 /tmp/process_versions.py)
           
           echo "DEBUG: VERSIONS variable:"
           echo "$VERSIONS"
