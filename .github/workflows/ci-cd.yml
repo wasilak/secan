@@ -276,6 +276,10 @@ jobs:
           import sys
           from collections import defaultdict
           tags = [line.strip() for line in sys.stdin if line.strip()]
+          print(f"DEBUG: Found {len(tags)} tags", file=sys.stderr)
+          for tag in tags:
+              print(f"DEBUG: Tag: {tag}", file=sys.stderr)
+          
           versions_dict = defaultdict(str)
           for tag in tags:
               version = tag.lstrip('v')
@@ -286,6 +290,9 @@ jobs:
           PYTHON_EOF
           )
           
+          echo "DEBUG: VERSIONS variable:"
+          echo "$VERSIONS"
+          
           mkdir -p final-dist
           
           # Build main version first
@@ -295,54 +302,28 @@ jobs:
           cp -r docs/dist/* final-dist/main/
           
           # Build versioned docs from tags
-          if [ -n "$VERSIONS" ]; then
-            for tag in $VERSIONS; do
-              VERSION=${tag#v}
-              MAJOR_MINOR="${VERSION%.*}"
-              
-              echo "Building docs for $MAJOR_MINOR from tag $tag..."
-              git checkout $tag
-              
-              # Add versioning plugin and version to config
-              python3 << PYTHON_EOF
-          import re
-          with open('docs/astro.config.mjs', 'r') as f:
-              content = f.read()
-          
-          # Add import for starlightVersions if not present
-          if 'starlightVersions' not in content:
-              content = content.replace(
-                  "import mermaid from 'astro-mermaid';",
-                  "import starlightVersions from 'starlight-versions';\nimport mermaid from 'astro-mermaid';"
-              )
-          
-          # Add plugins array if not present
-          if 'plugins:' not in content:
-              content = content.replace(
-                  "social: [\n\t\t\t\t{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },\n\t\t\t],",
-                  "social: [\n\t\t\t\t{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasilak/secan' },\n\t\t\t],\n\t\t\tplugins: [\n\t\t\t\tstarlightVersions({\n\t\t\t\t\tversions: [{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' }],\n\t\t\t\t\tcurrent: { label: 'Latest' },\n\t\t\t\t}),\n\t\t\t],"
-              )
-          else:
-              # Add version to existing versions array
-              pattern = r'(versions:\s*\[\s*)'
-              replacement = r'\1' + "{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' },\n\t\t\t\t\t"
-              content = re.sub(pattern, replacement, content)
-          
-          with open('docs/astro.config.mjs', 'w') as f:
-              f.write(content)
-          PYTHON_EOF
-              
-              # Build docs for this version
-              just docs-build-complete
-              
-              # Copy to final dist under version path
-              mkdir -p final-dist/$MAJOR_MINOR
-              cp -r docs/dist/* final-dist/$MAJOR_MINOR/
-              
-              # Restore config
-              git checkout docs/astro.config.mjs
-            done
-          fi
+          while IFS= read -r tag; do
+            if [ -z "$tag" ]; then continue; fi
+            
+            VERSION=${tag#v}
+            MAJOR_MINOR="${VERSION%.*}"
+            
+            echo "Building docs for $MAJOR_MINOR from tag $tag..."
+            git checkout $tag
+            
+            # Add version to config
+            sed -i "s/{ slug: 'main', label: 'main' }/{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' }, { slug: 'main', label: 'main' }/" docs/astro.config.mjs
+            
+            # Build docs for this version
+            just docs-build-complete
+            
+            # Copy to final dist under version path
+            mkdir -p final-dist/$MAJOR_MINOR
+            cp -r docs/dist/* final-dist/$MAJOR_MINOR/
+            
+            # Restore config
+            git checkout docs/astro.config.mjs
+          done <<< "$VERSIONS"
           
           # Return to main branch for final steps
           git checkout main
