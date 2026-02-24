@@ -1,170 +1,115 @@
 # Documentation Setup
 
-## Features Implemented
+## Features
 
 ### 1. Mermaid Diagram Support
 - **Package:** `astro-mermaid` (v1.3.1)
-- **Status:** ✅ Active
-- **Usage:** Create code blocks with ` ```mermaid ` language identifier in markdown
-- **Example:** See `docs/src/content/docs/getting-started/architecture.md`
+- Render diagrams directly in markdown with ` ```mermaid ` blocks
+- Example: `docs/src/content/docs/getting-started/architecture.md`
 
 ### 2. Documentation Versioning
 - **Package:** `starlight-versions` (v0.7.0)
-- **Status:** ✅ Active
-- **How it works:**
-  - Current docs in `src/content/docs/` are served as "Latest"
-  - Archived versions stored in `src/content/versions/{version}/`
-  - Version selector dropdown in docs header
-  - URL structure: `/secan/` (latest), `/secan/0.2/` (v0.2), etc.
+- Version selector dropdown in docs header
+- URL structure: `/secan/` (latest), `/secan/1.2/` (archived), etc.
 
-## Workflow: Creating a New Release
+## Workflow: Release and Version Docs
 
-### Step 1: Update Version
+### 1. Update Code & Docs on main
+Make your code and documentation changes, commit to main:
 ```bash
-just version-bump 1.1.0
+git add .
+git commit -m "feature: add new feature"
+git push origin main
 ```
 
-This automatically:
-1. Updates `Cargo.toml` with new version
-2. Updates `frontend/package.json` with new version
-3. Commits all changes: `chore: bump version to 1.1.0`
-
-### Step 2: Register Version in Docs (IMPORTANT)
-Edit `docs/astro.config.mjs` and add the new version to the versions array:
+### 2. When Ready to Release: Register Version
+Edit `docs/astro.config.mjs` and add the version to the versions array:
 ```javascript
 versions: [
-  { slug: '1.1', label: 'v1.1.x' },  // ← Add this line
-  { slug: '1.0', label: 'v1.0.x' },
+  { slug: '1.2', label: 'v1.2.x' },  // ← Add new version
+  { slug: '1.1', label: 'v1.1.x' },
   { slug: '0.2', label: 'v0.2.x' },
 ],
 ```
 
-Commit this change:
+Commit:
 ```bash
 git add docs/astro.config.mjs
-git commit -m "docs: add v1.1 to version selector"
+git commit -m "docs: register v1.2"
 git push origin main
 ```
 
-### Step 3: Create Release Tag
+### 3. Create Git Tag
 ```bash
-git tag -a "v1.1.0" -m "Release v1.1.0"
-git push origin v1.1.0
+git tag -a "v1.2.0" -m "Release v1.2.0"
+git push origin v1.2.0
 ```
 
-### GitHub Actions Automatically:
+### 4. Build & Deploy Docs Locally
+```bash
+# Build production docs
+just docs-build-complete
 
-**For tags matching `v*.*.*`:**
-1. **build-docs job:**
-   - Builds docs from the tagged commit
-   - Since astro.config.mjs lists all versions, the version selector includes all of them
-   - Copies built docs to `/secan/1.1/` (if tag is v1.1.0, extracts major.minor)
+# Docs are in docs/dist/
+# - Current version goes to: docs/dist/
+# - Extract version from git tag, e.g., v1.2.0 → 1.2
+# - Archive to: docs/dist/1.2/
 
-2. **deploy-docs job:**
-   - Deploys to GitHub Pages
-   - Results in:
-     - `https://wasilak.github.io/secan/` → latest (main branch)
-     - `https://wasilak.github.io/secan/1.1/` → v1.1.0 docs (with full version selector)
-     - `https://wasilak.github.io/secan/1.0/` → v1.0.0 docs (with full version selector)
-     - `https://wasilak.github.io/secan/0.2/` → v0.2.0 docs (with full version selector)
-
-**For main branch pushes:**
-- Builds current docs as "Latest"
-- Deploys to `/secan/` 
-- Version selector reflects all versions currently in astro.config.mjs
-
-## File Structure After Release
-
+# Deploy manually to GitHub Pages or your hosting
 ```
-docs/
-├── src/
-│   ├── content/
-│   │   ├── docs/              ← Current/Latest version
-│   │   │   ├── getting-started/
-│   │   │   │   └── architecture.md
-│   │   │   ├── features/
-│   │   │   └── ...
-│   │   └── versions/           ← Archived versions
-│   │       ├── 1.1/
-│   │       │   └── docs.json
-│   │       └── 0.2/
-│   │           └── docs.json
-│   └── content.config.ts      ← Includes docsVersionsLoader
-├── astro.config.mjs           ← Updated by build script for tags
-├── package.json
-└── ...
-```
-
-## Key Files
-
-- **astro.config.mjs** - Starlight + Mermaid + Versions configuration
-- **src/content.config.ts** - Content collections with versions loader
-- **scripts/bump-version.sh** - Updates version + docs config + creates tag
-- **docs/src/content/docs/getting-started/architecture.md** - Example Mermaid diagram
-- **.github/workflows/ci-cd.yml** - Build and deploy automation
-
-## Adding a Second Archived Version
-
-When you tag `v1.1.0`, the script automatically adds it. But to maintain older versions when creating even newer ones, just keep the versions in `astro.config.mjs`.
-
-For example, after tagging v1.1.0 and v2.0.0:
-```javascript
-versions: [
-  { slug: '2.0', label: 'v2.0.x' },
-  { slug: '1.1', label: 'v1.1.x' },
-  { slug: '0.2', label: 'v0.2.x' },
-]
-```
-
-Each CI build includes all versions.
 
 ## Local Development
 
 ```bash
-# Start dev server (includes all versions)
+# Dev server with live reload
 just docs-dev
 
-# Build production (includes all versions)
-just docs-build
+# Production build
+just docs-build-complete
 
 # Preview production build
 just docs-preview
 ```
 
-## Adding More Diagrams
+## Adding Diagrams
 
-Create any markdown file with Mermaid code blocks:
+Create markdown files with Mermaid blocks:
 ```markdown
 ## System Architecture
 
 ```mermaid
 graph TD
-    A[Component] --> B[Another]
+    A[Client] --> B[Server]
+    B --> C[Database]
 ```
 ```
 
-All diagram types supported: flowchart, sequence, state, class, ER, etc.
+All Mermaid diagram types supported: flowchart, sequence, state, class, ER, gantt, etc.
 
-## Troubleshooting
+## File Structure
 
-**"Version not showing in selector"**
-- Verify version added to `astro.config.mjs` versions array
-- Run build: `npm run build`
-- Check `dist/` contains version directory
+```
+docs/
+├── src/
+│   ├── content/
+│   │   ├── docs/                    ← Current/latest docs
+│   │   │   ├── getting-started/
+│   │   │   └── features/
+│   │   └── versions/                ← Starlight versions loader
+│   └── content.config.ts
+├── astro.config.mjs                 ← Version selector config
+├── package.json
+└── dist/                            ← Built output (not in git)
+```
 
-**"Build fails for tag"**
-- Verify script permissions: `chmod +x scripts/update-docs-version.sh`
-- Check tag format matches `v*.*.*`
-- Review GitHub Actions logs
+## Release Process Summary
 
-**"Deploy didn't update"**
-- Check GitHub Pages is enabled in repo settings
-- Verify branch is set to "GitHub Actions" as source
-- Wait 1-2 minutes for Pages deployment
+| Step | Action |
+|------|--------|
+| 1 | Make code/docs changes on main |
+| 2 | Add version slug to `astro.config.mjs`, commit, push |
+| 3 | Create git tag: `git tag -a v1.2.0 ...` and push |
+| 4 | Run `just docs-build-complete` locally |
+| 5 | Copy `docs/dist/` to `/secan/` (latest) and `/secan/1.2/` (archive) |
 
-## Next Steps
-
-1. Test by creating a release: `just version-bump 0.3.0`
-2. Push: `git push origin main --tags`
-3. Watch GitHub Actions complete docs build and deploy
-4. Verify at https://wasilak.github.io/secan/ and https://wasilak.github.io/secan/0.3/
+That's it. No complex CI/CD versioning logic—just git tags marking release points, and manual version registration in the config.
