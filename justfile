@@ -170,8 +170,4 @@ docs-integrate-api:
 [group('docs')]
 docs-build-complete: frontend-build docs-rust-api docs-build docs-integrate-api
     # Build complete documentation site (Starlight + Rust API)
-
-[group('docs')]
-docs-build-with-versions:
-    # Build documentation with version management (for CI/CD)
-    cd docs && npm ci && npm run build
+    # Note: Version management is handled automatically by CI/CD from git tags
