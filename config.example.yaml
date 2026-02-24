@@ -84,10 +84,10 @@ clusters:
       username: "elastic"
       password: "secure-password"  # Consider using env vars for secrets
     
-    # TLS configuration
-    tls:
-      verify: true
-      ca_cert_file: "/etc/secan/ca.pem"
+    # TLS configuration (optional)
+    # tls:
+    #   verify: true
+    #   ca_cert_file: "/path/to/ca.pem"  # Only if you need custom CA
     
     es_version: 8
 
