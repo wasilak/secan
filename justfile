@@ -138,7 +138,7 @@ pkg-binary:
 
 [group('version')]
 version-bump TAG:
-    # Bump version and create git tag (usage: just version-bump v0.2.0)
+    # Bump version and create git tag (usage: just version-bump 1.3.0)
     ./scripts/bump-version.sh {{TAG}}
 
 [group('docs')]
