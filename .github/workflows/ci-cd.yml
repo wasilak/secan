@@ -288,10 +288,11 @@ jobs:
           
           mkdir -p final-dist
           
-          # Build current version (main/latest)
-          echo "Building latest version from main..."
+          # Build main version first
+          echo "Building main version from main branch..."
           just docs-build-complete
-          cp -r docs/dist/* final-dist/
+          mkdir -p final-dist/main
+          cp -r docs/dist/* final-dist/main/
           
           # Build versioned docs from tags
           if [ -n "$VERSIONS" ]; then
@@ -345,6 +346,9 @@ jobs:
           
           # Return to main branch for final steps
           git checkout main
+          
+          # Copy latest version to root for backwards compatibility
+          cp -r final-dist/main/* final-dist/
           
           # Replace docs/dist with final combined version
           rm -rf docs/dist
