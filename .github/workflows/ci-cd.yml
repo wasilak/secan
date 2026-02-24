@@ -313,6 +313,30 @@ jobs:
           mkdir -p final-dist/main
           cp -r docs/dist/* final-dist/main/
           
+          # Create a Python helper to update config
+          cat > /tmp/update_config.py << 'UPDATE_CONFIG'
+          import sys
+          import re
+
+          major_minor = sys.argv[1]
+          config_file = sys.argv[2]
+
+          with open(config_file, 'r') as f:
+          content = f.read()
+
+          # Match the versions array and inject new version before 'main'
+          # Pattern: versions: [ ... { slug: 'main', ... } ... ]
+          # We need to preserve all existing versions and prepend the new one
+          pattern = r"(versions:\s*\[)(\s*)"
+          replacement = rf"\1\2{{ slug: '{major_minor}', label: 'v{major_minor}.x' }},\2"
+          content = re.sub(pattern, replacement, content)
+
+          with open(config_file, 'w') as f:
+          f.write(content)
+
+          print(f"Updated config with version {major_minor}")
+          UPDATE_CONFIG
+          
           # Build versioned docs from tags
           while IFS= read -r tag; do
             if [ -z "$tag" ]; then continue; fi
@@ -323,8 +347,8 @@ jobs:
             echo "Building docs for $MAJOR_MINOR from tag $tag..."
             git checkout $tag
             
-            # Add version to config
-            sed -i "s/{ slug: 'main', label: 'main' }/{ slug: '$MAJOR_MINOR', label: 'v$MAJOR_MINOR.x' }, { slug: 'main', label: 'main' }/" docs/astro.config.mjs
+            # Inject version into astro.config.mjs
+            python3 /tmp/update_config.py "$MAJOR_MINOR" "docs/astro.config.mjs"
             
             # Build docs for this version
             just docs-build-complete
