@@ -411,25 +411,23 @@ pub async fn get_node_stats(
         }
     })?;
 
-    // Get cluster state for master info
-    let cluster_state = cluster.cluster_state().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to get cluster state"
-        );
-        ClusterErrorResponse {
-            error: "cluster_state_failed".to_string(),
-            message: format!("Failed to get cluster state: {}", e),
-        }
-    })?;
-
-    // Get shards for data nodes
+    // Get shards for data nodes using lightweight _cat/shards API
     let shards = if let Some(node_info) = nodes_info["nodes"][&node_id].as_object() {
         if let Some(roles) = node_info.get("roles").and_then(|r| r.as_array()) {
             let has_data_role = roles.iter().any(|r| r.as_str() == Some("data"));
             if has_data_role {
-                Some(cluster_state.clone())
+                match cluster.cat_shards_for_node(&node_id).await {
+                    Ok(shards_data) => Some(shards_data),
+                    Err(e) => {
+                        tracing::warn!(
+                            cluster_id = %cluster_id,
+                            node_id = %node_id,
+                            error = %e,
+                            "Failed to get shards for node"
+                        );
+                        None
+                    }
+                }
             } else {
                 None
             }
@@ -440,12 +438,13 @@ pub async fn get_node_stats(
         None
     };
 
-    // Transform to frontend format
+    // Transform to frontend format (dummy cluster_state for compatibility)
+    let dummy_cluster_state = serde_json::json!({});
     let response = transform_node_detail_stats(
         &node_id,
         &nodes_info,
         &node_stats,
-        &cluster_state,
+        &dummy_cluster_state,
         shards.as_ref(),
     )
     .map_err(|e| {

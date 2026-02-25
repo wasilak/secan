@@ -67,6 +67,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get shard information using _cat/shards API (memory-efficient)
     async fn cat_shards(&self) -> Result<Value>;
 
+    /// Get shard information for a specific node using _cat/shards API (memory-efficient)
+    async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value>;
+
     /// Get master node ID using _cat/master API (memory-efficient)
     async fn cat_master(&self) -> Result<String>;
 }
@@ -501,6 +504,33 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse cat shards response")
+    }
+
+    /// Get shard information for a specific node using _cat/shards API
+    async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value> {
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!(
+                    "/_cat/shards?format=json&bytes=b&h=index,shard,prirep,state,node,docs,store&node={}",
+                    node_id
+                ),
+                None,
+            )
+            .await
+            .context("Cat shards for node request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Cat shards for node failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cat shards for node response")
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)
