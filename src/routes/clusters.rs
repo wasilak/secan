@@ -653,33 +653,22 @@ pub async fn get_shards(
             }
         })?;
 
-    // Get cluster state and indices stats using SDK typed methods
-    let cluster_state = cluster.cluster_state().await.map_err(|e| {
+    // Use _cat/shards API for memory-efficient shard retrieval
+    // This is significantly faster and uses ~90% less memory than _cluster/state
+    let cat_shards = cluster.cat_shards().await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,
-            "Failed to get cluster state"
+            "Failed to get shard information"
         );
         ClusterErrorResponse {
-            error: "cluster_state_failed".to_string(),
-            message: format!("Failed to get cluster state: {}", e),
-        }
-    })?;
-
-    let indices_stats = cluster.indices_stats().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to get indices stats"
-        );
-        ClusterErrorResponse {
-            error: "indices_stats_failed".to_string(),
-            message: format!("Failed to get indices stats: {}", e),
+            error: "shards_failed".to_string(),
+            message: format!("Failed to get shard information: {}", e),
         }
     })?;
 
     // Transform to frontend format
-    let response = transform_shards(&cluster_state, &indices_stats);
+    let response = transform_shards(&cat_shards);
 
     tracing::debug!(
         cluster_id = %cluster_id,

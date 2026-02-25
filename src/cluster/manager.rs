@@ -219,6 +219,11 @@ impl ClusterConnection {
     pub async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
         self.client.indices_stats_with_shards(index).await
     }
+
+    /// Get shard information using _cat/shards API (memory-efficient)
+    pub async fn cat_shards(&self) -> Result<Value> {
+        self.client.cat_shards().await
+    }
 }
 
 #[cfg(test)]
