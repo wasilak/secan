@@ -319,17 +319,14 @@ pub async fn get_nodes(
         }
     })?;
 
-    // Get cluster state to determine master node
-    let master_node_id = match cluster.cluster_state().await {
-        Ok(cluster_state) => cluster_state
-            .get("master_node")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
+    // Get master node ID using lightweight _cat/master API instead of full cluster state
+    let master_node_id = match cluster.cat_master().await {
+        Ok(master_id) => Some(master_id),
         Err(e) => {
             tracing::warn!(
                 cluster_id = %cluster_id,
                 error = %e,
-                "Failed to get cluster state for master node detection"
+                "Failed to get master node ID"
             );
             None
         }

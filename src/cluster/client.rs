@@ -66,6 +66,9 @@ pub trait ElasticsearchClient: Send + Sync {
 
     /// Get shard information using _cat/shards API (memory-efficient)
     async fn cat_shards(&self) -> Result<Value>;
+
+    /// Get master node ID using _cat/master API (memory-efficient)
+    async fn cat_master(&self) -> Result<String>;
 }
 
 impl Client {
@@ -498,6 +501,33 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse cat shards response")
+    }
+
+    /// Get master node ID using _cat/master API (memory-efficient)
+    /// Much lighter than loading full cluster state just for the master node ID
+    async fn cat_master(&self) -> Result<String> {
+        let response = self
+            .request(reqwest::Method::GET, "/_cat/master?format=json", None)
+            .await
+            .context("Cat master request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Cat master failed with status: {}", response.status());
+        }
+
+        let master_data = response
+            .json::<Vec<serde_json::Value>>()
+            .await
+            .context("Failed to parse cat master response")?;
+
+        // _cat/master returns an array with one object containing 'id' field
+        let master_id = master_data
+            .first()
+            .and_then(|m| m["id"].as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("No master node found in response"))?;
+
+        Ok(master_id)
     }
 }
 

@@ -224,6 +224,11 @@ impl ClusterConnection {
     pub async fn cat_shards(&self) -> Result<Value> {
         self.client.cat_shards().await
     }
+
+    /// Get master node ID using _cat/master API (memory-efficient)
+    pub async fn cat_master(&self) -> Result<String> {
+        self.client.cat_master().await
+    }
 }
 
 #[cfg(test)]
