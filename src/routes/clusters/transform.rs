@@ -213,13 +213,8 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
 
     if let Some(shards_array) = cat_shards.as_array() {
         for shard_entry in shards_array {
-            let index = shard_entry["index"]
-                .as_str()
-                .unwrap_or("")
-                .to_string();
-            let shard = shard_entry["shard"]
-                .as_u64()
-                .unwrap_or(0) as u32;
+            let index = shard_entry["index"].as_str().unwrap_or("").to_string();
+            let shard = shard_entry["shard"].as_u64().unwrap_or(0) as u32;
             let primary = shard_entry["prirep"]
                 .as_str()
                 .map(|s| s == "p")
@@ -228,15 +223,9 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
                 .as_str()
                 .unwrap_or("UNASSIGNED")
                 .to_string();
-            let node = shard_entry["node"]
-                .as_str()
-                .map(|s| s.to_string());
-            let docs = shard_entry["docs"]
-                .as_u64()
-                .unwrap_or(0);
-            let store = shard_entry["store"]
-                .as_u64()
-                .unwrap_or(0);
+            let node = shard_entry["node"].as_str().map(|s| s.to_string());
+            let docs = shard_entry["docs"].as_u64().unwrap_or(0);
+            let store = shard_entry["store"].as_u64().unwrap_or(0);
 
             result.push(ShardInfoResponse {
                 index,
@@ -716,7 +705,7 @@ mod tests {
         let result = transform_shards(&cat_shards);
 
         assert_eq!(result.len(), 3);
-        
+
         // Check primary shard
         assert_eq!(result[0].index, "logs-2024.01");
         assert_eq!(result[0].shard, 0);

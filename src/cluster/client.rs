@@ -491,10 +491,7 @@ impl ElasticsearchClient for Client {
             .context("Cat shards request failed")?;
 
         if !response.status().is_success() {
-            anyhow::bail!(
-                "Cat shards failed with status: {}",
-                response.status()
-            );
+            anyhow::bail!("Cat shards failed with status: {}", response.status());
         }
 
         response
