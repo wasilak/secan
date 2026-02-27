@@ -232,8 +232,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Use platform-specific cache to avoid race conditions
+          # Each platform gets its own cache scope
+          cache-from: type=gha,scope=${{ matrix.platform_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform_name }}
           build-args: |
             BUILDKIT_INLINE_CACHE=1
           provenance: false
