@@ -118,10 +118,10 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
     // Reset mocks
     vi.clearAllMocks();
 
-    // Mock initial API responses
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue(mockShards);
+    // Mock initial API responses (with pagination wrapper)
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({ items: mockShards, total: mockShards.length, page: 1, page_size: 50, total_pages: 1 });
 
     // Use fake timers for controlling intervals
     vi.useFakeTimers();
@@ -182,7 +182,7 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
       },
     ];
 
-    vi.mocked(apiClient.getShards).mockResolvedValue(relocatingShards);
+    vi.mocked(apiClient.getShards).mockResolvedValue({ items: relocatingShards, total: relocatingShards.length, page: 1, page_size: 50, total_pages: 1 });
 
     renderWithProviders(<ShardGrid clusterId="test-cluster" refreshInterval={2000} />);
 
@@ -338,10 +338,10 @@ describe('ShardGrid - Relocation Progress Tracking', () => {
   });
 
   it.skip('polls every 2 seconds during relocation - Requirements: 7.2, 7.3', async () => {
-    // Mock API responses
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue(mockShards);
+    // Mock API responses (with pagination wrapper)
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({ items: mockShards, total: mockShards.length, page: 1, page_size: 50, total_pages: 1 });
     vi.mocked(apiClient.relocateShard).mockResolvedValue(undefined);
 
     renderWithProviders(<ShardGrid clusterId="test-cluster" refreshInterval={30000} />);

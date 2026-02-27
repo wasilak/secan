@@ -15,6 +15,7 @@ export interface User {
 interface AuthContextState {
   user: User | null;
   isAuthenticated: boolean;
+  isAuthEnabled: boolean; // True if authentication is actually enabled (not "open" mode)
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -109,9 +110,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   };
 
+  // Check if authentication is actually enabled
+  // In "open" mode, the backend returns a user with username "open"
+  // but we should not show auth UI in this case
+  const isAuthEnabled = user !== null && user.username !== 'open';
+
   const value: AuthContextState = {
     user,
     isAuthenticated: user !== null,
+    isAuthEnabled,
     isLoading,
     login,
     logout,

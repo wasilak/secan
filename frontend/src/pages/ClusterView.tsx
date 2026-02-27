@@ -1347,12 +1347,15 @@ function IndicesList({
   // Requirements: 31.7 - Debounce user input in search and filter fields
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Fetch shards to identify unassigned/problem shards
-  const { data: shards } = useQuery({
+  // Fetch shards to identify unassigned/problem shards (paginated, extract items)
+  const { data: shardsPaginatedForIndices } = useQuery({
     queryKey: ['cluster', id, 'shards'],
     queryFn: () => apiClient.getShards(id!),
     enabled: !!id,
   });
+
+  // Extract shards array from paginated response (for use in IndicesList)
+  const shards: ShardInfo[] = shardsPaginatedForIndices?.items ?? [];
 
   // Fetch cluster settings to check allocation status
   const { data: clusterSettings } = useQuery({

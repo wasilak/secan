@@ -3,6 +3,7 @@ import { Group, Stack, Menu, ActionIcon, Text, Divider, Tooltip, Avatar } from '
 import { IconSun, IconMoon, IconDeviceDesktop, IconLogout } from '@tabler/icons-react';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { useMantineColorScheme } from '@mantine/core';
+import { useAuth } from '../contexts/AuthContext';
 import type { User } from '../contexts/AuthContext';
 
 interface DrawerControlsProps {
@@ -29,6 +30,7 @@ export const DrawerControls = memo(function DrawerControls({
 }: DrawerControlsProps) {
   const { theme, setTheme } = useTheme();
   const { colorScheme } = useMantineColorScheme();
+  const { isAuthEnabled } = useAuth();
 
   // Memoize theme icon to avoid recalculation on every render
   const themeIcon = useMemo(() => {
@@ -99,8 +101,8 @@ export const DrawerControls = memo(function DrawerControls({
     <Stack gap="sm">
       <Divider />
 
-      {/* User menu */}
-      {user && onLogout && (
+      {/* User menu - only show if authentication is enabled (not in "open" mode) */}
+      {user && onLogout && isAuthEnabled && (
         <>
           <Menu shadow="md" width={200}>
             <Menu.Target>

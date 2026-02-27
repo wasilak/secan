@@ -130,10 +130,10 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
     // Reset mocks
     vi.clearAllMocks();
 
-    // Mock API calls to return test data
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
+    // Mock API calls to return test data (with pagination wrapper)
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    const shardData = [
       {
         index: 'test-index',
         shard: 0,
@@ -152,7 +152,8 @@ describe('ShardGrid - End-to-End Relocation Flow', () => {
         docs: 1000,
         storeSize: 1024000,
       },
-    ]);
+    ];
+    vi.mocked(apiClient.getShards).mockResolvedValue({ items: shardData, total: shardData.length, page: 1, page_size: 50, total_pages: 1 });
   });
 
   it('completes full relocation workflow: click shard -> select for relocation -> click destination -> confirm', async () => {

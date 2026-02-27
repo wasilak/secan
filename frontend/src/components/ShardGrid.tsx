@@ -158,11 +158,16 @@ export function ShardGrid({
 
     try {
       // Fetch nodes, indices, and shards in parallel
-      const [nodesData, indicesData, shardsData] = await Promise.all([
+      const [nodesPaginatedResponse, indicesPaginatedResponse, shardsPaginatedResponse] = await Promise.all([
         apiClient.getNodes(clusterId),
         apiClient.getIndices(clusterId),
         apiClient.getShards(clusterId),
       ]);
+
+      // Extract items from paginated responses
+      const nodesData = nodesPaginatedResponse.items;
+      const indicesData = indicesPaginatedResponse.items;
+      const shardsData = shardsPaginatedResponse.items;
 
       // Parse the data into shard grid structure
       const gridData = parseShardGridData(nodesData, indicesData, shardsData);
