@@ -224,9 +224,8 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
-      # Release tags: build and push platform-specific image
-      - name: Build and push ${{ matrix.platform_name }} (release tags)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Build and push platform-specific image (always)
+      - name: Build and push ${{ matrix.platform_name }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -240,18 +239,6 @@ jobs:
             BUILDKIT_INLINE_CACHE=1
           provenance: false
           sbom: false
-
-      # Non-tag builds: build only amd64 for testing (no push)
-      - name: Build amd64 only (branches/PRs - cache only)
-        if: "!startsWith(github.ref, 'refs/tags/v') && matrix.platform_name == 'amd64'"
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          tags: secan:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   # Stage 2c: Create multi-arch manifest (fan-in merge step)
   create-manifest:
@@ -287,20 +274,25 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Get the version tag from the release ref
+          # Get the version tag from the release ref (e.g., v1.2.4)
           VERSION_TAG="${{ github.ref_name }}"
           
-          echo "Creating multi-arch manifest for version: $VERSION_TAG"
+          # For non-tag pushes, use SHA-based tag
+          if [[ ! "$VERSION_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            VERSION_TAG="${{ github.sha }}"
+          fi
           
-          # Create manifest for the version tag
+          echo "Creating multi-arch manifest for: $VERSION_TAG"
+          
+          # Create manifest for the main tag
           docker buildx imagetools create \
             -t "ghcr.io/${{ github.repository }}:$VERSION_TAG" \
             "ghcr.io/${{ github.repository }}:$VERSION_TAG-amd64" \
             "ghcr.io/${{ github.repository }}:$VERSION_TAG-arm64"
           
-          # Create manifest for major.minor tag (e.g., v1.2)
-          MAJOR_MINOR=$(echo "$VERSION_TAG" | sed -E 's/^v([0-9]+\.[0-9]+)\.[0-9]+/\1/')
-          if [ "$MAJOR_MINOR" != "$VERSION_TAG" ]; then
+          # Create manifest for major.minor tag if it's a version tag (e.g., v1.2.4 -> v1.2)
+          if [[ "$VERSION_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            MAJOR_MINOR=$(echo "$VERSION_TAG" | sed -E 's/^v([0-9]+\.[0-9]+)\.[0-9]+/\1/')
             echo "Creating major.minor tag: $MAJOR_MINOR"
             docker buildx imagetools create \
               -t "ghcr.io/${{ github.repository }}:$MAJOR_MINOR" \
