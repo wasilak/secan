@@ -1,6 +1,6 @@
 {
   "name": "secan-frontend",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "private": true,
   "description": "Secan - Elasticsearch cluster management tool frontend",
   "license": "GPL-3.0",
