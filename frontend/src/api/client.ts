@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import {
+  PaginatedResponse,
   ClusterInfo,
   ClusterHealth,
   ClusterStats,
@@ -338,7 +339,7 @@ export class ApiClient {
   }
 
   /**
-   * Get list of nodes in a cluster
+   * Get list of nodes in a cluster with pagination
    *
    * Handles optional fields with default values:
    * - loadAverage defaults to undefined if not provided
@@ -347,18 +348,24 @@ export class ApiClient {
    *
    * Requirements: 4.6, 14.1, 14.2
    */
-  async getNodes(clusterId: string): Promise<NodeInfo[]> {
+  async getNodes(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<NodeInfo[]>(`/clusters/${clusterId}/nodes`);
+      const response = await this.client.get<PaginatedResponse<NodeInfo>>(
+        `/clusters/${clusterId}/nodes`,
+        { params: { page, page_size: pageSize } }
+      );
 
       // Ensure optional fields have proper defaults
-      return response.data.map((node) => ({
-        ...node,
-        tags: node.tags ?? [],
-        loadAverage: node.loadAverage ?? undefined,
-        uptime: node.uptime ?? undefined,
-        uptimeMillis: node.uptimeMillis ?? undefined,
-      }));
+      return {
+        ...response.data,
+        items: response.data.items.map((node) => ({
+          ...node,
+          tags: node.tags ?? [],
+          loadAverage: node.loadAverage ?? undefined,
+          uptime: node.uptime ?? undefined,
+          uptimeMillis: node.uptimeMillis ?? undefined,
+        })),
+      };
     });
   }
 
@@ -415,25 +422,31 @@ export class ApiClient {
   }
 
   /**
-   * Get list of indices in a cluster
+   * Get list of indices in a cluster with pagination
    *
    * Requirements: 4.7
    */
-  async getIndices(clusterId: string): Promise<IndexInfo[]> {
+  async getIndices(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<IndexInfo>> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<IndexInfo[]>(`/clusters/${clusterId}/indices`);
+      const response = await this.client.get<PaginatedResponse<IndexInfo>>(
+        `/clusters/${clusterId}/indices`,
+        { params: { page, page_size: pageSize } }
+      );
       return response.data;
     });
   }
 
   /**
-   * Get shard allocation information
+   * Get shard allocation information with pagination
    *
    * Requirements: 4.8
    */
-  async getShards(clusterId: string): Promise<ShardInfo[]> {
+  async getShards(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<ShardInfo>> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ShardInfo[]>(`/clusters/${clusterId}/shards`);
+      const response = await this.client.get<PaginatedResponse<ShardInfo>>(
+        `/clusters/${clusterId}/shards`,
+        { params: { page, page_size: pageSize } }
+      );
       return response.data;
     });
   }

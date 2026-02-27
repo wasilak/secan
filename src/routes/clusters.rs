@@ -11,11 +11,14 @@ use serde_json::Value;
 use std::sync::Arc;
 
 mod transform;
+mod pagination;
+
 use transform::{
     transform_cluster_stats, transform_indices, transform_node_detail_stats, transform_nodes,
     transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
     NodeInfoResponse, ShardInfoResponse,
 };
+use pagination::{PaginationParams, PaginatedResponse, paginate_vec};
 
 /// Shared application state for cluster routes
 #[derive(Clone)]
@@ -336,9 +339,9 @@ pub async fn get_cluster_settings(
     Ok(Json(settings))
 }
 
-/// Get nodes information using SDK typed methods
+/// Get nodes information using SDK typed methods with pagination
 ///
-/// Returns nodes info in frontend-compatible format
+/// Returns paginated nodes info in frontend-compatible format
 ///
 /// # Requirements
 ///
@@ -346,9 +349,20 @@ pub async fn get_cluster_settings(
 pub async fn get_nodes(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<Vec<NodeInfoResponse>>, ClusterErrorResponse> {
-    tracing::debug!(cluster_id = %cluster_id, "Getting nodes info");
+) -> Result<Json<PaginatedResponse<NodeInfoResponse>>, ClusterErrorResponse> {
+    let pagination = pagination.validate().map_err(|e| ClusterErrorResponse {
+        error: "invalid_pagination".to_string(),
+        message: e,
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        page = pagination.page,
+        page_size = pagination.page_size,
+        "Getting nodes info"
+    );
 
     // Check cluster access
     check_cluster_access(&cluster_id, &user_ext)?;
@@ -409,11 +423,16 @@ pub async fn get_nodes(
     };
 
     // Transform to frontend format
-    let response = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref());
+    let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref());
+    
+    // Apply pagination
+    let response = paginate_vec(all_nodes, pagination.page, pagination.page_size);
 
     tracing::debug!(
         cluster_id = %cluster_id,
-        node_count = response.len(),
+        total_nodes = response.total,
+        page_nodes = response.items.len(),
+        page = pagination.page,
         master_node = ?master_node_id,
         "Nodes info retrieved successfully"
     );
@@ -545,9 +564,9 @@ pub async fn get_node_stats(
     Ok(Json(response))
 }
 
-/// Get indices information using SDK typed methods
+/// Get indices information using SDK typed methods with pagination
 ///
-/// Returns indices info in frontend-compatible format
+/// Returns paginated indices info in frontend-compatible format
 ///
 /// # Requirements
 ///
@@ -555,9 +574,20 @@ pub async fn get_node_stats(
 pub async fn get_indices(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<Vec<IndexInfoResponse>>, ClusterErrorResponse> {
-    tracing::debug!(cluster_id = %cluster_id, "Getting indices info");
+) -> Result<Json<PaginatedResponse<IndexInfoResponse>>, ClusterErrorResponse> {
+    let pagination = pagination.validate().map_err(|e| ClusterErrorResponse {
+        error: "invalid_pagination".to_string(),
+        message: e,
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        page = pagination.page,
+        page_size = pagination.page_size,
+        "Getting indices info"
+    );
 
     // Check cluster access
     check_cluster_access(&cluster_id, &user_ext)?;
@@ -593,11 +623,16 @@ pub async fn get_indices(
     })?;
 
     // Transform to frontend format
-    let response = transform_indices(&indices_stats);
+    let all_indices = transform_indices(&indices_stats);
+    
+    // Apply pagination
+    let response = paginate_vec(all_indices, pagination.page, pagination.page_size);
 
     tracing::debug!(
         cluster_id = %cluster_id,
-        index_count = response.len(),
+        total_indices = response.total,
+        page_indices = response.items.len(),
+        page = pagination.page,
         "Indices info retrieved successfully"
     );
 
@@ -693,7 +728,7 @@ pub async fn get_shard_stats(
     Ok(Json(serde_json::json!({})))
 }
 
-/// Get shards information for a cluster
+/// Get shards information for a cluster with pagination
 ///
 /// # Requirements
 ///
@@ -701,9 +736,20 @@ pub async fn get_shard_stats(
 pub async fn get_shards(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<Vec<ShardInfoResponse>>, ClusterErrorResponse> {
-    tracing::debug!(cluster_id = %cluster_id, "Getting shards info");
+) -> Result<Json<PaginatedResponse<ShardInfoResponse>>, ClusterErrorResponse> {
+    let pagination = pagination.validate().map_err(|e| ClusterErrorResponse {
+        error: "invalid_pagination".to_string(),
+        message: e,
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        page = pagination.page,
+        page_size = pagination.page_size,
+        "Getting shards info"
+    );
 
     // Check cluster access
     check_cluster_access(&cluster_id, &user_ext)?;
@@ -740,11 +786,16 @@ pub async fn get_shards(
     })?;
 
     // Transform to frontend format
-    let response = transform_shards(&cat_shards);
+    let all_shards = transform_shards(&cat_shards);
+    
+    // Apply pagination
+    let response = paginate_vec(all_shards, pagination.page, pagination.page_size);
 
     tracing::debug!(
         cluster_id = %cluster_id,
-        shard_count = response.len(),
+        total_shards = response.total,
+        page_shards = response.items.len(),
+        page = pagination.page,
         "Shards info retrieved successfully"
     );
 

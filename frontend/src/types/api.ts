@@ -3,6 +3,22 @@
  */
 
 /**
+ * Generic paginated response wrapper
+ */
+export interface PaginatedResponse<T> {
+  /** Items for the current page */
+  items: T[];
+  /** Total count of all items across all pages */
+  total: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Items per page */
+  page_size: number;
+  /** Total number of pages */
+  total_pages: number;
+}
+
+/**
  * Cluster information returned by the backend
  */
 export interface ClusterInfo {
