@@ -283,41 +283,55 @@ export function ClusterView() {
     activeTab === 'statistics'
   );
 
-  // Fetch nodes with auto-refresh
+  // Pagination state for nodes, indices, and shards
+  const [nodesPage, setNodesPage] = useState(1);
+  const [indicesPage, setIndicesPage] = useState(1);
+  const [shardsPage, setShardsPage] = useState(1);
+
+  // Fetch nodes with auto-refresh and pagination
   const {
-    data: nodes,
+    data: nodesPaginated,
     isLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'nodes'],
-    queryFn: () => apiClient.getNodes(id!),
+    queryKey: ['cluster', id, 'nodes', nodesPage],
+    queryFn: () => apiClient.getNodes(id!, nodesPage, 50),
     refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
-  // Fetch indices with auto-refresh
+  // Extract nodes array from paginated response
+  const nodes = nodesPaginated?.items;
+
+  // Fetch indices with auto-refresh and pagination
   const {
-    data: indices,
+    data: indicesPaginated,
     isLoading: indicesLoading,
     error: indicesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'indices'],
-    queryFn: () => apiClient.getIndices(id!),
+    queryKey: ['cluster', id, 'indices', indicesPage],
+    queryFn: () => apiClient.getIndices(id!, indicesPage, 50),
     refetchInterval: refreshInterval,
     enabled: !!id,
   });
 
-  // Fetch shards with auto-refresh
+  // Extract indices array from paginated response
+  const indices = indicesPaginated?.items;
+
+  // Fetch shards with auto-refresh and pagination
   const {
-    data: shards,
+    data: shardsPaginated,
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery({
-    queryKey: ['cluster', id, 'shards'],
-    queryFn: () => apiClient.getShards(id!),
+    queryKey: ['cluster', id, 'shards', shardsPage],
+    queryFn: () => apiClient.getShards(id!, shardsPage, 50),
     refetchInterval: refreshInterval,
     enabled: !!id,
   });
+
+  // Extract shards array from paginated response
+  const shards = shardsPaginated?.items;
 
   if (!id) {
     return (
@@ -401,9 +415,9 @@ export function ClusterView() {
           <Tabs.Tab value="overview">Overview</Tabs.Tab>
           <Tabs.Tab value="topology">Topology</Tabs.Tab>
           <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
-          <Tabs.Tab value="nodes">Nodes ({nodes?.length || 0})</Tabs.Tab>
-          <Tabs.Tab value="indices">Indices ({indices?.length || 0})</Tabs.Tab>
-          <Tabs.Tab value="shards">Shards ({shards?.length || 0})</Tabs.Tab>
+          <Tabs.Tab value="nodes">Nodes ({nodesPaginated?.total || 0})</Tabs.Tab>
+          <Tabs.Tab value="indices">Indices ({indicesPaginated?.total || 0})</Tabs.Tab>
+          <Tabs.Tab value="shards">Shards ({shardsPaginated?.total || 0})</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
           <Tabs.Tab value="console">Console</Tabs.Tab>
         </Tabs.List>
@@ -676,6 +690,15 @@ export function ClusterView() {
               error={nodesError}
               openNodeModal={openNodeModal}
             />
+            {nodesPaginated && nodesPaginated.total_pages > 1 && (
+              <SimplePagination
+                currentPage={nodesPage}
+                totalPages={nodesPaginated.total_pages}
+                pageSize={50}
+                totalItems={nodesPaginated.total}
+                onPageChange={setNodesPage}
+              />
+            )}
           </Card>
         </Tabs.Panel>
 
@@ -688,6 +711,15 @@ export function ClusterView() {
               error={indicesError}
               openIndexModal={openIndexModal}
             />
+            {indicesPaginated && indicesPaginated.total_pages > 1 && (
+              <SimplePagination
+                currentPage={indicesPage}
+                totalPages={indicesPaginated.total_pages}
+                pageSize={50}
+                totalItems={indicesPaginated.total}
+                onPageChange={setIndicesPage}
+              />
+            )}
           </Card>
         </Tabs.Panel>
 
@@ -700,6 +732,15 @@ export function ClusterView() {
               error={shardsError}
               openNodeModal={openNodeModal}
             />
+            {shardsPaginated && shardsPaginated.total_pages > 1 && (
+              <SimplePagination
+                currentPage={shardsPage}
+                totalPages={shardsPaginated.total_pages}
+                pageSize={50}
+                totalItems={shardsPaginated.total}
+                onPageChange={setShardsPage}
+              />
+            )}
           </Card>
         </Tabs.Panel>
 
