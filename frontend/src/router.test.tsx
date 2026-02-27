@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,6 +11,12 @@ import { Login } from './pages/Login';
 import { DrawerProvider } from './contexts/DrawerContext';
 import { RefreshProvider } from './contexts/RefreshContext';
 import { AuthProvider } from './contexts/AuthContext';
+
+// Mock the version utility
+vi.mock('../utils/version', () => ({
+  APP_VERSION: 'test-version',
+  getAppVersion: vi.fn().mockResolvedValue('test-version'),
+}));
 
 // Helper to render with router and providers
 const renderWithRouter = (initialEntries: string[]) => {
@@ -68,14 +74,21 @@ const renderWithRouter = (initialEntries: string[]) => {
 };
 
 describe('Router', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders dashboard at root path', () => {
     renderWithRouter(['/']);
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
   });
 
-  it('renders login page at /login', () => {
+  it('renders login page at /login', async () => {
     renderWithRouter(['/login']);
-    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    // Wait for auth check to complete and login form to appear
+    await waitFor(() => {
+      expect(screen.getByText('Sign In')).toBeInTheDocument();
+    });
   });
 
   it('renders cluster view at /cluster/:id', async () => {
@@ -98,9 +111,11 @@ describe('Router', () => {
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
   });
 
-  it('login page does not include AppShell', () => {
+  it('login page does not include AppShell', async () => {
     renderWithRouter(['/login']);
-    // Should not have navigation menu
-    expect(screen.queryByText('Clusters')).not.toBeInTheDocument();
+    // Wait for auth check to complete
+    await waitFor(() => {
+      expect(screen.queryByText('Clusters')).not.toBeInTheDocument();
+    });
   });
 });

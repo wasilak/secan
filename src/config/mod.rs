@@ -128,19 +128,14 @@ pub struct RoleConfig {
 }
 
 /// Metrics data source for cluster
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum MetricsSource {
     /// Use live metrics from Elasticsearch internal APIs
+    #[default]
     Internal,
     /// Use historical metrics from Prometheus
     Prometheus,
-}
-
-impl Default for MetricsSource {
-    fn default() -> Self {
-        Self::Internal
-    }
 }
 
 /// Prometheus configuration for cluster metrics
@@ -160,10 +155,7 @@ impl PrometheusConfig {
     /// Validate Prometheus configuration
     pub fn validate(&self, cluster_id: &str) -> anyhow::Result<()> {
         if self.url.is_empty() {
-            anyhow::bail!(
-                "Cluster '{}': Prometheus URL cannot be empty",
-                cluster_id
-            );
+            anyhow::bail!("Cluster '{}': Prometheus URL cannot be empty", cluster_id);
         }
 
         // Basic URL validation

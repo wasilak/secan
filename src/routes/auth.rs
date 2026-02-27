@@ -330,7 +330,9 @@ pub struct AuthStatusResponse {
 }
 
 /// Get authentication status
-pub async fn get_auth_status(State(state): State<AuthState>) -> Result<Json<AuthStatusResponse>, ErrorResponse> {
+pub async fn get_auth_status(
+    State(state): State<AuthState>,
+) -> Result<Json<AuthStatusResponse>, ErrorResponse> {
     use crate::config::AuthMode;
 
     let mode = match &state.config.auth.mode {

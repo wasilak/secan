@@ -196,28 +196,34 @@ describe('ShardGrid', () => {
 
   it('renders node statistics', async () => {
     // Mock API to return test data
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: false,
-        state: 'STARTED',
-        node: 'node-2',
-        docs: 1000,
-        store: 1024000,
-      },
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-2',
+          docs: 1000,
+          store: 1024000,
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 
@@ -238,28 +244,34 @@ describe('ShardGrid', () => {
 
   it('renders index metadata', async () => {
     // Mock API to return test data
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: false,
-        state: 'STARTED',
-        node: 'node-2',
-        docs: 1000,
-        store: 1024000,
-      },
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-2',
+          docs: 1000,
+          store: 1024000,
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 
@@ -277,28 +289,34 @@ describe('ShardGrid', () => {
 
   it('renders shard cells', async () => {
     // Mock API to return test data
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: false,
-        state: 'STARTED',
-        node: 'node-2',
-        docs: 1000,
-        store: 1024000,
-      },
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-2',
+          docs: 1000,
+          store: 1024000,
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 
@@ -322,20 +340,26 @@ describe('ShardGrid', () => {
     ];
 
     // Mock API to return test data with unassigned shards
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-      ...unassignedShards,
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+        ...unassignedShards,
+      ],
+      total: 3,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 
@@ -348,19 +372,25 @@ describe('ShardGrid', () => {
 
   it('does not render unassigned shards row when none present', async () => {
     // Mock API to return test data without unassigned shards
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 
@@ -372,19 +402,25 @@ describe('ShardGrid', () => {
 
   it('renders sticky headers', async () => {
     // Mock API to return test data
-    vi.mocked(apiClient.getNodes).mockResolvedValue(mockNodes);
-    vi.mocked(apiClient.getIndices).mockResolvedValue(mockIndices);
-    vi.mocked(apiClient.getShards).mockResolvedValue([
-      {
-        index: 'index-1',
-        shard: 0,
-        primary: true,
-        state: 'STARTED',
-        node: 'node-1',
-        docs: 1000,
-        store: 1024000,
-      },
-    ]);
+    vi.mocked(apiClient.getNodes).mockResolvedValue({ items: mockNodes, total: mockNodes.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getIndices).mockResolvedValue({ items: mockIndices, total: mockIndices.length, page: 1, page_size: 50, total_pages: 1 });
+    vi.mocked(apiClient.getShards).mockResolvedValue({
+      items: [
+        {
+          index: 'index-1',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 1024000,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    });
 
     const { container } = renderWithMantine(<ShardGrid clusterId="test-cluster" />);
 

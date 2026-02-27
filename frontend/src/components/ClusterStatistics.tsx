@@ -65,7 +65,16 @@ function formatTime(timestamp: number): string {
 /**
  * Custom tooltip for pie charts with proper dark mode support
  */
-function PieTooltip({ active, payload, colorScheme }: any) {
+interface PieTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    payload: { name: string };
+  }>;
+  colorScheme: 'light' | 'dark';
+}
+
+function PieTooltip({ active, payload, colorScheme }: PieTooltipProps) {
   if (active && payload && payload.length) {
     const data = payload[0];
     return (

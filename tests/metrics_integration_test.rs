@@ -1,8 +1,7 @@
 /// Integration tests for metrics endpoints and functionality
-/// 
+///
 /// These tests validate the complete metrics workflow from configuration
 /// through API endpoints to data retrieval.
-
 use secan::config::Config;
 use secan::metrics::{ClusterMetrics, TimeRange};
 use serial_test::serial;
@@ -52,20 +51,26 @@ clusters:
 #[test]
 fn test_time_range_last_24_hours() {
     let time_range = TimeRange::last_24_hours();
-    
+
     // Verify it's approximately 24 hours
     let duration = time_range.end - time_range.start;
-    assert!(duration > 86000 && duration < 88000, "24h range should be ~86400 seconds");
+    assert!(
+        duration > 86000 && duration < 88000,
+        "24h range should be ~86400 seconds"
+    );
 }
 
 /// Test time range for last 7 days
 #[test]
 fn test_time_range_last_7_days() {
     let time_range = TimeRange::last_7_days();
-    
+
     // Verify it's approximately 7 days
     let duration = time_range.end - time_range.start;
-    assert!(duration > 604000 && duration < 606000, "7d range should be ~604800 seconds");
+    assert!(
+        duration > 604000 && duration < 606000,
+        "7d range should be ~604800 seconds"
+    );
 }
 
 /// Test custom time range creation
@@ -74,7 +79,7 @@ fn test_time_range_custom() {
     let start = 1000;
     let end = 2000;
     let result = TimeRange::new(start, end);
-    
+
     assert!(result.is_ok());
     let time_range = result.unwrap();
     assert_eq!(time_range.start, 1000);
@@ -125,21 +130,19 @@ fn test_cluster_metrics_creation() {
 #[test]
 fn test_prometheus_validation_request_serialization() {
     let url = "http://prometheus:9090";
-    
+
     // Verify the endpoint URL is valid
     assert!(url.starts_with("http://") || url.starts_with("https://"));
-    assert!(url.contains("9090"), "Should contain Prometheus default port");
+    assert!(
+        url.contains("9090"),
+        "Should contain Prometheus default port"
+    );
 }
 
 /// Test aggregation of node counts
 #[test]
 fn test_metrics_aggregation_node_counts() {
-    let counts = vec![
-        Some(2),
-        Some(3),
-        None,
-        Some(1),
-    ];
+    let counts = vec![Some(2), Some(3), None, Some(1)];
 
     let total: u32 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 6);
@@ -148,11 +151,7 @@ fn test_metrics_aggregation_node_counts() {
 /// Test aggregation of shard counts
 #[test]
 fn test_metrics_aggregation_shard_counts() {
-    let counts = vec![
-        Some(10),
-        Some(15),
-        Some(5),
-    ];
+    let counts = vec![Some(10), Some(15), Some(5)];
 
     let total: u32 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 30);
@@ -161,11 +160,7 @@ fn test_metrics_aggregation_shard_counts() {
 /// Test aggregation of document counts
 #[test]
 fn test_metrics_aggregation_documents() {
-    let counts = vec![
-        Some(1000000),
-        Some(2000000),
-        Some(500000),
-    ];
+    let counts = vec![Some(1000000), Some(2000000), Some(500000)];
 
     let total: u64 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 3500000);

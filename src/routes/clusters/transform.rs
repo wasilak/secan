@@ -409,7 +409,7 @@ mod tests {
             "unassigned_shards": 0
         });
 
-        let result = transform_cluster_stats(&stats, &health).unwrap();
+        let result = transform_cluster_stats(&stats, &health, None).unwrap();
 
         assert_eq!(result.health, "green");
         assert_eq!(result.cluster_name, "test-cluster");

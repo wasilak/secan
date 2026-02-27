@@ -116,7 +116,10 @@ impl Server {
             .route("/api/auth/login", post(crate::routes::auth::login))
             .route("/api/auth/logout", post(crate::routes::auth::logout))
             .route("/api/auth/me", get(crate::routes::auth::get_current_user))
-            .route("/api/auth/status", get(crate::routes::auth::get_auth_status))
+            .route(
+                "/api/auth/status",
+                get(crate::routes::auth::get_auth_status),
+            )
             .route("/api/auth/oidc/login", get(crate::routes::auth::oidc_login))
             .route(
                 "/api/auth/oidc/callback",

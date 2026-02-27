@@ -6,7 +6,7 @@ pub struct PaginationParams {
     /// Page number (1-indexed)
     #[serde(default = "default_page")]
     pub page: usize,
-    
+
     /// Items per page
     #[serde(default = "default_page_size")]
     pub page_size: usize,
@@ -27,22 +27,22 @@ impl PaginationParams {
         if self.page < 1 {
             self.page = 1;
         }
-        
+
         // Ensure page_size is between 1 and 1000
         if self.page_size < 1 {
             self.page_size = 50;
         } else if self.page_size > 1000 {
             self.page_size = 1000;
         }
-        
+
         Ok(self)
     }
-    
+
     /// Calculate offset for Elasticsearch/database queries
     pub fn offset(&self) -> usize {
         (self.page - 1) * self.page_size
     }
-    
+
     /// Calculate limit for Elasticsearch/database queries
     pub fn limit(&self) -> usize {
         self.page_size
@@ -54,16 +54,16 @@ impl PaginationParams {
 pub struct PaginatedResponse<T> {
     /// Items for the current page
     pub items: Vec<T>,
-    
+
     /// Total count of all items across all pages
     pub total: usize,
-    
+
     /// Current page number (1-indexed)
     pub page: usize,
-    
+
     /// Items per page
     pub page_size: usize,
-    
+
     /// Total number of pages
     pub total_pages: usize,
 }
@@ -71,8 +71,8 @@ pub struct PaginatedResponse<T> {
 impl<T> PaginatedResponse<T> {
     /// Create a new paginated response
     pub fn new(items: Vec<T>, total: usize, page: usize, page_size: usize) -> Self {
-        let total_pages = (total + page_size - 1) / page_size; // Ceiling division
-        
+        let total_pages = total.div_ceil(page_size);
+
         Self {
             items,
             total,
@@ -81,7 +81,7 @@ impl<T> PaginatedResponse<T> {
             total_pages,
         }
     }
-    
+
     /// Create an empty paginated response
     pub fn empty(page: usize, page_size: usize) -> Self {
         Self::new(Vec::new(), 0, page, page_size)
@@ -97,13 +97,13 @@ pub fn paginate_vec<T: Clone>(
     let total = items.len();
     let offset = (page - 1) * page_size;
     let end = std::cmp::min(offset + page_size, total);
-    
+
     let paginated_items = if offset < total {
         items[offset..end].to_vec()
     } else {
         Vec::new()
     };
-    
+
     PaginatedResponse::new(paginated_items, total, page, page_size)
 }
 
@@ -113,7 +113,10 @@ mod tests {
 
     #[test]
     fn test_pagination_params_validation() {
-        let params = PaginationParams { page: 0, page_size: 0 };
+        let params = PaginationParams {
+            page: 0,
+            page_size: 0,
+        };
         let validated = params.validate().unwrap();
         assert_eq!(validated.page, 1);
         assert_eq!(validated.page_size, 50);
@@ -121,7 +124,10 @@ mod tests {
 
     #[test]
     fn test_pagination_params_max_page_size() {
-        let params = PaginationParams { page: 1, page_size: 2000 };
+        let params = PaginationParams {
+            page: 1,
+            page_size: 2000,
+        };
         let validated = params.validate().unwrap();
         assert_eq!(validated.page_size, 1000);
     }
@@ -130,7 +136,7 @@ mod tests {
     fn test_paginate_vec() {
         let items: Vec<u32> = (1..=100).collect();
         let paginated = paginate_vec(items, 1, 25);
-        
+
         assert_eq!(paginated.items.len(), 25);
         assert_eq!(paginated.total, 100);
         assert_eq!(paginated.total_pages, 4);
@@ -142,7 +148,7 @@ mod tests {
     fn test_paginate_vec_last_page() {
         let items: Vec<u32> = (1..=100).collect();
         let paginated = paginate_vec(items, 4, 25);
-        
+
         assert_eq!(paginated.items.len(), 25);
         assert_eq!(paginated.items[0], 76);
         assert_eq!(paginated.items[24], 100);
@@ -152,7 +158,7 @@ mod tests {
     fn test_paginate_vec_out_of_range() {
         let items: Vec<u32> = (1..=10).collect();
         let paginated = paginate_vec(items, 5, 25);
-        
+
         assert_eq!(paginated.items.len(), 0);
         assert_eq!(paginated.total, 10);
         assert_eq!(paginated.total_pages, 1);

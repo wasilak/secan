@@ -1,7 +1,9 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::Manager as ClusterManager;
 use crate::metrics::{ClusterMetrics, InternalMetricsService, MetricsService, TimeRange};
-use crate::prometheus::client::{Client as PrometheusClient, PrometheusConfig as PrometheusClientConfig};
+use crate::prometheus::client::{
+    Client as PrometheusClient, PrometheusConfig as PrometheusClientConfig,
+};
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -201,7 +203,11 @@ pub async fn get_cluster_metrics_history(
         let health = match (current_timestamp % 7200) / 3600 {
             0 => "green",
             _ => {
-                if (current_timestamp % 1000) % 10 < 2 { "yellow" } else { "green" }
+                if (current_timestamp % 1000) % 10 < 2 {
+                    "yellow"
+                } else {
+                    "green"
+                }
             }
         };
 
@@ -210,21 +216,21 @@ pub async fn get_cluster_metrics_history(
         let base_indices = 20;
         let base_documents = 1000000;
         let base_shards = 50;
-        
+
         // Add some variation over time
         let time_factor = (current_timestamp as usize / 3600) % 10;
-        
+
         history_data.push(serde_json::json!({
             "timestamp": current_timestamp,
             "date": chrono::DateTime::<chrono::Utc>::from_timestamp(current_timestamp, 0)
-                .unwrap_or_else(|| chrono::Utc::now())
+                .unwrap_or_else(chrono::Utc::now)
                 .to_rfc3339(),
             "health": health,
             "node_count": base_nodes + (time_factor % 3),
             "index_count": base_indices + (time_factor * 2),
             "document_count": base_documents + (time_factor * 10000),
             "shard_count": base_shards + (time_factor * 5),
-            "unassigned_shards": if time_factor % 5 == 0 { 2 } else { 0 }
+            "unassigned_shards": if time_factor.is_multiple_of(5) { 2 } else { 0 }
         }));
 
         current_timestamp += one_hour;
@@ -274,34 +280,35 @@ pub async fn validate_prometheus_endpoint(
 
     // Try to create and test Prometheus client
     match PrometheusClient::new(config) {
-        Ok(client) => {
-            match client.health().await {
-                Ok(true) => {
-                    debug!("Prometheus endpoint {} is reachable", request.url);
-                    Ok(Json(PrometheusValidationResponse {
-                        status: "success".to_string(),
-                        message: format!("Successfully connected to Prometheus at {}", request.url),
-                        reachable: true,
-                    }))
-                }
-                Ok(false) => {
-                    warn!("Prometheus endpoint {} returned false health status", request.url);
-                    Ok(Json(PrometheusValidationResponse {
-                        status: "warning".to_string(),
-                        message: format!("Prometheus at {} did not respond as healthy", request.url),
-                        reachable: false,
-                    }))
-                }
-                Err(e) => {
-                    warn!("Prometheus health check failed: {}", e);
-                    Ok(Json(PrometheusValidationResponse {
-                        status: "error".to_string(),
-                        message: format!("Failed to connect: {}", e),
-                        reachable: false,
-                    }))
-                }
+        Ok(client) => match client.health().await {
+            Ok(true) => {
+                debug!("Prometheus endpoint {} is reachable", request.url);
+                Ok(Json(PrometheusValidationResponse {
+                    status: "success".to_string(),
+                    message: format!("Successfully connected to Prometheus at {}", request.url),
+                    reachable: true,
+                }))
             }
-        }
+            Ok(false) => {
+                warn!(
+                    "Prometheus endpoint {} returned false health status",
+                    request.url
+                );
+                Ok(Json(PrometheusValidationResponse {
+                    status: "warning".to_string(),
+                    message: format!("Prometheus at {} did not respond as healthy", request.url),
+                    reachable: false,
+                }))
+            }
+            Err(e) => {
+                warn!("Prometheus health check failed: {}", e);
+                Ok(Json(PrometheusValidationResponse {
+                    status: "error".to_string(),
+                    message: format!("Failed to connect: {}", e),
+                    reachable: false,
+                }))
+            }
+        },
         Err(e) => {
             error!("Failed to create Prometheus client: {}", e);
             Err(MetricsErrorResponse {

@@ -96,7 +96,11 @@ impl Client {
     /// # Arguments
     /// * `query` - PromQL query string
     /// * `time` - Optional Unix timestamp, defaults to current time
-    pub async fn query_instant(&self, query: &str, time: Option<i64>) -> Result<Vec<TimeSeriesData>> {
+    pub async fn query_instant(
+        &self,
+        query: &str,
+        time: Option<i64>,
+    ) -> Result<Vec<TimeSeriesData>> {
         let mut params = vec![("query", query.to_string())];
         if let Some(t) = time {
             params.push(("time", t.to_string()));
@@ -209,10 +213,7 @@ impl Client {
             }
         };
 
-        debug!(
-            "Prometheus query returned {} time series",
-            results.len()
-        );
+        debug!("Prometheus query returned {} time series", results.len());
 
         Ok(results)
     }
@@ -264,8 +265,15 @@ mod tests {
 
     #[test]
     fn test_build_query_with_job() {
-        let query = Client::build_query("elasticsearch_jvm_memory_used_bytes", Some("elasticsearch"), None);
-        assert_eq!(query, r#"elasticsearch_jvm_memory_used_bytes{job="elasticsearch"}"#);
+        let query = Client::build_query(
+            "elasticsearch_jvm_memory_used_bytes",
+            Some("elasticsearch"),
+            None,
+        );
+        assert_eq!(
+            query,
+            r#"elasticsearch_jvm_memory_used_bytes{job="elasticsearch"}"#
+        );
     }
 
     #[test]

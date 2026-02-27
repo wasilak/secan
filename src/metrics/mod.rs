@@ -6,6 +6,6 @@
 pub mod service;
 
 pub use service::{
-    ClusterMetrics, MetricsService, NodeMetrics, TimeRange, InternalMetricsService,
-    PrometheusMetricsService,
+    ClusterMetrics, InternalMetricsService, MetricsService, NodeMetrics, PrometheusMetricsService,
+    TimeRange,
 };

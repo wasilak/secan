@@ -10,15 +10,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
-mod transform;
 mod pagination;
+mod transform;
 
+use pagination::{paginate_vec, PaginatedResponse, PaginationParams};
 use transform::{
     transform_cluster_stats, transform_indices, transform_node_detail_stats, transform_nodes,
     transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
     NodeInfoResponse, ShardInfoResponse,
 };
-use pagination::{PaginationParams, PaginatedResponse, paginate_vec};
 
 /// Shared application state for cluster routes
 #[derive(Clone)]
@@ -243,16 +243,11 @@ pub async fn get_cluster_stats(
     })?;
 
     // Get cluster version from the info endpoint
-    let es_version: Option<String> = cluster
-        .client
-        .info()
-        .await
-        .ok()
-        .and_then(|info| {
-            info["version"]["number"]
-                .as_str()
-                .map(|v| format!("v{}", v))
-        });
+    let es_version: Option<String> = cluster.client.info().await.ok().and_then(|info| {
+        info["version"]["number"]
+            .as_str()
+            .map(|v| format!("v{}", v))
+    });
 
     // Transform to frontend format
     let response = transform_cluster_stats(&stats, &health, es_version).map_err(|e| {
@@ -424,7 +419,7 @@ pub async fn get_nodes(
 
     // Transform to frontend format
     let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref());
-    
+
     // Apply pagination
     let response = paginate_vec(all_nodes, pagination.page, pagination.page_size);
 
@@ -624,7 +619,7 @@ pub async fn get_indices(
 
     // Transform to frontend format
     let all_indices = transform_indices(&indices_stats);
-    
+
     // Apply pagination
     let response = paginate_vec(all_indices, pagination.page, pagination.page_size);
 
@@ -787,7 +782,7 @@ pub async fn get_shards(
 
     // Transform to frontend format
     let all_shards = transform_shards(&cat_shards);
-    
+
     // Apply pagination
     let response = paginate_vec(all_shards, pagination.page, pagination.page_size);
 

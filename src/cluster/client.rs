@@ -498,10 +498,7 @@ impl ElasticsearchClient for Client {
             .context("Cluster settings request failed")?;
 
         if !response.status().is_success() {
-            anyhow::bail!(
-                "Cluster settings failed with status: {}",
-                response.status()
-            );
+            anyhow::bail!("Cluster settings failed with status: {}", response.status());
         }
 
         response

@@ -82,7 +82,7 @@ import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Format bytes to human-readable format
@@ -809,6 +809,43 @@ export function ClusterView() {
  * NodesList component displays the list of nodes with search and role filtering
  * Requirements: 4.6, 14.1, 14.2, 14.3, 14.4, 14.5, 31.7
  */
+
+interface NodesSortableHeaderProps {
+  column: 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu';
+  label: string;
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+  onSort: (column: 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu') => void;
+}
+
+function NodesSortableHeader({ column, label, sortColumn, sortDirection, onSort }: NodesSortableHeaderProps) {
+  const renderNodesSortIcon = () => {
+    if (sortColumn !== column) {
+      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
+    }
+    return sortDirection === 'asc' ?
+      <IconChevronUp size={14} aria-hidden="true" /> :
+      <IconChevronDown size={14} aria-hidden="true" />;
+  };
+
+  return (
+    <UnstyledButton
+      onClick={() => onSort(column)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        width: '100%',
+        fontWeight: 500,
+      }}
+      aria-label={`Sort by ${label}`}
+    >
+      <Text fw={500}>{label}</Text>
+      {renderNodesSortIcon()}
+    </UnstyledButton>
+  );
+}
+
 function NodesList({
   nodes,
   loading,
@@ -973,33 +1010,6 @@ function NodesList({
     return <Text c="dimmed">No nodes found</Text>;
   }
 
-  // Helper function to render sortable table header for nodes
-  const renderNodesSortIcon = (column: 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu') => {
-    if (nodesSortColumn !== column) {
-      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
-    }
-    return nodesSortDirection === 'asc' ? 
-      <IconChevronUp size={14} aria-hidden="true" /> : 
-      <IconChevronDown size={14} aria-hidden="true" />;
-  };
-
-  const NodesSortableHeader = ({ column, label }: { column: 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu'; label: string }) => (
-    <UnstyledButton
-      onClick={() => handleNodesSortColumn(column)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        width: '100%',
-        fontWeight: 500,
-      }}
-      aria-label={`Sort by ${label}`}
-    >
-      <Text fw={500}>{label}</Text>
-      {renderNodesSortIcon(column)}
-    </UnstyledButton>
-  );
-
   return (
     <Stack gap="md">
       <Group justify="space-between" align="flex-end">
@@ -1042,17 +1052,17 @@ function NodesList({
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th><NodesSortableHeader column="name" label="Name" /></Table.Th>
+                <Table.Th><NodesSortableHeader column="name" label="Name" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
                 {expandedView && <Table.Th>Node ID</Table.Th>}
-                <Table.Th><NodesSortableHeader column="roles" label="Roles" /></Table.Th>
+                <Table.Th><NodesSortableHeader column="roles" label="Roles" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
                 {expandedView && <Table.Th>IP Address</Table.Th>}
                 {expandedView && <Table.Th>Version</Table.Th>}
                 {expandedView && <Table.Th>Tags</Table.Th>}
                 <Table.Th>Load</Table.Th>
-                <Table.Th><NodesSortableHeader column="uptime" label="Uptime" /></Table.Th>
-                <Table.Th><NodesSortableHeader column="heap" label="Heap Usage" /></Table.Th>
-                <Table.Th><NodesSortableHeader column="disk" label="Disk Usage" /></Table.Th>
-                <Table.Th><NodesSortableHeader column="cpu" label="CPU" /></Table.Th>
+                <Table.Th><NodesSortableHeader column="uptime" label="Uptime" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th><NodesSortableHeader column="heap" label="Heap Usage" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th><NodesSortableHeader column="disk" label="Disk Usage" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th><NodesSortableHeader column="cpu" label="CPU" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -1230,6 +1240,43 @@ function NodesList({
  * IndicesList component displays the list of indices with search and filtering
  * Requirements: 4.7, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 6.1, 7.1, 8.1, 31.7
  */
+
+interface SortableHeaderProps {
+  column: 'name' | 'health' | 'status' | 'documents' | 'size';
+  label: string;
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+  onSort: (column: 'name' | 'health' | 'status' | 'documents' | 'size') => void;
+}
+
+function SortableHeader({ column, label, sortColumn, sortDirection, onSort }: SortableHeaderProps) {
+  const renderSortIcon = () => {
+    if (sortColumn !== column) {
+      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
+    }
+    return sortDirection === 'asc' ?
+      <IconChevronUp size={14} aria-hidden="true" /> :
+      <IconChevronDown size={14} aria-hidden="true" />;
+  };
+
+  return (
+    <UnstyledButton
+      onClick={() => onSort(column)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        width: '100%',
+        fontWeight: 500,
+      }}
+      aria-label={`Sort by ${label}`}
+    >
+      <Text fw={500}>{label}</Text>
+      {renderSortIcon()}
+    </UnstyledButton>
+  );
+}
+
 function IndicesList({
   indices,
   loading,
@@ -1666,7 +1713,7 @@ function IndicesList({
   };
 
   // Filter indices based on debounced search query and filters
-  let filteredIndices = indices?.filter((index) => {
+  const filteredIndices = indices?.filter((index) => {
     const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
     // Closed indices have health "unknown", so bypass health filter for them
     const matchesHealth =
@@ -1681,64 +1728,35 @@ function IndicesList({
   });
 
   // Sort indices by selected column
-  if (filteredIndices) {
-    filteredIndices = [...filteredIndices].sort((a, b) => {
-      let compareResult = 0;
-      
-      switch (indicesSortColumn) {
-        case 'name':
-          compareResult = a.name.localeCompare(b.name);
-          break;
-        case 'health':
-          compareResult = a.health.localeCompare(b.health);
-          break;
-        case 'status':
-          compareResult = a.status.localeCompare(b.status);
-          break;
-        case 'documents':
-          compareResult = a.docsCount - b.docsCount;
-          break;
-        case 'size':
-          compareResult = a.storeSize - b.storeSize;
-          break;
-        default:
-          compareResult = a.name.localeCompare(b.name);
-      }
-      
-      return indicesSortDirection === 'asc' ? compareResult : -compareResult;
-    });
-  }
+  const sortedIndices = filteredIndices ? [...filteredIndices].sort((a, b) => {
+    let compareResult: number;
 
-  // Helper function to render sortable table header
-  const renderSortIcon = (column: 'name' | 'health' | 'status' | 'documents' | 'size') => {
-    if (indicesSortColumn !== column) {
-      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
+    switch (indicesSortColumn) {
+      case 'name':
+        compareResult = a.name.localeCompare(b.name);
+        break;
+      case 'health':
+        compareResult = a.health.localeCompare(b.health);
+        break;
+      case 'status':
+        compareResult = a.status.localeCompare(b.status);
+        break;
+      case 'documents':
+        compareResult = a.docsCount - b.docsCount;
+        break;
+      case 'size':
+        compareResult = a.storeSize - b.storeSize;
+        break;
+      default:
+        compareResult = a.name.localeCompare(b.name);
     }
-    return indicesSortDirection === 'asc' ? 
-      <IconChevronUp size={14} aria-hidden="true" /> : 
-      <IconChevronDown size={14} aria-hidden="true" />;
-  };
 
-  const SortableHeader = ({ column, label }: { column: 'name' | 'health' | 'status' | 'documents' | 'size'; label: string }) => (
-    <UnstyledButton
-      onClick={() => handleIndicesSortColumn(column)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        width: '100%',
-        fontWeight: 500,
-      }}
-      aria-label={`Sort by ${label}`}
-    >
-      <Text fw={500}>{label}</Text>
-      {renderSortIcon(column)}
-    </UnstyledButton>
-  );
+    return indicesSortDirection === 'asc' ? compareResult : -compareResult;
+  }) : undefined;
 
   // Pagination
-  const totalPages = Math.ceil((filteredIndices?.length || 0) / pageSize);
-  const paginatedIndices = filteredIndices?.slice(
+  const totalPages = Math.ceil((sortedIndices?.length || 0) / pageSize);
+  const paginatedIndices = sortedIndices?.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -2025,7 +2043,7 @@ function IndicesList({
 
       {/* Unassigned shards section - REMOVED, now shown in table column */}
 
-      {filteredIndices && filteredIndices.length === 0 ? (
+      {sortedIndices && sortedIndices.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
           No indices match your filters
         </Text>
@@ -2043,11 +2061,11 @@ function IndicesList({
                     onClick={(e) => e.stopPropagation()}
                   />
                 </Table.Th>
-                <Table.Th><SortableHeader column="name" label="Name" /></Table.Th>
-                <Table.Th><SortableHeader column="health" label="Health" /></Table.Th>
-                <Table.Th><SortableHeader column="status" label="Status" /></Table.Th>
-                <Table.Th><SortableHeader column="documents" label="Documents" /></Table.Th>
-                <Table.Th><SortableHeader column="size" label="Size" /></Table.Th>
+                <Table.Th><SortableHeader column="name" label="Name" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
+                <Table.Th><SortableHeader column="health" label="Health" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
+                <Table.Th><SortableHeader column="status" label="Status" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
+                <Table.Th><SortableHeader column="documents" label="Documents" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
+                <Table.Th><SortableHeader column="size" label="Size" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
                 <Table.Th>Shards</Table.Th>
                 {expandedView && <Table.Th>Primaries</Table.Th>}
                 {expandedView && <Table.Th>Replicas</Table.Th>}
@@ -2302,12 +2320,12 @@ function IndicesList({
       )}
 
       {/* Pagination */}
-      {filteredIndices && filteredIndices.length > pageSize && (
+      {sortedIndices && sortedIndices.length > pageSize && (
         <TablePagination
           currentPage={currentPage}
           totalPages={totalPages}
           pageSize={pageSize}
-          totalItems={filteredIndices.length}
+          totalItems={sortedIndices.length}
           onPageChange={handleIndicesPageChange}
           onPageSizeChange={handleIndicesPageSizeChange}
         />
@@ -3776,6 +3794,43 @@ function ShardAllocationGrid({
  * ShardsList component displays detailed shard information in table format with filtering
  * Requirements: 4.8, 31.7
  */
+
+interface ShardsSortableHeaderProps {
+  column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size';
+  label: string;
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+  onSort: (column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size') => void;
+}
+
+function ShardsSortableHeader({ column, label, sortColumn, sortDirection, onSort }: ShardsSortableHeaderProps) {
+  const renderShardsSortIcon = () => {
+    if (sortColumn !== column) {
+      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
+    }
+    return sortDirection === 'asc' ?
+      <IconChevronUp size={14} aria-hidden="true" /> :
+      <IconChevronDown size={14} aria-hidden="true" />;
+  };
+
+  return (
+    <UnstyledButton
+      onClick={() => onSort(column)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        width: '100%',
+        fontWeight: 500,
+      }}
+      aria-label={`Sort by ${label}`}
+    >
+      <Text fw={500}>{label}</Text>
+      {renderShardsSortIcon()}
+    </UnstyledButton>
+  );
+}
+
 function ShardsList({
   shards,
   loading,
@@ -3924,42 +3979,39 @@ function ShardsList({
   });
 
   // Sort shards by selected column
-  let sortedShards = filteredShards ? [...filteredShards] : [];
-  if (sortedShards.length > 0) {
-    sortedShards.sort((a, b) => {
-      let compareResult = 0;
-      
-      switch (shardsSortColumn) {
-        case 'index':
-          compareResult = a.index.localeCompare(b.index);
-          break;
-        case 'shard':
-          compareResult = a.shard - b.shard;
-          break;
-        case 'type':
-          compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
-            b.primary ? 'Primary' : 'Replica'
-          );
-          break;
-        case 'state':
-          compareResult = a.state.localeCompare(b.state);
-          break;
-        case 'node':
-          compareResult = (a.node || '').localeCompare(b.node || '');
-          break;
-        case 'documents':
-          compareResult = a.docs - b.docs;
-          break;
-        case 'size':
-          compareResult = a.store - b.store;
-          break;
-        default:
-          compareResult = a.index.localeCompare(b.index);
-      }
-      
-      return shardsSortDirection === 'asc' ? compareResult : -compareResult;
-    });
-  }
+  const sortedShards = filteredShards ? [...filteredShards].sort((a, b) => {
+    let compareResult: number;
+
+    switch (shardsSortColumn) {
+      case 'index':
+        compareResult = a.index.localeCompare(b.index);
+        break;
+      case 'shard':
+        compareResult = a.shard - b.shard;
+        break;
+      case 'type':
+        compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
+          b.primary ? 'Primary' : 'Replica'
+        );
+        break;
+      case 'state':
+        compareResult = a.state.localeCompare(b.state);
+        break;
+      case 'node':
+        compareResult = (a.node || '').localeCompare(b.node || '');
+        break;
+      case 'documents':
+        compareResult = a.docs - b.docs;
+        break;
+      case 'size':
+        compareResult = a.store - b.store;
+        break;
+      default:
+        compareResult = a.index.localeCompare(b.index);
+    }
+
+    return shardsSortDirection === 'asc' ? compareResult : -compareResult;
+  }) : [];
 
   if (loading) {
     return (
@@ -3992,33 +4044,6 @@ function ShardsList({
       return acc;
     },
     {} as Record<string, ShardInfo[]>
-  );
-
-  // Helper function to render sortable table header for shards
-  const renderShardsSortIcon = (column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size') => {
-    if (shardsSortColumn !== column) {
-      return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
-    }
-    return shardsSortDirection === 'asc' ? 
-      <IconChevronUp size={14} aria-hidden="true" /> : 
-      <IconChevronDown size={14} aria-hidden="true" />;
-  };
-
-  const ShardsSortableHeader = ({ column, label }: { column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size'; label: string }) => (
-    <UnstyledButton
-      onClick={() => handleShardsSortColumn(column)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        width: '100%',
-        fontWeight: 500,
-      }}
-      aria-label={`Sort by ${label}`}
-    >
-      <Text fw={500}>{label}</Text>
-      {renderShardsSortIcon(column)}
-    </UnstyledButton>
   );
 
   // Pagination
@@ -4153,13 +4178,13 @@ function ShardsList({
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th><ShardsSortableHeader column="index" label="Index" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="shard" label="Shard" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="type" label="Type" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="state" label="State" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="node" label="Node" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="documents" label="Documents" /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="size" label="Size" /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="index" label="Index" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="shard" label="Shard" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="type" label="Type" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="state" label="State" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="node" label="Node" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="documents" label="Documents" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th><ShardsSortableHeader column="size" label="Size" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -4282,7 +4307,7 @@ function SettingsPanel({ clusterId }: { clusterId: string }) {
   const [includeDefaults, setIncludeDefaults] = useState(false);
   const { colorScheme } = useMantineColorScheme();
 
-  const fetchSettings = async (defaults: boolean) => {
+  const fetchSettings = useCallback(async (defaults: boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -4302,11 +4327,11 @@ function SettingsPanel({ clusterId }: { clusterId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clusterId]);
 
   useEffect(() => {
     fetchSettings(includeDefaults);
-  }, [clusterId, includeDefaults]);
+  }, [clusterId, includeDefaults, fetchSettings]);
 
   return (
     <Stack gap="md">

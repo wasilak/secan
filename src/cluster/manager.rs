@@ -682,7 +682,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -691,7 +691,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
@@ -770,7 +770,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -779,7 +779,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
@@ -823,7 +823,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -832,7 +832,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
@@ -875,7 +875,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
@@ -899,7 +899,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -908,7 +908,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
@@ -962,7 +962,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "prod-cluster-2".to_string(),
@@ -971,7 +971,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -980,7 +980,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
-            ..Default::default()
+                ..Default::default()
             },
         ];
 
