@@ -287,23 +287,35 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Parse tags from metadata (newline separated)
-          TAGS="${{ steps.meta.outputs.tags }}"
-
-          # For each tag, create manifest list pointing to both platforms
-          echo "$TAGS" | while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              # Extract base tag without platform suffix
-              BASE_TAG=$(echo "$tag" | sed 's/-amd64$//' | sed 's/-arm64$//')
-              
-              # Create manifest list
-              echo "Creating manifest for: $BASE_TAG"
-              docker buildx imagetools create \
-                -t "$BASE_TAG" \
-                "${tag}-amd64" \
-                "${tag}-arm64"
-            fi
-          done
+          # Get the version tag from the release ref
+          VERSION_TAG="${{ github.ref_name }}"
+          
+          echo "Creating multi-arch manifest for version: $VERSION_TAG"
+          
+          # Create manifest for the version tag
+          docker buildx imagetools create \
+            -t "ghcr.io/${{ github.repository }}:$VERSION_TAG" \
+            "ghcr.io/${{ github.repository }}:$VERSION_TAG-amd64" \
+            "ghcr.io/${{ github.repository }}:$VERSION_TAG-arm64"
+          
+          # Create manifest for major.minor tag (e.g., v1.2)
+          MAJOR_MINOR=$(echo "$VERSION_TAG" | sed -E 's/^v([0-9]+\.[0-9]+)\.[0-9]+/\1/')
+          if [ "$MAJOR_MINOR" != "$VERSION_TAG" ]; then
+            echo "Creating major.minor tag: $MAJOR_MINOR"
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ github.repository }}:$MAJOR_MINOR" \
+              "ghcr.io/${{ github.repository }}:$VERSION_TAG-amd64" \
+              "ghcr.io/${{ github.repository }}:$VERSION_TAG-arm64"
+          fi
+          
+          # Create latest tag if on main branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "Creating latest tag"
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ github.repository }}:latest" \
+              "ghcr.io/${{ github.repository }}:$VERSION_TAG-amd64" \
+              "ghcr.io/${{ github.repository }}:$VERSION_TAG-arm64"
+          fi
 
   # Stage 3: Create release (only on v*.*.* tags)
   create-release:
