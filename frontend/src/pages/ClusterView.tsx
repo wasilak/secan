@@ -300,8 +300,8 @@ export function ClusterView() {
     enabled: !!id,
   });
 
-  // Extract nodes array from paginated response
-  const nodes = nodesPaginated?.items;
+  // Extract nodes array from paginated response (default to empty array while loading)
+  const nodesArray: NodeInfo[] = nodesPaginated?.items ?? [];
 
   // Fetch indices with auto-refresh and pagination
   const {
@@ -315,8 +315,8 @@ export function ClusterView() {
     enabled: !!id,
   });
 
-  // Extract indices array from paginated response
-  const indices = indicesPaginated?.items;
+  // Extract indices array from paginated response (default to empty array while loading)
+  const indicesArray: IndexInfo[] = indicesPaginated?.items ?? [];
 
   // Fetch shards with auto-refresh and pagination
   const {
@@ -330,8 +330,12 @@ export function ClusterView() {
     enabled: !!id,
   });
 
-  // Extract shards array from paginated response
-  const shards = shardsPaginated?.items;
+  // Extract shards array from paginated response (default to empty array while loading)
+  const shards: ShardInfo[] = shardsPaginated?.items ?? [];
+
+  // Create shorter aliases for backward compatibility with rest of code
+  const nodes = nodesArray;
+  const indices = indicesArray;
 
   if (!id) {
     return (
@@ -1625,22 +1629,22 @@ function IndicesList({
   };
 
   // Group shards by index to identify problem indices
-  const shardsByIndex =
-    shards?.reduce(
-      (acc, shard) => {
-        if (!acc[shard.index]) {
-          acc[shard.index] = [];
-        }
-        acc[shard.index].push(shard);
-        return acc;
-      },
-      {} as Record<string, ShardInfo[]>
-    ) || {};
+  const shardsByIndex: Record<string, ShardInfo[]> = {};
+  if (shards && shards.length > 0) {
+    shards.forEach((shard: ShardInfo) => {
+      if (!shardsByIndex[shard.index]) {
+        shardsByIndex[shard.index] = [];
+      }
+      shardsByIndex[shard.index].push(shard);
+    });
+  }
 
   // Identify unassigned shards
-  const unassignedShards = shards?.filter((s) => s.state === 'UNASSIGNED') || [];
+  const unassignedShards = shards && shards.length > 0 
+    ? shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED') 
+    : [];
   const unassignedByIndex = unassignedShards.reduce(
-    (acc, shard) => {
+    (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
       if (!acc[shard.index]) {
         acc[shard.index] = [];
       }
@@ -1654,7 +1658,7 @@ function IndicesList({
   const hasProblems = (indexName: string) => {
     const indexShards = shardsByIndex[indexName] || [];
     return indexShards.some(
-      (s) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
+      (s: ShardInfo) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
     );
   };
 
@@ -2149,7 +2153,7 @@ function IndicesList({
                               <Text size="xs" fw={600}>
                                 Unassigned Shards:
                               </Text>
-                              {unassignedByIndex[index.name]?.map((shard, idx) => (
+                              {unassignedByIndex[index.name]?.map((shard: ShardInfo, idx: number) => (
                                 <Group key={idx} gap={4}>
                                   <Text size="xs">Shard {shard.shard}</Text>
                                   <ShardTypeBadge primary={shard.primary} />

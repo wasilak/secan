@@ -38,6 +38,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { getPaginatedItems } from '../types/api';
 import { useWatermarks } from '../hooks/useWatermarks';
 import type { ShardInfo, NodeInfo } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -92,9 +93,9 @@ export function ShardManagement() {
   const setShowOnlyAffected = (value: boolean) => updateParam('affected', value);
   const setIndexFilter = (value: string) => updateParam('filter', value);
 
-  // Fetch shards
+  // Fetch shards (paginated)
   const {
-    data: shards,
+    data: shardsPaginated,
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery({
@@ -103,12 +104,18 @@ export function ShardManagement() {
     enabled: !!id,
   });
 
-  // Fetch nodes for relocation targets
-  const { data: nodes, isLoading: nodesLoading } = useQuery({
+  // Extract shards from paginated response
+  const shards = getPaginatedItems(shardsPaginated);
+
+  // Fetch nodes for relocation targets (paginated)
+  const { data: nodesPaginated, isLoading: nodesLoading } = useQuery({
     queryKey: ['cluster', id, 'nodes'],
     queryFn: () => apiClient.getNodes(id!),
     enabled: !!id,
   });
+
+  // Extract nodes from paginated response
+  const nodes = getPaginatedItems(nodesPaginated);
 
   // Fetch cluster settings to check allocation status
   const { data: clusterSettings, isLoading: settingsLoading } = useQuery({

@@ -32,6 +32,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { getPaginatedItems } from '../types/api';
 import type {
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
@@ -81,11 +82,13 @@ export function Snapshots() {
   });
 
   // Fetch indices for snapshot creation
-  const { data: indices } = useQuery({
+  const { data: indicesPaginated } = useQuery({
     queryKey: ['cluster', id, 'indices'],
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id,
   });
+
+  const indices = getPaginatedItems(indicesPaginated);
 
   // Delete snapshot mutation
   const deleteMutation = useMutation({

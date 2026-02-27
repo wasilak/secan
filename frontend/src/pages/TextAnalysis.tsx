@@ -21,6 +21,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconSearch, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { getPaginatedItems } from '../types/api';
 import type { AnalyzeTextRequest, AnalysisToken } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 
@@ -63,11 +64,13 @@ export function TextAnalysisPage() {
   const [customCharFilters, setCustomCharFilters] = useState<string>('');
 
   // Fetch indices for field-based analysis
-  const { data: indices } = useQuery({
+  const { data: indicesPaginated } = useQuery({
     queryKey: ['cluster', id, 'indices'],
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id && useField,
   });
+
+  const indices = getPaginatedItems(indicesPaginated);
 
   // Fetch fields for selected index
   const { data: fieldsData } = useQuery({

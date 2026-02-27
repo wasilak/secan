@@ -23,6 +23,7 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { getPaginatedItems } from '../types/api';
 import type { AliasInfo, CreateAliasRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ListPageSkeleton } from '../components/LoadingSkeleton';
@@ -56,11 +57,13 @@ export function Aliases() {
   });
 
   // Fetch indices for the multi-select
-  const { data: indices } = useQuery({
+  const { data: indicesPaginated } = useQuery({
     queryKey: ['cluster', id, 'indices'],
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id,
   });
+
+  const indices = getPaginatedItems(indicesPaginated);
 
   // Delete alias mutation
   const deleteMutation = useMutation({

@@ -10,6 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { getPaginatedItems } from '../types/api';
 import { useClusterName } from '../hooks/useClusterName';
 import { useMemo } from 'react';
 
@@ -46,18 +47,22 @@ export function SpotlightSearch() {
   const currentClusterName = useClusterName(currentClusterId || '');
 
   // Fetch nodes for current cluster (only if in cluster view)
-  const { data: nodes } = useQuery({
+  const { data: nodesPaginated } = useQuery({
     queryKey: ['cluster', currentClusterId, 'nodes'],
     queryFn: () => apiClient.getNodes(currentClusterId!),
     enabled: !!currentClusterId,
   });
 
+  const nodes = getPaginatedItems(nodesPaginated);
+
   // Fetch indices for current cluster (only if in cluster view)
-  const { data: indices } = useQuery({
+  const { data: indicesPaginated } = useQuery({
     queryKey: ['cluster', currentClusterId, 'indices'],
     queryFn: () => apiClient.getIndices(currentClusterId!),
     enabled: !!currentClusterId,
   });
+
+  const indices = getPaginatedItems(indicesPaginated);
 
   // Build actions array based on context
   const actions = useMemo(() => {

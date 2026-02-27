@@ -19,6 +19,15 @@ export interface PaginatedResponse<T> {
 }
 
 /**
+ * Helper to extract items from paginated response or return empty array
+ */
+export function getPaginatedItems<T>(
+  response: PaginatedResponse<T> | undefined
+): T[] {
+  return response?.items ?? [];
+}
+
+/**
  * Cluster information returned by the backend
  */
 export interface ClusterInfo {
