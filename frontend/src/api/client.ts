@@ -31,7 +31,6 @@ import {
   IndexStats,
   RelocateShardRequest,
   RelocateShardResponse,
-  ClusterMetrics,
   ClusterMetricsHistoryResponse,
 } from '../types/api';
 
@@ -1356,7 +1355,7 @@ export class ApiClient {
   async getClusterMetrics(
     clusterId: string,
     params?: { start?: number; end?: number }
-  ): Promise<ClusterMetrics[]> {
+  ): Promise<ClusterMetricsHistoryResponse> {
     return this.executeWithRetry(async () => {
       const url = new URL(`/api/clusters/${clusterId}/metrics`, window.location.origin);
       if (params?.start) url.searchParams.append('start', String(params.start));
@@ -1370,7 +1369,7 @@ export class ApiClient {
         throw new Error(`Failed to fetch metrics: ${response.statusText}`);
       }
 
-      return response.json() as Promise<ClusterMetrics[]>;
+      return response.json() as Promise<ClusterMetricsHistoryResponse>;
     });
   }
 

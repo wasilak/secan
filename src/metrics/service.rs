@@ -68,11 +68,12 @@ impl TimeRange {
 
     /// Recommended step/interval for this time range
     /// Returns step in seconds (one data point per step interval)
+    /// Targets ~50 data points for optimal chart performance
     pub fn recommended_step(&self) -> i64 {
         let duration = self.duration();
-        // Target ~1000 data points for smooth charts
-        let step = duration / 1000;
-        std::cmp::max(step, 10) // Minimum 10 seconds
+        // Target ~50 data points for smooth charts without overloading the browser
+        let step = duration / 50;
+        std::cmp::max(step, 60) // Minimum 60 seconds (1 minute)
     }
 }
 
@@ -560,7 +561,8 @@ mod tests {
         let tr = TimeRange::new(0, 100000).unwrap();
         let step = tr.recommended_step();
         assert!(step > 0);
-        assert!(step <= 100000 / 1000);
+        assert!(step <= 100000 / 50); // Should be <= duration/50 (targeting ~50 points)
+        assert!(step >= 60); // Minimum 60 seconds
     }
 
     #[test]

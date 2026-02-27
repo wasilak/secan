@@ -54,14 +54,18 @@ struct QueryResult {
     data: QueryData,
 }
 
-/// Query data structure
+/// Query data structure matching Prometheus API format
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-enum QueryData {
-    Matrix(Vec<TimeSeriesData>),
-    Vector(Vec<TimeSeriesData>),
-    Scalar(InstantValue),
-    String(String),
+struct QueryData {
+    #[serde(rename = "resultType")]
+    result_type: String,
+    result: Vec<TimeSeriesData>,
+}
+
+impl QueryData {
+    fn into_timeseries(self) -> Vec<TimeSeriesData> {
+        self.result
+    }
 }
 
 /// Prometheus HTTP client for querying metrics
@@ -197,21 +201,7 @@ impl Client {
             return Err(anyhow!("Prometheus query failed: {}", body.status));
         }
 
-        let results = match body.data {
-            QueryData::Matrix(data) => data,
-            QueryData::Vector(data) => data,
-            QueryData::Scalar(value) => {
-                // Scalar result, convert to single metric
-                vec![TimeSeriesData {
-                    metric: HashMap::from([("__value__".to_string(), value.1.clone())]),
-                    values: None,
-                    value: Some(value),
-                }]
-            }
-            QueryData::String(s) => {
-                return Err(anyhow!("Unexpected string response from Prometheus: {}", s))
-            }
-        };
+        let results = body.data.into_timeseries();
 
         debug!("Prometheus query returned {} time series", results.len());
 

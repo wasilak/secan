@@ -106,6 +106,11 @@ impl Server {
             cluster_manager: self.cluster_manager.clone(),
         };
 
+        // Create metrics state for metrics routes
+        let metrics_state = crate::routes::metrics::MetricsState {
+            cluster_manager: self.cluster_manager.clone(),
+        };
+
         // Build the router with all routes
         Router::new()
             // Health, readiness, and version endpoints (no auth required)
@@ -162,7 +167,11 @@ impl Server {
                 "/api/clusters/{id}/shards/relocate",
                 post(crate::routes::clusters::relocate_shard),
             )
-            // Generic proxy route - must be last to avoid conflicts
+            // Metrics endpoints (must be before catch-all proxy route)
+            .nest(
+                "/api/clusters/{id}/metrics",
+                crate::routes::metrics::metrics_router().with_state(metrics_state),
+            )
             .route(
                 "/api/clusters/{id}/{*path}",
                 get(crate::routes::clusters::proxy_request)

@@ -1,7 +1,9 @@
 use crate::auth::{AuthUser, RbacManager};
 use crate::cache::MetadataCache;
 use crate::cluster::client::{Client, ElasticsearchClient};
-use crate::config::{ClusterAuth, ClusterConfig};
+use crate::config::{
+    ClusterAuth, ClusterConfig, MetricsSource, PrometheusConfig as ClusterPrometheusConfig,
+};
 use anyhow::{Context, Result};
 use reqwest::{Method, Response};
 use serde::{Deserialize, Serialize};
@@ -26,6 +28,10 @@ pub struct ClusterConnection {
     pub auth: Option<ClusterAuth>,
     /// TLS configuration
     pub tls_config: crate::config::TlsConfig,
+    /// Metrics source configuration
+    pub metrics_source: MetricsSource,
+    /// Prometheus configuration (if metrics_source is Prometheus)
+    pub prometheus: Option<ClusterPrometheusConfig>,
 }
 
 /// Cluster health status
@@ -87,6 +93,8 @@ impl ClusterConnection {
             client,
             auth: config.auth.clone(),
             tls_config: config.tls.clone(),
+            metrics_source: config.metrics_source.clone(),
+            prometheus: config.prometheus.clone(),
         })
     }
 

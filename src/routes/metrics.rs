@@ -1,6 +1,8 @@
 use crate::auth::middleware::AuthenticatedUser;
+use crate::cluster::client::ElasticsearchClient;
+use crate::cluster::manager::HealthStatus as ClusterHealthStatus;
 use crate::cluster::Manager as ClusterManager;
-use crate::metrics::{ClusterMetrics, InternalMetricsService, MetricsService, TimeRange};
+use crate::metrics::{InternalMetricsService, MetricsService, PrometheusMetricsService, TimeRange};
 use crate::prometheus::client::{
     Client as PrometheusClient, PrometheusConfig as PrometheusClientConfig,
 };
@@ -8,7 +10,8 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
+    routing::get,
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -19,6 +22,13 @@ use tracing::{debug, error, warn};
 #[derive(Clone)]
 pub struct MetricsState {
     pub cluster_manager: Arc<ClusterManager>,
+}
+
+/// Create the metrics router with all metrics endpoints
+pub fn metrics_router() -> Router<MetricsState> {
+    Router::new()
+        .route("/", get(get_cluster_metrics))
+        .route("/history", get(get_cluster_metrics_history))
 }
 
 /// Error response for metrics operations
@@ -48,7 +58,30 @@ fn default_start() -> Option<i64> {
     None
 }
 
-/// Request body for Prometheus validation
+/// Cluster metrics data point for frontend consumption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterMetricsPoint {
+    pub timestamp: i64,
+    pub date: String,
+    pub health: String,
+    pub node_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shard_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unassigned_shards: Option<u32>,
+}
+
+/// Cluster metrics history response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterMetricsHistoryResponse {
+    pub cluster_id: String,
+    pub time_range: TimeRange,
+    pub data: Vec<ClusterMetricsPoint>,
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrometheusValidationRequest {
     /// Prometheus endpoint URL
@@ -85,7 +118,7 @@ pub async fn get_cluster_metrics(
     Path(cluster_id): Path<String>,
     Query(params): Query<MetricsQuery>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<ClusterMetrics>, MetricsErrorResponse> {
+) -> Result<Json<ClusterMetricsHistoryResponse>, MetricsErrorResponse> {
     debug!("Getting metrics for cluster: {}", cluster_id);
 
     // Get cluster connection with auth check
@@ -120,21 +153,162 @@ pub async fn get_cluster_metrics(
         TimeRange::last_24_hours()
     };
 
-    // Use internal metrics service for now
-    debug!("Using internal metrics for cluster: {}", cluster_id);
-    let service = InternalMetricsService::new(cluster_conn);
-    let metrics = service
-        .get_cluster_metrics(&cluster_id, time_range)
-        .await
-        .map_err(|e| {
-            error!("Failed to get cluster metrics: {}", e);
-            MetricsErrorResponse {
-                error: "metrics_error".to_string(),
-                message: format!("Failed to retrieve metrics: {}", e),
-            }
-        })?;
+    // Select metrics service based on cluster configuration
+    let backend_metrics = match &cluster_conn.metrics_source {
+        crate::config::MetricsSource::Internal => {
+            debug!(
+                "Using INTERNAL metrics for cluster: {} (nodes: {:?})",
+                cluster_id, cluster_conn.nodes
+            );
+            debug!("Cluster '{}' using INTERNAL metrics source", cluster_id);
+            let service = InternalMetricsService::new(cluster_conn.clone());
+            service
+                .get_cluster_metrics(&cluster_id, time_range.clone())
+                .await
+                .map_err(|e| {
+                    error!("Failed to get internal cluster metrics: {}", e);
+                    MetricsErrorResponse {
+                        error: "metrics_error".to_string(),
+                        message: format!("Failed to retrieve metrics: {}", e),
+                    }
+                })?
+        }
+        crate::config::MetricsSource::Prometheus => {
+            // Get Prometheus configuration
+            let prometheus_config = cluster_conn.prometheus.as_ref().ok_or_else(|| {
+                MetricsErrorResponse {
+                    error: "configuration_error".to_string(),
+                    message: "Prometheus metrics source selected but no Prometheus configuration provided".to_string(),
+                }
+            })?;
 
-    Ok(Json(metrics))
+            debug!(
+                "Using PROMETHEUS metrics for cluster: {} (url: {}, job: {:?}, labels: {:?})",
+                cluster_id,
+                prometheus_config.url,
+                prometheus_config.job_name,
+                prometheus_config.labels
+            );
+            debug!(
+                "Cluster '{}' using PROMETHEUS metrics source (url: {}, job: {})",
+                cluster_id,
+                prometheus_config.url,
+                prometheus_config.job_name.as_deref().unwrap_or("none")
+            );
+
+            let service = PrometheusMetricsService::new(
+                &prometheus_config.url,
+                cluster_id.clone(),
+                prometheus_config.job_name.clone(),
+                prometheus_config.labels.clone(),
+            )
+            .map_err(|e| {
+                error!("Failed to create Prometheus metrics service: {}", e);
+                MetricsErrorResponse {
+                    error: "metrics_error".to_string(),
+                    message: format!("Failed to initialize Prometheus metrics: {}", e),
+                }
+            })?;
+
+            let mut prom_metrics = service
+                .get_cluster_metrics(&cluster_id, time_range.clone())
+                .await
+                .map_err(|e| {
+                    error!("Failed to get Prometheus cluster metrics: {}", e);
+                    MetricsErrorResponse {
+                        error: "metrics_error".to_string(),
+                        message: format!("Failed to retrieve Prometheus metrics: {}", e),
+                    }
+                })?;
+
+            // For Prometheus, fetch current cluster stats from Elasticsearch for counts
+            // This provides node_count, index_count, etc. that Prometheus doesn't track
+            if let Ok(client) = cluster_conn.client.health().await {
+                if let Ok(health) =
+                    serde_json::from_value::<crate::cluster::manager::ClusterHealth>(client)
+                {
+                    prom_metrics.node_count = Some(health.number_of_nodes);
+                    prom_metrics.index_count = None; // Not available from health API
+                    prom_metrics.shard_count = Some(health.active_shards);
+                    prom_metrics.health_status = Some(health.status);
+                }
+            }
+
+            prom_metrics
+        }
+    };
+
+    // Transform backend metrics into frontend-friendly format
+    // Build time series data by combining all metric arrays
+    let mut data_points = Vec::new();
+
+    // Use node_count as the base time series (should have most complete data)
+    if let Some(node_counts) = &backend_metrics.node_count {
+        // This is from internal metrics - single value, create synthetic history
+        let now = chrono::Utc::now().timestamp();
+        for i in 0..20 {
+            let ts = now - (i * 60); // 1 minute intervals
+            data_points.push(ClusterMetricsPoint {
+                timestamp: ts,
+                date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
+                    .unwrap_or_else(chrono::Utc::now)
+                    .to_rfc3339(),
+                health: backend_metrics
+                    .health_status
+                    .clone()
+                    .map(|h| match h {
+                        ClusterHealthStatus::Green => "green",
+                        ClusterHealthStatus::Yellow => "yellow",
+                        ClusterHealthStatus::Red => "red",
+                    })
+                    .unwrap_or("green")
+                    .to_string(),
+                node_count: *node_counts,
+                index_count: backend_metrics.index_count,
+                document_count: None,
+                shard_count: backend_metrics.shard_count,
+                unassigned_shards: None,
+            });
+        }
+    } else if let Some(metric_points) = &backend_metrics.jvm_memory_used_bytes {
+        // This is from Prometheus - use actual time series data
+        // Limit to last 20 data points to avoid performance issues
+        let start_idx = metric_points.len().saturating_sub(20);
+        for point in metric_points.iter().skip(start_idx) {
+            data_points.push(ClusterMetricsPoint {
+                timestamp: point.timestamp,
+                date: chrono::DateTime::<chrono::Utc>::from_timestamp(point.timestamp, 0)
+                    .unwrap_or_else(chrono::Utc::now)
+                    .to_rfc3339(),
+                health: backend_metrics
+                    .health_status
+                    .clone()
+                    .map(|h| match h {
+                        ClusterHealthStatus::Green => "green",
+                        ClusterHealthStatus::Yellow => "yellow",
+                        ClusterHealthStatus::Red => "red",
+                    })
+                    .unwrap_or("green")
+                    .to_string(),
+                node_count: backend_metrics.node_count.unwrap_or(0),
+                index_count: backend_metrics.index_count,
+                document_count: None,
+                shard_count: backend_metrics.shard_count,
+                unassigned_shards: None,
+            });
+        }
+    }
+
+    // Reverse to get chronological order (oldest first)
+    data_points.reverse();
+
+    let response = ClusterMetricsHistoryResponse {
+        cluster_id: cluster_id.clone(),
+        time_range,
+        data: data_points,
+    };
+
+    Ok(Json(response))
 }
 
 /// Get cluster metrics history (for heatmap visualization)
@@ -158,7 +332,7 @@ pub async fn get_cluster_metrics_history(
     debug!("Getting metrics history for cluster: {}", cluster_id);
 
     // Get cluster connection with auth check
-    let _cluster_conn = if let Some(user) = user_ext {
+    let cluster_conn = if let Some(user) = user_ext {
         state
             .cluster_manager
             .get_cluster_with_auth(&cluster_id, Some(&user.0 .0))
@@ -188,6 +362,26 @@ pub async fn get_cluster_metrics_history(
     } else {
         TimeRange::last_7_days()
     };
+
+    // Log metrics source for history endpoint
+    match &cluster_conn.metrics_source {
+        crate::config::MetricsSource::Internal => {
+            debug!(
+                "Cluster '{}' history using INTERNAL metrics source",
+                cluster_id
+            );
+        }
+        crate::config::MetricsSource::Prometheus => {
+            if let Some(prometheus_config) = &cluster_conn.prometheus {
+                debug!(
+                    "Cluster '{}' history using PROMETHEUS metrics source (url: {}, job: {})",
+                    cluster_id,
+                    prometheus_config.url,
+                    prometheus_config.job_name.as_deref().unwrap_or("none")
+                );
+            }
+        }
+    }
 
     // Generate historical data for heatmap visualization
     // In production, this would query Prometheus for actual historical metrics

@@ -59,6 +59,7 @@ import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
+import { useMetricsStore } from '../stores/metricsStore';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
 import { IndexEdit } from './IndexEdit';
@@ -69,6 +70,7 @@ import { ShardTypeBadge } from '../components/ShardTypeBadge';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
+import { IconClock } from '@tabler/icons-react';
 import { TablePagination } from '../components/TablePagination';
 import { SimplePagination } from '../components/SimplePagination';
 import { MasterIndicator } from '../components/MasterIndicator';
@@ -249,39 +251,113 @@ export function ClusterView() {
     }
   }, [activeTab, id, refetchStats]);
 
-  // Track historical data for sparklines
+  // Get selected time range from store (for Prometheus metrics)
+  const metricsStore = useMetricsStore();
+  const selectedTimeRange = metricsStore.selectedTimeRange;
+  const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
+
+  // Time range presets
+  const timeRangePresets = [
+    { label: 'Last 1h', minutes: 60 },
+    { label: 'Last 6h', minutes: 360 },
+    { label: 'Last 24h', minutes: 1440 },
+    { label: 'Last 7d', minutes: 10080 },
+    { label: 'Last 30d', minutes: 43200 },
+  ];
+
+  // Fetch metrics history from Prometheus when in statistics tab
+  const { data: metricsHistory } = useQuery({
+    queryKey: ['cluster', id, 'metrics-history', selectedTimeRange],
+    queryFn: async () => {
+      if (!id) throw new Error('Cluster ID is required');
+      // Use selected time range or default to last 24 hours
+      const timeRange = selectedTimeRange || {
+        start: Math.floor(Date.now() / 1000) - (24 * 60 * 60),
+        end: Math.floor(Date.now() / 1000),
+        label: 'Last 24h',
+      };
+      return apiClient.getClusterMetrics(id, { start: timeRange.start, end: timeRange.end });
+    },
+    enabled: activeTab === 'statistics' && !!id,
+    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000, // Consider data fresh for 30 seconds
+  });
+
+  // Track historical data for sparklines (fallback when not in statistics tab)
   // Pass activeTab as resetKey so data resets when switching to statistics tab
-  // For statistics tab, request timestamps; for sparklines, just values
-  const nodesHistory = useSparklineData(
+  const nodesHistorySparkline = useSparklineData(
     stats?.numberOfNodes,
     20,
     activeTab,
-    activeTab === 'statistics'
-  );
-  const indicesHistory = useSparklineData(
+    false // Return number[] for sparklines
+  ) as number[];
+  const indicesHistorySparkline = useSparklineData(
     stats?.numberOfIndices,
     20,
     activeTab,
-    activeTab === 'statistics'
-  );
-  const documentsHistory = useSparklineData(
+    false
+  ) as number[];
+  const documentsHistorySparkline = useSparklineData(
     stats?.numberOfDocuments,
     20,
     activeTab,
-    activeTab === 'statistics'
-  );
-  const shardsHistory = useSparklineData(
+    false
+  ) as number[];
+  const shardsHistorySparkline = useSparklineData(
     stats?.activeShards,
     20,
     activeTab,
-    activeTab === 'statistics'
-  );
-  const unassignedHistory = useSparklineData(
+    false
+  ) as number[];
+  const unassignedHistorySparkline = useSparklineData(
     stats?.unassignedShards,
     20,
     activeTab,
-    activeTab === 'statistics'
-  );
+    false
+  ) as number[];
+
+  // Use metrics history data when available (statistics tab), otherwise use sparkline data
+  // For ClusterStatistics component (needs DataPoint[])
+  const nodesHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => ({ value: d.node_count, timestamp: new Date(d.date).getTime() }))
+    : nodesHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+  
+  const indicesHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => ({ value: d.index_count || 0, timestamp: new Date(d.date).getTime() }))
+    : indicesHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+  
+  const documentsHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => ({ value: d.document_count || 0, timestamp: new Date(d.date).getTime() }))
+    : documentsHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+  
+  const shardsHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => ({ value: d.shard_count || 0, timestamp: new Date(d.date).getTime() }))
+    : shardsHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+  
+  const unassignedHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => ({ value: d.unassigned_shards || 0, timestamp: new Date(d.date).getTime() }))
+    : unassignedHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+
+  // For Sparkline components (needs number[])
+  const nodesHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => d.node_count)
+    : nodesHistorySparkline;
+  
+  const indicesHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => d.index_count || 0)
+    : indicesHistorySparkline;
+  
+  const documentsHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => d.document_count || 0)
+    : documentsHistorySparkline;
+  
+  const shardsHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => d.shard_count || 0)
+    : shardsHistorySparkline;
+  
+  const unassignedHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
+    ? metricsHistory.data.map(d => d.unassigned_shards || 0)
+    : unassignedHistorySparkline;
 
   // Pagination state for nodes, indices, and shards
   const [nodesPage, setNodesPage] = useState(1);
@@ -452,10 +528,10 @@ export function ClusterView() {
                         {stats?.numberOfDataNodes || 0} data
                       </Text>
                     </Group>
-                    {nodesHistory.length > 0 && (
+                    {nodesHistoryNumbers.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline
-                          data={nodesHistory as number[]}
+                          data={nodesHistoryNumbers}
                           color="var(--mantine-color-blue-6)"
                           height={25}
                         />
@@ -486,10 +562,10 @@ export function ClusterView() {
                         {stats?.numberOfDataNodes || 0} data
                       </Text>
                     </Group>
-                    {indicesHistory.length > 0 && (
+                    {indicesHistoryNumbers.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline
-                          data={indicesHistory as number[]}
+                          data={indicesHistoryNumbers}
                           color="var(--mantine-color-green-6)"
                           height={25}
                         />
@@ -520,10 +596,10 @@ export function ClusterView() {
                         total
                       </Text>
                     </Group>
-                    {documentsHistory.length > 0 && (
+                    {documentsHistoryNumbers.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline
-                          data={documentsHistory as number[]}
+                          data={documentsHistoryNumbers}
                           color="var(--mantine-color-cyan-6)"
                           height={25}
                         />
@@ -554,10 +630,10 @@ export function ClusterView() {
                         {stats?.activePrimaryShards || 0} primary
                       </Text>
                     </Group>
-                    {shardsHistory.length > 0 && (
+                    {shardsHistoryNumbers.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline
-                          data={shardsHistory as number[]}
+                          data={shardsHistoryNumbers}
                           color="var(--mantine-color-violet-6)"
                           height={25}
                         />
@@ -588,10 +664,10 @@ export function ClusterView() {
                         {stats?.relocatingShards || 0} moving
                       </Text>
                     </Group>
-                    {unassignedHistory.length > 0 && (
+                    {unassignedHistoryNumbers.length > 0 && (
                       <div style={{ marginTop: 4 }}>
                         <Sparkline
-                          data={unassignedHistory as number[]}
+                          data={unassignedHistoryNumbers}
                           color={
                             stats?.unassignedShards
                               ? 'var(--mantine-color-red-6)'
@@ -674,6 +750,61 @@ export function ClusterView() {
 
         {/* Statistics Tab */}
         <Tabs.Panel value="statistics" pt="md">
+          {/* Time Range Dropdown - Top Right */}
+          <Group justify="space-between" mb="md">
+            <Text size="sm" fw={500}>
+              Cluster Statistics
+            </Text>
+            <Menu
+              opened={timeRangeDropdownOpened}
+              onChange={setTimeRangeDropdownOpened}
+              position="bottom-end"
+              withArrow
+            >
+              <Menu.Target>
+                <Button
+                  variant="light"
+                  size="sm"
+                  leftSection={<IconClock size={16} />}
+                  rightSection={<Text size="xs" c="dimmed">{selectedTimeRange?.label || 'Last 24h'}</Text>}
+                  aria-label="Select time range"
+                >
+                  Time Range
+                </Button>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Text size="xs" c="dimmed" px="sm" py="xs">
+                  Select time range
+                </Text>
+                {timeRangePresets.map((preset) => (
+                  <Menu.Item
+                    key={preset.label}
+                    onClick={() => {
+                      const now = Math.floor(Date.now() / 1000);
+                      const start = now - preset.minutes * 60;
+                      metricsStore.setTimeRange({
+                        start,
+                        end: now,
+                        label: preset.label,
+                      });
+                      setTimeRangeDropdownOpened(false);
+                    }}
+                    leftSection={
+                      selectedTimeRange?.label === preset.label ? (
+                        <Badge size="xs" variant="filled" color="blue">
+                          ✓
+                        </Badge>
+                      ) : null
+                    }
+                  >
+                    {preset.label}
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
+
           <ClusterStatistics
             nodesHistory={nodesHistory as DataPoint[]}
             indicesHistory={indicesHistory as DataPoint[]}
