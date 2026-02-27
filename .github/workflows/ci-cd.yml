@@ -175,23 +175,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images (parallel builds per platform)
+  # Stage 2b: Build Docker images (optimized multiarch)
   build-docker:
-    name: Build Docker Image (${{ matrix.platform }})
+    name: Build Docker Image
     needs: test
     if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            platform_name: amd64
-          - platform: linux/arm64
-            platform_name: arm64
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
     steps:
@@ -201,8 +193,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set up QEMU
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux/arm64'
+      - name: Set up QEMU (for arm64 cross-compilation)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
@@ -226,12 +218,12 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
-      - name: Build and push (${{ matrix.platform_name }} - release tags)
+      - name: Build and push multiarch (release tags - single manifest list)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -244,7 +236,7 @@ jobs:
 
       # For non-tag builds: build only amd64 (fast, no emulation needed)
       - name: Build amd64 only (branches/PRs - cache only)
-        if: "!startsWith(github.ref, 'refs/tags/v') && matrix.platform_name == 'amd64'"
+        if: "!startsWith(github.ref, 'refs/tags/v')"
         uses: docker/build-push-action@v5
         with:
           context: .
