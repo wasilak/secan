@@ -1,0 +1,54 @@
+---
+title: Secan Documentation
+description: Modern Elasticsearch cluster management tool
+template: splash
+hero:
+  tagline: A modern, lightweight Elasticsearch cluster management solution for
+    sustainable growth
+  image:
+    file: ../../../assets/1.2/sproutling.png
+  actions:
+    - text: Get Started
+      link: /secan/1.2/getting-started/about/
+      icon: right-arrow
+    - text: View Features
+      link: /secan/1.2/features/dashboard/
+      icon: open-book
+      variant: minimal
+slug: "1.2"
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Key Features
+
+<CardGrid cols={2}>
+  <Card title="Cluster Monitoring" icon="star">
+    Real-time health status, node statistics, and index metrics across all your
+    clusters.
+  </Card>
+
+  <Card title="Index Management" icon="document">
+    Create, delete, and modify indices with visual feedback and detailed
+    configurations.
+  </Card>
+
+  <Card title="Shard Management" icon="add-document">
+    Interactive grid-based shard allocation and relocation with visual
+    representation.
+  </Card>
+
+  <Card title="REST Console" icon="magnifier">
+    Execute Elasticsearch queries directly from the UI without leaving the
+    application.
+  </Card>
+
+  <Card title="Multi-Cluster Support" icon="setting">
+    Manage multiple Elasticsearch clusters from a single unified interface.
+  </Card>
+
+  <Card title="Multiple Auth Modes" icon="approve-check">
+    Open mode, local users with bcrypt, and OIDC integration for enterprise
+    deployments.
+  </Card>
+</CardGrid>
