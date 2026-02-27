@@ -41,6 +41,7 @@ export default defineConfig({
 						{ label: 'Index Management', slug: 'features/index-management' },
 						{ label: 'Shard Management', slug: 'features/shard-management' },
 						{ label: 'REST Console', slug: 'features/rest-console' },
+						{ label: 'Performance & Optimization', slug: 'features/performance' },
 						{ label: 'Additional Features', slug: 'features/additional' },
 					],
 				},

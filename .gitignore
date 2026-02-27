@@ -59,6 +59,8 @@ docs/src/assets/*/
 docs/src/content/docs/*/
 docs/src/content/docs/main/
 docs/src/content/docs/0.*/
+# Track current version (1.2.x)
+!docs/src/content/docs/1.2/
 
 # Frontend build artifacts (embedded by rust-embed during backend build)
 backend/assets/
