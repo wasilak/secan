@@ -112,6 +112,29 @@ clusters:
       key: "VuaCfGcBxxx=="
     es_version: 8
 
+  # Example: Cluster with Prometheus metrics (for historical data)
+  - id: "production-with-prometheus"
+    name: "Production with Prometheus"
+    nodes:
+      - "http://es-prod.example.com:9200"
+    
+    # Use Prometheus for historical metrics instead of internal Elasticsearch APIs
+    # Options: "internal" (default) or "prometheus"
+    metrics_source: prometheus
+    
+    # Prometheus configuration (required when metrics_source is "prometheus")
+    prometheus:
+      # Prometheus endpoint URL
+      url: "http://prometheus.internal:9090"
+      # Optional: Filter metrics by job name (e.g., from prometheus.yml scrape config)
+      job_name: "elasticsearch"
+      # Optional: Additional labels for filtering metrics
+      # labels:
+      #   cluster: "production"
+      #   environment: "prod"
+    
+    es_version: 8
+
 
 # ============================================================================
 # CACHE CONFIGURATION
@@ -120,3 +143,28 @@ clusters:
 cache:
   # Cluster metadata cache duration in seconds (default: 30)
   metadata_duration_seconds: 30
+
+
+# ============================================================================
+# METRICS CONFIGURATION
+# ============================================================================
+# Secan supports two metrics sources for historical cluster data:
+#
+# 1. Internal (default): Uses Elasticsearch's own APIs for real-time metrics
+#    - No additional configuration needed
+#    - Best for: Development, single clusters, simple setups
+#
+# 2. Prometheus: Queries Prometheus for historical time-series data
+#    - Requires Prometheus instance with Elasticsearch metrics
+#    - Best for: Production, historical analysis, multi-cluster monitoring
+#
+# Configuration per cluster:
+#   metrics_source: "internal" | "prometheus"  (default: "internal")
+#   prometheus:  (required if metrics_source is "prometheus")
+#     url: "http://prometheus:9090"
+#     job_name: "elasticsearch"  # Optional: filter by job name
+#     labels:                    # Optional: additional label filters
+#       cluster: "production"
+#
+# Note: At least one of `job_name` or `labels` must be provided when using
+# Prometheus to identify your cluster's metrics.
