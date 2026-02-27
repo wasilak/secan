@@ -97,13 +97,17 @@ docker-down:
 
 [group('docker')]
 docker-build-amd64:
-    # Build Docker image for amd64
-    docker build --platform linux/amd64 -t secan:latest .
+    # Build Docker image for amd64 (uses version from Cargo.toml)
+    #!/bin/bash
+    VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+    docker build --platform linux/amd64 -t secan:$VERSION -t secan:latest .
 
 [group('docker')]
 docker-build-multiarch:
-    # Build Docker image for multiple architectures
-    docker buildx build --platform linux/amd64,linux/arm64 -t secan:latest .
+    # Build Docker image for multiple architectures (uses version from Cargo.toml)
+    #!/bin/bash
+    VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+    docker buildx build --platform linux/amd64,linux/arm64 -t secan:$VERSION -t secan:latest .
 
 [group('release')]
 release-frontend:
