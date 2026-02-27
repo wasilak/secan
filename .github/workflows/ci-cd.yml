@@ -175,17 +175,27 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images (optimized multiarch)
+  # Stage 2b: Build Docker images - Fan-out (parallel per-platform builds)
   build-docker:
-    name: Build Docker Image
+    name: Build Docker (${{ matrix.platform_name }})
     needs: test
     if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            platform_name: amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            platform_name: arm64
+            runner: ubuntu-24.04-arm  # Native arm64 runner (no QEMU!)
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+      base-tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -193,14 +203,72 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set up QEMU (for arm64 cross-compilation)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
       - name: Log in to GitHub Container Registry (push on release tags only)
         if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=-${{ matrix.platform_name }},onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      # Release tags: build and push platform-specific image
+      - name: Build and push ${{ matrix.platform_name }} (release tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+          provenance: false
+          sbom: false
+
+      # Non-tag builds: build only amd64 for testing (no push)
+      - name: Build amd64 only (branches/PRs - cache only)
+        if: "!startsWith(github.ref, 'refs/tags/v') && matrix.platform_name == 'amd64'"
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          tags: secan:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Stage 2c: Create multi-arch manifest (fan-in merge step)
+  create-manifest:
+    name: Create Multi-Arch Manifest
+    needs: build-docker
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ needs.build-docker.outputs.base-tag }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -218,38 +286,30 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
-      - name: Build and push multiarch (release tags - single manifest list)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-          provenance: false
-          sbom: false
-
-      # For non-tag builds: build only amd64 (fast, no emulation needed)
-      - name: Build amd64 only (branches/PRs - cache only)
-        if: "!startsWith(github.ref, 'refs/tags/v')"
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          tags: secan:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create and push multi-arch manifest
+        run: |
+          # Parse tags from metadata (newline separated)
+          TAGS="${{ steps.meta.outputs.tags }}"
+          
+          # For each tag, create manifest list pointing to both platforms
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              # Extract base tag without platform suffix
+              BASE_TAG=$(echo "$tag" | sed 's/-amd64$//' | sed 's/-arm64$//')
+              
+              # Create manifest list
+              echo "Creating manifest for: $BASE_TAG"
+              docker buildx imagetools create \
+                -t "$BASE_TAG" \
+                "${tag}-amd64" \
+                "${tag}-arm64"
+            fi
+          done
 
   # Stage 3: Create release (only on v*.*.* tags)
   create-release:
     name: Create GitHub Release
-    needs: [build-binaries, build-docker]
+    needs: [build-binaries, create-manifest]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
