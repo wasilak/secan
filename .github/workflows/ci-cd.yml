@@ -265,6 +265,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          flavor: |
+            suffix=-${{ matrix.platform_name }},onlatest=true
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -297,10 +299,19 @@ jobs:
           # Create manifest for each base tag
           for base in "${!base_tags[@]}"; do
             echo "Creating manifest for: $base"
-            docker buildx imagetools create \
-              -t "$base" \
-              "${base}-amd64" \
-              "${base}-arm64"
+            
+            # Check if platform images exist before creating manifest
+            if docker buildx imagetools inspect "${base}-amd64" > /dev/null 2>&1 && \
+               docker buildx imagetools inspect "${base}-arm64" > /dev/null 2>&1; then
+              docker buildx imagetools create \
+                -t "$base" \
+                "${base}-amd64" \
+                "${base}-arm64"
+            else
+              echo "WARNING: Platform images not found for $base, skipping manifest creation"
+              echo "  - ${base}-amd64: $(docker buildx imagetools inspect ${base}-amd64 2>&1 | head -1)"
+              echo "  - ${base}-arm64: $(docker buildx imagetools inspect ${base}-arm64 2>&1 | head -1)"
+            fi
           done
 
   # Stage 3: Create release (only on v*.*.* tags)
