@@ -5,12 +5,12 @@ on:
     branches: [main, develop, master]
     tags: ["v*.*.*"]
     paths-ignore:
-      - 'docs/**'
-      - '.github/workflows/docs.yml'
+      - "docs/**"
+      - ".github/workflows/docs.yml"
   pull_request:
     branches: [main, develop]
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
   workflow_dispatch:
 
 env:
@@ -193,7 +193,7 @@ jobs:
             runner: ubuntu-latest
           - platform: linux/arm64
             platform_name: arm64
-            runner: ubuntu-24.04-arm  # Native arm64 runner (no QEMU!)
+            runner: ubuntu-24.04-arm # Native arm64 runner (no QEMU!)
     outputs:
       base-tag: ${{ steps.meta.outputs.tags }}
     steps:
@@ -256,7 +256,7 @@ jobs:
   # Stage 2c: Create multi-arch manifest (fan-in merge step)
   create-manifest:
     name: Create Multi-Arch Manifest
-    needs: build-docker
+    needs: [build-docker]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -290,7 +290,7 @@ jobs:
         run: |
           # Parse tags from metadata (newline separated)
           TAGS="${{ steps.meta.outputs.tags }}"
-          
+
           # For each tag, create manifest list pointing to both platforms
           echo "$TAGS" | while IFS= read -r tag; do
             if [ -n "$tag" ]; then
