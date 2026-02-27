@@ -175,15 +175,23 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Stage 2b: Build Docker images
+  # Stage 2b: Build Docker images (parallel builds per platform)
   build-docker:
-    name: Build Docker Image
+    name: Build Docker Image (${{ matrix.platform }})
     needs: test
     if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/pull')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            platform_name: amd64
+          - platform: linux/arm64
+            platform_name: arm64
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
     steps:
@@ -194,8 +202,10 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Set up QEMU
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.platform == 'linux/arm64'
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Log in to GitHub Container Registry (push on release tags only)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -216,12 +226,12 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
 
-      - name: Build and push multi-arch (release tags - optimized)
+      - name: Build and push (${{ matrix.platform_name }} - release tags)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -234,7 +244,7 @@ jobs:
 
       # For non-tag builds: build only amd64 (fast, no emulation needed)
       - name: Build amd64 only (branches/PRs - cache only)
-        if: "!startsWith(github.ref, 'refs/tags/v')"
+        if: "!startsWith(github.ref, 'refs/tags/v') && matrix.platform_name == 'amd64'"
         uses: docker/build-push-action@v5
         with:
           context: .
