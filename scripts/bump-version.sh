@@ -33,7 +33,7 @@ if [ "$CURRENT_VERSION" != "$VERSION" ]; then
     fi
 
     # Update Dockerfile image labels and comments that reference version
-    if grep -q "# Secan" Dockerfile 2>/dev/null; then
+    if grep -q "LABEL version=" Dockerfile 2>/dev/null; then
         sed -i '' "s/LABEL version=.*/LABEL version=\"$VERSION\"/" Dockerfile 2>/dev/null || true
     fi
 
