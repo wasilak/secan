@@ -58,6 +58,7 @@ pub struct ClusterInfo {
     pub name: Option<String>,
     pub nodes: Vec<String>,
     pub accessible: bool,
+    pub es_version: u8,
 }
 
 impl ClusterConnection {
@@ -250,6 +251,7 @@ mod tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let connection = ClusterConnection::new(&config).await;
@@ -273,6 +275,7 @@ mod tests {
             }),
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let connection = ClusterConnection::new(&config).await;
@@ -316,6 +319,7 @@ mod tests {
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             accessible: true,
+            es_version: 8,
         };
 
         let json = serde_json::to_string(&info).unwrap();
@@ -450,6 +454,7 @@ impl Manager {
                 name: conn.name.clone(),
                 nodes: conn.nodes.clone(),
                 accessible: true, // Will be determined by health checks
+                es_version: conn.client.es_version(),
             })
             .collect()
     }
@@ -677,6 +682,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -685,6 +691,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -715,6 +722,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -737,6 +745,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -761,6 +770,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -769,6 +779,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -791,6 +802,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -811,6 +823,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "cluster2".to_string(),
@@ -819,6 +832,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -841,6 +855,7 @@ mod manager_tests {
                 }),
                 tls: TlsConfig::default(),
                 es_version: 8,
+                ..Default::default()
             },
             ClusterConfig {
                 id: "apikey".to_string(),
@@ -851,6 +866,7 @@ mod manager_tests {
                 }),
                 tls: TlsConfig::default(),
                 es_version: 8,
+                ..Default::default()
             },
             ClusterConfig {
                 id: "none".to_string(),
@@ -859,6 +875,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -882,6 +899,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -890,6 +908,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -943,6 +962,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "prod-cluster-2".to_string(),
@@ -951,6 +971,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
             ClusterConfig {
                 id: "dev-cluster-1".to_string(),
@@ -959,6 +980,7 @@ mod manager_tests {
                 auth: None,
                 tls: TlsConfig::default(),
                 es_version: 8,
+            ..Default::default()
             },
         ];
 
@@ -997,6 +1019,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let role_configs = vec![RoleConfig {
@@ -1033,6 +1056,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let role_configs = vec![RoleConfig {
@@ -1070,6 +1094,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))
@@ -1092,6 +1117,7 @@ mod manager_tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         }];
 
         let manager = Manager::new(configs, Duration::from_secs(30))

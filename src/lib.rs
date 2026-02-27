@@ -40,6 +40,18 @@ pub mod config;
 /// and CORS configuration.
 pub mod middleware;
 
+/// Metrics abstraction layer
+///
+/// Provides unified interface for metrics from multiple sources (internal Elasticsearch or Prometheus).
+/// Supports time-range queries, metric aggregation, and health checks.
+pub mod metrics;
+
+/// Prometheus metrics client integration
+///
+/// Provides HTTP client for querying Prometheus instances and parsing time-series metrics.
+/// Used as alternative metrics source for cluster monitoring.
+pub mod prometheus;
+
 /// HTTP API routes and handlers
 ///
 /// Defines REST API endpoints for authentication, cluster management, index operations,

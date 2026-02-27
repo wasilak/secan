@@ -10,6 +10,7 @@ export interface ClusterInfo {
   name: string;
   nodes: string[];
   accessible: boolean;
+  es_version?: number;
 }
 
 /**
@@ -83,6 +84,7 @@ export interface ClusterStats {
   memoryTotal?: number;
   diskUsed?: number;
   diskTotal?: number;
+  esVersion?: string;
 }
 
 /**
@@ -666,5 +668,49 @@ export interface BulkOperationResponse {
   failed: Array<{
     index: string;
     error: string;
+  }>;
+}
+
+/**
+ * Time range for metrics queries
+ */
+export interface TimeRange {
+  start: number; // Unix timestamp in seconds
+  end: number; // Unix timestamp in seconds
+  label: string; // Human-readable label
+}
+
+/**
+ * Cluster metrics data point
+ */
+export interface ClusterMetrics {
+  clusterId: string;
+  timestamp: number;
+  health: 'green' | 'yellow' | 'red';
+  nodeCount?: number;
+  indexCount?: number;
+  documentCount?: number;
+  shardCount?: number;
+  unassignedShards?: number;
+  memoryUsagePercent?: number;
+  diskUsagePercent?: number;
+  cpuUsagePercent?: number;
+}
+
+/**
+ * Cluster metrics history response from API (for heatmap/sparklines)
+ */
+export interface ClusterMetricsHistoryResponse {
+  cluster_id: string;
+  time_range: TimeRange;
+  data: Array<{
+    timestamp: number;
+    date: string;
+    health: 'green' | 'yellow' | 'red';
+    node_count: number;
+    index_count?: number;
+    document_count?: number;
+    shard_count?: number;
+    unassigned_shards?: number;
   }>;
 }

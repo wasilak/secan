@@ -1,7 +1,7 @@
 use crate::auth::middleware::AuthenticatedUser;
-use crate::cluster::{ClusterInfo, Manager as ClusterManager};
+use crate::cluster::{ClusterInfo, ElasticsearchClient, Manager as ClusterManager};
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{Method, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -109,6 +109,7 @@ pub async fn list_clusters(
                         name: Some(cluster_name),
                         nodes: cluster_info.nodes,
                         accessible: cluster_info.accessible,
+                        es_version: cluster.client.es_version(),
                     });
                     continue;
                 }
@@ -238,8 +239,20 @@ pub async fn get_cluster_stats(
         }
     })?;
 
+    // Get cluster version from the info endpoint
+    let es_version: Option<String> = cluster
+        .client
+        .info()
+        .await
+        .ok()
+        .and_then(|info| {
+            info["version"]["number"]
+                .as_str()
+                .map(|v| format!("v{}", v))
+        });
+
     // Transform to frontend format
-    let response = transform_cluster_stats(&stats, &health).map_err(|e| {
+    let response = transform_cluster_stats(&stats, &health, es_version).map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,
@@ -258,6 +271,69 @@ pub async fn get_cluster_stats(
     );
 
     Ok(Json(response))
+}
+
+/// Get cluster settings
+///
+/// Returns cluster settings in JSON format
+/// Optionally includes default settings with `include_defaults` query parameter
+pub async fn get_cluster_settings(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<Value>, ClusterErrorResponse> {
+    let include_defaults = params.contains_key("include_defaults");
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        include_defaults = %include_defaults,
+        "Getting cluster settings"
+    );
+
+    // Check cluster access
+    check_cluster_access(&cluster_id, &user_ext)?;
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Get cluster settings
+    let settings = cluster
+        .client
+        .cluster_settings(include_defaults)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to get cluster settings"
+            );
+            ClusterErrorResponse {
+                error: "settings_failed".to_string(),
+                message: format!("Failed to get cluster settings: {}", e),
+            }
+        })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        "Cluster settings retrieved successfully"
+    );
+
+    Ok(Json(settings))
 }
 
 /// Get nodes information using SDK typed methods

@@ -30,6 +30,8 @@ import {
   IndexStats,
   RelocateShardRequest,
   RelocateShardResponse,
+  ClusterMetrics,
+  ClusterMetricsHistoryResponse,
 } from '../types/api';
 
 /**
@@ -1330,6 +1332,58 @@ export class ApiClient {
         request
       );
       return response.data;
+    });
+  }
+
+  /**
+   * Get cluster metrics from Prometheus
+   *
+   * Requirements: 1.0, 1.1
+   */
+  async getClusterMetrics(
+    clusterId: string,
+    params?: { start?: number; end?: number }
+  ): Promise<ClusterMetrics[]> {
+    return this.executeWithRetry(async () => {
+      const url = new URL(`/api/clusters/${clusterId}/metrics`, window.location.origin);
+      if (params?.start) url.searchParams.append('start', String(params.start));
+      if (params?.end) url.searchParams.append('end', String(params.end));
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+      }
+
+      return response.json() as Promise<ClusterMetrics[]>;
+    });
+  }
+
+  /**
+   * Get cluster metrics history for heatmap
+   *
+   * Requirements: 3.0
+   */
+  async getClusterMetricsHistory(
+    clusterId: string,
+    params?: { start?: number; end?: number }
+  ): Promise<ClusterMetricsHistoryResponse> {
+    return this.executeWithRetry(async () => {
+      const url = new URL(`/api/clusters/${clusterId}/metrics/history`, window.location.origin);
+      if (params?.start) url.searchParams.append('start', String(params.start));
+      if (params?.end) url.searchParams.append('end', String(params.end));
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics history: ${response.statusText}`);
+      }
+
+      return response.json() as Promise<ClusterMetricsHistoryResponse>;
     });
   }
 }

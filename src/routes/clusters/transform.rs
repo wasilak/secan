@@ -29,6 +29,7 @@ fn format_uptime(uptime_millis: u64) -> String {
 pub fn transform_cluster_stats(
     stats: &Value,
     health: &Value,
+    es_version: Option<String>,
 ) -> Result<ClusterStatsResponse, anyhow::Error> {
     // Extract memory and disk totals from nodes stats
     let memory_used = stats["nodes"]["jvm"]["mem"]["heap_used_in_bytes"].as_u64();
@@ -61,6 +62,7 @@ pub fn transform_cluster_stats(
         memory_total,
         disk_used,
         disk_total,
+        es_version,
     })
 }
 
@@ -274,6 +276,8 @@ pub struct ClusterStatsResponse {
     pub disk_used: Option<u64>,
     #[serde(rename = "diskTotal", skip_serializing_if = "Option::is_none")]
     pub disk_total: Option<u64>,
+    #[serde(rename = "esVersion", skip_serializing_if = "Option::is_none")]
+    pub es_version: Option<String>,
 }
 
 /// Node info response for frontend

@@ -116,6 +116,7 @@ impl Server {
             .route("/api/auth/login", post(crate::routes::auth::login))
             .route("/api/auth/logout", post(crate::routes::auth::logout))
             .route("/api/auth/me", get(crate::routes::auth::get_current_user))
+            .route("/api/auth/status", get(crate::routes::auth::get_auth_status))
             .route("/api/auth/oidc/login", get(crate::routes::auth::oidc_login))
             .route(
                 "/api/auth/oidc/callback",
@@ -128,6 +129,10 @@ impl Server {
             .route(
                 "/api/clusters/{id}/stats",
                 get(crate::routes::clusters::get_cluster_stats),
+            )
+            .route(
+                "/api/clusters/{id}/settings",
+                get(crate::routes::clusters::get_cluster_settings),
             )
             .route(
                 "/api/clusters/{id}/nodes",
@@ -308,6 +313,7 @@ mod tests {
             auth: None,
             tls: crate::config::TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let cluster_manager =
@@ -333,6 +339,7 @@ mod tests {
             auth: None,
             tls: crate::config::TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let cluster_manager =

@@ -1,4 +1,43 @@
 services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - secan-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  elasticsearch-exporter:
+    image: prometheuscommunity/elasticsearch-exporter:latest
+    container_name: elasticsearch-exporter
+    command:
+      - '--es.uri=http://es01:9200'
+      - '--es.all'
+      - '--es.indices'
+      - '--es.shards'
+    ports:
+      - "9114:9114"
+    networks:
+      - secan-network
+    depends_on:
+      - es01
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9114/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: es01
@@ -77,6 +116,8 @@ volumes:
   es02_data:
     driver: local
   es03_data:
+    driver: local
+  prometheus_data:
     driver: local
 
 networks:

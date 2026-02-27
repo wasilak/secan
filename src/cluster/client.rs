@@ -64,6 +64,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get cluster state
     async fn cluster_state(&self) -> Result<Value>;
 
+    /// Get cluster settings
+    async fn cluster_settings(&self, include_defaults: bool) -> Result<Value>;
+
     /// Get shard information using _cat/shards API (memory-efficient)
     async fn cat_shards(&self) -> Result<Value>;
 
@@ -482,6 +485,31 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse cluster state response")
     }
 
+    async fn cluster_settings(&self, include_defaults: bool) -> Result<Value> {
+        let path = if include_defaults {
+            "/_cluster/settings?include_defaults=true"
+        } else {
+            "/_cluster/settings"
+        };
+
+        let response = self
+            .request(reqwest::Method::GET, path, None)
+            .await
+            .context("Cluster settings request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Cluster settings failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cluster settings response")
+    }
+
     /// Get shard information using _cat/shards API (memory-efficient)
     /// Returns compact shard data without loading entire cluster state
     async fn cat_shards(&self) -> Result<Value> {
@@ -575,6 +603,7 @@ mod tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let client = Client::new(&config).await;
@@ -596,6 +625,7 @@ mod tests {
             }),
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let client = Client::new(&config).await;
@@ -613,6 +643,7 @@ mod tests {
             }),
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         let client = Client::new(&config).await;
@@ -628,6 +659,7 @@ mod tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 7,
+            ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();
@@ -640,6 +672,7 @@ mod tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 9,
+            ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();

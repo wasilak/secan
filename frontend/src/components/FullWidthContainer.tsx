@@ -33,12 +33,18 @@ interface FullWidthContainerProps extends Omit<BoxProps, 'style'> {
    * Additional styles to apply
    */
   style?: React.CSSProperties;
+  /**
+   * If true, uses 100% width without drawer-aware calculations.
+   * Useful when the container is used inside a modal or other constrained parent.
+   */
+  constrainToParent?: boolean;
 }
 
 export const FullWidthContainer = memo(function FullWidthContainer({
   children,
   padding,
   style,
+  constrainToParent = false,
   ...boxProps
 }: FullWidthContainerProps) {
   const { isPinned, drawerWidth } = useDrawer();
@@ -60,16 +66,22 @@ export const FullWidthContainer = memo(function FullWidthContainer({
 
   // Memoize width calculation
   const calculatedWidth = useMemo(() => {
+    if (constrainToParent) {
+      return '100%';
+    }
     if (!isPinned) {
       return '100%';
     }
     return `calc(100vw - ${drawerWidth.base}px)`;
-  }, [isPinned, drawerWidth.base]);
+  }, [constrainToParent, isPinned, drawerWidth.base]);
 
   // Memoize max width calculation
   const calculatedMaxWidth = useMemo(() => {
+    if (constrainToParent) {
+      return '100%';
+    }
     return isPinned ? `calc(100vw - ${drawerWidth.base}px)` : '100%';
-  }, [isPinned, drawerWidth.base]);
+  }, [constrainToParent, isPinned, drawerWidth.base]);
 
   // Memoize padding style
   const paddingStyle = useMemo(() => {

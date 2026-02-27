@@ -36,6 +36,27 @@ export function getHealthColor(health: HealthStatus | 'unreachable'): string {
 }
 
 /**
+ * Get CSS color variable for health status (for inline styles)
+ *
+ * @param health - The health status of the cluster
+ * @returns CSS color variable for inline backgroundColor
+ */
+export function getHealthColorValue(health: HealthStatus | 'unreachable'): string {
+  switch (health) {
+    case 'green':
+      return 'var(--mantine-color-green-6)';
+    case 'yellow':
+      return 'var(--mantine-color-yellow-6)';
+    case 'red':
+      return 'var(--mantine-color-red-6)';
+    case 'unreachable':
+      return 'var(--mantine-color-gray-6)';
+    default:
+      return 'var(--mantine-color-gray-6)';
+  }
+}
+
+/**
  * Get badge color for shard state
  *
  * Requirements: 1.5

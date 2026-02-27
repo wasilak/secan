@@ -127,6 +127,95 @@ pub struct RoleConfig {
     pub cluster_patterns: Vec<String>,
 }
 
+/// Metrics data source for cluster
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MetricsSource {
+    /// Use live metrics from Elasticsearch internal APIs
+    Internal,
+    /// Use historical metrics from Prometheus
+    Prometheus,
+}
+
+impl Default for MetricsSource {
+    fn default() -> Self {
+        Self::Internal
+    }
+}
+
+/// Prometheus configuration for cluster metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrometheusConfig {
+    /// Prometheus endpoint URL (e.g., "http://prometheus:9090")
+    pub url: String,
+    /// Prometheus job name to filter metrics (e.g., "elasticsearch" or "elasticsearch_prod")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_name: Option<String>,
+    /// Additional labels for metric filtering (e.g., {"cluster": "prod", "environment": "production"})
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<String, String>>,
+}
+
+impl PrometheusConfig {
+    /// Validate Prometheus configuration
+    pub fn validate(&self, cluster_id: &str) -> anyhow::Result<()> {
+        if self.url.is_empty() {
+            anyhow::bail!(
+                "Cluster '{}': Prometheus URL cannot be empty",
+                cluster_id
+            );
+        }
+
+        // Basic URL validation
+        if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
+            anyhow::bail!(
+                "Cluster '{}': Prometheus URL must start with http:// or https://: {}",
+                cluster_id,
+                self.url
+            );
+        }
+
+        // At least one of job_name or labels must be provided for cluster identification
+        if self.job_name.is_none() && self.labels.is_none() {
+            anyhow::bail!(
+                "Cluster '{}': Prometheus configuration must have either job_name or labels for cluster identification",
+                cluster_id
+            );
+        }
+
+        // Validate job name if provided
+        if let Some(job) = &self.job_name {
+            if job.is_empty() {
+                anyhow::bail!(
+                    "Cluster '{}': Prometheus job_name cannot be empty",
+                    cluster_id
+                );
+            }
+        }
+
+        // Validate labels if provided
+        if let Some(labels) = &self.labels {
+            if labels.is_empty() {
+                anyhow::bail!(
+                    "Cluster '{}': Prometheus labels cannot be empty if provided",
+                    cluster_id
+                );
+            }
+
+            for (key, value) in labels {
+                if key.is_empty() || value.is_empty() {
+                    anyhow::bail!(
+                        "Cluster '{}': Prometheus label keys and values cannot be empty",
+                        cluster_id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// Cluster configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterConfig {
@@ -142,6 +231,38 @@ pub struct ClusterConfig {
     /// Used to select the appropriate SDK client version
     #[serde(default = "default_es_version")]
     pub es_version: u8,
+    /// Metrics data source for this cluster
+    #[serde(default)]
+    pub metrics_source: MetricsSource,
+    /// Prometheus configuration (required if metrics_source is Prometheus)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus: Option<PrometheusConfig>,
+}
+
+impl Default for ClusterConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: None,
+            nodes: Vec::new(),
+            auth: None,
+            tls: TlsConfig::default(),
+            es_version: default_es_version(),
+            metrics_source: MetricsSource::default(),
+            prometheus: None,
+        }
+    }
+}
+
+impl ClusterConfig {
+    /// Create a new cluster configuration with required fields
+    pub fn new(id: String, nodes: Vec<String>) -> Self {
+        Self {
+            id,
+            nodes,
+            ..Default::default()
+        }
+    }
 }
 
 /// Cluster authentication configuration
@@ -407,6 +528,24 @@ impl ClusterConfig {
 
         if let Some(auth) = &self.auth {
             auth.validate(&self.id)?;
+        }
+
+        // Validate metrics source configuration
+        match self.metrics_source {
+            MetricsSource::Internal => {
+                // Internal metrics don't require additional configuration
+            }
+            MetricsSource::Prometheus => {
+                // Prometheus metrics require configuration
+                if let Some(prometheus_config) = &self.prometheus {
+                    prometheus_config.validate(&self.id)?;
+                } else {
+                    anyhow::bail!(
+                        "Cluster '{}': Prometheus configuration required when metrics_source is 'prometheus'",
+                        self.id
+                    );
+                }
+            }
         }
 
         Ok(())
@@ -745,6 +884,7 @@ mod tests {
             auth: None,
             tls: TlsConfig::default(),
             es_version: 8,
+            ..Default::default()
         };
 
         assert!(cluster.validate().is_ok());

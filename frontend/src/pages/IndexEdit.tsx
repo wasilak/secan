@@ -9,12 +9,11 @@ import {
   Skeleton,
   Tabs,
   HoverCard,
-  Code,
-  ScrollArea,
   Loader,
   Box,
   Badge,
 } from '@mantine/core';
+import { CopyButton } from '../components/CopyButton';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,7 +28,6 @@ import {
 import { notifications } from '@mantine/notifications';
 import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
-import { useTheme } from '../hooks/useTheme';
 import { parseError } from '../lib/errorHandling';
 
 /**
@@ -114,11 +112,21 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
  *
  * Requirements: 7.1-7.8, 8.1-8.8
  */
-export function IndexEdit() {
+interface IndexEditProps {
+  /**
+   * If true, constrains width to parent container (useful in modals)
+   */
+  constrainToParent?: boolean;
+  /**
+   * If true, hides the header with index name badge (for modal use)
+   */
+  hideHeader?: boolean;
+}
+
+export function IndexEdit({ constrainToParent = false, hideHeader = false }: IndexEditProps) {
   const params = useParams<{ id?: string; indexName?: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { resolvedTheme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Get cluster ID from route params (works in both modal and standalone mode)
@@ -369,7 +377,7 @@ export function IndexEdit() {
 
   if (!clusterId || !indexName) {
     return (
-      <FullWidthContainer>
+      <FullWidthContainer constrainToParent={constrainToParent}>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
           Cluster ID and index name are required
         </Alert>
@@ -379,7 +387,7 @@ export function IndexEdit() {
 
   if (isLoading) {
     return (
-      <FullWidthContainer>
+      <FullWidthContainer constrainToParent={constrainToParent}>
         <Group justify="space-between" mb="md">
           <div>
             <Skeleton height={32} width={200} mb="xs" />
@@ -401,7 +409,7 @@ export function IndexEdit() {
   if (loadError) {
     const errorDetails = parseError(loadError);
     return (
-      <FullWidthContainer>
+      <FullWidthContainer constrainToParent={constrainToParent}>
         <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Index" color="red">
           {errorDetails.message}
         </Alert>
@@ -417,19 +425,21 @@ export function IndexEdit() {
   }
 
   return (
-    <FullWidthContainer style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Group justify="space-between" mb="md">
-        <Group gap="xs">
-          <Badge size="lg" variant="light" color="blue">
-            {indexName}
-          </Badge>
+    <FullWidthContainer constrainToParent={constrainToParent} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {!hideHeader && (
+        <Group justify="space-between" mb="md">
+          <Group gap="xs">
+            <Badge size="lg" variant="light" color="blue">
+              {indexName}
+            </Badge>
+          </Group>
+          {!searchParams.has('index') && (
+            <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
+              Back to Indices
+            </Button>
+          )}
         </Group>
-        {!searchParams.has('index') && (
-          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
-            Back to Indices
-          </Button>
-        )}
-      </Group>
+      )}
 
       <Stack gap="md" style={{ flex: 1, overflow: 'auto' }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
@@ -483,10 +493,15 @@ export function IndexEdit() {
                   <Text size="xs" c="dimmed" mb="sm">
                     Edit the dynamic settings below
                   </Text>
+                  <Group justify="flex-end" mb="xs">
+                    <CopyButton value={settings} tooltip="Copy settings" size="sm" />
+                  </Group>
                   <Box
                     style={{
                       border: '1px solid var(--mantine-color-gray-4)',
                       borderRadius: 'var(--mantine-radius-sm)',
+                      width: '100%',
+                      maxWidth: '100%',
                     }}
                   >
                     <Editor
@@ -494,13 +509,14 @@ export function IndexEdit() {
                       defaultLanguage="json"
                       value={settings}
                       onChange={handleSettingsChange}
-                      theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
+                      theme="vs-dark"
                       options={{
                         minimap: { enabled: false },
                         fontSize: 14,
                         lineNumbers: 'on',
                         scrollBeyondLastLine: false,
                         automaticLayout: true,
+                        wordWrap: 'on',
                       }}
                     />
                   </Box>
@@ -537,10 +553,15 @@ export function IndexEdit() {
                     <Text size="xs" c="dimmed" mb="sm">
                       Add new fields to the mappings below
                     </Text>
+                    <Group justify="flex-end" mb="xs">
+                      <CopyButton value={mappings} tooltip="Copy mappings" size="sm" />
+                    </Group>
                     <Box
                       style={{
                         border: '1px solid var(--mantine-color-gray-4)',
                         borderRadius: 'var(--mantine-radius-sm)',
+                        width: '100%',
+                        maxWidth: '100%',
                       }}
                     >
                       <Editor
@@ -548,13 +569,14 @@ export function IndexEdit() {
                         defaultLanguage="json"
                         value={mappings}
                         onChange={handleMappingsChange}
-                        theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
+                        theme="vs-dark"
                         options={{
                           minimap: { enabled: false },
                           fontSize: 14,
                           lineNumbers: 'on',
                           scrollBeyondLastLine: false,
                           automaticLayout: true,
+                          wordWrap: 'on',
                         }}
                       />
                     </Box>
@@ -588,9 +610,35 @@ export function IndexEdit() {
                       {statsError}
                     </Alert>
                   ) : statsData ? (
-                    <ScrollArea h={500}>
-                      <Code block>{JSON.stringify(statsData, null, 2)}</Code>
-                    </ScrollArea>
+                    <Box>
+                      <Group justify="flex-end" mb="xs">
+                        <CopyButton value={JSON.stringify(statsData, null, 2)} tooltip="Copy JSON" size="sm" />
+                      </Group>
+                      <Box
+                        style={{
+                          border: '1px solid var(--mantine-color-gray-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          width: '100%',
+                          maxWidth: '100%',
+                        }}
+                      >
+                        <Editor
+                          height="500px"
+                          defaultLanguage="json"
+                          value={JSON.stringify(statsData, null, 2)}
+                          theme="vs-dark"
+                          options={{
+                            readOnly: true,
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            lineNumbers: 'on',
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            wordWrap: 'on',
+                          }}
+                        />
+                      </Box>
+                    </Box>
                   ) : null}
                 </div>
               </Stack>

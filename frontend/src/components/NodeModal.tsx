@@ -55,32 +55,37 @@ export function NodeModal({
   });
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      size="90%"
-      title={
-        nodeStats ? (
-          <Group gap="xs">
-            <MasterIndicator
-              isMaster={nodeStats.isMaster}
-              isMasterEligible={nodeStats.isMasterEligible}
-              size="lg"
-              showTooltip={true}
-            />
-            <Text fw={600}>{nodeStats.name}</Text>
-          </Group>
-        ) : (
-          <Text fw={600}>Node Details</Text>
-        )
-      }
-      styles={{
-        body: {
-          height: 'calc(100vh - 120px)',
-          overflow: 'auto',
-        },
-      }}
-    >
+    <Modal.Root opened={opened} onClose={onClose} size="90%">
+      <Modal.Overlay />
+      <Modal.Content
+        style={{
+          maxWidth: '100%',
+        }}
+      >
+        <Modal.Header>
+          <Modal.Title>
+            <Group gap="xs">
+              {nodeStats && (
+                <MasterIndicator
+                  isMaster={nodeStats.isMaster}
+                  isMasterEligible={nodeStats.isMasterEligible}
+                  size="lg"
+                  showTooltip={true}
+                />
+              )}
+              <Text size="lg" fw={600}>
+                {nodeStats ? nodeStats.name : 'Node Details'}
+              </Text>
+            </Group>
+          </Modal.Title>
+          <Modal.CloseButton />
+        </Modal.Header>
+        <Modal.Body
+          style={{
+            maxHeight: 'calc(100vh - 120px)',
+            overflow: 'auto',
+          }}
+        >
       {isLoading && <NodeDetailSkeleton />}
 
       {error && (
@@ -98,6 +103,8 @@ export function NodeModal({
           Node statistics not found
         </Alert>
       )}
-    </Modal>
+        </Modal.Body>
+      </Modal.Content>
+    </Modal.Root>
   );
 }

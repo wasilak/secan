@@ -1,29 +1,26 @@
 import { memo, useCallback, useMemo } from 'react';
-import { Group, Stack, Menu, ActionIcon, Avatar, Text, Divider, Tooltip } from '@mantine/core';
-import { IconUser, IconLogout, IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
+import { Group, Stack, Menu, ActionIcon, Text, Divider, Tooltip, Avatar } from '@mantine/core';
+import { IconSun, IconMoon, IconDeviceDesktop, IconLogout } from '@tabler/icons-react';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { useMantineColorScheme } from '@mantine/core';
+import type { User } from '../contexts/AuthContext';
 
 interface DrawerControlsProps {
   collapsed: boolean;
-  user: {
-    username: string;
-    roles: string[];
-  };
-  onLogout: () => void;
+  user?: User | null;
+  onLogout?: () => void;
 }
 
 /**
- * DrawerControls component displays user menu and theme selector at the bottom of the drawer.
+ * DrawerControls component displays theme selector at the bottom of the drawer.
  *
  * Features:
  * - Shows icon-only when drawer is collapsed
  * - Shows icons with labels when drawer is expanded
- * - User menu with logout functionality
  * - Theme selector for light/dark/system modes
  * - Memoized for performance optimization
  *
- * Requirements: 4.1, 4.2, 4.5, 4.6
+ * Requirements: 8.0
  */
 export const DrawerControls = memo(function DrawerControls({
   collapsed,
@@ -40,12 +37,6 @@ export const DrawerControls = memo(function DrawerControls({
     }
     return colorScheme === 'dark' ? <IconMoon size={20} /> : <IconSun size={20} />;
   }, [theme, colorScheme]);
-
-  // Memoize user initial
-  const userInitial = useMemo(() => user.username.charAt(0).toUpperCase(), [user.username]);
-
-  // Memoize roles string
-  const rolesString = useMemo(() => user.roles.join(', '), [user.roles]);
 
   // Memoize theme change handler
   const handleThemeChange = useCallback(
@@ -99,42 +90,6 @@ export const DrawerControls = memo(function DrawerControls({
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>
-
-        {/* User menu - icon only */}
-        <Menu shadow="md" width={200} position="right">
-          <Menu.Target>
-            <Tooltip label={user.username} position="right">
-              <ActionIcon variant="subtle" size="lg" aria-label="User menu">
-                <Avatar size="sm" radius="xl" color="blue">
-                  {userInitial}
-                </Avatar>
-              </ActionIcon>
-            </Tooltip>
-          </Menu.Target>
-
-          <Menu.Dropdown>
-            <Menu.Label>
-              <Group gap="xs">
-                <IconUser size={16} aria-hidden="true" />
-                {user.username}
-              </Group>
-            </Menu.Label>
-
-            <Menu.Item c="dimmed" disabled>
-              Roles: {rolesString}
-            </Menu.Item>
-
-            <Menu.Divider />
-
-            <Menu.Item
-              leftSection={<IconLogout size={16} aria-hidden="true" />}
-              onClick={onLogout}
-              color="red"
-            >
-              Logout
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
       </Stack>
     );
   }
@@ -143,6 +98,45 @@ export const DrawerControls = memo(function DrawerControls({
   return (
     <Stack gap="sm">
       <Divider />
+
+      {/* User menu */}
+      {user && onLogout && (
+        <>
+          <Menu shadow="md" width={200}>
+            <Menu.Target>
+              <Group
+                gap="sm"
+                style={{
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    backgroundColor: 'var(--mantine-color-gray-light-hover)',
+                  },
+                }}
+                role="button"
+                aria-label="User menu"
+                tabIndex={0}
+              >
+                <Avatar name={user.username} size="md" />
+                <Text size="sm" fw={500}>
+                  {user.username}
+                </Text>
+              </Group>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Item
+                leftSection={<IconLogout size={16} />}
+                onClick={onLogout}
+              >
+                Logout
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+          <Divider />
+        </>
+      )}
 
       {/* Theme selector with label */}
       <Menu shadow="md" width={200}>
@@ -191,54 +185,6 @@ export const DrawerControls = memo(function DrawerControls({
             bg={theme === 'system' ? 'var(--mantine-color-blue-light)' : undefined}
           >
             System
-          </Menu.Item>
-        </Menu.Dropdown>
-      </Menu>
-
-      {/* User menu with label */}
-      <Menu shadow="md" width={200}>
-        <Menu.Target>
-          <Group
-            gap="sm"
-            style={{
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: '4px',
-              '&:hover': {
-                backgroundColor: 'var(--mantine-color-gray-light-hover)',
-              },
-            }}
-            role="button"
-            aria-label="User menu"
-            tabIndex={0}
-          >
-            <Avatar size="sm" radius="xl" color="blue">
-              {userInitial}
-            </Avatar>
-            <Text size="sm">{user.username}</Text>
-          </Group>
-        </Menu.Target>
-
-        <Menu.Dropdown>
-          <Menu.Label>
-            <Group gap="xs">
-              <IconUser size={16} aria-hidden="true" />
-              {user.username}
-            </Group>
-          </Menu.Label>
-
-          <Menu.Item c="dimmed" disabled>
-            Roles: {rolesString}
-          </Menu.Item>
-
-          <Menu.Divider />
-
-          <Menu.Item
-            leftSection={<IconLogout size={16} aria-hidden="true" />}
-            onClick={onLogout}
-            color="red"
-          >
-            Logout
           </Menu.Item>
         </Menu.Dropdown>
       </Menu>

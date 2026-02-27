@@ -322,6 +322,31 @@ pub async fn logout(State(_state): State<AuthState>) -> Result<Json<LoginRespons
     }))
 }
 
+/// Auth status response
+#[derive(Debug, Serialize)]
+pub struct AuthStatusResponse {
+    pub mode: String, // "open", "local_users", or "oidc"
+    pub oidc_enabled: bool,
+}
+
+/// Get authentication status
+pub async fn get_auth_status(State(state): State<AuthState>) -> Result<Json<AuthStatusResponse>, ErrorResponse> {
+    use crate::config::AuthMode;
+
+    let mode = match &state.config.auth.mode {
+        AuthMode::Open => "open",
+        AuthMode::LocalUsers => "local_users",
+        AuthMode::Oidc => "oidc",
+    };
+
+    let oidc_enabled = state.oidc_provider.is_some();
+
+    Ok(Json(AuthStatusResponse {
+        mode: mode.to_string(),
+        oidc_enabled,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

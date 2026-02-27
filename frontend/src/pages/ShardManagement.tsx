@@ -17,10 +17,11 @@ import {
   Checkbox,
   TextInput,
   Tooltip,
-  Code,
   Skeleton,
   Box,
 } from '@mantine/core';
+import { CopyButton } from '../components/CopyButton';
+import Editor from '@monaco-editor/react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
@@ -850,34 +851,58 @@ export function ShardManagement() {
                 'Shard Details'
               )
             }
-            size="80%"
-            fullScreen={false}
+            size="90%"
             styles={{
               body: {
-                height: 'calc(100vh - 120px)',
-                display: 'flex',
-                flexDirection: 'column',
+                maxHeight: 'calc(100vh - 120px)',
+                overflow: 'auto',
               },
             }}
           >
-            <ScrollArea style={{ flex: 1 }}>
-              {shardDetailsLoading ? (
-                <Stack gap="xs">
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} width="70%" radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} width="50%" radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} radius="xs" />
-                  <Skeleton height={20} width="80%" radius="xs" />
-                </Stack>
-              ) : (
-                <Code block>{JSON.stringify(shardDetailsData || selectedShard, null, 2)}</Code>
-              )}
-            </ScrollArea>
+            {shardDetailsLoading ? (
+              <Stack gap="xs">
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="70%" radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="50%" radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} radius="xs" />
+                <Skeleton height={20} width="80%" radius="xs" />
+              </Stack>
+            ) : (
+              <Box>
+                <Group justify="flex-end" mb="xs">
+                  <CopyButton value={JSON.stringify(shardDetailsData || selectedShard, null, 2)} tooltip="Copy JSON" size="sm" />
+                </Group>
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    width: '100%',
+                    maxWidth: '100%',
+                  }}
+                >
+                  <Editor
+                    height="600px"
+                    defaultLanguage="json"
+                    value={JSON.stringify(shardDetailsData || selectedShard, null, 2)}
+                    theme="vs-dark"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
           </Modal>
         </>
       )}

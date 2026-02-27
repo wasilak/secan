@@ -16,16 +16,15 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import {
   IconDashboard,
-  IconServer,
   IconPin,
   IconPinFilled,
   IconAlertCircle,
   IconChevronRight,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { DrawerControls } from './DrawerControls';
@@ -34,7 +33,8 @@ import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
 import { useClusterName } from '../hooks/useClusterName';
 import { useAuth } from '../contexts/AuthContext';
-import { getHealthColor } from '../utils/colors';
+import { getHealthColor, getHealthColorValue } from '../utils/colors';
+import { APP_VERSION, getAppVersion } from '../utils/version';
 
 /**
  * Header title component - shows app name or cluster context
@@ -62,36 +62,31 @@ function HeaderTitle() {
   if (!clusterId) {
     // Not in a cluster view - show app name
     return (
-      <Tooltip label="Secan - Secure Elasticsearch Admin" position="bottom" withArrow>
-        <Text size="xl" fw={700} component="h1" style={{ whiteSpace: 'nowrap', cursor: 'help' }}>
-          Secan
-        </Text>
-      </Tooltip>
+      <Text size="xl" fw={700} component="h1" style={{ whiteSpace: 'nowrap' }}>
+        Secan
+      </Text>
     );
   }
 
   // In cluster view - show breadcrumb with cluster name and health
   return (
     <Group gap="xs" wrap="nowrap">
-      <Tooltip label="Secan - Secure Elasticsearch Admin" position="bottom" withArrow>
-        <Anchor
-          component="button"
-          onClick={() => navigate('/')}
-          size="lg"
-          fw={700}
-          c="dimmed"
-          style={{
-            textDecoration: 'none',
-            whiteSpace: 'nowrap',
-            cursor: 'help',
-            '&:hover': {
-              textDecoration: 'underline',
-            },
-          }}
-        >
-          Secan
-        </Anchor>
-      </Tooltip>
+      <Anchor
+        component="button"
+        onClick={() => navigate('/')}
+        size="lg"
+        fw={700}
+        c="dimmed"
+        style={{
+          textDecoration: 'none',
+          whiteSpace: 'nowrap',
+          '&:hover': {
+            textDecoration: 'underline',
+          },
+        }}
+      >
+        Secan
+      </Anchor>
       <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)' }} />
       <Group gap={6} wrap="nowrap">
         <Text size="lg" fw={600} component="h1" style={{ whiteSpace: 'nowrap' }}>
@@ -113,24 +108,53 @@ function HeaderTitle() {
 }
 
 /**
- * Cluster navigation item with resolved name
+ * Cluster navigation item with resolved name and health indicator
+ * Persists the current tab when switching clusters
  */
 function ClusterNavItem({
   clusterId,
   isActive,
   onClick,
+  currentTab,
 }: {
   clusterId: string;
   isActive: boolean;
   onClick: () => void;
+  currentTab?: string;
 }) {
   const clusterName = useClusterName(clusterId);
+  const refreshInterval = useRefreshInterval();
+
+  // Fetch cluster stats for health status (independent of useClusterName to ensure fresh data)
+  const { data: clusterStats } = useQuery({
+    queryKey: ['cluster', clusterId, 'stats'],
+    queryFn: () => apiClient.getClusterStats(clusterId),
+    refetchInterval: refreshInterval,
+    staleTime: 30 * 1000,
+  });
+
+  const healthColor = clusterStats ? getHealthColorValue(clusterStats.health) : 'var(--mantine-color-gray-5)';
+
+  // Build URL with tab parameter if switching clusters
+  const clusterUrl = currentTab && !isActive ? `/cluster/${clusterId}?tab=${currentTab}` : `/cluster/${clusterId}`;
 
   return (
     <NavLink
-      href={`/cluster/${clusterId}`}
+      href={clusterUrl}
       label={clusterName}
       active={isActive}
+      leftSection={
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: healthColor,
+            transition: 'background-color 0.2s ease-in-out',
+          }}
+          aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
+        />
+      }
       onClick={(e) => {
         e.preventDefault();
         onClick();
@@ -147,6 +171,10 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const refreshInterval = useRefreshInterval();
+
+  // Extract current tab from URL for persistence when switching clusters
+  const searchParams = new URLSearchParams(location.search);
+  const currentTab = searchParams.get('tab') || undefined;
 
   // Fetch list of clusters
   const {
@@ -183,51 +211,49 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
       />
 
       {/* Cluster navigation */}
-      <NavLink
-        label="Clusters"
-        leftSection={<IconServer size={20} aria-hidden="true" />}
-        childrenOffset={28}
-        defaultOpened={location.pathname.startsWith('/cluster')}
-      >
-        {clustersLoading && (
-          <Group gap="xs" p="xs">
-            <Loader size="xs" />
-            <Text size="sm" c="dimmed">
-              Loading clusters...
-            </Text>
-          </Group>
-        )}
-
-        {clustersError && (
-          <Alert
-            icon={<IconAlertCircle size={14} />}
-            color="red"
-            p="xs"
-            styles={{ message: { fontSize: '0.75rem' } }}
-          >
-            Failed to load clusters
-          </Alert>
-        )}
-
-        {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length === 0 && (
-          <Text size="sm" c="dimmed" p="xs">
-            No clusters configured
+      <Text size="sm" fw={600} c="dimmed" mb="xs" mt="md">
+        Clusters
+      </Text>
+      
+      {clustersLoading && (
+        <Group gap="xs" p="xs">
+          <Loader size="xs" />
+          <Text size="sm" c="dimmed">
+            Loading clusters...
           </Text>
-        )}
+        </Group>
+      )}
 
-        {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length > 0 && (
-          <>
-            {clusters.map((cluster) => (
-              <ClusterNavItem
-                key={cluster.id}
-                clusterId={cluster.id}
-                isActive={location.pathname.startsWith(`/cluster/${cluster.id}`)}
-                onClick={() => handleNavigation(`/cluster/${cluster.id}`)}
-              />
-            ))}
-          </>
-        )}
-      </NavLink>
+      {clustersError && (
+        <Alert
+          icon={<IconAlertCircle size={14} />}
+          color="red"
+          p="xs"
+          styles={{ message: { fontSize: '0.75rem' } }}
+        >
+          Failed to load clusters
+        </Alert>
+      )}
+
+      {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length === 0 && (
+        <Text size="sm" c="dimmed" p="xs">
+          No clusters configured
+        </Text>
+      )}
+
+      {!clustersLoading && !clustersError && Array.isArray(clusters) && clusters.length > 0 && (
+        <Stack gap={2}>
+          {clusters.map((cluster) => (
+            <ClusterNavItem
+              key={cluster.id}
+              clusterId={cluster.id}
+              isActive={location.pathname.startsWith(`/cluster/${cluster.id}`)}
+              onClick={() => handleNavigation(`/cluster/${cluster.id}`)}
+              currentTab={currentTab}
+            />
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }
@@ -248,27 +274,11 @@ export function AppShell() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const { isPinned, setIsPinned, drawerWidth } = useDrawer();
   const location = useLocation();
-  const [versionInfo, setVersionInfo] = useState<{ version: string; git_info: string } | null>(
-    null
-  );
+  const [appVersion, setAppVersion] = useState(APP_VERSION);
 
-  // Fetch version information on component mount
+  // Fetch version from API on mount
   useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await fetch('/api/version');
-        if (response.ok) {
-          const data = await response.json();
-          setVersionInfo(data);
-        }
-      } catch (error) {
-        console.warn('Failed to fetch version info:', error);
-        // Fall back to default if fetch fails
-        setVersionInfo({ version: '1.0.0', git_info: 'unknown' });
-      }
-    };
-
-    fetchVersion();
+    getAppVersion().then(setAppVersion);
   }, []);
 
   // Determine refresh scope based on current route
@@ -321,12 +331,14 @@ export function AppShell() {
             wrap="nowrap"
           >
             <Group gap="xs" wrap="nowrap">
-              <Burger
-                opened={drawerOpened}
-                onClick={toggleDrawer}
-                size="sm"
-                aria-label={drawerOpened ? 'Close navigation menu' : 'Open navigation menu'}
-              />
+              {!isPinned && (
+                <Burger
+                  opened={drawerOpened}
+                  onClick={toggleDrawer}
+                  size="sm"
+                  aria-label={drawerOpened ? 'Close navigation menu' : 'Open navigation menu'}
+                />
+              )}
               <HeaderTitle />
             </Group>
 
@@ -368,18 +380,11 @@ export function AppShell() {
             </MantineAppShell.Section>
 
             <MantineAppShell.Section>
-              {isAuthenticated && user && (
-                <DrawerControls collapsed={false} user={user} onLogout={logout} />
-              )}
+              <DrawerControls collapsed={false} user={isAuthenticated ? user : null} onLogout={logout} />
               <Divider my="sm" />
               <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-                Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
+                {appVersion}
               </Text>
-              {versionInfo?.git_info && (
-                <Text size="xs" c="dimmed" ta="center" style={{ marginTop: 4 }}>
-                  {versionInfo.git_info}
-                </Text>
-              )}
             </MantineAppShell.Section>
           </MantineAppShell.Navbar>
         )}
@@ -446,18 +451,7 @@ export function AppShell() {
           <div
             style={{ flexShrink: 0, marginTop: 'auto', paddingTop: 'var(--mantine-spacing-md)' }}
           >
-            {isAuthenticated && user && (
-              <DrawerControls collapsed={false} user={user} onLogout={logout} />
-            )}
-            <Divider my="sm" />
-            <Text size="xs" c="dimmed" ta="center" role="contentinfo">
-              Secan {versionInfo ? `v${versionInfo.version}` : 'v1.0.0'}
-            </Text>
-            {versionInfo?.git_info && (
-              <Text size="xs" c="dimmed" ta="center" style={{ marginTop: 4 }}>
-                {versionInfo.git_info}
-              </Text>
-            )}
+            <DrawerControls collapsed={false} user={isAuthenticated ? user : null} onLogout={logout} />
           </div>
         </div>
       </Drawer>

@@ -62,6 +62,31 @@ function formatTime(timestamp: number): string {
   });
 }
 
+/**
+ * Custom tooltip for pie charts with proper dark mode support
+ */
+function PieTooltip({ active, payload, colorScheme }: any) {
+  if (active && payload && payload.length) {
+    const data = payload[0];
+    return (
+      <div
+        style={{
+          backgroundColor: colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+          border: `1px solid ${colorScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
+          borderRadius: '4px',
+          padding: '8px 12px',
+          color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
+        }}
+      >
+        <div style={{ fontSize: '12px', fontWeight: 500 }}>
+          {data.payload.name} : {data.value}
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
 export function ClusterStatistics({
   nodesHistory,
   indicesHistory,
@@ -79,6 +104,11 @@ export function ClusterStatistics({
       colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
     border: `1px solid ${colorScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
     borderRadius: '4px',
+    color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
+  };
+
+  // Theme-aware tooltip label styles
+  const tooltipLabelStyle = {
     color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
   };
 
@@ -201,7 +231,7 @@ export function ClusterStatistics({
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="nodes"
@@ -281,7 +311,7 @@ export function ClusterStatistics({
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="shards"
@@ -346,6 +376,7 @@ export function ClusterStatistics({
               />
               <Tooltip
                 contentStyle={tooltipStyle}
+                labelStyle={tooltipLabelStyle}
                 formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
               />
               <Area
@@ -387,7 +418,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip content={<PieTooltip colorScheme={colorScheme} />} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -416,7 +447,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip content={<PieTooltip colorScheme={colorScheme} />} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -449,7 +480,7 @@ export function ClusterStatistics({
                     fill="var(--mantine-color-blue-6)"
                     fillOpacity={0.5}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Legend />
                 </RadarChart>
               </ResponsiveContainer>
