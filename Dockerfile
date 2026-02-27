@@ -47,6 +47,11 @@ RUN cargo build --release --locked \
 # Stage 3: Runtime image
 FROM alpine:3.19
 
+# Image metadata
+LABEL maintainer="Secan Contributors"
+LABEL description="Elasticsearch cluster management tool"
+LABEL version="1.2.3"
+
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
 

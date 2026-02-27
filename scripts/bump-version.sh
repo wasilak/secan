@@ -26,11 +26,25 @@ if [ "$CURRENT_VERSION" != "$VERSION" ]; then
     # Update frontend/package.json
     sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" frontend/package.json
 
+    # Update Docker image tags in docker-compose.yml (for secan service if exists)
+    # Only update secan-specific tags, leave infrastructure tags as 'latest'
+    if grep -q "image: secan:" docker-compose.yml 2>/dev/null; then
+        sed -i '' "s/image: secan:.*$/image: secan:$VERSION/" docker-compose.yml
+    fi
+
+    # Update Dockerfile image labels and comments that reference version
+    if grep -q "# Secan" Dockerfile 2>/dev/null; then
+        sed -i '' "s/LABEL version=.*/LABEL version=\"$VERSION\"/" Dockerfile 2>/dev/null || true
+    fi
+
     # Regenerate Cargo.lock to match updated Cargo.toml
     cargo metadata > /dev/null 2>&1 || true
 
     # Stage changes
     git add Cargo.toml Cargo.lock frontend/package.json
+
+    # Add docker files if they were modified
+    git add docker-compose.yml Dockerfile 2>/dev/null || true
 
     # Commit version bump
     git commit -m "chore: bump version to $VERSION"
