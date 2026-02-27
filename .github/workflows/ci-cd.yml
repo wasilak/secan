@@ -279,42 +279,56 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Parse tags from metadata (newline separated)
-          TAGS="${{ steps.meta.outputs.tags }}"
+          # Get the base tag from the release ref
+          BASE_TAG="${{ github.ref_name }}"
           
-          echo "Tags from metadata:"
-          echo "$TAGS"
-          echo ""
+          # For non-tag pushes, use SHA
+          if [[ ! "$BASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            BASE_TAG="${{ github.sha }}"
+          fi
           
-          # Group tags by base (without -amd64/-arm64 suffix)
-          # For each base tag, create a manifest list
-          declare -A base_tags
+          echo "Creating multi-arch manifest for: $BASE_TAG"
           
-          while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              # Remove platform suffix to get base tag
-              base=$(echo "$tag" | sed 's/-amd64$//' | sed 's/-arm64$//')
-              base_tags["$base"]=1
-            fi
-          done <<< "$TAGS"
+          # Define platform-specific tags
+          AMD64_TAG="ghcr.io/${{ github.repository }}:${BASE_TAG}-amd64"
+          ARM64_TAG="ghcr.io/${{ github.repository }}:${BASE_TAG}-arm64"
+          BASE_IMAGE="ghcr.io/${{ github.repository }}:${BASE_TAG}"
           
-          # Create manifest for each base tag
-          for base in "${!base_tags[@]}"; do
-            echo "Creating manifest for: $base"
-            
-            # Check if platform images exist before creating manifest
-            if docker buildx imagetools inspect "${base}-amd64" > /dev/null 2>&1 && \
-               docker buildx imagetools inspect "${base}-arm64" > /dev/null 2>&1; then
-              docker buildx imagetools create \
-                -t "$base" \
-                "${base}-amd64" \
-                "${base}-arm64"
-            else
-              echo "WARNING: Platform images not found for $base, skipping manifest creation"
-              echo "  - ${base}-amd64: $(docker buildx imagetools inspect ${base}-amd64 2>&1 | head -1)"
-              echo "  - ${base}-arm64: $(docker buildx imagetools inspect ${base}-arm64 2>&1 | head -1)"
-            fi
-          done
+          # Check if both platform images exist
+          echo "Checking for platform images..."
+          echo "  AMD64: $AMD64_TAG"
+          echo "  ARM64: $ARM64_TAG"
+          
+          if docker buildx imagetools inspect "$AMD64_TAG" > /dev/null 2>&1 && \
+             docker buildx imagetools inspect "$ARM64_TAG" > /dev/null 2>&1; then
+            echo "Both platform images found, creating manifest..."
+            docker buildx imagetools create -t "$BASE_IMAGE" "$AMD64_TAG" "$ARM64_TAG"
+            echo "✓ Created manifest: $BASE_IMAGE"
+          else
+            echo "ERROR: Platform images not found!"
+            echo "  AMD64 exists: $(docker buildx imagetools inspect $AMD64_TAG > /dev/null 2>&1 && echo 'yes' || echo 'no')"
+            echo "  ARM64 exists: $(docker buildx imagetools inspect $ARM64_TAG > /dev/null 2>&1 && echo 'yes' || echo 'no')"
+            exit 1
+          fi
+          
+          # Create major.minor tag if it's a version tag (e.g., v1.2.4 -> v1.2)
+          if [[ "$BASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            MAJOR_MINOR=$(echo "$BASE_TAG" | sed -E 's/^v([0-9]+\.[0-9]+)\.[0-9]+/\1/')
+            echo "Creating major.minor manifest: $MAJOR_MINOR"
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ github.repository }}:$MAJOR_MINOR" \
+              "$AMD64_TAG" "$ARM64_TAG"
+            echo "✓ Created manifest: $MAJOR_MINOR"
+          fi
+          
+          # Create latest tag if on main branch
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "Creating latest manifest"
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ github.repository }}:latest" \
+              "$AMD64_TAG" "$ARM64_TAG"
+            echo "✓ Created manifest: latest"
+          fi
 
   # Stage 3: Create release (only on v*.*.* tags)
   create-release:
