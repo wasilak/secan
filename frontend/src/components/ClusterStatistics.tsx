@@ -1,4 +1,4 @@
-import { Card, Grid, Stack, Text, useMantineColorScheme } from '@mantine/core';
+import { Card, Grid, Stack, Text, useMantineColorScheme, type MantineColorScheme } from '@mantine/core';
 import {
   AreaChart,
   Area,
@@ -71,20 +71,22 @@ interface PieTooltipProps {
     value: number;
     payload: { name: string };
   }>;
-  colorScheme: 'light' | 'dark';
+  colorScheme: MantineColorScheme;
 }
 
 function PieTooltip({ active, payload, colorScheme }: PieTooltipProps) {
   if (active && payload && payload.length) {
     const data = payload[0];
+    // Treat 'auto' as 'light' for tooltip styling
+    const effectiveScheme = colorScheme === 'auto' ? 'light' : colorScheme;
     return (
       <div
         style={{
-          backgroundColor: colorScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
-          border: `1px solid ${colorScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
+          backgroundColor: effectiveScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+          border: `1px solid ${effectiveScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
           borderRadius: '4px',
           padding: '8px 12px',
-          color: colorScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
+          color: effectiveScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
         }}
       >
         <div style={{ fontSize: '12px', fontWeight: 500 }}>
