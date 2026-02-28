@@ -287,9 +287,13 @@ jobs:
           if [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
             BASE_TAG="${REF_NAME#v}"  # Remove leading 'v'
             IS_VERSION="true"
+          elif [ "$REF_NAME" = "main" ] || [ "$REF_NAME" = "master" ]; then
+            # For main branch, use 'latest' (metadata action generates this)
+            BASE_TAG="latest"
+            IS_VERSION="false"
           else
-            # For non-tag pushes, use SHA
-            BASE_TAG="${{ github.sha }}"
+            # For other branches/PRs, use sha-<short-sha> format from metadata
+            BASE_TAG="sha-${{ github.sha_short }}"
             IS_VERSION="false"
           fi
           
@@ -327,13 +331,13 @@ jobs:
             echo "✓ Created manifest: $MAJOR_MINOR"
           fi
           
-          # Create latest tag if on main branch
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "Creating latest manifest"
+          # Create sha tag manifest for non-version builds
+          if [ "$IS_VERSION" = "false" ] && [ "$BASE_TAG" != "latest" ]; then
+            echo "Creating sha tag manifest: $BASE_TAG"
             docker buildx imagetools create \
-              -t "ghcr.io/${{ github.repository }}:latest" \
+              -t "ghcr.io/${{ github.repository }}:$BASE_TAG" \
               "$AMD64_TAG" "$ARM64_TAG"
-            echo "✓ Created manifest: latest"
+            echo "✓ Created manifest: $BASE_TAG"
           fi
 
   # Stage 3: Create release (only on v*.*.* tags)
