@@ -279,15 +279,21 @@ jobs:
 
       - name: Create and push multi-arch manifest
         run: |
-          # Get the base tag from the release ref
-          BASE_TAG="${{ github.ref_name }}"
+          # Get the base tag from the release ref (e.g., v1.2.6 or main)
+          REF_NAME="${{ github.ref_name }}"
           
-          # For non-tag pushes, use SHA
-          if [[ ! "$BASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          # For version tags, remove the 'v' prefix to match build job tags
+          # Build jobs push: 1.2.6-amd64, manifest needs to find: 1.2.6-amd64
+          if [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            BASE_TAG="${REF_NAME#v}"  # Remove leading 'v'
+            IS_VERSION="true"
+          else
+            # For non-tag pushes, use SHA
             BASE_TAG="${{ github.sha }}"
+            IS_VERSION="false"
           fi
           
-          echo "Creating multi-arch manifest for: $BASE_TAG"
+          echo "Creating multi-arch manifest for: $BASE_TAG (ref: $REF_NAME)"
           
           # Define platform-specific tags
           AMD64_TAG="ghcr.io/${{ github.repository }}:${BASE_TAG}-amd64"
@@ -311,9 +317,9 @@ jobs:
             exit 1
           fi
           
-          # Create major.minor tag if it's a version tag (e.g., v1.2.4 -> v1.2)
-          if [[ "$BASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-            MAJOR_MINOR=$(echo "$BASE_TAG" | sed -E 's/^v([0-9]+\.[0-9]+)\.[0-9]+/\1/')
+          # Create major.minor tag if it's a version tag (e.g., 1.2.6 -> 1.2)
+          if [ "$IS_VERSION" = "true" ]; then
+            MAJOR_MINOR=$(echo "$BASE_TAG" | sed -E 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/')
             echo "Creating major.minor manifest: $MAJOR_MINOR"
             docker buildx imagetools create \
               -t "ghcr.io/${{ github.repository }}:$MAJOR_MINOR" \
