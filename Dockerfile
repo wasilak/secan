@@ -45,7 +45,7 @@ RUN cargo build --release --locked \
     --config profile.release.codegen-units=16
 
 # Stage 3: Runtime image
-FROM alpine:3.19
+FROM alpine:3.23
 
 # Image metadata
 LABEL maintainer="Secan Contributors"
