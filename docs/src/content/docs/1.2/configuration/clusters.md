@@ -76,24 +76,45 @@ Username and password:
 
 ```yaml
 clusters:
-  - id: "production"
-    name: "Production Cluster"
-    nodes:
-      - "http://es.example.com:9200"
-    auth:
-      type: "basic"
-      username: "elastic"
-      password: "secure-password"
-    es_version: 8
+   - id: "production"
+     name: "Production Cluster"
+     nodes:
+       - "http://es.example.com:9200"
+     auth:
+       type: "basic"
+       username: "elastic"
+       password: "secure-password"
+     es_version: 8
 ```
 
-**Security Note:** Use environment variables for passwords:
+**Security Note:** Use environment variables for passwords with placeholder substitution:
+
+```yaml
+clusters:
+   - id: "production"
+     name: "Production Cluster"
+     nodes:
+       - "${ES_URL}"
+     auth:
+       type: "basic"
+       username: "${ES_USERNAME}"
+       password: "${ES_PASSWORD}"
+     es_version: 8
+```
+
+Then set the environment variables:
+
+```bash
+export ES_URL="http://es.example.com:9200"
+export ES_USERNAME="elastic"
+export ES_PASSWORD="actual-password"
+```
+
+Alternatively, use direct environment variable override:
 
 ```bash
 export SECAN_CLUSTERS_0_AUTH_PASSWORD="actual-password"
 ```
-
-Then in config.yaml, the password will be read from the environment variable.
 
 ### API Key Authentication
 
@@ -174,12 +195,85 @@ Set the correct Elasticsearch major version:
 
 ```yaml
 clusters:
-  - es_version: 7  # For 7.x releases
-  - es_version: 8  # For 8.x releases
-  - es_version: 9  # For 9.x releases (including OpenSearch)
+   - es_version: 7  # For 7.x releases
+   - es_version: 8  # For 8.x releases
+   - es_version: 9  # For 9.x releases (including OpenSearch)
 ```
 
 This affects API compatibility and UI features shown.
+
+## Metrics Configuration
+
+Secan supports two sources for historical cluster metrics:
+
+### Internal Metrics (Default)
+
+Uses Elasticsearch's own APIs for real-time metrics. No additional configuration needed:
+
+```yaml
+clusters:
+   - id: "local"
+     name: "Local Elasticsearch"
+     nodes:
+       - "http://localhost:9200"
+     metrics_source: internal  # Optional - this is the default
+     es_version: 8
+```
+
+**Best for:** Development, single clusters, simple setups without historical data requirements
+
+### Prometheus Metrics
+
+Uses historical time-series data from Prometheus. Ideal for production environments with long-term monitoring:
+
+```yaml
+clusters:
+   - id: "production"
+     name: "Production Cluster"
+     nodes:
+       - "http://es-prod.example.com:9200"
+     metrics_source: prometheus
+     prometheus:
+       url: "http://prometheus:9090"
+       job_name: "elasticsearch"  # Optional: filter by job name
+       labels:  # Optional: filter by labels
+         cluster: "production"
+         environment: "prod"
+     es_version: 8
+```
+
+**Prometheus Configuration Fields:**
+
+* `url`: Prometheus endpoint URL (required)
+* `job_name`: Prometheus scrape job name (optional, but recommended)
+* `labels`: Additional label filters for metric selection (optional)
+
+**Important:** At least one of `job_name` or `labels` must be provided when using Prometheus to identify your cluster's metrics.
+
+**Best for:** Production, historical analysis, multi-cluster monitoring, compliance requirements
+
+### Using Placeholders with Prometheus
+
+```yaml
+clusters:
+   - id: "production"
+     name: "Production Cluster"
+     nodes:
+       - "${ES_URL}"
+     metrics_source: prometheus
+     prometheus:
+       url: "${PROMETHEUS_URL}"
+       job_name: "${PROMETHEUS_JOB}"
+     es_version: 8
+```
+
+Set environment variables:
+
+```bash
+export ES_URL="http://es-prod.example.com:9200"
+export PROMETHEUS_URL="http://prometheus:9090"
+export PROMETHEUS_JOB="elasticsearch"
+```
 
 ## Environment Variable Configuration
 
