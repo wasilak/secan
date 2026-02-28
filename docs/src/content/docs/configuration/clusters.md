@@ -109,12 +109,6 @@ export ES_USERNAME="elastic"
 export ES_PASSWORD="actual-password"
 ```
 
-Alternatively, use direct environment variable override:
-
-```bash
-export SECAN_CLUSTERS_0_AUTH_PASSWORD="actual-password"
-```
-
 ### API Key Authentication
 
 Use API keys (supported in Elasticsearch 7.10+):

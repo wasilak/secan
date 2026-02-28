@@ -125,37 +125,21 @@ Sessions expire after the configured duration of inactivity.
 
 ## Configuration via Environment Variables
 
-Secan supports two ways to use environment variables in your configuration:
+Use placeholder syntax `${ENV_VAR_NAME}` directly in your `config.yaml` file. These will be replaced with the corresponding environment variables at startup.
 
-### Method 1: Direct Environment Variable Override
-
-Override authentication settings by setting environment variables (takes precedence over config file):
-
-```bash
-# Set auth mode
-export SECAN_AUTH_MODE=open
-
-# Set session timeout
-export SECAN_AUTH_SESSION_TIMEOUT_MINUTES=120
-```
-
-For OIDC configuration:
-
-```bash
-export SECAN_AUTH_MODE=oidc
-export SECAN_AUTH_OIDC_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
-export SECAN_AUTH_OIDC_CLIENT_ID="secan"
-export SECAN_AUTH_OIDC_CLIENT_SECRET="secret123"
-export SECAN_AUTH_OIDC_REDIRECT_URI="https://secan.example.com/api/auth/oidc/redirect"
-```
-
-### Method 2: Placeholder Substitution in Config File
-
-Use placeholder syntax `${ENV_VAR_NAME}` directly in your `config.yaml` file. These will be replaced with the corresponding environment variables at startup:
+### Basic Example
 
 ```yaml
 auth:
   mode: open
+  session_timeout_minutes: 60
+```
+
+### OIDC with Placeholders
+
+```yaml
+auth:
+  mode: oidc
   session_timeout_minutes: 60
   oidc:
     discovery_url: "${AUTH_DISCOVERY_URL}"
@@ -173,12 +157,11 @@ export AUTH_CLIENT_SECRET="secret123"
 export AUTH_REDIRECT_URI="https://secan.example.com/api/auth/oidc/redirect"
 ```
 
-### Key Points
+### Best Practices
 
 - **Placeholder syntax**: Use `${VARIABLE_NAME}` in the config file (case-sensitive)
-- **Precedence**: Direct environment variables override placeholder values in the config file
 - **Secrets**: Use placeholders for sensitive values like passwords and secrets instead of committing them to version control
-- **Mixed approach**: You can use both methods together - some settings via environment variables, others via placeholders in the config file
+- **No hardcoding**: Avoid hardcoding passwords or tokens in config files
 
 ## Best Practices
 
