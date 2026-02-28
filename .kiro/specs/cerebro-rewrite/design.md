@@ -1397,7 +1397,6 @@ ENTRYPOINT ["/usr/local/bin/cerebro"]
 
 **Docker Compose:**
 ```yaml
-version: '3.8'
 services:
   cerebro:
     image: cerebro:latest

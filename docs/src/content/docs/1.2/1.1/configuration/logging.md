@@ -97,7 +97,6 @@ services:
 ## Docker Compose Full Example
 
 ```yaml
-version: '3.8'
 
 services:
   secan:

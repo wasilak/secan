@@ -295,7 +295,6 @@ export SECAN_CLUSTERS_1_ES_VERSION=8
 Create `docker-compose.yml`:
 
 ```yaml
-version: '3.8'
 
 services:
   secan:

@@ -205,7 +205,6 @@ export SECAN_CLUSTERS_1_ES_VERSION=8
 ## Docker Compose Example
 
 ```yaml
-version: '3.8'
 
 services:
   secan:
