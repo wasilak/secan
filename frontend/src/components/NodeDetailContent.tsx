@@ -63,6 +63,11 @@ function formatNumber(value: number | undefined, decimals: number = 0): string {
 interface NodeDetailContentProps {
   nodeStats: NodeDetailStats;
   loading?: boolean; // Optional, not currently used but kept for future use
+  prometheusMetrics?: {
+    heapHistory?: Array<{ timestamp: number; value: number }>;
+    cpuHistory?: Array<{ timestamp: number; value: number }>;
+    diskHistory?: Array<{ timestamp: number; value: number }>;
+  };
 }
 
 /**
@@ -81,7 +86,10 @@ interface NodeDetailContentProps {
  *
  * Requirements: 8.7
  */
-export function NodeDetailContent({ nodeStats }: NodeDetailContentProps): React.JSX.Element {
+export function NodeDetailContent({
+  nodeStats,
+  prometheusMetrics,
+}: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -667,6 +675,59 @@ export function NodeDetailContent({ nodeStats }: NodeDetailContentProps): React.
           )}
         </Stack>
       </Card>
+
+      {/* Prometheus Metrics Section */}
+      {prometheusMetrics && (
+        <Card shadow="sm" padding="lg">
+          <Stack gap="md">
+            <Title order={3}>Historical Metrics (Prometheus)</Title>
+            <Text size="sm" c="dimmed">
+              Historical time-series data from Prometheus for this node
+            </Text>
+
+            {prometheusMetrics.heapHistory && prometheusMetrics.heapHistory.length > 0 && (
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  Heap Usage History
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {prometheusMetrics.heapHistory.length} data points available
+                </Text>
+              </div>
+            )}
+
+            {prometheusMetrics.cpuHistory && prometheusMetrics.cpuHistory.length > 0 && (
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  CPU Usage History
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {prometheusMetrics.cpuHistory.length} data points available
+                </Text>
+              </div>
+            )}
+
+            {prometheusMetrics.diskHistory && prometheusMetrics.diskHistory.length > 0 && (
+              <div>
+                <Text size="sm" fw={500} mb="xs">
+                  Disk Usage History
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {prometheusMetrics.diskHistory.length} data points available
+                </Text>
+              </div>
+            )}
+
+            {(!prometheusMetrics.heapHistory || prometheusMetrics.heapHistory.length === 0) &&
+              (!prometheusMetrics.cpuHistory || prometheusMetrics.cpuHistory.length === 0) &&
+              (!prometheusMetrics.diskHistory || prometheusMetrics.diskHistory.length === 0) && (
+                <Text c="dimmed" ta="center" py="xl">
+                  No Prometheus metrics available for this node
+                </Text>
+              )}
+          </Stack>
+        </Card>
+      )}
     </Stack>
   );
 }

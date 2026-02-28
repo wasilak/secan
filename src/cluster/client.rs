@@ -422,7 +422,6 @@ impl ElasticsearchClient for Client {
                             index_name.clone(),
                             serde_json::json!({
                                 "status": status,
-                                "health": "unknown",
                                 "primaries": {
                                     "docs": {"count": 0},
                                     "shard_stats": {"total_count": 0}
@@ -434,6 +433,22 @@ impl ElasticsearchClient for Client {
                                 "shards": {}
                             }),
                         );
+                    }
+                }
+            }
+        }
+
+        // Get actual health status from cluster health API
+        if let Ok(health) = self.health().await {
+            if let Some(indices_health) = health["indices"].as_object() {
+                if let Some(indices) = stats["indices"].as_object_mut() {
+                    for (index_name, index_health) in indices_health {
+                        if let Some(index_stats) = indices.get_mut(index_name) {
+                            // Merge health status into stats
+                            if let Some(health_status) = index_health["status"].as_str() {
+                                index_stats["health"] = serde_json::json!(health_status);
+                            }
+                        }
                     }
                 }
             }

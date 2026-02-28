@@ -1,4 +1,12 @@
-import { Card, Grid, Stack, Text, useMantineColorScheme, type MantineColorScheme } from '@mantine/core';
+import {
+  Card,
+  Grid,
+  Stack,
+  Text,
+  Group,
+  useMantineColorScheme,
+  type MantineColorScheme,
+} from '@mantine/core';
 import {
   AreaChart,
   Area,
@@ -47,7 +55,7 @@ interface ClusterStatisticsProps {
 
   // Nodes data for role distribution
   nodes?: NodeInfo[];
-  
+
   // Metrics source (internal or prometheus)
   metricsSource?: 'internal' | 'prometheus';
 }
@@ -85,11 +93,17 @@ function PieTooltip({ active, payload, colorScheme }: PieTooltipProps) {
     return (
       <div
         style={{
-          backgroundColor: effectiveScheme === 'dark' ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+          backgroundColor:
+            effectiveScheme === 'dark'
+              ? 'var(--mantine-color-dark-7)'
+              : 'var(--mantine-color-gray-0)',
           border: `1px solid ${effectiveScheme === 'dark' ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
           borderRadius: '4px',
           padding: '8px 12px',
-          color: effectiveScheme === 'dark' ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
+          color:
+            effectiveScheme === 'dark'
+              ? 'var(--mantine-color-gray-0)'
+              : 'var(--mantine-color-dark-7)',
         }}
       >
         <div style={{ fontSize: '12px', fontWeight: 500 }}>
@@ -255,7 +269,6 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
@@ -317,7 +330,6 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
@@ -413,11 +425,18 @@ export function ClusterStatistics({
                 Documents Over Time
               </Text>
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-cyan-6)"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -457,7 +476,6 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
@@ -556,6 +574,9 @@ export function ClusterStatistics({
           </Card>
         </Grid.Col>
       </Grid>
+
+      {/* Metrics source label at bottom */}
+      <Group justify="flex-end">{renderMetricSourceLabel()}</Group>
     </Stack>
   );
 }

@@ -283,7 +283,7 @@ export function ClusterView() {
       if (!id) throw new Error('Cluster ID is required');
       // Use selected time range or default to last 24 hours
       const timeRange = selectedTimeRange || {
-        start: Math.floor(Date.now() / 1000) - (24 * 60 * 60),
+        start: Math.floor(Date.now() / 1000) - 24 * 60 * 60,
         end: Math.floor(Date.now() / 1000),
         label: 'Last 24h',
       };
@@ -329,46 +329,71 @@ export function ClusterView() {
 
   // Use metrics history data when available (statistics tab), otherwise use sparkline data
   // For ClusterStatistics component (needs DataPoint[])
-  const nodesHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => ({ value: d.node_count, timestamp: new Date(d.date).getTime() }))
-    : nodesHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
-  
-  const indicesHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => ({ value: d.index_count || 0, timestamp: new Date(d.date).getTime() }))
-    : indicesHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
-  
-  const documentsHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => ({ value: d.document_count || 0, timestamp: new Date(d.date).getTime() }))
-    : documentsHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
-  
-  const shardsHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => ({ value: d.shard_count || 0, timestamp: new Date(d.date).getTime() }))
-    : shardsHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
-  
-  const unassignedHistory: DataPoint[] = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => ({ value: d.unassigned_shards || 0, timestamp: new Date(d.date).getTime() }))
-    : unassignedHistorySparkline.map(v => ({ value: v, timestamp: Date.now() }));
+  const nodesHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+          value: d.node_count,
+          timestamp: new Date(d.date).getTime(),
+        }))
+      : nodesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
+
+  const indicesHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+          value: d.index_count || 0,
+          timestamp: new Date(d.date).getTime(),
+        }))
+      : indicesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
+
+  const documentsHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+          value: d.document_count || 0,
+          timestamp: new Date(d.date).getTime(),
+        }))
+      : documentsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
+
+  const shardsHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+          value: d.shard_count || 0,
+          timestamp: new Date(d.date).getTime(),
+        }))
+      : shardsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
+
+  const unassignedHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+          value: d.unassigned_shards || 0,
+          timestamp: new Date(d.date).getTime(),
+        }))
+      : unassignedHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   // For Sparkline components (needs number[])
-  const nodesHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => d.node_count)
-    : nodesHistorySparkline;
-  
-  const indicesHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => d.index_count || 0)
-    : indicesHistorySparkline;
-  
-  const documentsHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => d.document_count || 0)
-    : documentsHistorySparkline;
-  
-  const shardsHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => d.shard_count || 0)
-    : shardsHistorySparkline;
-  
-  const unassignedHistoryNumbers = (activeTab === 'statistics' && metricsHistory?.data)
-    ? metricsHistory.data.map(d => d.unassigned_shards || 0)
-    : unassignedHistorySparkline;
+  const nodesHistoryNumbers =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => d.node_count)
+      : nodesHistorySparkline;
+
+  const indicesHistoryNumbers =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => d.index_count || 0)
+      : indicesHistorySparkline;
+
+  const documentsHistoryNumbers =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => d.document_count || 0)
+      : documentsHistorySparkline;
+
+  const shardsHistoryNumbers =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => d.shard_count || 0)
+      : shardsHistorySparkline;
+
+  const unassignedHistoryNumbers =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => d.unassigned_shards || 0)
+      : unassignedHistorySparkline;
 
   // Pagination state for nodes, indices, and shards
   const [nodesPage, setNodesPage] = useState(1);
@@ -423,6 +448,66 @@ export function ClusterView() {
   // Create shorter aliases for backward compatibility with rest of code
   const nodes = nodesArray;
   const indices = indicesArray;
+
+  // Get filter states from URL
+  const searchQuery = searchParams.get('indicesSearch') || '';
+  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [
+    'green',
+    'yellow',
+    'red',
+  ];
+  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
+    'open',
+    'close',
+  ];
+  const showOnlyAffected = searchParams.get('affected') === 'true';
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
+
+  // Calculate filtered indices count
+  const shardsByIndex =
+    shards?.reduce(
+      (acc, shard) => {
+        const key = shard.index;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(shard);
+        return acc;
+      },
+      {} as Record<string, ShardInfo[]>
+    ) || {};
+
+  const hasProblems = (indexName: string) => {
+    const indexShards = shardsByIndex[indexName] || [];
+    return indexShards.some(
+      (s: ShardInfo) =>
+        s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
+    );
+  };
+
+  const filteredIndicesCount =
+    indices?.filter((index) => {
+      const matchesSearch = index.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesHealth =
+        index.status === 'close' ||
+        selectedHealth.length === 0 ||
+        selectedHealth.includes(index.health);
+      const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
+      const matchesAffected = !showOnlyAffected || hasProblems(index.name);
+      const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
+
+      return matchesSearch && matchesHealth && matchesStatus && matchesAffected && matchesSpecial;
+    }).length || 0;
+
+  // Calculate filtered shards count
+  const shardSearchQuery = searchParams.get('shardsSearch') || '';
+  const shardSelectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
+
+  const filteredShardsCount =
+    shards?.filter((shard) => {
+      const matchesSearch = shard.index.toLowerCase().includes(shardSearchQuery.toLowerCase());
+      const matchesState =
+        shardSelectedStates.length === 0 || shardSelectedStates.includes(shard.state);
+      return matchesSearch && matchesState;
+    }).length || 0;
 
   if (!id) {
     return (
@@ -507,8 +592,12 @@ export function ClusterView() {
           <Tabs.Tab value="topology">Topology</Tabs.Tab>
           <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
           <Tabs.Tab value="nodes">Nodes ({nodesPaginated?.total || 0})</Tabs.Tab>
-          <Tabs.Tab value="indices">Indices ({indicesPaginated?.total || 0})</Tabs.Tab>
-          <Tabs.Tab value="shards">Shards ({shardsPaginated?.total || 0})</Tabs.Tab>
+          <Tabs.Tab value="indices">
+            Indices ({filteredIndicesCount} / {indicesPaginated?.total || 0})
+          </Tabs.Tab>
+          <Tabs.Tab value="shards">
+            Shards ({filteredShardsCount} / {shardsPaginated?.total || 0})
+          </Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
           <Tabs.Tab value="console">Console</Tabs.Tab>
         </Tabs.List>
@@ -777,7 +866,11 @@ export function ClusterView() {
                   variant="light"
                   size="sm"
                   leftSection={<IconClock size={16} />}
-                  rightSection={<Text size="xs" c="dimmed">{selectedTimeRange?.label || 'Last 24h'}</Text>}
+                  rightSection={
+                    <Text size="xs" c="dimmed">
+                      {selectedTimeRange?.label || 'Last 24h'}
+                    </Text>
+                  }
                   aria-label="Select time range"
                 >
                   Time Range
@@ -961,14 +1054,22 @@ interface NodesSortableHeaderProps {
   onSort: (column: 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu') => void;
 }
 
-function NodesSortableHeader({ column, label, sortColumn, sortDirection, onSort }: NodesSortableHeaderProps) {
+function NodesSortableHeader({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: NodesSortableHeaderProps) {
   const renderNodesSortIcon = () => {
     if (sortColumn !== column) {
       return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
     }
-    return sortDirection === 'asc' ?
-      <IconChevronUp size={14} aria-hidden="true" /> :
-      <IconChevronDown size={14} aria-hidden="true" />;
+    return sortDirection === 'asc' ? (
+      <IconChevronUp size={14} aria-hidden="true" />
+    ) : (
+      <IconChevronDown size={14} aria-hidden="true" />
+    );
   };
 
   return (
@@ -1013,10 +1114,15 @@ function NodesList({
   const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
   const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || allRoles;
   const expandedView = searchParams.get('nodesExpanded') === 'true';
-  
+
   // Column sorting state for nodes
-  const nodesSortColumn = (searchParams.get('nodesSortColumn') || 'name') as 
-    | 'name' | 'roles' | 'uptime' | 'heap' | 'disk' | 'cpu';
+  const nodesSortColumn = (searchParams.get('nodesSortColumn') || 'name') as
+    | 'name'
+    | 'roles'
+    | 'uptime'
+    | 'heap'
+    | 'disk'
+    | 'cpu';
   const nodesSortDirection = (searchParams.get('nodesSortDir') || 'asc') as 'asc' | 'desc';
 
   // Debounce search query
@@ -1095,7 +1201,7 @@ function NodesList({
   // Apply sorting by selected column or default master-first sorting
   // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
   let sortedNodes = filteredNodes ? [...filteredNodes] : [];
-  
+
   if (nodesSortColumn === 'name' && nodesSortDirection) {
     // Custom column sort
     sortedNodes.sort((a, b) => {
@@ -1195,56 +1301,102 @@ function NodesList({
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th><NodesSortableHeader column="name" label="Name" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="name"
+                    label="Name"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
                 {expandedView && <Table.Th>Node ID</Table.Th>}
-                <Table.Th><NodesSortableHeader column="roles" label="Roles" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="roles"
+                    label="Roles"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
                 {expandedView && <Table.Th>IP Address</Table.Th>}
                 {expandedView && <Table.Th>Version</Table.Th>}
                 {expandedView && <Table.Th>Tags</Table.Th>}
                 <Table.Th>Load</Table.Th>
-                <Table.Th><NodesSortableHeader column="uptime" label="Uptime" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
-                <Table.Th><NodesSortableHeader column="heap" label="Heap Usage" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
-                <Table.Th><NodesSortableHeader column="disk" label="Disk Usage" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
-                <Table.Th><NodesSortableHeader column="cpu" label="CPU" sortColumn={nodesSortColumn} sortDirection={nodesSortDirection} onSort={handleNodesSortColumn} /></Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="uptime"
+                    label="Uptime"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="heap"
+                    label="Heap Usage"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="disk"
+                    label="Disk Usage"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <NodesSortableHeader
+                    column="cpu"
+                    label="CPU"
+                    sortColumn={nodesSortColumn}
+                    sortDirection={nodesSortDirection}
+                    onSort={handleNodesSortColumn}
+                  />
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {sortedNodes?.map((node) => (
-                <Table.Tr
-                  key={node.id}
-                >
+                <Table.Tr key={node.id}>
                   <Table.Td>
-                     <Group gap="xs" wrap="nowrap">
-                       <MasterIndicator
-                         isMaster={node.isMaster}
-                         isMasterEligible={node.isMasterEligible}
-                         size="md"
-                       />
-                       <div style={{ flex: 1 }}>
-                         <Text
-                           size="sm"
-                           fw={500}
-                           style={{ cursor: openNodeModal ? 'pointer' : 'default' }}
-                           onClick={(e) => {
-                             e.stopPropagation();
-                             if (openNodeModal) {
-                               openNodeModal(node.id);
-                             } else {
-                               navigate(`/cluster/${id}/nodes/${node.id}`);
-                             }
-                           }}
-                         >
-                           {node.name}
-                         </Text>
-                         {!expandedView && node.ip && (
-                           <Text size="xs" c="dimmed">
-                             {node.ip}
-                           </Text>
-                         )}
-                       </div>
-                       <CopyButton value={node.name} tooltip="Copy node name" size="xs" />
-                     </Group>
-                   </Table.Td>
+                    <Group gap="xs" wrap="nowrap">
+                      <MasterIndicator
+                        isMaster={node.isMaster}
+                        isMasterEligible={node.isMasterEligible}
+                        size="md"
+                      />
+                      <div style={{ flex: 1 }}>
+                        <Text
+                          size="sm"
+                          fw={500}
+                          style={{ cursor: openNodeModal ? 'pointer' : 'default' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openNodeModal) {
+                              openNodeModal(node.id);
+                            } else {
+                              navigate(`/cluster/${id}/nodes/${node.id}`);
+                            }
+                          }}
+                        >
+                          {node.name}
+                        </Text>
+                        {!expandedView && node.ip && (
+                          <Text size="xs" c="dimmed">
+                            {node.ip}
+                          </Text>
+                        )}
+                      </div>
+                      <CopyButton value={node.name} tooltip="Copy node name" size="xs" />
+                    </Group>
+                  </Table.Td>
                   {expandedView && (
                     <Table.Td>
                       <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
@@ -1397,9 +1549,11 @@ function SortableHeader({ column, label, sortColumn, sortDirection, onSort }: So
     if (sortColumn !== column) {
       return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
     }
-    return sortDirection === 'asc' ?
-      <IconChevronUp size={14} aria-hidden="true" /> :
-      <IconChevronDown size={14} aria-hidden="true" />;
+    return sortDirection === 'asc' ? (
+      <IconChevronUp size={14} aria-hidden="true" />
+    ) : (
+      <IconChevronDown size={14} aria-hidden="true" />
+    );
   };
 
   return (
@@ -1451,10 +1605,14 @@ function IndicesList({
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
   const showSpecialIndices = searchParams.get('showSpecial') === 'true';
-  
+
   // Column sorting state
-  const indicesSortColumn = (searchParams.get('indicesSortColumn') || 'name') as 
-    | 'name' | 'health' | 'status' | 'documents' | 'size';
+  const indicesSortColumn = (searchParams.get('indicesSortColumn') || 'name') as
+    | 'name'
+    | 'health'
+    | 'status'
+    | 'documents'
+    | 'size';
   const indicesSortDirection = (searchParams.get('indicesSortDir') || 'asc') as 'asc' | 'desc';
 
   // Confirmation modal state for close/delete operations
@@ -1833,9 +1991,8 @@ function IndicesList({
   }
 
   // Identify unassigned shards
-  const unassignedShards = shards && shards.length > 0 
-    ? shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED') 
-    : [];
+  const unassignedShards =
+    shards && shards.length > 0 ? shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED') : [];
   const unassignedByIndex = unassignedShards.reduce(
     (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
       if (!acc[shard.index]) {
@@ -1851,7 +2008,8 @@ function IndicesList({
   const hasProblems = (indexName: string) => {
     const indexShards = shardsByIndex[indexName] || [];
     return indexShards.some(
-      (s: ShardInfo) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
+      (s: ShardInfo) =>
+        s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
     );
   };
 
@@ -1871,31 +2029,33 @@ function IndicesList({
   });
 
   // Sort indices by selected column
-  const sortedIndices = filteredIndices ? [...filteredIndices].sort((a, b) => {
-    let compareResult: number;
+  const sortedIndices = filteredIndices
+    ? [...filteredIndices].sort((a, b) => {
+        let compareResult: number;
 
-    switch (indicesSortColumn) {
-      case 'name':
-        compareResult = a.name.localeCompare(b.name);
-        break;
-      case 'health':
-        compareResult = a.health.localeCompare(b.health);
-        break;
-      case 'status':
-        compareResult = a.status.localeCompare(b.status);
-        break;
-      case 'documents':
-        compareResult = a.docsCount - b.docsCount;
-        break;
-      case 'size':
-        compareResult = a.storeSize - b.storeSize;
-        break;
-      default:
-        compareResult = a.name.localeCompare(b.name);
-    }
+        switch (indicesSortColumn) {
+          case 'name':
+            compareResult = a.name.localeCompare(b.name);
+            break;
+          case 'health':
+            compareResult = a.health.localeCompare(b.health);
+            break;
+          case 'status':
+            compareResult = a.status.localeCompare(b.status);
+            break;
+          case 'documents':
+            compareResult = a.docsCount - b.docsCount;
+            break;
+          case 'size':
+            compareResult = a.storeSize - b.storeSize;
+            break;
+          default:
+            compareResult = a.name.localeCompare(b.name);
+        }
 
-    return indicesSortDirection === 'asc' ? compareResult : -compareResult;
-  }) : undefined;
+        return indicesSortDirection === 'asc' ? compareResult : -compareResult;
+      })
+    : undefined;
 
   // Pagination
   const totalPages = Math.ceil((sortedIndices?.length || 0) / pageSize);
@@ -2204,11 +2364,51 @@ function IndicesList({
                     onClick={(e) => e.stopPropagation()}
                   />
                 </Table.Th>
-                <Table.Th><SortableHeader column="name" label="Name" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
-                <Table.Th><SortableHeader column="health" label="Health" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
-                <Table.Th><SortableHeader column="status" label="Status" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
-                <Table.Th><SortableHeader column="documents" label="Documents" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
-                <Table.Th><SortableHeader column="size" label="Size" sortColumn={indicesSortColumn} sortDirection={indicesSortDirection} onSort={handleIndicesSortColumn} /></Table.Th>
+                <Table.Th>
+                  <SortableHeader
+                    column="name"
+                    label="Name"
+                    sortColumn={indicesSortColumn}
+                    sortDirection={indicesSortDirection}
+                    onSort={handleIndicesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader
+                    column="health"
+                    label="Health"
+                    sortColumn={indicesSortColumn}
+                    sortDirection={indicesSortDirection}
+                    onSort={handleIndicesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader
+                    column="status"
+                    label="Status"
+                    sortColumn={indicesSortColumn}
+                    sortDirection={indicesSortDirection}
+                    onSort={handleIndicesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader
+                    column="documents"
+                    label="Documents"
+                    sortColumn={indicesSortColumn}
+                    sortDirection={indicesSortDirection}
+                    onSort={handleIndicesSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <SortableHeader
+                    column="size"
+                    label="Size"
+                    sortColumn={indicesSortColumn}
+                    sortDirection={indicesSortDirection}
+                    onSort={handleIndicesSortColumn}
+                  />
+                </Table.Th>
                 <Table.Th>Shards</Table.Th>
                 {expandedView && <Table.Th>Primaries</Table.Th>}
                 {expandedView && <Table.Th>Replicas</Table.Th>}
@@ -2241,31 +2441,31 @@ function IndicesList({
                       />
                     </Table.Td>
                     <Table.Td>
-                       <Group gap={4} wrap="nowrap">
-                         <Stack gap={2} style={{ flex: 1 }}>
-                           <Text
-                             size="sm"
-                             fw={500}
-                             style={{
-                               textDecoration: 'underline',
-                               cursor: 'pointer',
-                             }}
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               openIndexModal(index.name);
-                             }}
-                           >
-                             {index.name}
-                           </Text>
-                           {expandedView && hasProblems(index.name) && (
-                             <Badge size="xs" color="yellow" variant="light">
-                               Has Issues
-                             </Badge>
-                           )}
-                         </Stack>
-                         <CopyButton value={index.name} tooltip="Copy index name" size="xs" />
-                       </Group>
-                     </Table.Td>
+                      <Group gap={4} wrap="nowrap">
+                        <Stack gap={2} style={{ flex: 1 }}>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            style={{
+                              textDecoration: 'underline',
+                              cursor: 'pointer',
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openIndexModal(index.name);
+                            }}
+                          >
+                            {index.name}
+                          </Text>
+                          {expandedView && hasProblems(index.name) && (
+                            <Badge size="xs" color="yellow" variant="light">
+                              Has Issues
+                            </Badge>
+                          )}
+                        </Stack>
+                        <CopyButton value={index.name} tooltip="Copy index name" size="xs" />
+                      </Group>
+                    </Table.Td>
                     <Table.Td>
                       <Badge size="sm" color={getHealthColor(index.health)}>
                         {index.health}
@@ -2281,17 +2481,25 @@ function IndicesList({
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                       <Group gap={4} wrap="nowrap">
-                         <Text size="sm">{index.docsCount.toLocaleString()}</Text>
-                         <CopyButton value={index.docsCount.toString()} tooltip="Copy document count" size="xs" />
-                       </Group>
-                     </Table.Td>
-                     <Table.Td>
-                       <Group gap={4} wrap="nowrap">
-                         <Text size="sm">{formatBytes(index.storeSize)}</Text>
-                         <CopyButton value={formatBytes(index.storeSize)} tooltip="Copy size" size="xs" />
-                       </Group>
-                     </Table.Td>
+                      <Group gap={4} wrap="nowrap">
+                        <Text size="sm">{index.docsCount.toLocaleString()}</Text>
+                        <CopyButton
+                          value={index.docsCount.toString()}
+                          tooltip="Copy document count"
+                          size="xs"
+                        />
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={4} wrap="nowrap">
+                        <Text size="sm">{formatBytes(index.storeSize)}</Text>
+                        <CopyButton
+                          value={formatBytes(index.storeSize)}
+                          tooltip="Copy size"
+                          size="xs"
+                        />
+                      </Group>
+                    </Table.Td>
                     <Table.Td>
                       <Text size="sm">
                         {expandedView
@@ -2317,12 +2525,14 @@ function IndicesList({
                               <Text size="xs" fw={600}>
                                 Unassigned Shards:
                               </Text>
-                              {unassignedByIndex[index.name]?.map((shard: ShardInfo, idx: number) => (
-                                <Group key={idx} gap={4}>
-                                  <Text size="xs">Shard {shard.shard}</Text>
-                                  <ShardTypeBadge primary={shard.primary} />
-                                </Group>
-                              ))}
+                              {unassignedByIndex[index.name]?.map(
+                                (shard: ShardInfo, idx: number) => (
+                                  <Group key={idx} gap={4}>
+                                    <Text size="xs">Shard {shard.shard}</Text>
+                                    <ShardTypeBadge primary={shard.primary} />
+                                  </Group>
+                                )
+                              )}
                             </Stack>
                           }
                           multiline
@@ -2661,7 +2871,11 @@ function ShardDetailsModal({
           ) : (
             <Box>
               <Group justify="flex-end" mb="xs">
-                <CopyButton value={JSON.stringify(detailedStats || shard, null, 2)} tooltip="Copy JSON" size="sm" />
+                <CopyButton
+                  value={JSON.stringify(detailedStats || shard, null, 2)}
+                  tooltip="Copy JSON"
+                  size="sm"
+                />
               </Group>
               <Box
                 style={{
@@ -3946,14 +4160,22 @@ interface ShardsSortableHeaderProps {
   onSort: (column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size') => void;
 }
 
-function ShardsSortableHeader({ column, label, sortColumn, sortDirection, onSort }: ShardsSortableHeaderProps) {
+function ShardsSortableHeader({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: ShardsSortableHeaderProps) {
   const renderShardsSortIcon = () => {
     if (sortColumn !== column) {
       return <IconSelector size={14} opacity={0.4} aria-hidden="true" />;
     }
-    return sortDirection === 'asc' ?
-      <IconChevronUp size={14} aria-hidden="true" /> :
-      <IconChevronDown size={14} aria-hidden="true" />;
+    return sortDirection === 'asc' ? (
+      <IconChevronUp size={14} aria-hidden="true" />
+    ) : (
+      <IconChevronDown size={14} aria-hidden="true" />
+    );
   };
 
   return (
@@ -4002,10 +4224,16 @@ function ShardsList({
   const showPrimaries = searchParams.get('showPrimaries') !== 'false'; // Default to true
   const showReplicas = searchParams.get('showReplicas') !== 'false'; // Default to true
   const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
-  
+
   // Column sorting state for shards
-  const shardsSortColumn = (searchParams.get('shardsSortColumn') || 'index') as 
-    | 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size';
+  const shardsSortColumn = (searchParams.get('shardsSortColumn') || 'index') as
+    | 'index'
+    | 'shard'
+    | 'type'
+    | 'state'
+    | 'node'
+    | 'documents'
+    | 'size';
   const shardsSortDirection = (searchParams.get('shardsSortDir') || 'asc') as 'asc' | 'desc';
 
   // Initialize search with nodeFilter if present
@@ -4089,7 +4317,9 @@ function ShardsList({
   };
 
   // Handle shards table column sort
-  const handleShardsSortColumn = (column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size') => {
+  const handleShardsSortColumn = (
+    column: 'index' | 'shard' | 'type' | 'state' | 'node' | 'documents' | 'size'
+  ) => {
     const newParams = new URLSearchParams(searchParams);
     if (shardsSortColumn === column) {
       // Toggle direction or reset sort
@@ -4122,39 +4352,41 @@ function ShardsList({
   });
 
   // Sort shards by selected column
-  const sortedShards = filteredShards ? [...filteredShards].sort((a, b) => {
-    let compareResult: number;
+  const sortedShards = filteredShards
+    ? [...filteredShards].sort((a, b) => {
+        let compareResult: number;
 
-    switch (shardsSortColumn) {
-      case 'index':
-        compareResult = a.index.localeCompare(b.index);
-        break;
-      case 'shard':
-        compareResult = a.shard - b.shard;
-        break;
-      case 'type':
-        compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
-          b.primary ? 'Primary' : 'Replica'
-        );
-        break;
-      case 'state':
-        compareResult = a.state.localeCompare(b.state);
-        break;
-      case 'node':
-        compareResult = (a.node || '').localeCompare(b.node || '');
-        break;
-      case 'documents':
-        compareResult = a.docs - b.docs;
-        break;
-      case 'size':
-        compareResult = a.store - b.store;
-        break;
-      default:
-        compareResult = a.index.localeCompare(b.index);
-    }
+        switch (shardsSortColumn) {
+          case 'index':
+            compareResult = a.index.localeCompare(b.index);
+            break;
+          case 'shard':
+            compareResult = a.shard - b.shard;
+            break;
+          case 'type':
+            compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
+              b.primary ? 'Primary' : 'Replica'
+            );
+            break;
+          case 'state':
+            compareResult = a.state.localeCompare(b.state);
+            break;
+          case 'node':
+            compareResult = (a.node || '').localeCompare(b.node || '');
+            break;
+          case 'documents':
+            compareResult = a.docs - b.docs;
+            break;
+          case 'size':
+            compareResult = a.store - b.store;
+            break;
+          default:
+            compareResult = a.index.localeCompare(b.index);
+        }
 
-    return shardsSortDirection === 'asc' ? compareResult : -compareResult;
-  }) : [];
+        return shardsSortDirection === 'asc' ? compareResult : -compareResult;
+      })
+    : [];
 
   if (loading) {
     return (
@@ -4191,10 +4423,7 @@ function ShardsList({
 
   // Pagination
   const totalPages = Math.ceil((sortedShards?.length || 0) / pageSize);
-  const paginatedShards = sortedShards?.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const paginatedShards = sortedShards?.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <Stack gap="md">
@@ -4321,13 +4550,69 @@ function ShardsList({
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th><ShardsSortableHeader column="index" label="Index" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="shard" label="Shard" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="type" label="Type" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="state" label="State" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="node" label="Node" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="documents" label="Documents" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
-                <Table.Th><ShardsSortableHeader column="size" label="Size" sortColumn={shardsSortColumn} sortDirection={shardsSortDirection} onSort={handleShardsSortColumn} /></Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="index"
+                    label="Index"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="shard"
+                    label="Shard"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="type"
+                    label="Type"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="state"
+                    label="State"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="node"
+                    label="Node"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="documents"
+                    label="Documents"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
+                <Table.Th>
+                  <ShardsSortableHeader
+                    column="size"
+                    label="Size"
+                    sortColumn={shardsSortColumn}
+                    sortDirection={shardsSortDirection}
+                    onSort={handleShardsSortColumn}
+                  />
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -4344,11 +4629,11 @@ function ShardsList({
                     onClick={() => handleShardClick(shard)}
                   >
                     <Table.Td>
-                       <Group gap={4} wrap="nowrap">
-                         <Text size="sm">{shard.index}</Text>
-                         <CopyButton value={shard.index} tooltip="Copy index name" size="xs" />
-                       </Group>
-                     </Table.Td>
+                      <Group gap={4} wrap="nowrap">
+                        <Text size="sm">{shard.index}</Text>
+                        <CopyButton value={shard.index} tooltip="Copy index name" size="xs" />
+                      </Group>
+                    </Table.Td>
                     <Table.Td>
                       <Text size="sm">{shard.shard}</Text>
                     </Table.Td>
@@ -4366,42 +4651,52 @@ function ShardsList({
                       </Group>
                     </Table.Td>
                     <Table.Td>
-                       <Group gap={4} wrap="nowrap">
-                         {shard.node && openNodeModal ? (
-                           <Anchor
-                             component="button"
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               // Pass the node name - the modal will need to look up the node ID
-                               if (shard.node) {
-                                 openNodeModal(shard.node);
-                               }
-                             }}
-                             style={{
-                               textDecoration: 'none',
-                               cursor: 'pointer',
-                             }}
-                           >
-                             <Text size="sm" style={{ textDecoration: 'inherit' }}>
-                               {shard.node}
-                             </Text>
-                           </Anchor>
-                         ) : (
-                           <Text size="sm">{shard.node || 'N/A'}</Text>
-                         )}
-                         {shard.node && <CopyButton value={shard.node} tooltip="Copy node name" size="xs" />}
-                       </Group>
-                     </Table.Td>
+                      <Group gap={4} wrap="nowrap">
+                        {shard.node && openNodeModal ? (
+                          <Anchor
+                            component="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Pass the node name - the modal will need to look up the node ID
+                              if (shard.node) {
+                                openNodeModal(shard.node);
+                              }
+                            }}
+                            style={{
+                              textDecoration: 'none',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Text size="sm" style={{ textDecoration: 'inherit' }}>
+                              {shard.node}
+                            </Text>
+                          </Anchor>
+                        ) : (
+                          <Text size="sm">{shard.node || 'N/A'}</Text>
+                        )}
+                        {shard.node && (
+                          <CopyButton value={shard.node} tooltip="Copy node name" size="xs" />
+                        )}
+                      </Group>
+                    </Table.Td>
                     <Table.Td>
                       <Group gap={4} wrap="nowrap">
                         <Text size="sm">{shard.docs.toLocaleString()}</Text>
-                        <CopyButton value={shard.docs.toString()} tooltip="Copy document count" size="xs" />
+                        <CopyButton
+                          value={shard.docs.toString()}
+                          tooltip="Copy document count"
+                          size="xs"
+                        />
                       </Group>
                     </Table.Td>
                     <Table.Td>
                       <Group gap={4} wrap="nowrap">
                         <Text size="sm">{formatBytes(shard.store)}</Text>
-                        <CopyButton value={formatBytes(shard.store)} tooltip="Copy size" size="xs" />
+                        <CopyButton
+                          value={formatBytes(shard.store)}
+                          tooltip="Copy size"
+                          size="xs"
+                        />
                       </Group>
                     </Table.Td>
                   </Table.Tr>
@@ -4450,27 +4745,30 @@ function SettingsPanel({ clusterId }: { clusterId: string }) {
   const [includeDefaults, setIncludeDefaults] = useState(false);
   const { colorScheme } = useMantineColorScheme();
 
-  const fetchSettings = useCallback(async (defaults: boolean) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = defaults ? '?include_defaults' : '';
-      const response = await fetch(`/api/clusters/${clusterId}/settings${params}`, {
-        credentials: 'include',
-      });
+  const fetchSettings = useCallback(
+    async (defaults: boolean) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = defaults ? '?include_defaults' : '';
+        const response = await fetch(`/api/clusters/${clusterId}/settings${params}`, {
+          credentials: 'include',
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch cluster settings');
+        if (!response.ok) {
+          throw new Error('Failed to fetch cluster settings');
+        }
+
+        const data = await response.json();
+        setSettings(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
       }
-
-      const data = await response.json();
-      setSettings(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, [clusterId]);
+    },
+    [clusterId]
+  );
 
   useEffect(() => {
     fetchSettings(includeDefaults);

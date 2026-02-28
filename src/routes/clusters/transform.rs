@@ -167,7 +167,7 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
         for (index_name, index_stats) in indices_obj {
             let health = index_stats["health"]
                 .as_str()
-                .unwrap_or("yellow")
+                .unwrap_or("unknown")
                 .to_string();
             let status = index_stats["status"].as_str().unwrap_or("open").to_string();
 
