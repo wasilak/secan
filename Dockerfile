@@ -4,8 +4,8 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy frontend package files first for better caching
-COPY frontend/package*.json ./
+# Copy frontend package files and npm config first for better caching
+COPY frontend/package*.json frontend/.npmrc ./
 
 # Install dependencies (cached layer)
 RUN npm ci --prefer-offline --no-audit
