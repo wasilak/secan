@@ -47,6 +47,9 @@ interface ClusterStatisticsProps {
 
   // Nodes data for role distribution
   nodes?: NodeInfo[];
+  
+  // Metrics source (internal or prometheus)
+  metricsSource?: 'internal' | 'prometheus';
 }
 
 /**
@@ -106,6 +109,7 @@ export function ClusterStatistics({
   unassignedHistory,
   stats,
   nodes,
+  metricsSource = 'internal',
 }: ClusterStatisticsProps) {
   const { colorScheme } = useMantineColorScheme();
 
@@ -187,15 +191,22 @@ export function ClusterStatistics({
     },
   ].filter((item) => item.value > 0);
 
+  // Helper function to render metric source label
+  const renderMetricSourceLabel = () => (
+    <Text size="xs" c="dimmed">
+      {metricsSource === 'prometheus' ? 'Prometheus' : 'Internal'}
+    </Text>
+  );
+
   return (
     <Stack gap="md">
-      {/* Time Series Charts */}
+      {/* First Row: Nodes and Indices Over Time (2 columns) */}
       <Grid>
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
-                Nodes & Indices Over Time
+                Nodes Over Time
               </Text>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart
@@ -208,18 +219,6 @@ export function ClusterStatistics({
                       <stop
                         offset="95%"
                         stopColor="var(--mantine-color-blue-6)"
-                        stopOpacity={0.05}
-                      />
-                    </linearGradient>
-                    <linearGradient id="colorIndices" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="var(--mantine-color-green-6)"
-                        stopOpacity={0.3}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--mantine-color-green-6)"
                         stopOpacity={0.05}
                       />
                     </linearGradient>
@@ -254,6 +253,57 @@ export function ClusterStatistics({
                     dot={{ fill: 'var(--mantine-color-blue-6)', r: 3 }}
                     activeDot={{ r: 5 }}
                   />
+                </AreaChart>
+              </ResponsiveContainer>
+              {renderMetricSourceLabel()}
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <Card shadow="sm" padding="lg">
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Indices Over Time
+              </Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorIndices" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor="var(--mantine-color-green-6)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-green-6)"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={35}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="indices"
@@ -267,10 +317,14 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
+      </Grid>
 
+      {/* Second Row: Shards and Documents Over Time (2 columns) */}
+      <Grid>
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
@@ -347,64 +401,67 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              {renderMetricSourceLabel()}
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 6 }}>
+          <Card shadow="sm" padding="lg">
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Documents Over Time
+              </Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={50}
+                    tickFormatter={(value) => value.toLocaleString()}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                    formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="documents"
+                    stroke="var(--mantine-color-cyan-6)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorDocuments)"
+                    name="Documents"
+                    dot={{ fill: 'var(--mantine-color-cyan-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
       </Grid>
-
-      {/* Documents Time Series - Full Width */}
-      <Card shadow="sm" padding="lg">
-        <Stack gap="xs">
-          <Text size="sm" fw={500}>
-            Documents Over Time
-          </Text>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorDocuments" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--mantine-color-cyan-6)" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="var(--mantine-color-dark-4)"
-                opacity={0.3}
-              />
-              <XAxis
-                dataKey="time"
-                stroke="var(--mantine-color-gray-6)"
-                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
-                height={40}
-                angle={-45}
-                textAnchor="end"
-              />
-              <YAxis
-                stroke="var(--mantine-color-gray-6)"
-                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
-                width={50}
-                tickFormatter={(value) => value.toLocaleString()}
-              />
-              <Tooltip
-                contentStyle={tooltipStyle}
-                labelStyle={tooltipLabelStyle}
-                formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
-              />
-              <Area
-                type="monotone"
-                dataKey="documents"
-                stroke="var(--mantine-color-cyan-6)"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorDocuments)"
-                name="Documents"
-                dot={{ fill: 'var(--mantine-color-cyan-6)', r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Stack>
-      </Card>
 
       {/* Donut Charts and Resource Trend Bar Chart */}
       <Grid>

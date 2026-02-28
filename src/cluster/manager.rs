@@ -65,6 +65,8 @@ pub struct ClusterInfo {
     pub nodes: Vec<String>,
     pub accessible: bool,
     pub es_version: u8,
+    /// Metrics source (internal or prometheus)
+    pub metrics_source: MetricsSource,
 }
 
 impl ClusterConnection {
@@ -328,6 +330,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             accessible: true,
             es_version: 8,
+            metrics_source: MetricsSource::Internal,
         };
 
         let json = serde_json::to_string(&info).unwrap();
@@ -463,6 +466,7 @@ impl Manager {
                 nodes: conn.nodes.clone(),
                 accessible: true, // Will be determined by health checks
                 es_version: conn.client.es_version(),
+                metrics_source: conn.metrics_source.clone(),
             })
             .collect()
     }

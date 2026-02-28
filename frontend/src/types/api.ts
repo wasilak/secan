@@ -36,6 +36,7 @@ export interface ClusterInfo {
   nodes: string[];
   accessible: boolean;
   es_version?: number;
+  metrics_source?: 'internal' | 'prometheus';
 }
 
 /**

@@ -225,6 +225,17 @@ export function ClusterView() {
     }
   };
 
+  // Fetch cluster information (including metrics source)
+  const { data: clusterInfo } = useQuery({
+    queryKey: ['clusters', id],
+    queryFn: async () => {
+      const clusters = await apiClient.getClusters();
+      return clusters.find((c) => c.id === id);
+    },
+    enabled: !!id,
+    staleTime: 60000, // Cache for 1 minute
+  });
+
   // Fetch cluster statistics with auto-refresh
   const {
     data: stats,
@@ -813,6 +824,7 @@ export function ClusterView() {
             unassignedHistory={unassignedHistory as DataPoint[]}
             stats={stats}
             nodes={nodes}
+            metricsSource={clusterInfo?.metrics_source || 'internal'}
           />
         </Tabs.Panel>
 

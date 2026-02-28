@@ -30,17 +30,17 @@ server:
 auth:
   # Mode: open, local_users, or oidc (default: open)
   mode: open
-  
+
   # Session timeout in minutes (default: 60)
   session_timeout_minutes: 60
-  
+
   # Optional: local_users mode configuration
   # local_users:
   #   - username: "admin"
   #     password_hash: "$2b$12$..." # bcrypt hash
   #     roles:
   #       - "admin"
-  
+
   # Optional: OIDC mode configuration
   # oidc:
   #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
@@ -48,6 +48,26 @@ auth:
   #   client_secret: "secret"
   #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
   
+  # Example: OIDC configuration with Otteryak Auth
+  # oidc:
+  #   # OIDC discovery URL (auto-configures authorization, token, and userinfo endpoints)
+  #   discovery_url: "https://auth.otteryak.foo/.well-known/openid-configuration"
+  #   # Your application's client ID from the OIDC provider
+  #   client_id: "secan"
+  #   # Your application's client secret from the OIDC provider
+  #   client_secret: "your-client-secret-here"
+  #   # Redirect URI must be registered with your OIDC provider
+  #   # Format: https://<your-secan-domain>/api/auth/oidc/redirect
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+  #   # Optional: Scopes to request (default: openid profile email)
+  #   scopes:
+  #     - openid
+  #     - profile
+  #     - email
+  #   # Optional: Use PKCE (Proof Key for Code Exchange) for additional security
+  #   # Recommended for public clients or when client_secret cannot be stored securely
+  #   use_pkce: true
+
   # Optional: role-based access control
   # roles:
   #   - name: "admin"

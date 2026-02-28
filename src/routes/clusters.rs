@@ -113,6 +113,7 @@ pub async fn list_clusters(
                         nodes: cluster_info.nodes,
                         accessible: cluster_info.accessible,
                         es_version: cluster.client.es_version(),
+                        metrics_source: cluster_info.metrics_source,
                     });
                     continue;
                 }
