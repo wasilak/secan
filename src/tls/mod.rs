@@ -33,7 +33,7 @@ impl TlsManager {
             tracing::warn!(
                 "TLS certificate verification is DISABLED. This is insecure and should only be used in development environments."
             );
-            client_builder = client_builder.danger_accept_invalid_certs(true);
+            client_builder = client_builder.tls_danger_accept_invalid_certs(true);
         } else {
             // Load custom CA certificates if provided
             if config.ca_cert_file.is_some() || config.ca_cert_dir.is_some() {
@@ -52,7 +52,7 @@ impl TlsManager {
                     .with_root_certificates(root_cert_store)
                     .with_no_client_auth();
 
-                client_builder = client_builder.use_preconfigured_tls(tls_config);
+                client_builder = client_builder.tls_backend_preconfigured(tls_config);
             }
         }
 

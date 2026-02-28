@@ -141,7 +141,11 @@ impl Client {
             tracing::warn!("TLS certificate verification is disabled - this is insecure!");
             transport_builder =
                 transport_builder.cert_validation(elasticsearch::cert::CertificateValidation::None);
-            http_client_builder = http_client_builder.danger_accept_invalid_certs(true);
+            http_client_builder = http_client_builder.tls_danger_accept_invalid_certs(true);
+        } else if config.tls.ca_cert_file.is_some() || config.tls.ca_cert_dir.is_some() {
+            // Load custom CA certificates if needed for the http_client
+            // (transport_builder will handle ES SDK TLS separately)
+            tracing::debug!("Using custom CA certificates for TLS validation");
         }
 
         // Build transport

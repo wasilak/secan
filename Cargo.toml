@@ -19,14 +19,16 @@ serde_json = "1"
 serde_yaml = "0.9"
 
 # Configuration
-config = { version = "0.14", features = ["yaml", "toml"] }
-toml = "0.8"
+config = { version = "0.15", features = ["yaml", "toml"] }
+toml = { version = "1.0" }
 
 # HTTP client for Elasticsearch communication
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "form", "query", "rustls"] }
 
 # Elasticsearch Rust SDK
-elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = ["rustls-tls"] }
+elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = [
+  "rustls-tls",
+] }
 
 # URL parsing
 url = "2"
@@ -42,7 +44,7 @@ mime_guess = "2"
 bcrypt = "0.18"
 argon2 = "0.5"
 jsonwebtoken = "10"
-openidconnect = "3"
+openidconnect = "4"
 
 # Error handling
 thiserror = "2"
