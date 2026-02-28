@@ -221,6 +221,11 @@ impl ClusterConnection {
         self.client.indices_stats().await
     }
 
+    /// Merge cluster health status into indices stats (non-critical operation)
+    pub async fn merge_indices_health(&self, stats: &mut Value) -> Result<()> {
+        self.client.merge_indices_health(stats).await
+    }
+
     /// Get cluster state using SDK typed method
     pub async fn cluster_state(&self) -> Result<Value> {
         self.client.cluster_state().await

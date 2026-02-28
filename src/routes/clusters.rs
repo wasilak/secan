@@ -606,7 +606,7 @@ pub async fn get_indices(
         })?;
 
     // Get indices stats using SDK typed method
-    let indices_stats = cluster.indices_stats().await.map_err(|e| {
+    let mut indices_stats = cluster.indices_stats().await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,
@@ -617,6 +617,15 @@ pub async fn get_indices(
             message: format!("Failed to get indices stats: {}", e),
         }
     })?;
+
+    // Merge health status from cluster health API (non-critical, don't fail if it errors)
+    if let Err(e) = cluster.merge_indices_health(&mut indices_stats).await {
+        tracing::debug!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to merge cluster health (non-critical)"
+        );
+    }
 
     // Transform to frontend format
     let all_indices = transform_indices(&indices_stats);

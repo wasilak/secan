@@ -64,6 +64,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get cluster state
     async fn cluster_state(&self) -> Result<Value>;
 
+    /// Merge cluster health status into indices stats (non-critical operation)
+    async fn merge_indices_health(&self, stats: &mut Value) -> Result<()>;
+
     /// Get cluster settings
     async fn cluster_settings(&self, include_defaults: bool) -> Result<Value>;
 
@@ -438,23 +441,38 @@ impl ElasticsearchClient for Client {
             }
         }
 
+        Ok(stats)
+    }
+
+    /// Merge cluster health status into indices stats
+    /// This is called separately to avoid breaking stats retrieval if health API fails
+    async fn merge_indices_health(&self, stats: &mut Value) -> Result<()> {
         // Get actual health status from cluster health API
-        if let Ok(health) = self.health().await {
-            if let Some(indices_health) = health["indices"].as_object() {
-                if let Some(indices) = stats["indices"].as_object_mut() {
-                    for (index_name, index_health) in indices_health {
-                        if let Some(index_stats) = indices.get_mut(index_name) {
-                            // Merge health status into stats
-                            if let Some(health_status) = index_health["status"].as_str() {
-                                index_stats["health"] = serde_json::json!(health_status);
+        match self.health().await {
+            Ok(health) => {
+                if let Some(indices_health) = health["indices"].as_object() {
+                    if let Some(indices) = stats["indices"].as_object_mut() {
+                        for (index_name, index_health) in indices_health {
+                            if let Some(index_stats) = indices.get_mut(index_name) {
+                                // Merge health status into stats
+                                if let Some(health_status) = index_health["status"].as_str() {
+                                    index_stats["health"] = serde_json::json!(health_status);
+                                }
                             }
                         }
                     }
                 }
+                Ok(())
+            }
+            Err(e) => {
+                // Log but don't fail - health data is helpful but not critical
+                tracing::warn!(
+                    "Failed to fetch cluster health for index status merge: {}",
+                    e
+                );
+                Ok(())
             }
         }
-
-        Ok(stats)
     }
 
     /// Get indices stats with shard-level details using SDK typed method
