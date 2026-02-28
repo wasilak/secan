@@ -319,21 +319,26 @@ auth:
         - "*"
 ```
 
-### Environment Variables
+### Using Placeholders for Secrets
+
+Store sensitive values like client secrets in environment variables and use placeholders in your config:
+
+```yaml
+auth:
+  mode: oidc
+  session_timeout_minutes: 120
+  oidc:
+    discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+    client_id: "secan"
+    client_secret: "${AUTH_CLIENT_SECRET}"
+    redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+    groups_claim_key: "groups"
+```
+
+Then set the environment variable:
 
 ```bash
-# Auth mode
-export SECAN_AUTH_MODE=oidc
-
-# Session timeout
-export SECAN_AUTH_SESSION_TIMEOUT_MINUTES=120
-
-# OIDC configuration
-export SECAN_AUTH_OIDC_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
-export SECAN_AUTH_OIDC_CLIENT_ID="secan"
-export SECAN_AUTH_OIDC_CLIENT_SECRET="your-secret-here"
-export SECAN_AUTH_OIDC_REDIRECT_URI="https://secan.example.com/api/auth/oidc/redirect"
-export SECAN_AUTH_OIDC_GROUPS_CLAIM_KEY="groups"
+export AUTH_CLIENT_SECRET="your-secret-here"
 ```
 
 ## Groups vs Roles Terminology

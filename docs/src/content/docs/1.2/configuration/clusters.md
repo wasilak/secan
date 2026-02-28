@@ -292,6 +292,8 @@ export SECAN_CLUSTERS_1_ES_VERSION=8
 
 ## Docker Compose Example
 
+Create `docker-compose.yml`:
+
 ```yaml
 version: '3.8'
 
@@ -302,11 +304,40 @@ services:
       - "27182:27182"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.0
     environment:
-      - SECAN_AUTH_MODE=open
+      - discovery.type=single-node
+    ports:
+      - "9200:9200"
 ```
 
-With inline cluster configuration:
+Create `config.yaml`:
+
+```yaml
+auth:
+  mode: open
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "${ES_URL}"
+    es_version: 8
+```
+
+Then run:
+
+```bash
+export ES_URL="http://elasticsearch:9200"
+docker-compose up -d
+```
+
+### Inline Cluster Configuration via Environment Variables
+
+For complete configuration via environment variables only (without config file):
 
 ```yaml
 services:

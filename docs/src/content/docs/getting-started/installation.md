@@ -85,14 +85,38 @@ services:
       - "27182:27182"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-    environment:
-      - SECAN_AUTH_MODE=open
     restart: unless-stopped
 ```
 
-Run:
+Create `config.yaml`:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+auth:
+  mode: open
+  session_timeout_minutes: 60
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "${ES_URL}"
+    auth:
+      type: "basic"
+      username: "${ES_USERNAME}"
+      password: "${ES_PASSWORD}"
+    es_version: 8
+```
+
+Then run with environment variables:
 
 ```bash
+export ES_URL="http://elasticsearch:9200"
+export ES_USERNAME="elastic"
+export ES_PASSWORD="your-password"
 docker-compose up -d
 ```
 

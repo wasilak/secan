@@ -94,6 +94,8 @@ services:
 
 ## Docker Compose Full Example
 
+Create `docker-compose.yml`:
+
 ```yaml
 version: '3.8'
 
@@ -105,7 +107,6 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
     environment:
-      - SECAN_AUTH_MODE=open
       - RUST_LOG=info
     restart: unless-stopped
 
@@ -116,6 +117,32 @@ services:
       - xpack.security.enabled=false
     ports:
       - "9200:9200"
+```
+
+Create `config.yaml`:
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+auth:
+  mode: open
+  session_timeout_minutes: 60
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "${ES_URL}"
+    es_version: 8
+```
+
+Then run:
+
+```bash
+export ES_URL="http://elasticsearch:9200"
+docker-compose up -d
 ```
 
 ## Viewing Logs
