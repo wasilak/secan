@@ -28,6 +28,16 @@ Relocate shards between nodes:
 
 The system validates the relocation is possible and tracks progress.
 
+### Shard Details
+
+Click on any shard to view detailed information in a modal overlay:
+- Shard state and status
+- Primary or replica designation
+- Hosting node information
+- Index and allocation details
+
+The modal displays over the current section view, and closing it returns you to the same context.
+
 ### Shard Status
 
 Shards are color-coded to show status:

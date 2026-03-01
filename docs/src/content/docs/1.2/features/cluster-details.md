@@ -30,7 +30,7 @@ The Nodes tab shows all nodes in the cluster with their statistics:
 * **Shards**: Number of shards on the node
 * **Documents**: Number of documents on the node
 
-Click on any node to view detailed node statistics and configuration.
+Click on any node to view detailed node statistics in a modal overlay. The modal displays over the current section (e.g., Topology, Statistics), and closing it returns you to the same view.
 
 ## Indices Tab
 
@@ -48,7 +48,7 @@ The Indices tab displays all indices in the cluster:
 
 From the Indices tab, you can:
 
-* **View Index Details**: Click an index to see detailed statistics
+* **View Index Details**: Click an index to open a modal with detailed statistics and configuration. The modal overlays the current section view.
 * **Create Indices**: Add new indices with custom settings
 * **Delete Indices**: Remove indices from the cluster
 * **Modify Settings**: Change index settings and configurations

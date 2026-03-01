@@ -16,9 +16,20 @@ The cluster routing system has been refactored to use **path-based URLs** instea
 
 **New Format (Path-Based)**
 - Sections: `/cluster/:id/statistics`
-- Node Modal: `/cluster/:id/nodes/node-1`
-- Index Modal: `/cluster/:id/indices/my-index`
-- Shard Modal: `/cluster/:id/shards/my-index[0]`
+- Node Modal: `/cluster/:id/nodes/node-1?bg=topology`
+- Index Modal: `/cluster/:id/indices/my-index?bg=statistics`
+- Shard Modal: `/cluster/:id/shards/my-index[0]?bg=topology`
+
+### Background Section Preservation
+
+When opening a modal from any section, the background section is preserved via the `bg` query parameter:
+
+- From **Topology** view: `/cluster/:id/nodes/node-1?bg=topology`
+- From **Statistics** view: `/cluster/:id/indices/my-index?bg=statistics`
+- From **Nodes** view: `/cluster/:id/nodes/node-1` (no bg param needed)
+- From **Indices** view: `/cluster/:id/indices/my-index` (no bg param needed)
+
+This ensures modals display as overlays over the current view, and closing them returns you to the same section.
 
 ### Backward Compatibility
 
@@ -44,12 +55,14 @@ The cluster routing system has been refactored to use **path-based URLs** instea
 
 | Old URL | New URL |
 |---------|---------|
-| `/cluster/:id?tab=nodes&node=node-1` | `/cluster/:id/nodes/node-1` |
-| `/cluster/:id?node=node-1` | `/cluster/:id/nodes/node-1` |
-| `/cluster/:id?tab=indices&index=my-index` | `/cluster/:id/indices/my-index` |
-| `/cluster/:id?index=my-index` | `/cluster/:id/indices/my-index` |
-| `/cluster/:id?index=my-index&indexTab=mappings` | `/cluster/:id/indices/my-index?section=mappings` |
-| `/cluster/:id?shard=my-index[0]` | `/cluster/:id/shards/my-index%5B0%5D` |
+| `/cluster/:id?tab=nodes&node=node-1` | `/cluster/:id/nodes/node-1?bg=topology` (from topology) |
+| `/cluster/:id?node=node-1` | `/cluster/:id/nodes/node-1?bg=statistics` (from statistics) |
+| `/cluster/:id?tab=indices&index=my-index` | `/cluster/:id/indices/my-index?bg=nodes` (from nodes) |
+| `/cluster/:id?index=my-index` | `/cluster/:id/indices/my-index` (default) |
+| `/cluster/:id?index=my-index&indexTab=mappings` | `/cluster/:id/indices/my-index?section=mappings&bg=topology` |
+| `/cluster/:id?shard=my-index[0]` | `/cluster/:id/shards/my-index%5B0%5D?bg=statistics` |
+
+**Note:** The `bg` (background) parameter is automatically added when opening a modal from a non-default section. It preserves the current view context so the modal displays as an overlay and closing it returns you to the same section.
 
 ### Filter and Search Parameters
 
@@ -74,7 +87,7 @@ https://example.com/cluster/prod-cluster/indices/logs-2024-01
 Share exact views with colleagues:
 ```
 "Check out this index with all the mappings:"
-https://example.com/cluster/prod-cluster/indices/my-index?section=mappings
+https://example.com/cluster/prod-cluster/indices/my-index?section=mappings&bg=statistics
 ```
 
 ### 3. **Better User Experience**
@@ -82,8 +95,19 @@ https://example.com/cluster/prod-cluster/indices/my-index?section=mappings
 - Browser back/forward buttons work intuitively
 - Cleaner, more readable URLs
 - No query parameter confusion
+- **Modals display as overlays over the current section**
+- **Closing modals returns to the same section**
 
-### 4. **SEO Friendly**
+### 4. **Modal Overlay Behavior**
+When opening a modal from any section (e.g., Topology, Statistics), the modal displays as an overlay over that section:
+```
+User on:     /cluster/prod-cluster/topology
+Click node:  /cluster/prod-cluster/nodes/node-1?bg=topology
+Result:      Node modal displays over topology view
+Close modal: Returns to /cluster/prod-cluster/topology
+```
+
+### 5. **SEO Friendly**
 Path-based URLs are better for search engines and web crawlers.
 
 ## Breaking Changes
@@ -137,7 +161,7 @@ const indexUrl = buildIndexModalUrl(clusterId, indexName, 'mappings');
 
 ### Using Navigation Hook
 
-The `useClusterNavigation` hook provides convenient navigation functions:
+The `useClusterNavigation` hook provides convenient navigation functions that automatically preserve the current section:
 
 ```typescript
 import { useClusterNavigation } from './hooks/useClusterNavigation';
@@ -146,6 +170,20 @@ function MyComponent() {
   const { navigateToSection, navigateToNode, navigateToIndex, closeModal } =
     useClusterNavigation();
 
+  // User is on /cluster/prod-cluster/topology
+  navigateToNode('node-1');
+  // Navigates to: /cluster/prod-cluster/nodes/node-1?bg=topology
+  // Modal displays over topology view
+  
+  // User is on /cluster/prod-cluster/statistics
+  navigateToIndex('logs-2024', 'mappings');
+  // Navigates to: /cluster/prod-cluster/indices/logs-2024?section=mappings&bg=statistics
+  // Modal displays over statistics view
+  
+  // Close modal returns to the background section
+  closeModal();
+  // Returns to: /cluster/prod-cluster/topology (or whatever the bg was)
+  
   return (
     <>
       <button onClick={() => navigateToSection('statistics')}>
@@ -177,6 +215,11 @@ https://example.com/cluster/my-cluster/statistics
 https://example.com/cluster/my-cluster?tab=nodes&node=node-1
 # → Automatically redirects to:
 https://example.com/cluster/my-cluster/nodes/node-1
+
+# Test new modal overlay format
+https://example.com/cluster/my-cluster/nodes/node-1?bg=topology
+# → Displays node modal over topology view
+# → Closing returns to topology
 ```
 
 ## Implementation Details
@@ -207,6 +250,15 @@ A: If you have external links or integrations, they'll continue working due to t
 
 **Q: How do I know which URL format to use?**
 A: Use the URL builder functions and navigation hook - they handle format automatically.
+
+**Q: How do modals work with the new routing?**
+A: Modals now display as overlays over the current section. When you open a modal from the Topology view, it stays on Topology. Closing the modal returns you to the same section.
+
+**Q: What is the `bg` parameter?**
+A: The `bg` (background) query parameter preserves the current section when opening modals. For example, `/cluster/:id/nodes/node-1?bg=topology` displays the node modal over the topology view.
+
+**Q: When is the `bg` parameter added?**
+A: It's automatically added when opening a modal from a non-default section (Topology, Statistics, Overview, Settings, Console). It's omitted for the default sections (Nodes, Indices, Shards) since the modal path already indicates the section.
 
 ## Support
 
