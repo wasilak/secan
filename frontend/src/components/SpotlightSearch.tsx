@@ -84,11 +84,11 @@ export function SpotlightSearch() {
 
       // Cluster tabs
       const tabs = [
-        { id: 'overview', label: 'Overview', icon: IconChartBar, path: '' },
-        { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '?tab=statistics' },
-        { id: 'nodes-tab', label: 'Nodes', icon: IconServer, path: '?tab=nodes' },
-        { id: 'indices-tab', label: 'Indices', icon: IconDatabase, path: '?tab=indices' },
-        { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '?tab=shards' },
+        { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
+        { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
+        { id: 'nodes-tab', label: 'Nodes', icon: IconServer, path: '/nodes' },
+        { id: 'indices-tab', label: 'Indices', icon: IconDatabase, path: '/indices' },
+        { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '/shards' },
       ];
 
       tabs.forEach((tab) => {
@@ -124,9 +124,7 @@ export function SpotlightSearch() {
             label: `Index: ${index.name}`,
             description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
             onClick: () =>
-              navigate(
-                `/cluster/${currentClusterId}?tab=indices&index=${encodeURIComponent(index.name)}`
-              ),
+              navigate(`/cluster/${currentClusterId}/indices/${encodeURIComponent(index.name)}`),
             leftSection: <IconDatabase size={20} />,
             keywords: ['index', index.name, currentClusterName],
           });
@@ -137,19 +135,16 @@ export function SpotlightSearch() {
       // Ensure clusters is an array before iterating
       if (Array.isArray(clusters) && clusters.length > 0) {
         const tabs = [
-          { id: 'overview', label: 'Overview', icon: IconChartBar },
-          { id: 'statistics', label: 'Statistics', icon: IconChartBar },
-          { id: 'nodes', label: 'Nodes', icon: IconServer },
-          { id: 'indices', label: 'Indices', icon: IconDatabase },
-          { id: 'shards', label: 'Shards', icon: IconCopy },
+          { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
+          { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
+          { id: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
+          { id: 'indices', label: 'Indices', icon: IconDatabase, path: '/indices' },
+          { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
         ];
 
         clusters.forEach((cluster) => {
           tabs.forEach((tab) => {
-            const path =
-              tab.id === 'overview'
-                ? `/cluster/${cluster.id}`
-                : `/cluster/${cluster.id}?tab=${tab.id}`;
+            const path = `/cluster/${cluster.id}${tab.path}`;
 
             items.push({
               id: `cluster-${cluster.id}-${tab.id}`,

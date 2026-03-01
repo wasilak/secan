@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { createBrowserRouter, Navigate, useParams, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { LazyRoute } from './components/LazyRoute';
 import { useAuth } from './contexts/AuthContext';
@@ -26,28 +26,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
-}
-
-// Redirect component for index edit URLs
-function IndexEditRedirect() {
-  const { id, indexName } = useParams<{ id: string; indexName: string }>();
-  const searchParams = new URLSearchParams();
-  searchParams.set('tab', 'indices');
-  if (indexName) {
-    searchParams.set('index', indexName);
-  }
-  return <Navigate to={`/cluster/${id}?${searchParams.toString()}`} replace />;
-}
-
-// Redirect component for node detail URLs
-function NodeDetailRedirect() {
-  const { id, nodeId } = useParams<{ id: string; nodeId: string }>();
-  const searchParams = new URLSearchParams();
-  searchParams.set('tab', 'nodes');
-  if (nodeId) {
-    searchParams.set('node', nodeId);
-  }
-  return <Navigate to={`/cluster/${id}?${searchParams.toString()}`} replace />;
 }
 
 // Lazy-load page components for better performance
@@ -95,21 +73,36 @@ const IndexStatistics = lazy(() =>
  * Routes:
  * - / - Dashboard (multi-cluster overview)
  * - /login - Login page
- * - /cluster/:id - Cluster detail view
- * - /cluster/:id/nodes/:nodeId - Node detail view with statistics
- * - /cluster/:id/rest - REST console
+ *
+ * Cluster Section Routes (path-based navigation):
+ * - /cluster/:id - Cluster detail view (defaults to overview section)
+ * - /cluster/:id/overview - Overview section
+ * - /cluster/:id/topology - Topology section
+ * - /cluster/:id/statistics - Statistics section
+ * - /cluster/:id/nodes - Nodes section
+ * - /cluster/:id/indices - Indices section
+ * - /cluster/:id/shards - Shards section
+ * - /cluster/:id/settings - Settings section
+ * - /cluster/:id/console - REST Console section
+ *
+ * Modal Routes (modals overlay on sections):
+ * - /cluster/:id/nodes/:nodeId - Node details modal
+ * - /cluster/:id/indices/:indexName - Index details modal
+ * - /cluster/:id/shards/:shardId - Shard details modal
+ *
+ * Legacy/Utility Routes:
+ * - /cluster/:id/rest - REST console (legacy)
  * - /cluster/:id/indices/create - Create new index
- * - /cluster/:id/indices/:indexName/edit - Edit index (settings and mappings)
- * - /cluster/:id/indices/:indexName/analyzers - View index analyzers and fields
+ * - /cluster/:id/indices/:indexName/settings - Edit index settings (redirects)
+ * - /cluster/:id/indices/:indexName/mappings - Edit index mappings (redirects)
  * - /cluster/:id/indices/:indexName/stats - View index statistics
  * - /cluster/:id/aliases - Manage index aliases
  * - /cluster/:id/templates - Manage index templates
- * - /cluster/:id/settings - Manage cluster settings
- * - /cluster/:id/shards - Manage shard allocation
  * - /cluster/:id/analysis - Text analysis tools
  * - /cluster/:id/repositories - Manage snapshot repositories
  * - /cluster/:id/snapshots/:repository - Manage snapshots in a repository
  * - /cluster/:id/cat - Cat API access
+ * - /access-denied - Access denied page
  *
  * Authentication redirects will be implemented when auth is integrated.
  */
@@ -154,6 +147,7 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
+      // New path-based cluster section routes
       {
         path: 'cluster/:id',
         element: (
@@ -163,8 +157,93 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'cluster/:id/overview',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/topology',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/statistics',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/nodes',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/indices',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/shards',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/settings',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/console',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      // Modal routes
+      {
         path: 'cluster/:id/nodes/:nodeId',
-        element: <NodeDetailRedirect />,
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/indices/:indexName',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/shards/:shardId',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
       },
       {
         path: 'cluster/:id/rest',
@@ -190,10 +269,7 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      {
-        path: 'cluster/:id/indices/:indexName/edit',
-        element: <IndexEditRedirect />,
-      },
+
       {
         path: 'cluster/:id/indices/:indexName/settings',
         element: <Navigate to="../edit?tab=settings" replace />,

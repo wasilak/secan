@@ -7,7 +7,6 @@ import {
   Badge,
   Grid,
   Alert,
-  Tabs,
   Table,
   Progress,
   ScrollArea,
@@ -26,7 +25,13 @@ import {
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import Editor from '@monaco-editor/react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { defaultSection, isValidClusterSection } from '../routes/clusterRoutes';
+import {
+  extractNodeIdFromPath,
+  extractIndexNameFromPath,
+} from '../utils/urlBuilders';
+import { useClusterNavigation } from '../hooks/useClusterNavigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   IconAlertCircle,
@@ -134,6 +139,8 @@ function getIndexBackgroundColor(health: string): string {
  */
 export function ClusterView() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -143,86 +150,68 @@ export function ClusterView() {
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
 
-  // Get active tab from URL, default to 'overview'
-  const activeTab = searchParams.get('tab') || 'overview';
+  // Get navigation helper
+  const { navigateToNode, navigateToIndex, closeModal, currentSection: getCurrentSection } = useClusterNavigation();
 
-  // Get index name from URL for modal
-  const indexNameParam = searchParams.get('index');
-  const indexTabParam = searchParams.get('indexTab');
+  // Get active section from path parameter, default to 'overview'
+  // This supports both /cluster/:id and /cluster/:id/:section URL formats
+  // Also checks for bg query param for modal background section
+  const activeSection = getCurrentSection() || defaultSection;
+  const activeTab = activeSection; // Use activeSection as activeTab for backward compatibility with existing code
+
+  // Extract modal IDs from path
+  const nodeIdFromPath = extractNodeIdFromPath(location.pathname);
+  const indexNameFromPath = extractIndexNameFromPath(location.pathname);
 
   // Index modal state
   const [indexModalOpen, setIndexModalOpen] = useState(false);
   const [selectedIndexName, setSelectedIndexName] = useState<string | null>(null);
 
-  // Open index modal when URL param changes
+  // Open index modal when URL path changes
   useEffect(() => {
-    if (indexNameParam) {
-      setSelectedIndexName(decodeURIComponent(indexNameParam));
+    if (indexNameFromPath) {
+      setSelectedIndexName(decodeURIComponent(indexNameFromPath));
       setIndexModalOpen(true);
     } else {
       setIndexModalOpen(false);
       setSelectedIndexName(null);
     }
-  }, [indexNameParam]);
+  }, [indexNameFromPath]);
 
-  // Handle opening index modal
+  // Handle opening index modal - use path-based navigation
   const openIndexModal = (indexName: string, tab?: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('index', encodeURIComponent(indexName));
-    if (tab) {
-      params.set('indexTab', tab);
-    } else {
-      params.delete('indexTab');
-    }
-    setSearchParams(params);
+    navigateToIndex(indexName, tab || 'general');
   };
 
-  // Handle closing index modal
+  // Handle closing index modal - navigate back to section
   const closeIndexModal = () => {
-    const params = new URLSearchParams(searchParams);
-    params.delete('index');
-    params.delete('indexTab');
-    setSearchParams(params);
+    closeModal();
   };
-
-  // Get node ID from URL for modal
-  const nodeIdParam = searchParams.get('node');
 
   // Node modal state
   const [nodeModalOpen, setNodeModalOpen] = useState(false);
 
-  // Open node modal when URL param changes
+  // Open node modal when URL path changes
   useEffect(() => {
-    setNodeModalOpen(!!nodeIdParam);
-  }, [nodeIdParam]);
+    setNodeModalOpen(!!nodeIdFromPath);
+  }, [nodeIdFromPath]);
 
-  // Handle opening node modal
+  // Handle opening node modal - use path-based navigation
   const openNodeModal = (nodeId: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('node', nodeId);
-    setSearchParams(params);
+    navigateToNode(nodeId);
   };
 
-  // Handle closing node modal
+  // Handle closing node modal - navigate back to section
   const closeNodeModal = () => {
-    const params = new URLSearchParams(searchParams);
-    params.delete('node');
-    setSearchParams(params);
+    closeModal();
   };
 
-  // Update URL when tab changes
+  // Update URL when tab/section changes
   const handleTabChange = (value: string | null) => {
-    if (value) {
-      const params = new URLSearchParams(searchParams);
-      params.set('tab', value);
-      // Preserve index params if they exist
-      if (indexNameParam) {
-        params.set('index', indexNameParam);
-      }
-      if (indexTabParam) {
-        params.set('indexTab', indexTabParam);
-      }
-      setSearchParams(params);
+    if (value && isValidClusterSection(value)) {
+      // Navigate to new section using path-based URL
+      navigate(`/cluster/${id}/${value}`);
+      // Note: Modal params are preserved in searchParams, only section changes in path
     }
   };
 
@@ -324,41 +313,41 @@ export function ClusterView() {
   const nodesHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-          value: d.node_count,
-          timestamp: new Date(d.date).getTime(),
-        }))
+        value: d.node_count,
+        timestamp: new Date(d.date).getTime(),
+      }))
       : nodesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const indicesHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-          value: d.index_count || 0,
-          timestamp: new Date(d.date).getTime(),
-        }))
+        value: d.index_count || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
       : indicesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const documentsHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-          value: d.document_count || 0,
-          timestamp: new Date(d.date).getTime(),
-        }))
+        value: d.document_count || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
       : documentsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const shardsHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-          value: d.shard_count || 0,
-          timestamp: new Date(d.date).getTime(),
-        }))
+        value: d.shard_count || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
       : shardsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const unassignedHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-          value: d.unassigned_shards || 0,
-          timestamp: new Date(d.date).getTime(),
-        }))
+        value: d.unassigned_shards || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
       : unassignedHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   // For Sparkline components (needs number[])
@@ -441,68 +430,6 @@ export function ClusterView() {
   const nodes = nodesArray;
   const indices = indicesArray;
 
-  // Get filter states from URL
-  const searchQuery = searchParams.get('indicesSearch') || '';
-  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [
-    'green',
-    'yellow',
-    'red',
-    'unknown',
-  ];
-  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
-    'open',
-    'close',
-  ];
-  const showOnlyAffected = searchParams.get('affected') === 'true';
-  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
-
-  // Calculate filtered indices count
-  const shardsByIndex =
-    shards?.reduce(
-      (acc, shard) => {
-        const key = shard.index;
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(shard);
-        return acc;
-      },
-      {} as Record<string, ShardInfo[]>
-    ) || {};
-
-  const hasProblems = (indexName: string) => {
-    const indexShards = shardsByIndex[indexName] || [];
-    return indexShards.some(
-      (s: ShardInfo) =>
-        s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
-    );
-  };
-
-  const filteredIndicesCount =
-    indices?.filter((index) => {
-      const matchesSearch = index.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesHealth =
-        index.status === 'close' ||
-        selectedHealth.length === 0 ||
-        selectedHealth.includes(index.health);
-      const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
-      const matchesAffected = !showOnlyAffected || hasProblems(index.name);
-      const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
-
-      return matchesSearch && matchesHealth && matchesStatus && matchesAffected && matchesSpecial;
-    }).length || 0;
-
-  // Calculate filtered shards count
-  const shardSearchQuery = searchParams.get('shardsSearch') || '';
-  const shardSelectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [];
-
-  const filteredShardsCount =
-    shards?.filter((shard) => {
-      const matchesSearch = shard.index.toLowerCase().includes(shardSearchQuery.toLowerCase());
-      const matchesState =
-        shardSelectedStates.length === 0 || shardSelectedStates.includes(shard.state);
-      const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
-      return matchesSearch && matchesState && matchesSpecial;
-    }).length || 0;
-
   if (!id) {
     return (
       <Stack p="md">
@@ -579,271 +506,258 @@ export function ClusterView() {
         aria-label={`Cluster health: ${stats?.health || 'unknown'}`}
       />
 
-      {/* Tabs at the top */}
-      <Tabs value={activeTab} onChange={handleTabChange}>
-        <Tabs.List>
-          <Tabs.Tab value="overview">Overview</Tabs.Tab>
-          <Tabs.Tab value="topology">Topology</Tabs.Tab>
-          <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
-          <Tabs.Tab value="nodes">Nodes ({nodesPaginated?.total || 0})</Tabs.Tab>
-          <Tabs.Tab value="indices">
-            Indices ({filteredIndicesCount})
-          </Tabs.Tab>
-          <Tabs.Tab value="shards">
-            Shards ({filteredShardsCount})
-          </Tabs.Tab>
-          <Tabs.Tab value="settings">Settings</Tabs.Tab>
-          <Tabs.Tab value="console">Console</Tabs.Tab>
-        </Tabs.List>
+      {/* Section Navigation - conditional rendering instead of Tabs */}
+      {/* Overview Section */}
+      {activeTab === 'overview' && (
+        <Stack gap="md">
+          {/* Cluster Statistics Cards */}
+          <Grid>
+            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('nodes')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Nodes
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {stats?.numberOfNodes || 0}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.numberOfDataNodes || 0} data
+                    </Text>
+                  </Group>
+                  {nodesHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={nodesHistoryNumbers}
+                        color="var(--mantine-color-blue-6)"
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
 
-        {/* Overview Tab */}
-        <Tabs.Panel value="overview" pt="md">
-          <Stack gap="md">
-            {/* Cluster Statistics Cards */}
+            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('indices')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Indices
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {stats?.numberOfIndices || 0}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.numberOfDataNodes || 0} data
+                    </Text>
+                  </Group>
+                  {indicesHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={indicesHistoryNumbers}
+                        color="var(--mantine-color-green-6)"
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('indices')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Documents
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {(stats?.numberOfDocuments || 0).toLocaleString()}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      total
+                    </Text>
+                  </Group>
+                  {documentsHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={documentsHistoryNumbers}
+                        color="var(--mantine-color-cyan-6)"
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('shards')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Shards
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {stats?.activeShards || 0}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.activePrimaryShards || 0} primary
+                    </Text>
+                  </Group>
+                  {shardsHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={shardsHistoryNumbers}
+                        color="var(--mantine-color-violet-6)"
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('shards')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Unassigned
+                      </Text>
+                      <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
+                        {stats?.unassignedShards || 0}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.relocatingShards || 0} moving
+                    </Text>
+                  </Group>
+                  {unassignedHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={unassignedHistoryNumbers}
+                        color={
+                          stats?.unassignedShards
+                            ? 'var(--mantine-color-red-6)'
+                            : 'var(--mantine-color-gray-6)'
+                        }
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+
+          {/* Memory and Disk Usage */}
+          {(stats?.memoryTotal || stats?.diskTotal) && (
             <Grid>
-              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card
-                  shadow="sm"
-                  padding="md"
-                  style={{ cursor: 'pointer', height: '100%' }}
-                  onClick={() => handleTabChange('nodes')}
-                >
-                  <Stack gap={4}>
-                    <Group justify="space-between" wrap="nowrap">
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Nodes
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {stats?.numberOfNodes || 0}
-                        </Text>
-                      </div>
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                        {stats?.numberOfDataNodes || 0} data
+              {stats?.memoryTotal && (
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Card shadow="sm" padding="lg">
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">
+                        Memory Usage
                       </Text>
-                    </Group>
-                    {nodesHistoryNumbers.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Sparkline
-                          data={nodesHistoryNumbers}
-                          color="var(--mantine-color-blue-6)"
-                          height={25}
-                        />
-                      </div>
-                    )}
-                  </Stack>
-                </Card>
-              </Grid.Col>
+                      <Progress
+                        value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
+                        color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
+                        size="sm"
+                        radius="xs"
+                      />
+                      <Text size="xs" c="dimmed">
+                        {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
+                        {formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}%)
+                      </Text>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              )}
 
-              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card
-                  shadow="sm"
-                  padding="md"
-                  style={{ cursor: 'pointer', height: '100%' }}
-                  onClick={() => handleTabChange('indices')}
-                >
-                  <Stack gap={4}>
-                    <Group justify="space-between" wrap="nowrap">
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Indices
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {stats?.numberOfIndices || 0}
-                        </Text>
-                      </div>
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                        {stats?.numberOfDataNodes || 0} data
+              {stats?.diskTotal && (
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Card shadow="sm" padding="lg">
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">
+                        Disk Usage
                       </Text>
-                    </Group>
-                    {indicesHistoryNumbers.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Sparkline
-                          data={indicesHistoryNumbers}
-                          color="var(--mantine-color-green-6)"
-                          height={25}
-                        />
-                      </div>
-                    )}
-                  </Stack>
-                </Card>
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card
-                  shadow="sm"
-                  padding="md"
-                  style={{ cursor: 'pointer', height: '100%' }}
-                  onClick={() => handleTabChange('indices')}
-                >
-                  <Stack gap={4}>
-                    <Group justify="space-between" wrap="nowrap">
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Documents
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {(stats?.numberOfDocuments || 0).toLocaleString()}
-                        </Text>
-                      </div>
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                        total
+                      <Progress
+                        value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
+                        color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
+                        size="sm"
+                        radius="xs"
+                      />
+                      <Text size="xs" c="dimmed">
+                        {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
+                        {formatPercent(stats.diskUsed || 0, stats.diskTotal)}%)
                       </Text>
-                    </Group>
-                    {documentsHistoryNumbers.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Sparkline
-                          data={documentsHistoryNumbers}
-                          color="var(--mantine-color-cyan-6)"
-                          height={25}
-                        />
-                      </div>
-                    )}
-                  </Stack>
-                </Card>
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card
-                  shadow="sm"
-                  padding="md"
-                  style={{ cursor: 'pointer', height: '100%' }}
-                  onClick={() => handleTabChange('shards')}
-                >
-                  <Stack gap={4}>
-                    <Group justify="space-between" wrap="nowrap">
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Shards
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {stats?.activeShards || 0}
-                        </Text>
-                      </div>
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                        {stats?.activePrimaryShards || 0} primary
-                      </Text>
-                    </Group>
-                    {shardsHistoryNumbers.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Sparkline
-                          data={shardsHistoryNumbers}
-                          color="var(--mantine-color-violet-6)"
-                          height={25}
-                        />
-                      </div>
-                    )}
-                  </Stack>
-                </Card>
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-                <Card
-                  shadow="sm"
-                  padding="md"
-                  style={{ cursor: 'pointer', height: '100%' }}
-                  onClick={() => handleTabChange('shards')}
-                >
-                  <Stack gap={4}>
-                    <Group justify="space-between" wrap="nowrap">
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Unassigned
-                        </Text>
-                        <Text size="xl" fw={700} c={stats?.unassignedShards ? 'red' : undefined}>
-                          {stats?.unassignedShards || 0}
-                        </Text>
-                      </div>
-                      <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                        {stats?.relocatingShards || 0} moving
-                      </Text>
-                    </Group>
-                    {unassignedHistoryNumbers.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Sparkline
-                          data={unassignedHistoryNumbers}
-                          color={
-                            stats?.unassignedShards
-                              ? 'var(--mantine-color-red-6)'
-                              : 'var(--mantine-color-gray-6)'
-                          }
-                          height={25}
-                        />
-                      </div>
-                    )}
-                  </Stack>
-                </Card>
-              </Grid.Col>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              )}
             </Grid>
+          )}
+        </Stack>
+      )}
 
-            {/* Memory and Disk Usage */}
-            {(stats?.memoryTotal || stats?.diskTotal) && (
-              <Grid>
-                {stats?.memoryTotal && (
-                  <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card shadow="sm" padding="lg">
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Memory Usage
-                        </Text>
-                        <Progress
-                          value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
-                          color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
-                          size="sm"
-                          radius="xs"
-                        />
-                        <Text size="xs" c="dimmed">
-                          {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
-                          {formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}%)
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                )}
+      {/* Topology Section */}
+      {activeTab === 'topology' && (
+        <Card shadow="sm" padding="lg">
+          <ShardAllocationGrid
+            nodes={nodes}
+            indices={indices}
+            shards={shards}
+            loading={nodesLoading || indicesLoading || shardsLoading}
+            error={nodesError || indicesError || shardsError}
+            openIndexModal={openIndexModal}
+            openNodeModal={openNodeModal}
+            searchParams={searchParams}
+            setSearchParams={setSearchParams}
+          />
+        </Card>
+      )}
 
-                {stats?.diskTotal && (
-                  <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card shadow="sm" padding="lg">
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Disk Usage
-                        </Text>
-                        <Progress
-                          value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
-                          color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
-                          size="sm"
-                          radius="xs"
-                        />
-                        <Text size="xs" c="dimmed">
-                          {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
-                          {formatPercent(stats.diskUsed || 0, stats.diskTotal)}%)
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                )}
-              </Grid>
-            )}
-          </Stack>
-        </Tabs.Panel>
-
-        {/* Topology Tab */}
-        <Tabs.Panel value="topology" pt="md">
-          <Card shadow="sm" padding="lg">
-            <ShardAllocationGrid
-              nodes={nodes}
-              indices={indices}
-              shards={shards}
-              loading={nodesLoading || indicesLoading || shardsLoading}
-              error={nodesError || indicesError || shardsError}
-              openIndexModal={openIndexModal}
-              openNodeModal={openNodeModal}
-            />
-          </Card>
-        </Tabs.Panel>
-
-        {/* Statistics Tab */}
-        <Tabs.Panel value="statistics" pt="md">
+      {/* Statistics Section */}
+      {activeTab === 'statistics' && (
+        <Stack gap="md">
           {/* Time Range Dropdown - Top Right */}
           <Group justify="space-between" mb="md">
             <Group gap="xs">
@@ -921,81 +835,77 @@ export function ClusterView() {
             stats={stats}
             nodes={nodes}
           />
-        </Tabs.Panel>
+        </Stack>
+      )}
 
-        {/* Nodes Tab */}
-        <Tabs.Panel value="nodes" pt="md">
-          <Card shadow="sm" padding="lg">
-            <NodesList
-              nodes={nodes}
-              loading={nodesLoading}
-              error={nodesError}
-              openNodeModal={openNodeModal}
+      {/* Nodes Section */}
+      {activeTab === 'nodes' && (
+        <Card shadow="sm" padding="lg">
+          <NodesList
+            nodes={nodes}
+            loading={nodesLoading}
+            error={nodesError}
+            openNodeModal={openNodeModal}
+          />
+          {nodesPaginated && nodesPaginated.total_pages > 1 && (
+            <SimplePagination
+              currentPage={nodesPage}
+              totalPages={nodesPaginated.total_pages}
+              pageSize={50}
+              totalItems={nodesPaginated.total}
+              onPageChange={setNodesPage}
             />
-            {nodesPaginated && nodesPaginated.total_pages > 1 && (
-              <SimplePagination
-                currentPage={nodesPage}
-                totalPages={nodesPaginated.total_pages}
-                pageSize={50}
-                totalItems={nodesPaginated.total}
-                onPageChange={setNodesPage}
-              />
-            )}
-          </Card>
-        </Tabs.Panel>
+          )}
+        </Card>
+      )}
 
-        {/* Indices Tab */}
-        <Tabs.Panel value="indices" pt="md">
-          <Card shadow="sm" padding="lg">
-            <IndicesList
-              indices={indices}
-              loading={indicesLoading}
-              error={indicesError}
-              openIndexModal={openIndexModal}
+      {/* Indices Section */}
+      {activeTab === 'indices' && (
+        <Card shadow="sm" padding="lg">
+          <IndicesList
+            indices={indices}
+            loading={indicesLoading}
+            error={indicesError}
+            openIndexModal={openIndexModal}
+          />
+          {indicesPaginated && indicesPaginated.total_pages > 1 && (
+            <SimplePagination
+              currentPage={indicesPage}
+              totalPages={indicesPaginated.total_pages}
+              pageSize={50}
+              totalItems={indicesPaginated.total}
+              onPageChange={setIndicesPage}
             />
-            {indicesPaginated && indicesPaginated.total_pages > 1 && (
-              <SimplePagination
-                currentPage={indicesPage}
-                totalPages={indicesPaginated.total_pages}
-                pageSize={50}
-                totalItems={indicesPaginated.total}
-                onPageChange={setIndicesPage}
-              />
-            )}
-          </Card>
-        </Tabs.Panel>
+          )}
+        </Card>
+      )}
 
-        {/* Shards Tab */}
-        <Tabs.Panel value="shards" pt="md">
-          <Card shadow="sm" padding="lg">
-            <ShardsList
-              shards={shards}
-              loading={shardsLoading}
-              error={shardsError}
-              openNodeModal={openNodeModal}
+      {/* Shards Section */}
+      {activeTab === 'shards' && (
+        <Card shadow="sm" padding="lg">
+          <ShardsList
+            shards={shards}
+            loading={shardsLoading}
+            error={shardsError}
+            openNodeModal={openNodeModal}
+          />
+          {shardsPaginated && shardsPaginated.total_pages > 1 && (
+            <SimplePagination
+              currentPage={shardsPage}
+              totalPages={shardsPaginated.total_pages}
+              pageSize={50}
+              totalItems={shardsPaginated.total}
+              onPageChange={setShardsPage}
             />
-            {shardsPaginated && shardsPaginated.total_pages > 1 && (
-              <SimplePagination
-                currentPage={shardsPage}
-                totalPages={shardsPaginated.total_pages}
-                pageSize={50}
-                totalItems={shardsPaginated.total}
-                onPageChange={setShardsPage}
-              />
-            )}
-          </Card>
-        </Tabs.Panel>
+          )}
+        </Card>
+      )}
 
-        {/* Settings Tab */}
-        <Tabs.Panel value="settings" pt="md">
-          <SettingsPanel clusterId={id!} />
-        </Tabs.Panel>
+      {/* Settings Section */}
+      {activeTab === 'settings' && <SettingsPanel clusterId={id!} />}
 
-        {/* Console Tab */}
-        <Tabs.Panel value="console" pt="md">
-          <RestConsole />
-        </Tabs.Panel>
-      </Tabs>
+      {/* Console Section */}
+      {activeTab === 'console' && <RestConsole />}
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
@@ -1034,7 +944,7 @@ export function ClusterView() {
       {/* Node Modal */}
       <NodeModal
         clusterId={id!}
-        nodeId={nodeIdParam}
+        nodeId={nodeIdFromPath || null}
         opened={nodeModalOpen}
         onClose={closeNodeModal}
         context={activeTab === 'topology' ? 'topology' : activeTab === 'nodes' ? 'nodes' : 'shards'}
@@ -2035,30 +1945,30 @@ function IndicesList({
   // Sort indices by selected column
   const sortedIndices = filteredIndices
     ? [...filteredIndices].sort((a, b) => {
-        let compareResult: number;
+      let compareResult: number;
 
-        switch (indicesSortColumn) {
-          case 'name':
-            compareResult = a.name.localeCompare(b.name);
-            break;
-          case 'health':
-            compareResult = a.health.localeCompare(b.health);
-            break;
-          case 'status':
-            compareResult = a.status.localeCompare(b.status);
-            break;
-          case 'documents':
-            compareResult = a.docsCount - b.docsCount;
-            break;
-          case 'size':
-            compareResult = a.storeSize - b.storeSize;
-            break;
-          default:
-            compareResult = a.name.localeCompare(b.name);
-        }
+      switch (indicesSortColumn) {
+        case 'name':
+          compareResult = a.name.localeCompare(b.name);
+          break;
+        case 'health':
+          compareResult = a.health.localeCompare(b.health);
+          break;
+        case 'status':
+          compareResult = a.status.localeCompare(b.status);
+          break;
+        case 'documents':
+          compareResult = a.docsCount - b.docsCount;
+          break;
+        case 'size':
+          compareResult = a.storeSize - b.storeSize;
+          break;
+        default:
+          compareResult = a.name.localeCompare(b.name);
+      }
 
-        return indicesSortDirection === 'asc' ? compareResult : -compareResult;
-      })
+      return indicesSortDirection === 'asc' ? compareResult : -compareResult;
+    })
     : undefined;
 
   // Pagination
@@ -2197,7 +2107,13 @@ function IndicesList({
             {['green', 'yellow', 'red', 'unknown'].map((health) => {
               const isSelected = selectedHealth.includes(health);
               const healthColor =
-                health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : health === 'red' ? 'red' : 'gray';
+                health === 'green'
+                  ? 'green'
+                  : health === 'yellow'
+                    ? 'yellow'
+                    : health === 'red'
+                      ? 'red'
+                      : 'gray';
               return (
                 <Group
                   key={health}
@@ -2926,6 +2842,8 @@ function ShardAllocationGrid({
   error,
   openIndexModal,
   openNodeModal,
+  searchParams,
+  setSearchParams,
 }: {
   nodes?: NodeInfo[];
   indices?: IndexInfo[];
@@ -2934,14 +2852,15 @@ function ShardAllocationGrid({
   error: Error | null;
   openIndexModal: (indexName: string, tab?: string) => void;
   openNodeModal?: (nodeId: string) => void;
+  searchParams: URLSearchParams;
+  setSearchParams: (params: URLSearchParams) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   // Modal state for shard details
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
-  const [modalOpened, setModalOpened] = useState(false);
+  const [modalOpened] = useState(false);
 
   // Context menu state
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
@@ -3014,10 +2933,12 @@ function ShardAllocationGrid({
     setContextMenuShard(null);
   };
 
-  // Handle show shard stats
+  // Handle show shard stats - use path-based navigation
   const handleShowStats = (shard: ShardInfo) => {
     setSelectedShard(shard);
-    setModalOpened(true);
+    // TODO: Update to use path-based URL when shard modal navigation is complete
+    // const shardId = `${shard.index}[${shard.shard}]`;
+    // navigateToShard(shardId);
     handleContextMenuClose();
   };
 
@@ -3321,7 +3242,7 @@ function ShardAllocationGrid({
       <ShardDetailsModal
         shard={selectedShard}
         opened={modalOpened}
-        onClose={() => setModalOpened(false)}
+        onClose={() => setSelectedShard(null)}
         clusterId={id!}
       />
 
@@ -3856,9 +3777,9 @@ function ShardAllocationGrid({
                             }}
                           >
                             {indexShards.length > 0 ||
-                            (relocationMode &&
-                              validDestinationNodes.includes(node.id) &&
-                              selectedShard?.index === index.name) ? (
+                              (relocationMode &&
+                                validDestinationNodes.includes(node.id) &&
+                                selectedShard?.index === index.name) ? (
                               <Group gap={2} justify="center" wrap="wrap">
                                 {indexShards.map((shard, idx) => (
                                   <Tooltip
@@ -4358,38 +4279,38 @@ function ShardsList({
   // Sort shards by selected column
   const sortedShards = filteredShards
     ? [...filteredShards].sort((a, b) => {
-        let compareResult: number;
+      let compareResult: number;
 
-        switch (shardsSortColumn) {
-          case 'index':
-            compareResult = a.index.localeCompare(b.index);
-            break;
-          case 'shard':
-            compareResult = a.shard - b.shard;
-            break;
-          case 'type':
-            compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
-              b.primary ? 'Primary' : 'Replica'
-            );
-            break;
-          case 'state':
-            compareResult = a.state.localeCompare(b.state);
-            break;
-          case 'node':
-            compareResult = (a.node || '').localeCompare(b.node || '');
-            break;
-          case 'documents':
-            compareResult = a.docs - b.docs;
-            break;
-          case 'size':
-            compareResult = a.store - b.store;
-            break;
-          default:
-            compareResult = a.index.localeCompare(b.index);
-        }
+      switch (shardsSortColumn) {
+        case 'index':
+          compareResult = a.index.localeCompare(b.index);
+          break;
+        case 'shard':
+          compareResult = a.shard - b.shard;
+          break;
+        case 'type':
+          compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
+            b.primary ? 'Primary' : 'Replica'
+          );
+          break;
+        case 'state':
+          compareResult = a.state.localeCompare(b.state);
+          break;
+        case 'node':
+          compareResult = (a.node || '').localeCompare(b.node || '');
+          break;
+        case 'documents':
+          compareResult = a.docs - b.docs;
+          break;
+        case 'size':
+          compareResult = a.store - b.store;
+          break;
+        default:
+          compareResult = a.index.localeCompare(b.index);
+      }
 
-        return shardsSortDirection === 'asc' ? compareResult : -compareResult;
-      })
+      return shardsSortDirection === 'asc' ? compareResult : -compareResult;
+    })
     : [];
 
   if (loading) {
