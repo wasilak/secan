@@ -11,7 +11,6 @@ import {
   Alert,
   ActionIcon as PinButton,
   Tooltip,
-  Badge,
   Menu,
   Button,
 } from '@mantine/core';
@@ -87,24 +86,29 @@ function ClusterDropdownItem({
   const healthColor = stats ? getHealthColorValue(stats.health) : 'var(--mantine-color-gray-5)';
 
   return (
-    <Menu.Item
-      onClick={onSelect}
-      leftSection={
-        isActive ? (
-          <Badge size="xs" variant="filled" color="blue">
-            ✓
-          </Badge>
-        ) : null
-      }
-    >
+    <Menu.Item onClick={onSelect}>
       <Group gap="xs" justify="space-between" style={{ width: '100%' }}>
-        <Text size="sm">{cluster.name}</Text>
+        <Group gap="xs" wrap="nowrap">
+          {isActive && (
+            <div
+              style={{
+                width: '4px',
+                height: '16px',
+                backgroundColor: 'var(--mantine-color-orange-6)',
+                borderRadius: '2px',
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <Text size="sm">{cluster.name}</Text>
+        </Group>
         <div
           style={{
             width: '8px',
             height: '8px',
             borderRadius: '50%',
             backgroundColor: healthColor,
+            flexShrink: 0,
           }}
           aria-label={`Health: ${stats?.health || 'unknown'}`}
         />
@@ -141,14 +145,14 @@ function ClusterDropdown({
       <Menu.Target>
         <Button
           variant="subtle"
-          size="sm"
-          rightSection={<IconChevronDown size={14} />}
+          size="xs"
+          rightSection={<IconChevronDown size={12} />}
           p={0}
           h="auto"
-          style={{ fontSize: 'var(--mantine-font-size-lg)', fontWeight: 600 }}
+          style={{ fontSize: 'var(--mantine-font-size-sm)', fontWeight: 500 }}
         >
           <Group gap={6} wrap="nowrap">
-            <Text size="lg" fw={600} style={{ whiteSpace: 'nowrap' }}>
+            <Text size="sm" fw={500} c="dimmed" style={{ whiteSpace: 'nowrap' }}>
               {currentClusterName}
             </Text>
             {currentClusterStats?.health && (
@@ -205,7 +209,6 @@ function HeaderTitle() {
   const { id: clusterId } = useParams<{ id: string }>();
 
   // Track which menus are open
-  const [appMenuOpen, setAppMenuOpen] = useState(false);
   const [clusterMenuOpen, setClusterMenuOpen] = useState(false);
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
 
@@ -234,7 +237,6 @@ function HeaderTitle() {
 
   // Handle navigation to dashboard
   const handleGoToDashboard = () => {
-    setAppMenuOpen(false);
     navigate('/');
   };
 
@@ -268,35 +270,23 @@ function HeaderTitle() {
   // In cluster view - show interactive breadcrumb with Menu dropdowns
   return (
     <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-      {/* App Level Dropdown */}
-      <Menu opened={appMenuOpen} onChange={setAppMenuOpen} position="bottom-start" withArrow>
-        <Menu.Target>
-          <Button
-            variant="subtle"
-            size="sm"
-            rightSection={<IconChevronDown size={14} />}
-            p={0}
-            h="auto"
-            style={{
-              fontSize: 'var(--mantine-font-size-lg)',
-              fontWeight: 700,
-              color: 'var(--mantine-color-dimmed)',
-            }}
-          >
-            Secan
-          </Button>
-        </Menu.Target>
-        <Menu.Dropdown>
-          <Menu.Item onClick={handleGoToDashboard}>
-            <Group gap="xs">
-              <IconDashboard size={16} />
-              <Text size="sm">Dashboard</Text>
-            </Group>
-          </Menu.Item>
-        </Menu.Dropdown>
-      </Menu>
+      {/* App Level - Simple link to Dashboard */}
+      <Button
+        variant="subtle"
+        size="xs"
+        p={0}
+        h="auto"
+        onClick={handleGoToDashboard}
+        style={{
+          fontSize: 'var(--mantine-font-size-sm)',
+          fontWeight: 500,
+          color: 'var(--mantine-color-dimmed)',
+        }}
+      >
+        Secan
+      </Button>
 
-      <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
+      <IconChevronRight size={16} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
 
       {/* Cluster Level Dropdown */}
       <ClusterDropdown
@@ -309,7 +299,7 @@ function HeaderTitle() {
         onSelectCluster={handleSelectCluster}
       />
 
-      <IconChevronRight size={18} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
+      <IconChevronRight size={16} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
 
       {/* Section Level Dropdown */}
       <Menu
@@ -321,13 +311,13 @@ function HeaderTitle() {
         <Menu.Target>
           <Button
             variant="subtle"
-            size="sm"
-            rightSection={<IconChevronDown size={14} />}
+            size="xs"
+            rightSection={<IconChevronDown size={12} />}
             p={0}
             h="auto"
-            style={{ fontSize: 'var(--mantine-font-size-lg)' }}
+            style={{ fontSize: 'var(--mantine-font-size-sm)' }}
           >
-            <Text size="lg" fw={600}>
+            <Text size="sm" fw={600} c="dimmed">
               {activeSectionLabel}
             </Text>
           </Button>
@@ -339,9 +329,14 @@ function HeaderTitle() {
               onClick={() => handleSelectSection(section.value)}
               leftSection={
                 section.value === activeSection ? (
-                  <Badge size="xs" variant="filled" color="blue">
-                    ✓
-                  </Badge>
+                  <div
+                    style={{
+                      width: '4px',
+                      height: '16px',
+                      backgroundColor: 'var(--mantine-color-orange-6)',
+                      borderRadius: '2px',
+                    }}
+                  />
                 ) : null
               }
             >
@@ -404,10 +399,36 @@ function ClusterNavItem({
             borderRadius: '50%',
             backgroundColor: healthColor,
             transition: 'background-color 0.2s ease-in-out',
+            flexShrink: 0,
           }}
           aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
         />
       }
+      rightSection={
+        isActive ? (
+          <div
+            style={{
+              width: '4px',
+              height: '16px',
+              backgroundColor: 'var(--mantine-color-orange-6)',
+              borderRadius: '2px',
+              flexShrink: 0,
+            }}
+          />
+        ) : null
+      }
+      styles={(theme) => ({
+        root: {
+          '&:hover': {
+            backgroundColor: theme.colors.violet[0],
+          },
+        },
+        label: {
+          color: 'var(--mantine-color-dimmed)',
+          fontWeight: 500,
+          fontSize: 'var(--mantine-font-size-sm)',
+        },
+      })}
       onClick={(e) => {
         e.preventDefault();
         onClick();
