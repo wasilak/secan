@@ -67,6 +67,7 @@ import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { Sparkline } from '../components/Sparkline';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
+import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
@@ -267,15 +268,6 @@ export function ClusterView() {
   const selectedTimeRange = metricsStore.selectedTimeRange;
   const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
 
-  // Time range presets
-  const timeRangePresets = [
-    { label: 'Last 1h', minutes: 60 },
-    { label: 'Last 6h', minutes: 360 },
-    { label: 'Last 24h', minutes: 1440 },
-    { label: 'Last 7d', minutes: 10080 },
-    { label: 'Last 30d', minutes: 43200 },
-  ];
-
   // Fetch metrics history from Prometheus when in statistics tab
   const { data: metricsHistory } = useQuery({
     queryKey: ['cluster', id, 'metrics-history', selectedTimeRange],
@@ -455,6 +447,7 @@ export function ClusterView() {
     'green',
     'yellow',
     'red',
+    'unknown',
   ];
   const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
     'open',
@@ -506,7 +499,8 @@ export function ClusterView() {
       const matchesSearch = shard.index.toLowerCase().includes(shardSearchQuery.toLowerCase());
       const matchesState =
         shardSelectedStates.length === 0 || shardSelectedStates.includes(shard.state);
-      return matchesSearch && matchesState;
+      const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
+      return matchesSearch && matchesState && matchesSpecial;
     }).length || 0;
 
   if (!id) {
@@ -593,10 +587,10 @@ export function ClusterView() {
           <Tabs.Tab value="statistics">Statistics</Tabs.Tab>
           <Tabs.Tab value="nodes">Nodes ({nodesPaginated?.total || 0})</Tabs.Tab>
           <Tabs.Tab value="indices">
-            Indices ({filteredIndicesCount} / {indicesPaginated?.total || 0})
+            Indices ({filteredIndicesCount})
           </Tabs.Tab>
           <Tabs.Tab value="shards">
-            Shards ({filteredShardsCount} / {shardsPaginated?.total || 0})
+            Shards ({filteredShardsCount})
           </Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
           <Tabs.Tab value="console">Console</Tabs.Tab>
@@ -852,9 +846,18 @@ export function ClusterView() {
         <Tabs.Panel value="statistics" pt="md">
           {/* Time Range Dropdown - Top Right */}
           <Group justify="space-between" mb="md">
-            <Text size="sm" fw={500}>
-              Cluster Statistics
-            </Text>
+            <Group gap="xs">
+              <Text size="sm" fw={500}>
+                Cluster Statistics
+              </Text>
+              <Badge
+                size="sm"
+                variant="light"
+                color={clusterInfo?.metrics_source === 'prometheus' ? 'blue' : 'green'}
+              >
+                {clusterInfo?.metrics_source === 'prometheus' ? 'Prometheus' : 'Internal'}
+              </Badge>
+            </Group>
             <Menu
               opened={timeRangeDropdownOpened}
               onChange={setTimeRangeDropdownOpened}
@@ -881,7 +884,7 @@ export function ClusterView() {
                 <Text size="xs" c="dimmed" px="sm" py="xs">
                   Select time range
                 </Text>
-                {timeRangePresets.map((preset) => (
+                {TIME_RANGE_PRESETS.map((preset) => (
                   <Menu.Item
                     key={preset.label}
                     onClick={() => {
@@ -917,7 +920,6 @@ export function ClusterView() {
             unassignedHistory={unassignedHistory as DataPoint[]}
             stats={stats}
             nodes={nodes}
-            metricsSource={clusterInfo?.metrics_source || 'internal'}
           />
         </Tabs.Panel>
 
@@ -1036,6 +1038,7 @@ export function ClusterView() {
         opened={nodeModalOpen}
         onClose={closeNodeModal}
         context={activeTab === 'topology' ? 'topology' : activeTab === 'nodes' ? 'nodes' : 'shards'}
+        clusterInfo={clusterInfo}
       />
     </Stack>
   );
@@ -1596,6 +1599,7 @@ function IndicesList({
     'green',
     'yellow',
     'red',
+    'unknown',
   ];
   const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
     'open',
@@ -2190,10 +2194,10 @@ function IndicesList({
 
           {/* Health filter toggles */}
           <Group gap="md" wrap="wrap">
-            {['green', 'yellow', 'red'].map((health) => {
+            {['green', 'yellow', 'red', 'unknown'].map((health) => {
               const isSelected = selectedHealth.includes(health);
               const healthColor =
-                health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : 'red';
+                health === 'green' ? 'green' : health === 'yellow' ? 'yellow' : health === 'red' ? 'red' : 'gray';
               return (
                 <Group
                   key={health}

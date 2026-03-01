@@ -32,6 +32,7 @@ import {
   RelocateShardRequest,
   RelocateShardResponse,
   ClusterMetricsHistoryResponse,
+  NodeMetricsHistoryResponse,
 } from '../types/api';
 
 /**
@@ -1396,6 +1397,33 @@ export class ApiClient {
       }
 
       return response.json() as Promise<ClusterMetricsHistoryResponse>;
+    });
+  }
+
+  /**
+   * Get node metrics from Prometheus (heap, CPU, disk over time)
+   *
+   * Requirements: 1.0, 1.1
+   */
+  async getNodeMetrics(
+    clusterId: string,
+    nodeId: string,
+    params?: { start?: number; end?: number }
+  ): Promise<NodeMetricsHistoryResponse> {
+    return this.executeWithRetry(async () => {
+      const url = new URL(`/api/clusters/${clusterId}/metrics/nodes/${nodeId}`, window.location.origin);
+      if (params?.start) url.searchParams.append('start', String(params.start));
+      if (params?.end) url.searchParams.append('end', String(params.end));
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
+      }
+
+      return response.json() as Promise<NodeMetricsHistoryResponse>;
     });
   }
 }

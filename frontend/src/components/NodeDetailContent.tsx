@@ -13,6 +13,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import {
   IconBrandElastic,
   IconCoffee,
@@ -21,6 +22,7 @@ import {
   IconActivity,
   IconExternalLink,
 } from '@tabler/icons-react';
+import { TimeRangePicker, TIME_RANGE_PRESETS } from './TimeRangePicker';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { NodeCharts } from './NodeCharts';
 import { getRoleIcon } from './RoleIcons';
@@ -68,6 +70,7 @@ interface NodeDetailContentProps {
     cpuHistory?: Array<{ timestamp: number; value: number }>;
     diskHistory?: Array<{ timestamp: number; value: number }>;
   };
+  isPrometheus?: boolean;
 }
 
 /**
@@ -89,9 +92,12 @@ interface NodeDetailContentProps {
 export function NodeDetailContent({
   nodeStats,
   prometheusMetrics,
+  isPrometheus = false,
 }: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
+  const [selectedTimeRange, setSelectedTimeRange] = useState(TIME_RANGE_PRESETS[2]); // Default 24h
 
   // Get current page/route as reset key for sparkline data
   // Use node ID to ensure data is specific to this node
@@ -350,7 +356,22 @@ export function NodeDetailContent({
       {/* Performance Metrics - Time Series Charts */}
       <Card shadow="sm" padding="lg">
         <Stack gap="md">
-          <Title order={3}>Performance Metrics</Title>
+          <Group justify="space-between">
+            <Group gap="xs">
+              <Title order={3}>Performance Metrics</Title>
+              <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
+                {isPrometheus ? 'Prometheus' : 'Internal'}
+              </Badge>
+            </Group>
+            {isPrometheus && (
+              <TimeRangePicker
+                selectedTimeRange={selectedTimeRange}
+                onChange={setSelectedTimeRange}
+                opened={timeRangeDropdownOpened}
+                onOpenedChange={setTimeRangeDropdownOpened}
+              />
+            )}
+          </Group>
           <NodeCharts
             heapHistory={heapHistory}
             diskHistory={diskHistory}

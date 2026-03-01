@@ -29,6 +29,7 @@ pub fn metrics_router() -> Router<MetricsState> {
     Router::new()
         .route("/", get(get_cluster_metrics))
         .route("/history", get(get_cluster_metrics_history))
+        .route("/nodes/{node_id}", get(get_node_metrics))
 }
 
 /// Error response for metrics operations
@@ -304,6 +305,197 @@ pub async fn get_cluster_metrics(
 
     let response = ClusterMetricsHistoryResponse {
         cluster_id: cluster_id.clone(),
+        time_range,
+        data: data_points,
+    };
+
+    Ok(Json(response))
+}
+
+/// Node metrics data point for frontend consumption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeMetricsPoint {
+    pub timestamp: i64,
+    pub date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heap_used_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heap_max_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_used_percent: Option<f64>,
+}
+
+/// Node metrics history response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeMetricsHistoryResponse {
+    pub cluster_id: String,
+    pub node_id: String,
+    pub time_range: TimeRange,
+    pub data: Vec<NodeMetricsPoint>,
+}
+
+/// Get node metrics from Prometheus
+///
+/// Returns time series metrics for a specific node when cluster uses Prometheus metrics source.
+///
+/// # Query Parameters
+/// - `start` - Unix timestamp (seconds) for range start. Defaults to 24 hours ago.
+/// - `end` - Unix timestamp (seconds) for range end. Defaults to current time.
+///
+/// # Requirements
+///
+/// Validates: Requirements 1.0, 1.1
+pub async fn get_node_metrics(
+    State(state): State<MetricsState>,
+    Path(params): Path<(String, String)>,
+    Query(params_query): Query<MetricsQuery>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+) -> Result<Json<NodeMetricsHistoryResponse>, MetricsErrorResponse> {
+    let (cluster_id, node_id) = params;
+    debug!("Getting metrics for node {} in cluster {}", node_id, cluster_id);
+
+    // Get cluster connection with auth check
+    let cluster_conn = if let Some(user) = user_ext {
+        state
+            .cluster_manager
+            .get_cluster_with_auth(&cluster_id, Some(&user.0 .0))
+            .await
+            .map_err(|_| MetricsErrorResponse {
+                error: "access_denied".to_string(),
+                message: "You do not have access to this cluster or cluster not found".to_string(),
+            })?
+    } else {
+        state
+            .cluster_manager
+            .get_cluster(&cluster_id)
+            .await
+            .map_err(|_| MetricsErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found", cluster_id),
+            })?
+    };
+
+    // Only support Prometheus for node-level historical metrics
+    if !matches!(cluster_conn.metrics_source, crate::config::MetricsSource::Prometheus) {
+        return Err(MetricsErrorResponse {
+            error: "not_supported".to_string(),
+            message: "Node-level historical metrics are only available when using Prometheus metrics source".to_string(),
+        });
+    }
+
+    // Get Prometheus configuration
+    let prometheus_config = cluster_conn.prometheus.as_ref().ok_or_else(|| {
+        MetricsErrorResponse {
+            error: "configuration_error".to_string(),
+            message: "Prometheus metrics source selected but no Prometheus configuration provided".to_string(),
+        }
+    })?;
+
+    // Determine time range
+    let time_range = if let (Some(start), Some(end)) = (params_query.start, params_query.end) {
+        TimeRange::new(start, end).map_err(|e| MetricsErrorResponse {
+            error: "invalid_time_range".to_string(),
+            message: format!("Invalid time range: {}", e),
+        })?
+    } else {
+        TimeRange::last_24_hours()
+    };
+
+    // Create Prometheus client
+    let prom_client = crate::prometheus::client::Client::new(
+        crate::prometheus::client::PrometheusConfig {
+            url: prometheus_config.url.clone(),
+            auth: None,
+            timeout: std::time::Duration::from_secs(30),
+        }
+    ).map_err(|e| MetricsErrorResponse {
+        error: "configuration_error".to_string(),
+        message: format!("Failed to create Prometheus client: {}", e),
+    })?;
+
+    // Build Prometheus queries with node filter
+    // Use label filters from cluster config if available
+    let base_labels = format!("node=\"{}\"", node_id);
+    let additional_labels = if let Some(labels) = &prometheus_config.labels {
+        let extra: Vec<String> = labels.iter()
+            .map(|(k, v)| format!("{}=\"{}\"", k, v))
+            .collect();
+        if extra.is_empty() {
+            base_labels
+        } else {
+            format!("{},{}", base_labels, extra.join(","))
+        }
+    } else {
+        base_labels
+    };
+
+    // Build query strings separately to avoid temporary value issues
+    let heap_query = format!("elasticsearch_jvm_memory_used_bytes{{{}}}", additional_labels.replace("node=", "area=\"heap\",node="));
+    let cpu_query = format!("elasticsearch_process_cpu_percent{{{}}}", additional_labels);
+    let disk_avail_query = format!("elasticsearch_filesystem_data_available_bytes{{{}}}", additional_labels);
+    let disk_size_query = format!("elasticsearch_filesystem_data_size_bytes{{{}}}", additional_labels);
+
+    // Fetch metrics in parallel
+    let heap_used_fut = prom_client.query_range(&heap_query, time_range.start, time_range.end, 60);
+    let cpu_fut = prom_client.query_range(&cpu_query, time_range.start, time_range.end, 60);
+    let disk_avail_fut = prom_client.query_range(&disk_avail_query, time_range.start, time_range.end, 60);
+    let disk_size_fut = prom_client.query_range(&disk_size_query, time_range.start, time_range.end, 60);
+
+    let (heap_used, cpu, disk_avail, disk_size) = tokio::join!(
+        heap_used_fut, cpu_fut, disk_avail_fut, disk_size_fut
+    );
+
+    // Helper to extract values from time series
+    let extract_values = |result: Result<Vec<crate::prometheus::client::TimeSeriesData>, _>, _default: u64| -> Vec<(i64, f64)> {
+        result.ok()
+            .and_then(|v| v.into_iter().next())
+            .and_then(|ts| ts.values)
+            .map(|vals: Vec<_>| vals.into_iter().map(|v| (v.0, v.1.parse::<f64>().unwrap_or(0.0))).collect())
+            .unwrap_or_default()
+    };
+
+    let heap_values = extract_values(heap_used, 0);
+    let cpu_values = extract_values(cpu, 0);
+    let disk_avail_values = extract_values(disk_avail, 0);
+    let disk_size_values = extract_values(disk_size, 0);
+
+    // Combine all metrics into single time series
+    let mut data_points = Vec::new();
+    let all_timestamps: std::collections::BTreeSet<i64> = heap_values.iter()
+        .chain(cpu_values.iter())
+        .chain(disk_avail_values.iter())
+        .chain(disk_size_values.iter())
+        .map(|(ts, _)| *ts)
+        .collect();
+
+    for ts in all_timestamps {
+        let heap_used = heap_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v as u64);
+        let cpu = cpu_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        
+        let disk_used_percent = disk_avail_values.iter()
+            .zip(disk_size_values.iter())
+            .find(|((t1, _), (t2, _))| *t1 == ts && *t2 == ts)
+            .and_then(|((_, avail), (_, size))| {
+                if *size > 0.0 { Some(((size - avail) / size) * 100.0) } else { None }
+            });
+
+        data_points.push(NodeMetricsPoint {
+            timestamp: ts,
+            date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
+                .unwrap_or_else(chrono::Utc::now)
+                .to_rfc3339(),
+            heap_used_bytes: heap_used,
+            heap_max_bytes: heap_used, // Approximate - could be enhanced with separate max query
+            cpu_percent: cpu,
+            disk_used_percent,
+        });
+    }
+
+    let response = NodeMetricsHistoryResponse {
+        cluster_id: cluster_id.clone(),
+        node_id: node_id.clone(),
         time_range,
         data: data_points,
     };

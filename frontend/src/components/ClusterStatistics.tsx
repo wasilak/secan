@@ -3,7 +3,6 @@ import {
   Grid,
   Stack,
   Text,
-  Group,
   useMantineColorScheme,
   type MantineColorScheme,
 } from '@mantine/core';
@@ -55,9 +54,6 @@ interface ClusterStatisticsProps {
 
   // Nodes data for role distribution
   nodes?: NodeInfo[];
-
-  // Metrics source (internal or prometheus)
-  metricsSource?: 'internal' | 'prometheus';
 }
 
 /**
@@ -123,7 +119,6 @@ export function ClusterStatistics({
   unassignedHistory,
   stats,
   nodes,
-  metricsSource = 'internal',
 }: ClusterStatisticsProps) {
   const { colorScheme } = useMantineColorScheme();
 
@@ -204,13 +199,6 @@ export function ClusterStatistics({
       color: 'var(--mantine-color-yellow-6)',
     },
   ].filter((item) => item.value > 0);
-
-  // Helper function to render metric source label
-  const renderMetricSourceLabel = () => (
-    <Text size="xs" c="dimmed">
-      {metricsSource === 'prometheus' ? 'Prometheus' : 'Internal'}
-    </Text>
-  );
 
   return (
     <Stack gap="md">
@@ -413,7 +401,6 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              {renderMetricSourceLabel()}
             </Stack>
           </Card>
         </Grid.Col>
@@ -574,9 +561,6 @@ export function ClusterStatistics({
           </Card>
         </Grid.Col>
       </Grid>
-
-      {/* Metrics source label at bottom */}
-      <Group justify="flex-end">{renderMetricSourceLabel()}</Group>
     </Stack>
   );
 }

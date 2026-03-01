@@ -740,3 +740,25 @@ export interface ClusterMetricsHistoryResponse {
     unassigned_shards?: number;
   }>;
 }
+
+/**
+ * Node metrics data point from Prometheus
+ */
+export interface NodeMetricsPoint {
+  timestamp: number;
+  date: string;
+  heap_used_bytes?: number;
+  heap_max_bytes?: number;
+  cpu_percent?: number;
+  disk_used_percent?: number;
+}
+
+/**
+ * Node metrics history response from API
+ */
+export interface NodeMetricsHistoryResponse {
+  cluster_id: string;
+  node_id: string;
+  time_range: TimeRange;
+  data: NodeMetricsPoint[];
+}
