@@ -53,6 +53,12 @@ export const clusterRoutes: RouteObject[] = [
     path: 'cluster/:id/topology',
   },
   {
+    path: 'cluster/:id/topology/dot',
+  },
+  {
+    path: 'cluster/:id/topology/index',
+  },
+  {
     path: 'cluster/:id/statistics',
   },
   {

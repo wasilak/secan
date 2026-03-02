@@ -167,6 +167,20 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/topology',
         element: (
+          <Navigate to="dot" replace />
+        ),
+      },
+      {
+        path: 'cluster/:id/topology/dot',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/topology/index',
+        element: (
           <LazyRoute>
             <ClusterView />
           </LazyRoute>

@@ -165,8 +165,16 @@ export function ClusterView() {
   const activeSection = getCurrentSection() || defaultSection;
   const activeTab = activeSection; // Use activeSection as activeTab for backward compatibility with existing code
 
-  // Topology view type and shared relocation state
-  const [topologyViewType, setTopologyViewType] = useState<'dot' | 'index'>('dot');
+  // Topology view type from URL path (for direct linking)
+  const topologyViewFromPath = location.pathname.includes('/topology/dot') ? 'dot' :
+                               location.pathname.includes('/topology/index') ? 'index' : null;
+  const topologyViewType = topologyViewFromPath || (searchParams.get('topologyView') as 'dot' | 'index') || 'dot';
+  const setTopologyViewType = (value: 'dot' | 'index') => {
+    // Navigate to path-based URL for direct linking
+    navigate(`/cluster/${id}/topology/${value}`, { replace: true });
+  };
+
+  // Shared relocation state
   const [relocationMode, setRelocationMode] = useState(false);
   const [validDestinationNodes, setValidDestinationNodes] = useState<string[]>([]);
   const [relocationSourceNode, setRelocationSourceNode] = useState<NodeInfo | null>(null);
