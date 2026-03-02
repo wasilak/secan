@@ -289,9 +289,10 @@ export function ClusterView() {
 
     if (validDestinations.length === 0) {
       notifications.show({
-        title: 'No Valid Destinations',
-        message: 'This shard cannot be relocated - all data nodes either already host this shard or are the source node',
+        title: 'Cannot Relocate',
+        message: `Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) of index "${shard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.`,
         color: 'violet',
+        autoClose: 5000,
       });
       handleTopologyContextMenuClose();
       return;
@@ -3305,9 +3306,13 @@ function ShardAllocationGrid({
 
     // Check if there are any valid destinations
     if (validDestinations.length === 0) {
-      // Show message in banner explaining why relocation is not possible
-      setShowNoDestinationsMessage(true);
-      setSelectedShard(shard);
+      // Show notification (same as Dot View)
+      notifications.show({
+        title: 'Cannot Relocate',
+        message: `Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) of index "${shard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.`,
+        color: 'violet',
+        autoClose: 5000,
+      });
       handleContextMenuClose();
       return;
     }
@@ -3562,288 +3567,6 @@ function ShardAllocationGrid({
         onClose={() => setSelectedShard(null)}
         clusterId={id!}
       />
-
-      {/* Compact toolbar with filters */}
-      <Group justify="space-between" wrap="nowrap" gap="xs">
-        {/* Left side: Action buttons */}
-        <Group gap="xs">
-          {/* Cancel relocation button - shown when in relocation mode */}
-          {sharedRelocationMode && (
-            <Button
-              size="sm"
-              color="red"
-              variant="filled"
-              onClick={() => {
-                onSharedRelocationCancel?.();
-                setSelectedShard(null);
-              }}
-            >
-              Cancel Relocation
-            </Button>
-          )}
-
-          {/* Shard allocation lock/unlock - disabled during relocation mode */}
-          {shardAllocationEnabled ? (
-            <Menu shadow="md" width={200} disabled={sharedRelocationMode}>
-              <Menu.Target>
-                <Tooltip
-                  label={sharedRelocationMode ? 'Disabled during relocation' : 'Disable shard allocation'}
-                >
-                  <ActionIcon
-                    size="md"
-                    variant="subtle"
-                    color="green"
-                    loading={disableAllocationMutation.isPending}
-                    disabled={sharedRelocationMode}
-                  >
-                    <IconLockOpen size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Disable Allocation</Menu.Label>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">None (default)</Text>
-                  </Group>
-                </Menu.Item>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">Primaries only</Text>
-                  </Group>
-                </Menu.Item>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">New primaries only</Text>
-                  </Group>
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          ) : (
-            <Tooltip
-              label={sharedRelocationMode ? 'Disabled during relocation' : 'Enable shard allocation'}
-            >
-              <ActionIcon
-                size="md"
-                variant="subtle"
-                color="red"
-                onClick={() => enableAllocationMutation.mutate()}
-                loading={enableAllocationMutation.isPending}
-                disabled={sharedRelocationMode}
-              >
-                <IconLock size={18} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-
-          {/* Expand/compress view - disabled during relocation mode */}
-          <Tooltip
-            label={
-              sharedRelocationMode
-                ? 'Disabled during relocation'
-                : expandedView
-                  ? 'Compress view'
-                  : 'Expand view'
-            }
-          >
-            <ActionIcon
-              size="md"
-              variant="subtle"
-              onClick={() => updateParam('overviewExpanded', !expandedView)}
-              disabled={sharedRelocationMode}
-            >
-              {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-
-        {/* Center: Search and filters - disabled during relocation mode */}
-        <Group gap="xs" style={{ flex: 1 }}>
-          <TextInput
-            placeholder="Filter indices..."
-            leftSection={<IconSearch size={14} />}
-            value={searchQuery}
-            onChange={(e) => updateParam('overviewSearch', e.currentTarget.value)}
-            style={{ minWidth: 200, maxWidth: 300 }}
-            size="xs"
-            disabled={sharedRelocationMode}
-          />
-
-          <ShardStateFilterToggle
-            states={Array.from(SHARD_STATES)}
-            selectedStates={selectedShardStates}
-            onToggle={(state) => {
-              const newStates = selectedShardStates.includes(state)
-                ? selectedShardStates.filter((s) => s !== state)
-                : [...selectedShardStates, state];
-              updateShardStates(newStates);
-            }}
-          />
-
-          <Checkbox
-            label={`closed (${indices.filter((i) => i.status !== 'open').length})`}
-            checked={showClosed}
-            onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
-            size="xs"
-            disabled={sharedRelocationMode}
-          />
-
-          <Group
-            gap={4}
-            style={{
-              cursor: sharedRelocationMode ? 'not-allowed' : 'pointer',
-              opacity: showSpecial ? 1 : 0.5,
-              transition: 'opacity 150ms ease',
-              pointerEvents: sharedRelocationMode ? 'none' : 'auto',
-            }}
-            onClick={() => !sharedRelocationMode && updateParam('showSpecial', !showSpecial)}
-            role="button"
-            tabIndex={sharedRelocationMode ? -1 : 0}
-            onKeyDown={(e) => {
-              if (!sharedRelocationMode && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                updateParam('showSpecial', !showSpecial);
-              }
-            }}
-          >
-            <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-            <Text size="xs">special ({indices.filter((i) => i.name.startsWith('.')).length})</Text>
-          </Group>
-
-          {unassignedShards.length > 0 && (
-            <Group
-              gap={4}
-              style={{
-                cursor: sharedRelocationMode ? 'not-allowed' : 'pointer',
-                opacity: showOnlyAffected ? 1 : 0.5,
-                transition: 'opacity 150ms ease',
-                pointerEvents: sharedRelocationMode ? 'none' : 'auto',
-              }}
-              onClick={() => !sharedRelocationMode && updateParam('overviewAffected', !showOnlyAffected)}
-              role="button"
-              tabIndex={sharedRelocationMode ? -1 : 0}
-              onKeyDown={(e) => {
-                if (!sharedRelocationMode && (e.key === 'Enter' || e.key === ' ')) {
-                  e.preventDefault();
-                  updateParam('overviewAffected', !showOnlyAffected);
-                }
-              }}
-            >
-              <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
-              <Text size="xs">affected ({unassignedShards.length})</Text>
-            </Group>
-          )}
-        </Group>
-
-        {/* Right side: Stats and Activity */}
-        {(() => {
-          const relocatingShards = shards.filter((s) => s.state === 'RELOCATING');
-          const initializingShards = shards.filter((s) => s.state === 'INITIALIZING');
-          const hasActivity = relocatingShards.length > 0 || initializingShards.length > 0;
-
-          if (hasActivity) {
-            return (
-              <Group gap="xs">
-                {relocatingShards.length > 0 && (
-                  <Badge color="orange" variant="filled" size="sm">
-                    {relocatingShards.length} relocating
-                  </Badge>
-                )}
-                {initializingShards.length > 0 && (
-                  <Badge color="yellow" variant="filled" size="sm">
-                    {initializingShards.length} initializing
-                  </Badge>
-                )}
-              </Group>
-            );
-          } else {
-            return (
-              <Group gap="xs">
-                <Text size="xs">
-                  <Text component="span" fw={600}>
-                    {nodes.filter((n) => n.roles.includes('data')).length}
-                  </Text>{' '}
-                  nodes
-                </Text>
-                <Text size="xs">
-                  <Text component="span" fw={600}>
-                    {filteredIndicesData.length}
-                  </Text>{' '}
-                  indices
-                </Text>
-                <Text size="xs">
-                  <Text component="span" fw={600}>
-                    {filteredShards.length}
-                  </Text>{' '}
-                  shards
-                </Text>
-                {unassignedShards.length > 0 && (
-                  <Badge color="red" variant="filled" size="sm">
-                    {unassignedShards.length} unassigned
-                  </Badge>
-                )}
-              </Group>
-            );
-          }
-        })()}
-      </Group>
-
-      {/* Relocation mode banner or no destinations message */}
-      {showNoDestinationsMessage && selectedShard && (
-        <Alert color="violet" variant="light">
-          <Group justify="space-between">
-            <Text size="sm">
-              <Text component="span" fw={600}>
-                Cannot Relocate:
-              </Text>{' '}
-              Shard {selectedShard.shard} ({selectedShard.primary ? 'Primary' : 'Replica'}) of index
-              "{selectedShard.index}" cannot be relocated. All data nodes either already host this
-              shard or are the source node.
-            </Text>
-            <Button
-              size="xs"
-              color="violet"
-              variant="subtle"
-              onClick={() => {
-                setShowNoDestinationsMessage(false);
-                setSelectedShard(null);
-              }}
-            >
-              OK
-            </Button>
-          </Group>
-        </Alert>
-      )}
-
-      {/* Relocation banner - use shared state */}
-      {sharedRelocationMode && selectedShard && (
-        <Alert color="violet" variant="light">
-          <Group justify="space-between">
-            <Text size="sm">
-              <Text component="span" fw={600}>
-                Relocation Mode:
-              </Text>{' '}
-              Select a destination node for shard {selectedShard.shard} (
-              {selectedShard.primary ? 'Primary' : 'Replica'}) of index "{selectedShard.index}".
-              Purple dashed boxes show valid destinations.
-            </Text>
-            <Button
-              size="xs"
-              color="red"
-              variant="subtle"
-              onClick={() => {
-                onSharedRelocationCancel?.();
-                setSelectedShard(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </Group>
-        </Alert>
-      )}
 
       {/* Shard allocation grid */}
       <ScrollArea>
