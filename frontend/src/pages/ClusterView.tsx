@@ -1006,28 +1006,6 @@ export function ClusterView() {
             </Tabs>
           </Group>
 
-          {/* Topology Filters */}
-          <Card shadow="sm" padding="xs">
-            <Group gap="xs" wrap="wrap">
-              <TextInput
-                placeholder="Filter indices (te*st wildcard)..."
-                leftSection={<IconSearch size={14} />}
-                value={indexNameFilter}
-                onChange={(e) => setIndexNameFilter(e.currentTarget.value)}
-                style={{ minWidth: 200, maxWidth: 300 }}
-                size="xs"
-              />
-              <TextInput
-                placeholder="Filter nodes (node* wildcard)..."
-                leftSection={<IconSearch size={14} />}
-                value={nodeNameFilter}
-                onChange={(e) => setNodeNameFilter(e.currentTarget.value)}
-                style={{ minWidth: 200, maxWidth: 300 }}
-                size="xs"
-              />
-            </Group>
-          </Card>
-
           {/* View Content */}
           <Card shadow="sm" padding="lg">
             {topologyViewType === 'dot' ? (
