@@ -148,6 +148,7 @@ export function ClusterView() {
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
   const [searchParams, setSearchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   // Get resolved cluster name
   const clusterName = useClusterName(id || '');
@@ -359,8 +360,8 @@ export function ClusterView() {
   const handleTopologyConfirmRelocation = async () => {
     if (!relocationShard || !relocationDestinationNode || !relocationSourceNode) return;
 
-    setRelocationInProgress(true);
     setRelocationConfirmOpened(false);
+    setRelocationInProgress(true);
 
     try {
       await apiClient.relocateShard(id!, {
@@ -370,9 +371,8 @@ export function ClusterView() {
         to_node: relocationDestinationNode.id,
       });
 
-      const qc = useQueryClient();
-      qc.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-      qc.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
       
       notifications.show({
         title: 'Shard Relocation Started',

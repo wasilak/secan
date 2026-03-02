@@ -181,7 +181,11 @@ export function DotBasedTopologyView({
                     ? 'pointer'
                     : 'default',
                 }}
-                onClick={() => isValidDestination && onDestinationClick?.(nodeName)}
+                onClick={() => {
+                  if (isValidDestination && onDestinationClick) {
+                    onDestinationClick(node.id);
+                  }
+                }}
               >
                 {/* Upper Part: Node Information */}
                 <Group gap="xs" wrap="nowrap" mb="xs">
