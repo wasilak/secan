@@ -35,6 +35,9 @@ export function DotBasedTopologyView({
   relocationMode,
   validDestinationNodes,
   onDestinationClick,
+  indexNameFilter,
+  nodeNameFilter,
+  matchesWildcard,
 }: {
   nodes: NodeDetailStats[];
   shards: ShardInfo[];
@@ -44,18 +47,31 @@ export function DotBasedTopologyView({
   relocationMode?: boolean;
   validDestinationNodes?: string[];
   onDestinationClick?: (nodeId: string) => void;
+  indexNameFilter?: string;
+  nodeNameFilter?: string;
+  matchesWildcard?: (text: string, pattern: string) => boolean;
 }) {
-  // Read filter state from URL params (EXACTLY matching ShardAllocationGrid)
+  // Read filter state from URL params
   const SHARD_STATES = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
   const selectedStatesParam = searchParams.get('shardStates');
   const selectedShardStates = selectedStatesParam
     ? selectedStatesParam.split(',').filter(Boolean)
     : Array.from(SHARD_STATES);
 
-  const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
   const showSpecial = searchParams.get('showSpecial') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
+
+  // Apply wildcard filters
+  const filteredNodes = useMemo(() => {
+    if (!nodeNameFilter || !matchesWildcard) return nodes;
+    return nodes.filter(node => matchesWildcard(node.name, nodeNameFilter));
+  }, [nodes, nodeNameFilter, matchesWildcard]);
+
+  const filteredIndices = useMemo(() => {
+    if (!indexNameFilter || !matchesWildcard) return indices;
+    return indices.filter(index => matchesWildcard(index.name, indexNameFilter));
+  }, [indices, indexNameFilter, matchesWildcard]);
 
   // Create index health lookup map
   const indexHealthMap = useMemo(() => {
@@ -79,7 +95,7 @@ export function DotBasedTopologyView({
 
   // Filter indices (EXACTLY matching ShardAllocationGrid logic)
   const filteredIndicesList = useMemo(() => {
-    return indices.filter((index) => {
+    return filteredIndices.filter((index) => {
       const isClosed = index.status !== 'open';
       const isSpecial = index.name.startsWith('.');
       
@@ -87,12 +103,9 @@ export function DotBasedTopologyView({
       if (isClosed && !showClosed) return false;
       if (isSpecial && !showSpecial) return false;
       
-      // Apply search
-      if (searchQuery && !index.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-      
       return true;
     });
-  }, [indices, showClosed, showSpecial, searchQuery]);
+  }, [filteredIndices, showClosed, showSpecial]);
 
   // Filter shards (EXACTLY matching ShardAllocationGrid logic)
   const filteredShards = useMemo(() => {
@@ -129,7 +142,7 @@ export function DotBasedTopologyView({
     }, {} as Record<string, ShardInfo[]>);
   }, [assignedShards]);
 
-  if (nodes.length === 0) {
+  if (filteredNodes.length === 0) {
     return (
       <Text size="sm" c="dimmed" ta="center" py="xl">
         No nodes available
@@ -142,7 +155,8 @@ export function DotBasedTopologyView({
       {/* Nodes Grid */}
       <Grid gutter="md">
         {Object.entries(shardsByNode).map(([nodeName, nodeShards]) => {
-          const node = nodes.find((n) => n.name === nodeName || n.id === nodeName);
+          const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
+          if (!node) return null;
           const isValidDestination = relocationMode && validDestinationNodes?.some(
             (id) => id === node?.id || id === node?.name
           );
@@ -268,7 +282,7 @@ export function DotBasedTopologyView({
       {/* Summary */}
       <Group gap="md" mt="md">
         <Text size="sm" c="dimmed">
-          <Text component="span" fw={600}>{Object.keys(shardsByNode).length}</Text> / {nodes.filter((n) => n.roles?.includes('data')).length} data nodes
+          <Text component="span" fw={600}>{Object.keys(shardsByNode).length}</Text> / {filteredNodes.filter((n) => n.roles?.includes('data')).length} data nodes
         </Text>
         <Text size="sm" c="dimmed">
           <Text component="span" fw={600}>{assignedShards.length}</Text> assigned shards

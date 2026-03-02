@@ -23,6 +23,7 @@ import {
   Box,
   useMantineColorScheme,
   SegmentedControl,
+  Tabs,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import Editor from '@monaco-editor/react';
@@ -221,6 +222,41 @@ export function ClusterView() {
       notifications.show({ title: 'Error', message: `Failed to disable shard allocation: ${error.message}`, color: 'red' });
     },
   });
+
+  // Topology wildcard filters
+  const indexNameFilter = searchParams.get('indexFilter') || '';
+  const nodeNameFilter = searchParams.get('nodeFilter') || '';
+
+  const setIndexNameFilter = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set('indexFilter', value);
+    } else {
+      newParams.delete('indexFilter');
+    }
+    setSearchParams(newParams);
+  };
+
+  const setNodeNameFilter = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set('nodeFilter', value);
+    } else {
+      newParams.delete('nodeFilter');
+    }
+    setSearchParams(newParams);
+  };
+
+  // Wildcard pattern matching (Elasticsearch cat API style)
+  const matchesWildcard = (text: string, pattern: string): boolean => {
+    if (!pattern) return true;
+    const regexPattern = pattern
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+      .replace(/\?/g, '.');
+    const regex = new RegExp(regexPattern, 'i');
+    return regex.test(text);
+  };
 
   // Extract modal IDs from path
   const nodeIdFromPath = extractNodeIdFromPath(location.pathname);
@@ -923,6 +959,10 @@ export function ClusterView() {
               shardAllocationEnabled={shardAllocationEnabled}
               enableAllocationMutation={enableAllocationMutation}
               disableAllocationMutation={disableAllocationMutation}
+              indexNameFilter={indexNameFilter}
+              setIndexNameFilter={setIndexNameFilter}
+              nodeNameFilter={nodeNameFilter}
+              setNodeNameFilter={setNodeNameFilter}
             />
           </Card>
 
@@ -952,19 +992,41 @@ export function ClusterView() {
             </Alert>
           )}
 
-          {/* View Toggle */}
-          <Group justify="space-between">
-            <Text size="sm" fw={600}>Topology View</Text>
-            <SegmentedControl
+          {/* Topology View Title and Tabs */}
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="lg" fw={700}>Topology View</Text>
+            <Tabs
               value={topologyViewType}
               onChange={(value) => setTopologyViewType(value as 'dot' | 'index')}
-              data={[
-                { value: 'dot', label: 'Dot View' },
-                { value: 'index', label: 'Index View' },
-              ]}
-              size="sm"
-            />
+            >
+              <Tabs.List>
+                <Tabs.Tab value="dot">Dot View</Tabs.Tab>
+                <Tabs.Tab value="index">Index View</Tabs.Tab>
+              </Tabs.List>
+            </Tabs>
           </Group>
+
+          {/* Topology Filters */}
+          <Card shadow="sm" padding="xs">
+            <Group gap="xs" wrap="wrap">
+              <TextInput
+                placeholder="Filter indices (te*st wildcard)..."
+                leftSection={<IconSearch size={14} />}
+                value={indexNameFilter}
+                onChange={(e) => setIndexNameFilter(e.currentTarget.value)}
+                style={{ minWidth: 200, maxWidth: 300 }}
+                size="xs"
+              />
+              <TextInput
+                placeholder="Filter nodes (node* wildcard)..."
+                leftSection={<IconSearch size={14} />}
+                value={nodeNameFilter}
+                onChange={(e) => setNodeNameFilter(e.currentTarget.value)}
+                style={{ minWidth: 200, maxWidth: 300 }}
+                size="xs"
+              />
+            </Group>
+          </Card>
 
           {/* View Content */}
           <Card shadow="sm" padding="lg">
@@ -978,6 +1040,9 @@ export function ClusterView() {
                 relocationMode={relocationMode}
                 validDestinationNodes={validDestinationNodes}
                 onDestinationClick={handleTopologyDestinationClick}
+                indexNameFilter={indexNameFilter}
+                nodeNameFilter={nodeNameFilter}
+                matchesWildcard={matchesWildcard}
               />
             ) : (
               <ShardAllocationGrid
@@ -995,6 +1060,9 @@ export function ClusterView() {
                 onSharedDestinationClick={handleTopologyDestinationClick}
                 onSharedRelocationCancel={handleTopologyCancelRelocation}
                 onSharedSelectForRelocation={handleTopologySelectForRelocation}
+                indexNameFilter={indexNameFilter}
+                nodeNameFilter={nodeNameFilter}
+                matchesWildcard={matchesWildcard}
               />
             )}
           </Card>
@@ -3158,6 +3226,10 @@ function ShardAllocationGrid({
   onSharedDestinationClick,
   onSharedRelocationCancel,
   onSharedSelectForRelocation,
+  // Wildcard filters
+  indexNameFilter,
+  nodeNameFilter,
+  matchesWildcard,
 }: {
   nodes?: NodeInfo[];
   indices?: IndexInfo[];
@@ -3174,6 +3246,10 @@ function ShardAllocationGrid({
   onSharedDestinationClick?: (nodeId: string) => void;
   onSharedRelocationCancel?: () => void;
   onSharedSelectForRelocation?: (shard: ShardInfo) => void;
+  // Wildcard filters
+  indexNameFilter?: string;
+  nodeNameFilter?: string;
+  matchesWildcard?: (text: string, pattern: string) => boolean;
 }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -3531,6 +3607,11 @@ function ShardAllocationGrid({
     const nodeName = nodeIdentifierMap.get(shard.node);
     if (!nodeName) {
       // If we can't find a match, skip this shard
+      return;
+    }
+
+    // Skip if node doesn't match wildcard filter
+    if (nodeNameFilter && matchesWildcard && !matchesWildcard(nodeName, nodeNameFilter)) {
       return;
     }
 

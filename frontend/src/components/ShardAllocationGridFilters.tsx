@@ -20,6 +20,11 @@ interface ShardAllocationGridFiltersProps {
   shardAllocationEnabled: boolean;
   enableAllocationMutation: any;
   disableAllocationMutation: any;
+  // Wildcard filters
+  indexNameFilter?: string;
+  setIndexNameFilter?: (value: string) => void;
+  nodeNameFilter?: string;
+  setNodeNameFilter?: (value: string) => void;
 }
 
 /**
@@ -37,6 +42,10 @@ export function ShardAllocationGridFilters({
   shardAllocationEnabled,
   enableAllocationMutation,
   disableAllocationMutation,
+  indexNameFilter = '',
+  setIndexNameFilter,
+  nodeNameFilter = '',
+  setNodeNameFilter,
 }: ShardAllocationGridFiltersProps) {
   const SHARD_STATES = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
   const selectedStatesParam = searchParams.get('shardStates');
@@ -44,7 +53,6 @@ export function ShardAllocationGridFilters({
     ? selectedStatesParam.split(',').filter(Boolean)
     : [...SHARD_STATES];
 
-  const searchQuery = searchParams.get('overviewSearch') || '';
   const showClosed = searchParams.get('showClosed') === 'true';
   const showSpecial = searchParams.get('showSpecial') === 'true';
   const expandedView = searchParams.get('overviewExpanded') === 'true';
@@ -129,10 +137,19 @@ export function ShardAllocationGridFilters({
       {/* Center: Search and filters */}
       <Group gap="xs" style={{ flex: 1 }} wrap="wrap">
         <TextInput
-          placeholder="Filter indices..."
+          placeholder="Filter indices (te*st wildcard)..."
           leftSection={<IconSearch size={14} />}
-          value={searchQuery}
-          onChange={(e) => updateParam('overviewSearch', e.currentTarget.value)}
+          value={indexNameFilter}
+          onChange={(e) => setIndexNameFilter?.(e.currentTarget.value)}
+          style={{ minWidth: 200, maxWidth: 300 }}
+          size="xs"
+        />
+
+        <TextInput
+          placeholder="Filter nodes (node* wildcard)..."
+          leftSection={<IconSearch size={14} />}
+          value={nodeNameFilter}
+          onChange={(e) => setNodeNameFilter?.(e.currentTarget.value)}
           style={{ minWidth: 200, maxWidth: 300 }}
           size="xs"
         />
