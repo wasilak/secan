@@ -3,8 +3,6 @@ import {
   IconSearch,
   IconEyeOff,
   IconAlertCircle,
-  IconMaximize,
-  IconMinimize,
   IconLockOpen,
   IconLock,
 } from '@tabler/icons-react';
@@ -18,8 +16,8 @@ interface ShardAllocationGridFiltersProps {
   shards: ShardInfo[];
   nodes: NodeInfo[];
   shardAllocationEnabled: boolean;
-  enableAllocationMutation: any;
-  disableAllocationMutation: any;
+  enableAllocationMutation: { mutate: (variables?: void) => void; isPending: boolean };
+  disableAllocationMutation: { mutate: (mode: string) => void; isPending: boolean };
   // Wildcard filters
   indexNameFilter?: string;
   setIndexNameFilter?: (value: string) => void;
@@ -55,7 +53,6 @@ export function ShardAllocationGridFilters({
 
   const showClosed = searchParams.get('showClosed') === 'true';
   const showSpecial = searchParams.get('showSpecial') === 'true';
-  const expandedView = searchParams.get('overviewExpanded') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
 
   const unassignedShards = shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED');

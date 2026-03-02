@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Grid, Paper, Text, Tooltip, Flex, Box, Badge, Group, Divider } from '@mantine/core';
-import { ShardInfo, IndexInfo, NodeDetailStats } from '../../types/api';
+import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
@@ -39,7 +39,7 @@ export function DotBasedTopologyView({
   nodeNameFilter,
   matchesWildcard,
 }: {
-  nodes: NodeDetailStats[];
+  nodes: NodeInfo[];
   shards: ShardInfo[];
   indices: IndexInfo[];
   searchParams: URLSearchParams;

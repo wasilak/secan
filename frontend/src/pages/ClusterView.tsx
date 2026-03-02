@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Title,
   Text,
@@ -22,7 +23,7 @@ import {
   UnstyledButton,
   Box,
   useMantineColorScheme,
-  SegmentedControl,
+  SegmentedControl as SegmentedControlType,
   Tabs,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
@@ -195,12 +196,12 @@ export function ClusterView() {
 
   const shardAllocationEnabled = (() => {
     if (!clusterSettings) return true;
-    const data: any = clusterSettings;
+    const data = clusterSettings as Record<string, unknown>;
     const transient = data.transient as Record<string, unknown> | undefined;
     const persistent = data.persistent as Record<string, unknown> | undefined;
     const transientEnable = (transient?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
     const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
-    const enableValue = ((transientEnable as any)?.enable as string) || ((persistentEnable as any)?.enable as string) || 'all';
+    const enableValue = ((transientEnable as Record<string, unknown>)?.enable as string) || ((persistentEnable as Record<string, unknown>)?.enable as string) || 'all';
     return enableValue === 'all';
   })();
 
@@ -209,8 +210,7 @@ export function ClusterView() {
       transient: { 'cluster.routing.allocation.enable': 'all' },
     }),
     onSuccess: () => {
-      const qc = useQueryClient();
-      qc.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
       notifications.show({ title: 'Success', message: 'Shard allocation enabled', color: 'green' });
     },
     onError: (error: Error) => {
@@ -223,8 +223,7 @@ export function ClusterView() {
       transient: { 'cluster.routing.allocation.enable': mode },
     }),
     onSuccess: () => {
-      const qc = useQueryClient();
-      qc.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
       notifications.show({ title: 'Success', message: 'Shard allocation disabled', color: 'green' });
     },
     onError: (error: Error) => {
@@ -1018,7 +1017,7 @@ export function ClusterView() {
           <Card shadow="sm" padding="lg">
             {topologyViewType === 'dot' ? (
               <DotBasedTopologyView
-                nodes={nodes as any}
+                nodes={nodes}
                 shards={shards}
                 indices={indices}
                 searchParams={searchParams}

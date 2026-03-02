@@ -1,4 +1,4 @@
-import { Card, Group, Text, Badge, Tooltip } from '@mantine/core';
+import { Card, Group, Text, Badge } from '@mantine/core';
 import { NodeDetailStats, ShardInfo } from '../../types/api';
 import { ShardDot } from './ShardDot';
 import { RoleIcons } from '../RoleIcons';
@@ -32,21 +32,7 @@ export function NodeCard({
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
-  const formatLoad = (load?: number): string => load ? load.toFixed(2) : 'N/A';
-
   const healthColor = getHealthColorValue('green');
-
-  const tooltipContent = (
-    <div style={{ fontSize: 'var(--mantine-font-size-xs)' }}>
-      <div style={{ fontWeight: 600, marginBottom: '4px' }}>{node.name}</div>
-      <div><strong>IP:</strong> {node.ip || 'N/A'}</div>
-      <div><strong>Roles:</strong> {node.roles?.join(', ') || 'N/A'}</div>
-      <div><strong>CPU Load:</strong> {node.loadAverage ? formatLoad(node.loadAverage[0]) : 'N/A'}</div>
-      <div><strong>Heap:</strong> {node.heapUsed ? formatSize(node.heapUsed) : 'N/A'}</div>
-      <div><strong>Disk:</strong> {node.diskUsed ? formatSize(node.diskUsed) : 'N/A'}</div>
-      <div><strong>Shards:</strong> {shards.length}</div>
-    </div>
-  );
 
   return (
     <Card

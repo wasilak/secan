@@ -185,7 +185,7 @@ function buildPreservedSearchParams(params: URLSearchParams): string {
 export function handleRouteRedirect(
   pathname: string,
   search: string,
-  navigate: (path: string, options?: any) => void
+  navigate: (path: string, options?: { replace?: boolean }) => void
 ): void {
   if (isOldFormatUrl(pathname, search)) {
     const newUrl = buildNewUrl(pathname, search);

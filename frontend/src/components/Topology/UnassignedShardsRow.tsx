@@ -1,6 +1,5 @@
 import { Card, Text, Group, Box } from '@mantine/core';
 import { ShardInfo } from '../../types/api';
-import { NodeCard } from './NodeCard';
 
 /**
  * UnassignedShardsRow Component
