@@ -31,7 +31,8 @@ services:
     networks:
       - secan-network
     depends_on:
-      - es01
+      es01:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9114/metrics"]
       interval: 30s
@@ -48,6 +49,8 @@ services:
       - cluster.initial_master_nodes=es01,es02,es03
       - node.roles=master,data
       - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
@@ -57,10 +60,11 @@ services:
     networks:
       - secan-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"' || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 120s
 
   es02:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.3.1
@@ -72,6 +76,8 @@ services:
       - cluster.initial_master_nodes=es01,es02,es03
       - node.roles=master,data
       - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9201:9200"
@@ -81,10 +87,11 @@ services:
     networks:
       - secan-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"' || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 120s
 
   es03:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.3.1
@@ -96,6 +103,8 @@ services:
       - cluster.initial_master_nodes=es01,es02,es03
       - node.roles=master,data
       - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9202:9200"
@@ -105,10 +114,11 @@ services:
     networks:
       - secan-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f -s http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"' || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 120s
 
 volumes:
   es01_data:
