@@ -6,6 +6,17 @@ import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 
 /**
+ * Format bytes to human-readable format
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+}
+
+/**
  * DotBasedTopologyView Component
  *
  * Visual cluster overview showing all nodes with shard squares.
@@ -202,13 +213,16 @@ export function DotBasedTopologyView({
                             </Text>
                             <Text size="xs">Type: {shard.primary ? 'Primary' : 'Replica'}</Text>
                             <Text size="xs">State: {shard.state}</Text>
-                            {shard.docs > 0 && <Text size="xs">Docs: {shard.docs.toLocaleString()}</Text>}
-                            {shard.store > 0 && <Text size="xs">Size: {(shard.store / 1024 / 1024).toFixed(2)} MB</Text>}
+                            {shard.docs !== undefined && shard.docs !== null && (
+                              <Text size="xs">Docs: {shard.docs.toLocaleString()}</Text>
+                            )}
+                            {shard.store !== undefined && shard.store !== null && (
+                              <Text size="xs">Size: {formatBytes(shard.store)}</Text>
+                            )}
                           </div>
                         }
                         position="top"
                         withArrow
-                        disabled={!!onShardClick}
                       >
                         <Box
                           w={10}

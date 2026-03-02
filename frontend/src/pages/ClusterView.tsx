@@ -3824,19 +3824,22 @@ function ShardAllocationGrid({
                                   <Tooltip
                                     key={`${shard.shard}-${shard.primary}-${idx}`}
                                     label={
-                                      <div>
-                                        <div>Shard: {shard.shard}</div>
-                                        <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
-                                        <div>State: {shard.state}</div>
-                                        <div>Node: {shard.node || 'N/A'}</div>
+                                      <div style={{ whiteSpace: 'pre-line', fontSize: 'var(--mantine-font-size-xs)' }}>
+                                        <div><strong>Index:</strong> {index.name}</div>
+                                        <div><strong>Shard:</strong> {shard.shard}</div>
+                                        <div><strong>Type:</strong> {shard.primary ? 'Primary' : 'Replica'}</div>
+                                        <div><strong>State:</strong> {shard.state}</div>
+                                        <div><strong>Node:</strong> {shard.node || 'N/A'}</div>
                                         {shard.docs !== undefined && shard.docs !== null && (
-                                          <div>Docs: {shard.docs.toLocaleString()}</div>
+                                          <div><strong>Docs:</strong> {shard.docs.toLocaleString()}</div>
                                         )}
                                         {shard.store !== undefined && shard.store !== null && (
-                                          <div>Size: {formatBytes(shard.store)}</div>
+                                          <div><strong>Size:</strong> {formatBytes(shard.store)}</div>
                                         )}
                                       </div>
                                     }
+                                    position="top"
+                                    withArrow
                                   >
                                     <div
                                       style={{
