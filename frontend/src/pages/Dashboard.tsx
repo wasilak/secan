@@ -24,6 +24,7 @@ import { useScreenReader } from '../lib/accessibility';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { SortableTable, SortableTableColumn } from '../components/SortableTable';
 import { getHealthColor } from '../utils/colors';
+import { formatBytes } from '../utils/formatters';
 
 /**
  * Simple metric card for dashboard
@@ -68,6 +69,8 @@ interface ClusterSummary {
   shards: number;
   indices: number;
   documents: number;
+  diskUsed?: number;
+  diskTotal?: number;
   esVersion?: string;
   error?: string;
 }
@@ -141,6 +144,8 @@ export function Dashboard() {
                 shards: stats.activeShards,
                 indices: stats.numberOfIndices,
                 documents: stats.numberOfDocuments,
+                diskUsed: stats.diskUsed,
+                diskTotal: stats.diskTotal,
                 esVersion: stats.esVersion,
               };
             } catch (error) {
@@ -181,10 +186,12 @@ export function Dashboard() {
         acc.shards += cluster.shards;
         acc.indices += cluster.indices;
         acc.documents += cluster.documents;
+        acc.diskUsed = (acc.diskUsed || 0) + (cluster.diskUsed || 0);
+        acc.diskTotal = (acc.diskTotal || 0) + (cluster.diskTotal || 0);
       }
       return acc;
     },
-    { nodes: 0, shards: 0, indices: 0, documents: 0 }
+    { nodes: 0, shards: 0, indices: 0, documents: 0, diskUsed: 0, diskTotal: 0 }
   );
 
   // Add totals row to display data (but don't include in sorting/filtering)
@@ -198,6 +205,8 @@ export function Dashboard() {
       shards: totals.shards,
       indices: totals.indices,
       documents: totals.documents,
+      diskUsed: totals.diskUsed,
+      diskTotal: totals.diskTotal,
     },
   ];
 
@@ -275,6 +284,28 @@ export function Dashboard() {
       label: 'Documents',
       sortable: true,
       render: (value) => (value as number).toLocaleString(),
+    },
+    {
+      key: 'diskUsage' as keyof ClusterSummary,
+      label: 'Disk Usage',
+      sortable: true,
+      render: (value, row) => {
+        if (row.id === '__total__') {
+          return (
+            <Text size="sm">
+              {formatBytes(totals.diskUsed)} / {formatBytes(totals.diskTotal)}
+            </Text>
+          );
+        }
+        if (!row.diskUsed || !row.diskTotal) {
+          return <Text size="sm" c="dimmed">-</Text>;
+        }
+        return (
+          <Text size="sm">
+            {formatBytes(row.diskUsed)} / {formatBytes(row.diskTotal)}
+          </Text>
+        );
+      },
     },
   ];
 
@@ -538,6 +569,12 @@ export function Dashboard() {
           label="Total Shards"
           value={totals.shards}
           color="var(--mantine-color-violet-6)"
+        />
+        <MetricCard
+          label="Total Disk Usage"
+          value={0}
+          color="var(--mantine-color-orange-6)"
+          subValue={totals.diskTotal ? `${formatBytes(totals.diskUsed)} / ${formatBytes(totals.diskTotal)}` : undefined}
         />
       </Group>
 

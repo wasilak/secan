@@ -243,6 +243,16 @@ pub async fn get_cluster_stats(
         }
     })?;
 
+    // Get nodes stats for CPU metrics
+    let nodes_stats = cluster.nodes_stats().await.unwrap_or_else(|e| {
+        tracing::warn!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get nodes stats, CPU metrics will be unavailable"
+        );
+        serde_json::Value::Object(serde_json::Map::new())
+    });
+
     // Get cluster version from the info endpoint
     let es_version: Option<String> = cluster.client.info().await.ok().and_then(|info| {
         info["version"]["number"]
@@ -250,8 +260,12 @@ pub async fn get_cluster_stats(
             .map(|v| format!("v{}", v))
     });
 
+    // Combine stats with nodes_stats for transform
+    let mut combined_stats = stats.clone();
+    combined_stats["nodes_stats"] = nodes_stats.clone();
+
     // Transform to frontend format
-    let response = transform_cluster_stats(&stats, &health, es_version).map_err(|e| {
+    let response = transform_cluster_stats(&combined_stats, &health, es_version).map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,

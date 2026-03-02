@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import type { DataPoint } from '../hooks/useSparklineData';
 import type { NodeInfo } from '../types/api';
+import { formatBytes } from '../utils/formatters';
 
 /**
  * ClusterStatistics component displays various charts for cluster metrics
@@ -39,6 +40,7 @@ interface ClusterStatisticsProps {
   documentsHistory: DataPoint[];
   shardsHistory: DataPoint[];
   unassignedHistory: DataPoint[];
+  diskUsageHistory?: DataPoint[];
 
   // Current stats
   stats?: {
@@ -117,6 +119,7 @@ export function ClusterStatistics({
   documentsHistory,
   shardsHistory,
   unassignedHistory,
+  diskUsageHistory,
   stats,
   nodes,
 }: ClusterStatisticsProps) {
@@ -146,6 +149,7 @@ export function ClusterStatistics({
     documents: documentsHistory[index]?.value || 0,
     shards: shardsHistory[index]?.value || 0,
     unassigned: unassignedHistory[index]?.value || 0,
+    diskUsed: diskUsageHistory?.[index]?.value || 0,
   }));
 
   // Calculate node counts by role for radar chart
@@ -202,9 +206,9 @@ export function ClusterStatistics({
 
   return (
     <Stack gap="md">
-      {/* First Row: Nodes and Indices Over Time (2 columns) */}
+      {/* First Row: Nodes, Indices, and Disk Usage Over Time (3 columns) */}
       <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
@@ -261,7 +265,7 @@ export function ClusterStatistics({
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
@@ -314,6 +318,78 @@ export function ClusterStatistics({
                     fill="url(#colorIndices)"
                     name="Indices"
                     dot={{ fill: 'var(--mantine-color-green-6)', r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 4 }}>
+          <Card shadow="sm" padding="lg">
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Disk Usage Over Time
+              </Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorDisk" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor="var(--mantine-color-orange-6)"
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-orange-6)"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={50}
+                    tickFormatter={(value) => {
+                      const mb = value / (1024 * 1024);
+                      return mb >= 1024 ? `${(mb / 1024).toFixed(0)}GB` : `${mb.toFixed(0)}MB`;
+                    }}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                    formatter={(value: number | undefined) => {
+                      if (value === undefined) return '0 B';
+                      return formatBytes(value);
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="diskUsed"
+                    stroke="var(--mantine-color-orange-6)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorDisk)"
+                    name="Disk Used"
+                    dot={{ fill: 'var(--mantine-color-orange-6)', r: 3 }}
                     activeDot={{ r: 5 }}
                   />
                 </AreaChart>
@@ -448,7 +524,11 @@ export function ClusterStatistics({
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelStyle={tooltipLabelStyle}
-                    formatter={(value: number | undefined) => value?.toLocaleString() || '0'}
+                    formatter={(value: number | undefined) => {
+                      if (value === undefined) return '0';
+                      // Format large numbers (documents, disk) with locale
+                      return value > 1000000 ? value.toLocaleString() : value.toString();
+                    }}
                   />
                   <Area
                     type="monotone"

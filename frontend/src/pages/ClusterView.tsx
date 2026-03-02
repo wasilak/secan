@@ -564,6 +564,14 @@ export function ClusterView() {
       }))
       : unassignedHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
+  const diskUsageHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+        value: (d as any).disk_used_bytes || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
+      : []; // No sparkline fallback for disk usage
+
   // For Sparkline components (needs number[])
   const nodesHistoryNumbers =
     activeTab === 'statistics' && metricsHistory?.data
@@ -724,9 +732,9 @@ export function ClusterView() {
       {/* Overview Section */}
       {activeTab === 'overview' && (
         <Stack gap="md">
-          {/* Cluster Statistics Cards */}
+          {/* First Row: Nodes, Indices, Shards */}
           <Grid>
-            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
               <Card
                 shadow="sm"
                 padding="md"
@@ -760,7 +768,7 @@ export function ClusterView() {
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
               <Card
                 shadow="sm"
                 padding="md"
@@ -794,7 +802,44 @@ export function ClusterView() {
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('shards')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Shards
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {stats?.activeShards || 0}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.activePrimaryShards || 0} primary
+                    </Text>
+                  </Group>
+                  {shardsHistoryNumbers.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <Sparkline
+                        data={shardsHistoryNumbers}
+                        color="var(--mantine-color-violet-6)"
+                        height={25}
+                      />
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+
+          {/* Second Row: Documents, Unassigned, Disk Usage */}
+          <Grid>
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
               <Card
                 shadow="sm"
                 padding="md"
@@ -828,41 +873,7 @@ export function ClusterView() {
               </Card>
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-              <Card
-                shadow="sm"
-                padding="md"
-                style={{ cursor: 'pointer', height: '100%' }}
-                onClick={() => handleTabChange('shards')}
-              >
-                <Stack gap={4}>
-                  <Group justify="space-between" wrap="nowrap">
-                    <div style={{ flex: 1 }}>
-                      <Text size="xs" c="dimmed">
-                        Shards
-                      </Text>
-                      <Text size="xl" fw={700}>
-                        {stats?.activeShards || 0}
-                      </Text>
-                    </div>
-                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                      {stats?.activePrimaryShards || 0} primary
-                    </Text>
-                  </Group>
-                  {shardsHistoryNumbers.length > 0 && (
-                    <div style={{ marginTop: 4 }}>
-                      <Sparkline
-                        data={shardsHistoryNumbers}
-                        color="var(--mantine-color-violet-6)"
-                        height={25}
-                      />
-                    </div>
-                  )}
-                </Stack>
-              </Card>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
               <Card
                 shadow="sm"
                 padding="md"
@@ -899,13 +910,68 @@ export function ClusterView() {
                 </Stack>
               </Card>
             </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
+              <Card
+                shadow="sm"
+                padding="md"
+                style={{ cursor: 'pointer', height: '100%' }}
+                onClick={() => handleTabChange('nodes')}
+              >
+                <Stack gap={4}>
+                  <Group justify="space-between" wrap="nowrap">
+                    <div style={{ flex: 1 }}>
+                      <Text size="xs" c="dimmed">
+                        Disk Usage
+                      </Text>
+                      <Text size="xl" fw={700}>
+                        {stats?.diskUsed && stats?.diskTotal
+                          ? formatBytes(stats.diskUsed)
+                          : '0 B'}
+                      </Text>
+                    </div>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {stats?.diskTotal ? ` / ${formatBytes(stats.diskTotal)}` : ''}
+                    </Text>
+                  </Group>
+                  {stats?.diskUsed && stats?.diskTotal && (
+                    <div style={{ marginTop: 4 }}>
+                      <Text size="xs" c="dimmed">
+                        {formatPercent(stats.diskUsed, stats.diskTotal)}% used
+                      </Text>
+                    </div>
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
           </Grid>
 
-          {/* Memory and Disk Usage */}
-          {(stats?.memoryTotal || stats?.diskTotal) && (
+          {/* Resource Usage: CPU, Memory, Disk */}
+          {(stats?.cpuPercent !== undefined || stats?.memoryTotal || stats?.diskTotal) && (
             <Grid>
+              {stats?.cpuPercent !== undefined && (
+                <Grid.Col span={{ base: 12, md: 4 }}>
+                  <Card shadow="sm" padding="lg">
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">
+                        CPU Usage
+                      </Text>
+                      <Progress
+                        value={stats.cpuPercent}
+                        color={getColor(stats.cpuPercent)}
+                        size="sm"
+                        radius="xs"
+                      />
+                      <Text size="xs" c="dimmed">
+                        {stats.cpuPercent.toFixed(1)}%
+                      </Text>
+                    </Stack>
+                  </Card>
+                </Grid.Col>
+              )}
+
               {stats?.memoryTotal && (
-                <Grid.Col span={{ base: 12, md: 6 }}>
+                <Grid.Col span={{ base: 12, md: 4 }}>
                   <Card shadow="sm" padding="lg">
                     <Stack gap="xs">
                       <Text size="sm" c="dimmed">
@@ -927,7 +993,7 @@ export function ClusterView() {
               )}
 
               {stats?.diskTotal && (
-                <Grid.Col span={{ base: 12, md: 6 }}>
+                <Grid.Col span={{ base: 12, md: 4 }}>
                   <Card shadow="sm" padding="lg">
                     <Stack gap="xs">
                       <Text size="sm" c="dimmed">
@@ -1193,6 +1259,7 @@ export function ClusterView() {
             documentsHistory={documentsHistory as DataPoint[]}
             shardsHistory={shardsHistory as DataPoint[]}
             unassignedHistory={unassignedHistory as DataPoint[]}
+            diskUsageHistory={diskUsageHistory as DataPoint[]}
             stats={stats}
             nodes={nodes}
           />

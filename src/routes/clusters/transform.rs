@@ -42,6 +42,45 @@ pub fn transform_cluster_stats(
         None
     };
 
+    // Calculate average CPU usage across all nodes
+    // Note: OpenSearch returns -1 for CPU when metrics are unavailable
+    let cpu_percent = if let Some(nodes_stats_obj) = stats["nodes_stats"].as_object() {
+        // Try nodes_stats.nodes structure
+        let nodes_obj = nodes_stats_obj.get("nodes")
+            .and_then(|v| v.as_object())
+            .or(Some(nodes_stats_obj)); // Fallback if nodes_stats is directly the nodes object
+        
+        if let Some(nodes) = nodes_obj {
+            let mut total_cpu = 0u64;
+            let mut node_count = 0u64;
+            for (_node_id, node_stat) in nodes {
+                // Get CPU percent, treating -1 as 0 (matches transform_nodes behavior)
+                // Try multiple paths for different ES/OS versions
+                let cpu = node_stat["os"]["cpu"]["percent"]
+                    .as_i64()
+                    .map(|v| if v < 0 { 0 } else { v as u64 })
+                    .or_else(|| node_stat["os"]["cpu"]["usage"].as_u64())
+                    .or_else(|| node_stat["process"]["cpu"]["percent"].as_i64().map(|v| if v < 0 { 0 } else { v as u64 }))
+                    .or_else(|| node_stat["cpu"]["percent"].as_u64());
+                
+                if let Some(cpu_val) = cpu {
+                    total_cpu += cpu_val;
+                    node_count += 1;
+                }
+            }
+            if node_count > 0 {
+                let avg = (total_cpu / node_count) as u32;
+                Some(avg)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     Ok(ClusterStatsResponse {
         health: health["status"].as_str().unwrap_or("red").to_string(),
         cluster_name: stats["cluster_name"]
@@ -62,6 +101,7 @@ pub fn transform_cluster_stats(
         memory_total,
         disk_used,
         disk_total,
+        cpu_percent,
         es_version,
     })
 }
@@ -276,6 +316,8 @@ pub struct ClusterStatsResponse {
     pub disk_used: Option<u64>,
     #[serde(rename = "diskTotal", skip_serializing_if = "Option::is_none")]
     pub disk_total: Option<u64>,
+    #[serde(rename = "cpuPercent", skip_serializing_if = "Option::is_none")]
+    pub cpu_percent: Option<u32>,
     #[serde(rename = "esVersion", skip_serializing_if = "Option::is_none")]
     pub es_version: Option<String>,
 }

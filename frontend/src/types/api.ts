@@ -110,6 +110,7 @@ export interface ClusterStats {
   memoryTotal?: number;
   diskUsed?: number;
   diskTotal?: number;
+  cpuPercent?: number;
   esVersion?: string;
 }
 

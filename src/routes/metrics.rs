@@ -639,6 +639,8 @@ pub async fn get_cluster_metrics_history(
         let base_indices = 20;
         let base_documents = 1000000;
         let base_shards = 50;
+        let base_disk_used = 50000000000u64; // 50GB
+        let base_disk_total = 200000000000u64; // 200GB
 
         // Add some variation over time
         let time_factor = (current_timestamp as usize / 3600) % 10;
@@ -653,7 +655,9 @@ pub async fn get_cluster_metrics_history(
             "index_count": base_indices + (time_factor * 2),
             "document_count": base_documents + (time_factor * 10000),
             "shard_count": base_shards + (time_factor * 5),
-            "unassigned_shards": if time_factor.is_multiple_of(5) { 2 } else { 0 }
+            "unassigned_shards": if time_factor.is_multiple_of(5) { 2 } else { 0 },
+            "disk_used_bytes": base_disk_used + (time_factor as u64 * 1000000000),
+            "disk_total_bytes": base_disk_total
         }));
 
         current_timestamp += one_hour;

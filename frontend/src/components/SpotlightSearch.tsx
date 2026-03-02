@@ -7,6 +7,9 @@ import {
   IconDatabase,
   IconChartBar,
   IconCopy,
+  IconTopologyFull,
+  IconSettings,
+  IconTerminal2,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
@@ -89,6 +92,9 @@ export function SpotlightSearch() {
         { id: 'nodes-tab', label: 'Nodes', icon: IconServer, path: '/nodes' },
         { id: 'indices-tab', label: 'Indices', icon: IconDatabase, path: '/indices' },
         { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '/shards' },
+        { id: 'topology-tab', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
+        { id: 'settings-tab', label: 'Settings', icon: IconSettings, path: '/settings' },
+        { id: 'console-tab', label: 'Console', icon: IconTerminal2, path: '/console' },
       ];
 
       tabs.forEach((tab) => {
@@ -140,6 +146,9 @@ export function SpotlightSearch() {
           { id: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
           { id: 'indices', label: 'Indices', icon: IconDatabase, path: '/indices' },
           { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
+          { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
+          { id: 'settings', label: 'Settings', icon: IconSettings, path: '/settings' },
+          { id: 'console', label: 'Console', icon: IconTerminal2, path: '/console' },
         ];
 
         clusters.forEach((cluster) => {
