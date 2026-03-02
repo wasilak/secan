@@ -44,7 +44,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getHealthColorValue } from '../utils/colors';
 import { APP_VERSION, getAppVersion } from '../utils/version';
 import { extractSectionFromPath } from '../utils/urlBuilders';
-import { defaultSection, isValidClusterSection } from '../routes/clusterRoutes';
+import { defaultSection, isValidClusterSection, type ClusterSection } from '../routes/clusterRoutes';
 import type { ClusterInfo, ClusterStats } from '../types/api';
 
 /**
@@ -353,18 +353,24 @@ function HeaderTitle() {
 }
 
 /**
- * Cluster navigation item with resolved name and health indicator
+ * Cluster navigation item with expandable sections
  * Persists the current tab when switching clusters
  */
 function ClusterNavItem({
   clusterId,
   isActive,
-  onClick,
+  isExpanded,
+  onToggle,
+  currentSection,
+  onSectionNavigate,
   currentTab,
 }: {
   clusterId: string;
   isActive: boolean;
-  onClick: () => void;
+  isExpanded: boolean;
+  onToggle: () => void;
+  currentSection: ClusterSection;
+  onSectionNavigate: (clusterId: string, section: ClusterSection) => void;
   currentTab?: string;
 }) {
   const clusterName = useClusterName(clusterId);
@@ -386,69 +392,133 @@ function ClusterNavItem({
   const clusterUrl =
     currentTab && !isActive ? `/cluster/${clusterId}?tab=${currentTab}` : `/cluster/${clusterId}`;
 
+  // Render section children when expanded
+  const sectionChildren = isExpanded ? (
+    <Stack gap={0} mt="xs">
+      {CLUSTER_SECTIONS.map((section) => {
+        const isSectionActive = currentSection === section.value;
+        return (
+          <NavLink
+            key={section.value}
+            href={`/cluster/${clusterId}/${section.value}`}
+            label={section.label}
+            leftSection={section.icon}
+            active={isSectionActive}
+            onClick={(e) => {
+              e.preventDefault();
+              onSectionNavigate(clusterId, section.value as ClusterSection);
+            }}
+            styles={(theme) => ({
+              root: {
+                '&:hover': {
+                  backgroundColor: theme.colors.violet[0],
+                },
+              },
+              label: {
+                color: 'var(--mantine-color-dimmed)',
+                fontSize: 'var(--mantine-font-size-sm)',
+              },
+            })}
+            rightSection={
+              isSectionActive ? (
+                <div
+                  style={{
+                    width: '4px',
+                    height: '16px',
+                    backgroundColor: 'var(--mantine-color-orange-6)',
+                    borderRadius: '2px',
+                    flexShrink: 0,
+                  }}
+                />
+              ) : null
+            }
+          />
+        );
+      })}
+    </Stack>
+  ) : null;
+
   return (
-    <NavLink
-      href={clusterUrl}
-      label={clusterName}
-      active={isActive}
-      leftSection={
-        <div
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: healthColor,
-            transition: 'background-color 0.2s ease-in-out',
-            flexShrink: 0,
-          }}
-          aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
-        />
-      }
-      rightSection={
-        isActive ? (
+    <>
+      <NavLink
+        href={clusterUrl}
+        label={clusterName}
+        active={isActive}
+        opened={isExpanded}
+        leftSection={
           <div
             style={{
-              width: '4px',
-              height: '16px',
-              backgroundColor: 'var(--mantine-color-orange-6)',
-              borderRadius: '2px',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: healthColor,
+              transition: 'background-color 0.2s ease-in-out',
               flexShrink: 0,
             }}
+            aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
           />
-        ) : null
-      }
-      styles={(theme) => ({
-        root: {
-          '&:hover': {
-            backgroundColor: theme.colors.violet[0],
+        }
+        rightSection={
+          isActive ? (
+            <div
+              style={{
+                width: '4px',
+                height: '16px',
+                backgroundColor: 'var(--mantine-color-orange-6)',
+                borderRadius: '2px',
+                flexShrink: 0,
+              }}
+            />
+          ) : null
+        }
+        styles={(theme) => ({
+          root: {
+            '&:hover': {
+              backgroundColor: theme.colors.violet[0],
+            },
           },
-        },
-        label: {
-          color: 'var(--mantine-color-dimmed)',
-          fontWeight: 500,
-          fontSize: 'var(--mantine-font-size-sm)',
-        },
-      })}
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-      aria-current={isActive ? 'page' : undefined}
-    />
+          label: {
+            color: 'var(--mantine-color-dimmed)',
+            fontWeight: 500,
+            fontSize: 'var(--mantine-font-size-sm)',
+          },
+        })}
+        onClick={(e) => {
+          e.preventDefault();
+          onToggle();
+        }}
+        aria-current={isActive ? 'page' : undefined}
+        aria-expanded={isExpanded}
+      />
+      {sectionChildren}
+    </>
   );
 }
 
 /**
  * Navigation content component - shared between drawer and static navbar
+ *
+ * Features:
+ * - Dashboard navigation link
+ * - Expandable cluster list with nested sections
+ * - Auto-expand current cluster based on URL
+ * - Accordion behavior (only one cluster expanded at a time)
  */
 function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const refreshInterval = useRefreshInterval();
+  const { id: currentClusterId } = useParams<{ id: string }>();
+
+  // Track which cluster menu is expanded (accordion style - only one at a time)
+  const [expandedClusterId, setExpandedClusterId] = useState<string | null>(null);
 
   // Extract current tab from URL for persistence when switching clusters
   const searchParams = new URLSearchParams(location.search);
   const currentTab = searchParams.get('tab') || undefined;
+
+  // Extract current section from URL
+  const currentSection = (extractSectionFromPath(location.pathname, location.search) || 'overview') as ClusterSection;
 
   // Fetch list of clusters
   const {
@@ -461,12 +531,31 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
     refetchInterval: refreshInterval,
   });
 
+  // Auto-expand current cluster when URL changes
+  useEffect(() => {
+    if (currentClusterId) {
+      setExpandedClusterId(currentClusterId);
+    }
+  }, [currentClusterId]);
+
   const isActive = (path: string) => {
     return location.pathname === path;
   };
 
   const handleNavigation = (path: string) => {
     navigate(path);
+    onNavigate?.();
+  };
+
+  // Handle cluster expand/collapse toggle
+  const handleClusterToggle = (clickedClusterId: string) => {
+    setExpandedClusterId(expandedClusterId === clickedClusterId ? null : clickedClusterId);
+  };
+
+  // Handle section navigation within a cluster
+  const handleSectionNavigate = (clusterId: string, section: ClusterSection) => {
+    const url = `/cluster/${clusterId}/${section}`;
+    navigate(url);
     onNavigate?.();
   };
 
@@ -521,8 +610,11 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
             <ClusterNavItem
               key={cluster.id}
               clusterId={cluster.id}
-              isActive={location.pathname.startsWith(`/cluster/${cluster.id}`)}
-              onClick={() => handleNavigation(`/cluster/${cluster.id}`)}
+              isActive={cluster.id === currentClusterId}
+              isExpanded={expandedClusterId === cluster.id}
+              onToggle={() => handleClusterToggle(cluster.id)}
+              currentSection={currentSection}
+              onSectionNavigate={handleSectionNavigate}
               currentTab={currentTab}
             />
           ))}

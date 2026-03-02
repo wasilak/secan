@@ -22,6 +22,7 @@ import {
   UnstyledButton,
   Box,
   useMantineColorScheme,
+  SegmentedControl,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import Editor from '@monaco-editor/react';
@@ -32,6 +33,8 @@ import {
   extractIndexNameFromPath,
 } from '../utils/urlBuilders';
 import { useClusterNavigation } from '../hooks/useClusterNavigation';
+import { DotBasedTopologyView } from '../components/Topology/DotBasedTopologyView';
+import { ShardAllocationGridFilters } from '../components/ShardAllocationGridFilters';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   IconAlertCircle,
@@ -56,6 +59,7 @@ import {
   IconChevronUp,
   IconChevronDown,
   IconSelector,
+  IconArrowsRightLeft,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
@@ -159,6 +163,65 @@ export function ClusterView() {
   const activeSection = getCurrentSection() || defaultSection;
   const activeTab = activeSection; // Use activeSection as activeTab for backward compatibility with existing code
 
+  // Topology view type and shared relocation state
+  const [topologyViewType, setTopologyViewType] = useState<'dot' | 'index'>('dot');
+  const [relocationMode, setRelocationMode] = useState(false);
+  const [validDestinationNodes, setValidDestinationNodes] = useState<string[]>([]);
+  const [relocationSourceNode, setRelocationSourceNode] = useState<NodeInfo | null>(null);
+  const [relocationDestinationNode, setRelocationDestinationNode] = useState<NodeInfo | null>(null);
+  const [relocationConfirmOpened, setRelocationConfirmOpened] = useState(false);
+  const [relocationShard, setRelocationShard] = useState<ShardInfo | null>(null);
+  const [relocationInProgress, setRelocationInProgress] = useState(false);
+  const [topologyContextMenuShard, setTopologyContextMenuShard] = useState<ShardInfo | null>(null);
+  const [topologyContextMenuPosition, setTopologyContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [topologyContextMenuOpened, setTopologyContextMenuOpened] = useState(false);
+
+  // Shared shard allocation state
+  const { data: clusterSettings } = useQuery({
+    queryKey: ['cluster', id, 'settings'],
+    queryFn: () => apiClient.proxyRequest(id!, 'GET', '/_cluster/settings'),
+    enabled: !!id,
+  });
+
+  const shardAllocationEnabled = (() => {
+    if (!clusterSettings) return true;
+    const data: any = clusterSettings;
+    const transient = data.transient as Record<string, unknown> | undefined;
+    const persistent = data.persistent as Record<string, unknown> | undefined;
+    const transientEnable = (transient?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
+    const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
+    const enableValue = ((transientEnable as any)?.enable as string) || ((persistentEnable as any)?.enable as string) || 'all';
+    return enableValue === 'all';
+  })();
+
+  const enableAllocationMutation = useMutation({
+    mutationFn: () => apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+      transient: { 'cluster.routing.allocation.enable': 'all' },
+    }),
+    onSuccess: () => {
+      const qc = useQueryClient();
+      qc.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({ title: 'Success', message: 'Shard allocation enabled', color: 'green' });
+    },
+    onError: (error: Error) => {
+      notifications.show({ title: 'Error', message: `Failed to enable shard allocation: ${error.message}`, color: 'red' });
+    },
+  });
+
+  const disableAllocationMutation = useMutation({
+    mutationFn: (mode: string) => apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
+      transient: { 'cluster.routing.allocation.enable': mode },
+    }),
+    onSuccess: () => {
+      const qc = useQueryClient();
+      qc.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      notifications.show({ title: 'Success', message: 'Shard allocation disabled', color: 'green' });
+    },
+    onError: (error: Error) => {
+      notifications.show({ title: 'Error', message: `Failed to disable shard allocation: ${error.message}`, color: 'red' });
+    },
+  });
+
   // Extract modal IDs from path
   const nodeIdFromPath = extractNodeIdFromPath(location.pathname);
   const indexNameFromPath = extractIndexNameFromPath(location.pathname);
@@ -186,6 +249,113 @@ export function ClusterView() {
   // Handle closing index modal - navigate back to section
   const closeIndexModal = () => {
     closeModal();
+  };
+
+  // Shared topology handlers
+  const handleTopologyShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setTopologyContextMenuShard(shard);
+    setTopologyContextMenuPosition({ x: event.clientX, y: event.clientY });
+    setTopologyContextMenuOpened(true);
+  };
+
+  const handleTopologyContextMenuClose = () => {
+    setTopologyContextMenuOpened(false);
+    setTopologyContextMenuShard(null);
+  };
+
+  const handleTopologySelectForRelocation = (shard: ShardInfo) => {
+    if (!nodes || !shards) {
+      handleTopologyContextMenuClose();
+      return;
+    }
+
+    const validDestinations: string[] = [];
+    let sourceNode: NodeInfo | null = null;
+
+    for (const node of nodes) {
+      if (node.id === shard.node || node.name === shard.node) {
+        sourceNode = node;
+        continue;
+      }
+      const nodeHasThisShard = shards.some(
+        (s) => (s.node === node.id || s.node === node.name) &&
+          s.index === shard.index && s.shard === shard.shard
+      );
+      if (nodeHasThisShard) continue;
+      if (!node.roles.includes('data')) continue;
+      validDestinations.push(node.id);
+    }
+
+    if (validDestinations.length === 0) {
+      notifications.show({
+        title: 'No Valid Destinations',
+        message: 'This shard cannot be relocated - all data nodes either already host this shard or are the source node',
+        color: 'violet',
+      });
+      handleTopologyContextMenuClose();
+      return;
+    }
+
+    setRelocationMode(true);
+    setValidDestinationNodes(validDestinations);
+    setRelocationSourceNode(sourceNode);
+    setRelocationShard(shard);
+    handleTopologyContextMenuClose();
+  };
+
+  const handleTopologyCancelRelocation = () => {
+    setRelocationMode(false);
+    setValidDestinationNodes([]);
+    setRelocationSourceNode(null);
+    setRelocationDestinationNode(null);
+    setRelocationShard(null);
+  };
+
+  const handleTopologyDestinationClick = (nodeId: string) => {
+    if (!relocationMode || !validDestinationNodes.includes(nodeId)) return;
+    const destNode = nodes.find((n) => n.id === nodeId || n.name === nodeId);
+    setRelocationDestinationNode(destNode || null);
+    setRelocationConfirmOpened(true);
+  };
+
+  const handleTopologyConfirmRelocation = async () => {
+    if (!relocationShard || !relocationDestinationNode || !relocationSourceNode) return;
+
+    setRelocationInProgress(true);
+    setRelocationConfirmOpened(false);
+
+    try {
+      await apiClient.relocateShard(id!, {
+        index: relocationShard.index,
+        shard: relocationShard.shard,
+        from_node: relocationSourceNode.id,
+        to_node: relocationDestinationNode.id,
+      });
+
+      const qc = useQueryClient();
+      qc.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+      qc.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
+      
+      notifications.show({
+        title: 'Shard Relocation Started',
+        message: `Shard ${relocationShard.shard} of index "${relocationShard.index}" is being relocated`,
+        color: 'green',
+      });
+    } catch (error) {
+      notifications.show({
+        title: 'Relocation Failed',
+        message: error instanceof Error ? error.message : 'Failed to relocate shard',
+        color: 'red',
+      });
+    } finally {
+      setRelocationInProgress(false);
+      setRelocationMode(false);
+      setValidDestinationNodes([]);
+      setRelocationSourceNode(null);
+      setRelocationDestinationNode(null);
+      setRelocationShard(null);
+    }
   };
 
   // Node modal state
@@ -740,19 +910,156 @@ export function ClusterView() {
 
       {/* Topology Section */}
       {activeTab === 'topology' && (
-        <Card shadow="sm" padding="lg">
-          <ShardAllocationGrid
-            nodes={nodes}
-            indices={indices}
-            shards={shards}
-            loading={nodesLoading || indicesLoading || shardsLoading}
-            error={nodesError || indicesError || shardsError}
-            openIndexModal={openIndexModal}
-            openNodeModal={openNodeModal}
-            searchParams={searchParams}
-            setSearchParams={setSearchParams}
-          />
-        </Card>
+        <Stack gap="md">
+          {/* Shared Filter Bar */}
+          <Card shadow="sm" padding="xs">
+            <ShardAllocationGridFilters
+              searchParams={searchParams}
+              setSearchParams={setSearchParams}
+              indices={indices}
+              shards={shards}
+              nodes={nodes}
+              shardAllocationEnabled={shardAllocationEnabled}
+              enableAllocationMutation={enableAllocationMutation}
+              disableAllocationMutation={disableAllocationMutation}
+            />
+          </Card>
+
+          {/* Relocation Banner */}
+          {relocationMode && relocationShard && (
+            <Alert
+              color="violet"
+              variant="light"
+              icon={<IconArrowsRightLeft size={20} />}
+              title="Relocation Mode"
+            >
+              <Group justify="space-between">
+                <Text size="sm">
+                  <Text component="span" fw={600}>Select destination for shard {relocationShard.shard}</Text>
+                  {relocationShard.primary ? ' (Primary)' : ' (Replica)'} of index "{relocationShard.index}". Purple dashed boxes show valid destinations.
+                </Text>
+                <Button
+                  size="xs"
+                  color="red"
+                  variant="filled"
+                  onClick={handleTopologyCancelRelocation}
+                  disabled={relocationInProgress}
+                >
+                  Cancel Relocation
+                </Button>
+              </Group>
+            </Alert>
+          )}
+
+          {/* View Toggle */}
+          <Group justify="space-between">
+            <Text size="sm" fw={600}>Topology View</Text>
+            <SegmentedControl
+              value={topologyViewType}
+              onChange={(value) => setTopologyViewType(value as 'dot' | 'index')}
+              data={[
+                { value: 'dot', label: 'Dot View' },
+                { value: 'index', label: 'Index View' },
+              ]}
+              size="sm"
+            />
+          </Group>
+
+          {/* View Content */}
+          <Card shadow="sm" padding="lg">
+            {topologyViewType === 'dot' ? (
+              <DotBasedTopologyView
+                nodes={nodes as any}
+                shards={shards}
+                indices={indices}
+                searchParams={searchParams}
+                onShardClick={handleTopologyShardClick}
+                relocationMode={relocationMode}
+                validDestinationNodes={validDestinationNodes}
+                onDestinationClick={handleTopologyDestinationClick}
+              />
+            ) : (
+              <ShardAllocationGrid
+                nodes={nodes}
+                indices={indices}
+                shards={shards}
+                loading={nodesLoading || indicesLoading || shardsLoading}
+                error={nodesError || indicesError || shardsError}
+                openIndexModal={openIndexModal}
+                openNodeModal={openNodeModal}
+                searchParams={searchParams}
+                setSearchParams={setSearchParams}
+                sharedRelocationMode={relocationMode}
+                sharedValidDestinationNodes={validDestinationNodes}
+                onSharedDestinationClick={handleTopologyDestinationClick}
+                onSharedRelocationCancel={handleTopologyCancelRelocation}
+                onSharedSelectForRelocation={handleTopologySelectForRelocation}
+              />
+            )}
+          </Card>
+
+          {/* Shared Context Menu */}
+          {topologyContextMenuShard && (
+            <ShardContextMenu
+              shard={topologyContextMenuShard}
+              opened={topologyContextMenuOpened}
+              position={topologyContextMenuPosition}
+              onClose={handleTopologyContextMenuClose}
+              onShowStats={(shard) => {
+                setTopologyContextMenuShard(shard);
+                openIndexModal(shard.index);
+                handleTopologyContextMenuClose();
+              }}
+              onSelectForRelocation={handleTopologySelectForRelocation}
+            />
+          )}
+
+          {/* Shared Confirmation Modal */}
+          <Modal
+            opened={relocationConfirmOpened}
+            onClose={() => setRelocationConfirmOpened(false)}
+            title="Confirm Shard Relocation"
+            centered
+            size="md"
+          >
+            <Stack gap="md">
+              <Text size="sm">You are about to relocate the following shard:</Text>
+              <Card withBorder padding="md">
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Index:</Text>
+                    <Text size="sm" fw={600}>{relocationShard?.index}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Shard Number:</Text>
+                    <Text size="sm" fw={600}>{relocationShard?.shard}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Shard Type:</Text>
+                    <Badge size="sm" color={relocationShard?.primary ? 'blue' : 'gray'}>
+                      {relocationShard?.primary ? 'Primary' : 'Replica'}
+                    </Badge>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Source Node:</Text>
+                    <Text size="sm" fw={600}>{relocationSourceNode?.name}</Text>
+                  </Group>
+                  <Group justify="space-between">
+                    <Text size="sm" c="dimmed">Destination Node:</Text>
+                    <Text size="sm" fw={600} c="violet">{relocationDestinationNode?.name}</Text>
+                  </Group>
+                </Stack>
+              </Card>
+              <Text size="sm" c="dimmed">
+                This operation will move the shard from {relocationSourceNode?.name} to {relocationDestinationNode?.name}. The shard will be temporarily unavailable during relocation.
+              </Text>
+              <Group justify="flex-end">
+                <Button variant="subtle" color="gray" onClick={() => setRelocationConfirmOpened(false)} disabled={relocationInProgress}>Cancel</Button>
+                <Button color="violet" onClick={handleTopologyConfirmRelocation} loading={relocationInProgress}>Relocate Shard</Button>
+              </Group>
+            </Stack>
+          </Modal>
+        </Stack>
       )}
 
       {/* Statistics Section */}
@@ -2844,6 +3151,12 @@ function ShardAllocationGrid({
   openNodeModal,
   searchParams,
   setSearchParams,
+  // Shared relocation state
+  sharedRelocationMode,
+  sharedValidDestinationNodes,
+  onSharedDestinationClick,
+  onSharedRelocationCancel,
+  onSharedSelectForRelocation,
 }: {
   nodes?: NodeInfo[];
   indices?: IndexInfo[];
@@ -2854,6 +3167,12 @@ function ShardAllocationGrid({
   openNodeModal?: (nodeId: string) => void;
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams) => void;
+  // Shared relocation
+  sharedRelocationMode?: boolean;
+  sharedValidDestinationNodes?: string[];
+  onSharedDestinationClick?: (nodeId: string) => void;
+  onSharedRelocationCancel?: () => void;
+  onSharedSelectForRelocation?: (shard: ShardInfo) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -2867,9 +3186,9 @@ function ShardAllocationGrid({
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const [contextMenuShard, setContextMenuShard] = useState<ShardInfo | null>(null);
 
-  // Relocation mode state
-  const [relocationMode, setRelocationMode] = useState(false);
-  const [validDestinationNodes, setValidDestinationNodes] = useState<string[]>([]);
+  // Use SHARED relocation state (not internal state)
+  const activeRelocationMode = sharedRelocationMode ?? false;
+  const activeValidDestinationNodes = sharedValidDestinationNodes ?? [];
 
   // Relocation confirmation modal state
   const [relocationConfirmOpened, setRelocationConfirmOpened] = useState(false);
@@ -2914,7 +3233,7 @@ function ShardAllocationGrid({
     event.stopPropagation();
 
     // Don't allow clicking other shards during relocation mode
-    if (relocationMode) {
+    if (sharedRelocationMode) {
       return;
     }
 
@@ -2993,10 +3312,8 @@ function ShardAllocationGrid({
       return;
     }
 
-    // Set relocation mode state
-    setRelocationMode(true);
-    setSelectedShard(shard);
-    setValidDestinationNodes(validDestinations);
+    // Call shared handler to set relocation state
+    onSharedSelectForRelocation?.(shard);
     setShowNoDestinationsMessage(false);
 
     handleContextMenuClose();
@@ -3251,15 +3568,14 @@ function ShardAllocationGrid({
         {/* Left side: Action buttons */}
         <Group gap="xs">
           {/* Cancel relocation button - shown when in relocation mode */}
-          {relocationMode && (
+          {sharedRelocationMode && (
             <Button
               size="sm"
               color="red"
               variant="filled"
               onClick={() => {
-                setRelocationMode(false);
+                onSharedRelocationCancel?.();
                 setSelectedShard(null);
-                setValidDestinationNodes([]);
               }}
             >
               Cancel Relocation
@@ -3268,17 +3584,17 @@ function ShardAllocationGrid({
 
           {/* Shard allocation lock/unlock - disabled during relocation mode */}
           {shardAllocationEnabled ? (
-            <Menu shadow="md" width={200} disabled={relocationMode}>
+            <Menu shadow="md" width={200} disabled={sharedRelocationMode}>
               <Menu.Target>
                 <Tooltip
-                  label={relocationMode ? 'Disabled during relocation' : 'Disable shard allocation'}
+                  label={sharedRelocationMode ? 'Disabled during relocation' : 'Disable shard allocation'}
                 >
                   <ActionIcon
                     size="md"
                     variant="subtle"
                     color="green"
                     loading={disableAllocationMutation.isPending}
-                    disabled={relocationMode}
+                    disabled={sharedRelocationMode}
                   >
                     <IconLockOpen size={18} />
                   </ActionIcon>
@@ -3308,7 +3624,7 @@ function ShardAllocationGrid({
             </Menu>
           ) : (
             <Tooltip
-              label={relocationMode ? 'Disabled during relocation' : 'Enable shard allocation'}
+              label={sharedRelocationMode ? 'Disabled during relocation' : 'Enable shard allocation'}
             >
               <ActionIcon
                 size="md"
@@ -3316,7 +3632,7 @@ function ShardAllocationGrid({
                 color="red"
                 onClick={() => enableAllocationMutation.mutate()}
                 loading={enableAllocationMutation.isPending}
-                disabled={relocationMode}
+                disabled={sharedRelocationMode}
               >
                 <IconLock size={18} />
               </ActionIcon>
@@ -3326,7 +3642,7 @@ function ShardAllocationGrid({
           {/* Expand/compress view - disabled during relocation mode */}
           <Tooltip
             label={
-              relocationMode
+              sharedRelocationMode
                 ? 'Disabled during relocation'
                 : expandedView
                   ? 'Compress view'
@@ -3337,7 +3653,7 @@ function ShardAllocationGrid({
               size="md"
               variant="subtle"
               onClick={() => updateParam('overviewExpanded', !expandedView)}
-              disabled={relocationMode}
+              disabled={sharedRelocationMode}
             >
               {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
             </ActionIcon>
@@ -3353,7 +3669,7 @@ function ShardAllocationGrid({
             onChange={(e) => updateParam('overviewSearch', e.currentTarget.value)}
             style={{ minWidth: 200, maxWidth: 300 }}
             size="xs"
-            disabled={relocationMode}
+            disabled={sharedRelocationMode}
           />
 
           <ShardStateFilterToggle
@@ -3372,22 +3688,22 @@ function ShardAllocationGrid({
             checked={showClosed}
             onChange={(e) => updateParam('showClosed', e.currentTarget.checked)}
             size="xs"
-            disabled={relocationMode}
+            disabled={sharedRelocationMode}
           />
 
           <Group
             gap={4}
             style={{
-              cursor: relocationMode ? 'not-allowed' : 'pointer',
+              cursor: sharedRelocationMode ? 'not-allowed' : 'pointer',
               opacity: showSpecial ? 1 : 0.5,
               transition: 'opacity 150ms ease',
-              pointerEvents: relocationMode ? 'none' : 'auto',
+              pointerEvents: sharedRelocationMode ? 'none' : 'auto',
             }}
-            onClick={() => !relocationMode && updateParam('showSpecial', !showSpecial)}
+            onClick={() => !sharedRelocationMode && updateParam('showSpecial', !showSpecial)}
             role="button"
-            tabIndex={relocationMode ? -1 : 0}
+            tabIndex={sharedRelocationMode ? -1 : 0}
             onKeyDown={(e) => {
-              if (!relocationMode && (e.key === 'Enter' || e.key === ' ')) {
+              if (!sharedRelocationMode && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
                 updateParam('showSpecial', !showSpecial);
               }
@@ -3401,16 +3717,16 @@ function ShardAllocationGrid({
             <Group
               gap={4}
               style={{
-                cursor: relocationMode ? 'not-allowed' : 'pointer',
+                cursor: sharedRelocationMode ? 'not-allowed' : 'pointer',
                 opacity: showOnlyAffected ? 1 : 0.5,
                 transition: 'opacity 150ms ease',
-                pointerEvents: relocationMode ? 'none' : 'auto',
+                pointerEvents: sharedRelocationMode ? 'none' : 'auto',
               }}
-              onClick={() => !relocationMode && updateParam('overviewAffected', !showOnlyAffected)}
+              onClick={() => !sharedRelocationMode && updateParam('overviewAffected', !showOnlyAffected)}
               role="button"
-              tabIndex={relocationMode ? -1 : 0}
+              tabIndex={sharedRelocationMode ? -1 : 0}
               onKeyDown={(e) => {
-                if (!relocationMode && (e.key === 'Enter' || e.key === ' ')) {
+                if (!sharedRelocationMode && (e.key === 'Enter' || e.key === ' ')) {
                   e.preventDefault();
                   updateParam('overviewAffected', !showOnlyAffected);
                 }
@@ -3502,7 +3818,8 @@ function ShardAllocationGrid({
         </Alert>
       )}
 
-      {relocationMode && selectedShard && !showNoDestinationsMessage && (
+      {/* Relocation banner - use shared state */}
+      {sharedRelocationMode && selectedShard && (
         <Alert color="violet" variant="light">
           <Group justify="space-between">
             <Text size="sm">
@@ -3518,9 +3835,8 @@ function ShardAllocationGrid({
               color="red"
               variant="subtle"
               onClick={() => {
-                setRelocationMode(false);
+                onSharedRelocationCancel?.();
                 setSelectedShard(null);
-                setValidDestinationNodes([]);
               }}
             >
               Cancel
@@ -3777,8 +4093,8 @@ function ShardAllocationGrid({
                             }}
                           >
                             {indexShards.length > 0 ||
-                              (relocationMode &&
-                                validDestinationNodes.includes(node.id) &&
+                              (activeRelocationMode &&
+                                activeValidDestinationNodes.includes(node.id) &&
                                 selectedShard?.index === index.name) ? (
                               <Group gap={2} justify="center" wrap="wrap">
                                 {indexShards.map((shard, idx) => (
@@ -3821,8 +4137,8 @@ function ShardAllocationGrid({
                                         border: shard.primary
                                           ? '2px solid var(--mantine-color-green-9)'
                                           : '2px dashed var(--mantine-color-green-9)',
-                                        cursor: relocationMode ? 'not-allowed' : 'pointer',
-                                        opacity: relocationMode ? 0.5 : 1,
+                                        cursor: activeRelocationMode ? 'not-allowed' : 'pointer',
+                                        opacity: activeRelocationMode ? 0.5 : 1,
                                       }}
                                       onClick={(e) => handleShardClick(shard, e)}
                                     >
@@ -3832,8 +4148,8 @@ function ShardAllocationGrid({
                                 ))}
 
                                 {/* Destination indicator - show purple dashed border when in relocation mode */}
-                                {relocationMode &&
-                                  validDestinationNodes.includes(node.id) &&
+                                {activeRelocationMode &&
+                                  activeValidDestinationNodes.includes(node.id) &&
                                   selectedShard?.index === index.name && (
                                     <Tooltip
                                       label={`Click to relocate shard ${selectedShard.shard} here`}
@@ -4034,9 +4350,8 @@ function ShardAllocationGrid({
                   });
 
                   // Exit relocation mode and close modal
-                  setRelocationMode(false);
+                  onSharedRelocationCancel?.();
                   setSelectedShard(null);
-                  setValidDestinationNodes([]);
                   setRelocationConfirmOpened(false);
                   setRelocationSourceNode(null);
                   setRelocationDestinationNode(null);
