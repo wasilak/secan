@@ -226,7 +226,7 @@ impl ElasticsearchClient for Client {
             .client
             .cluster()
             .health(elasticsearch::cluster::ClusterHealthParts::None)
-            .level(elasticsearch::params::Level::Indices)  // Get per-index health
+            .level(elasticsearch::params::Level::Indices) // Get per-index health
             .send()
             .await
             .context("Health check failed")?;
