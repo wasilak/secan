@@ -1183,11 +1183,16 @@ pub async fn proxy_request(
         cluster_id = %cluster_id,
         method = %method,
         path = %full_path,
-        "Proxying request to Elasticsearch"
+        "PROXY: Starting Elasticsearch request"
     );
 
     // TODO: Extract authenticated user from request
     // TODO: Check RBAC authorization
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        "PROXY: Getting cluster connection"
+    );
 
     // Get the cluster
     let cluster = state
@@ -1206,38 +1211,104 @@ pub async fn proxy_request(
             }
         })?;
 
-    // Proxy the request
-    let response = cluster
-        .request(method.clone(), &full_path, body.map(|j| j.0))
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                method = %method,
-                path = %full_path,
-                error = %e,
-                "Elasticsearch API request failed"
-            );
-            ClusterErrorResponse {
-                error: "proxy_failed".to_string(),
-                message: format!("Failed to proxy request: {}", e),
-            }
-        })?;
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        method = %method,
+        path = %full_path,
+        "PROXY: Sending request to Elasticsearch"
+    );
+
+    // Proxy the request with timeout
+    let response = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        cluster.request(method.clone(), &full_path, body.map(|j| j.0)),
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            method = %method,
+            path = %full_path,
+            error = %e,
+            "PROXY TIMEOUT: Elasticsearch request timed out"
+        );
+        ClusterErrorResponse {
+            error: "proxy_timeout".to_string(),
+            message: format!(
+                "Elasticsearch request timed out: {} {} (timeout: 30s)",
+                method, full_path,
+            ),
+        }
+    })?
+    .map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            method = %method,
+            path = %full_path,
+            error = %e,
+            "PROXY FAILED: Elasticsearch API request failed"
+        );
+        ClusterErrorResponse {
+            error: "proxy_failed".to_string(),
+            message: format!(
+                "Elasticsearch request failed: {} {} - {}",
+                method, full_path, e
+            ),
+        }
+    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        method = %method,
+        path = %full_path,
+        status = %response.status(),
+        "PROXY: Elasticsearch response received"
+    );
 
     // Convert reqwest::Response to axum::Response
     let status = response.status();
     let headers = response.headers().clone();
-    let body_bytes = response.bytes().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to read Elasticsearch response body"
-        );
-        ClusterErrorResponse {
-            error: "response_read_failed".to_string(),
-            message: format!("Failed to read response body: {}", e),
-        }
-    })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        method = %method,
+        path = %full_path,
+        "PROXY: Reading response body..."
+    );
+
+    // Read response body with timeout
+    let body_bytes = tokio::time::timeout(std::time::Duration::from_secs(10), response.bytes())
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "PROXY: Timeout reading response body"
+            );
+            ClusterErrorResponse {
+                error: "response_read_timeout".to_string(),
+                message: "Timeout reading Elasticsearch response body".to_string(),
+            }
+        })?
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to read Elasticsearch response body"
+            );
+            ClusterErrorResponse {
+                error: "response_read_failed".to_string(),
+                message: format!("Failed to read response body: {}", e),
+            }
+        })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        method = %method,
+        path = %full_path,
+        bytes = body_bytes.len(),
+        "PROXY: Response body read successfully"
+    );
 
     // Log Elasticsearch API errors (4xx and 5xx responses) with response body
     if status.is_client_error() || status.is_server_error() {
@@ -1280,6 +1351,13 @@ pub async fn proxy_request(
                 message: format!("Failed to build response: {}", e),
             }
         })?;
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        method = %method,
+        path = %full_path,
+        "PROXY: Response sent to client"
+    );
 
     Ok(axum_response)
 }

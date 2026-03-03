@@ -221,6 +221,13 @@ impl ElasticsearchClient for Client {
             .await
             .context("Failed to send request to Elasticsearch")?;
 
+        tracing::trace!(
+            "HTTP request to ES completed: {} {} -> status={}",
+            method,
+            path,
+            response.status()
+        );
+
         Ok(response)
     }
 

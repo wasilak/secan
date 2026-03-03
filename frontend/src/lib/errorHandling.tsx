@@ -101,9 +101,22 @@ export function parseError(error: unknown): ErrorDetails {
     if (err.message.includes('Network') || err.message.includes('fetch')) {
       return {
         error: 'network_error',
-        message: 'Network error. Please check your connection.',
+        message: 'Network error - unable to reach server. Please ensure the backend is running.',
         details: err.message,
       };
+    }
+
+    // Check if it's an HTTP error with status
+    if ('statusCode' in error || 'status' in error) {
+      const httpError = error as { statusCode?: number; status?: number; message?: string };
+      const status = httpError.statusCode || httpError.status;
+      if (status) {
+        return {
+          error: 'http_error',
+          message: `HTTP ${status}: ${httpError.message || getStatusText(status)}`,
+          statusCode: status,
+        };
+      }
     }
 
     return {
@@ -266,6 +279,23 @@ export function formatErrorDetails(errorDetails: ErrorDetails): string {
   }
 
   return parts.join('\n');
+}
+
+/**
+ * Get HTTP status text
+ */
+function getStatusText(status: number): string {
+  const statusTexts: Record<number, string> = {
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found - the index or resource does not exist',
+    409: 'Conflict',
+    500: 'Internal Server Error',
+    502: 'Bad Gateway',
+    503: 'Service Unavailable',
+  };
+  return statusTexts[status] || `Error ${status}`;
 }
 
 /**

@@ -629,7 +629,7 @@ export function ClusterView() {
     search: searchParams.get('indicesSearch') || '',
     health: searchParams.get('health')?.split(',').filter(Boolean) || ['green', 'yellow', 'red', 'unknown'],
     status: searchParams.get('status')?.split(',').filter(Boolean) || ['open', 'close'],
-    showSpecial: searchParams.get('showSpecial') !== 'false', // Default to true
+    showSpecial: searchParams.get('showSpecial') === 'true', // Default to false (hidden)
     affected: searchParams.get('affected') === 'true',
   };
 
@@ -2004,7 +2004,7 @@ function IndicesList({
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
-  const showSpecialIndices = searchParams.get('showSpecial') !== 'false'; // Default to true
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
 
   // Column sorting state
   const indicesSortColumn = (searchParams.get('indicesSortColumn') || 'name') as
@@ -2353,7 +2353,9 @@ function IndicesList({
 
   const updateParam = (key: string, value: string | boolean) => {
     const newParams = new URLSearchParams(searchParams);
-    if (value === '' || value === false) {
+    if (value === false) {
+      newParams.set(key, 'false');
+    } else if (value === '' || value === undefined) {
       newParams.delete(key);
     } else {
       newParams.set(key, String(value));
@@ -3493,7 +3495,9 @@ function ShardAllocationGrid({
   // Update URL params
   const updateParam = (key: string, value: string | boolean) => {
     const newParams = new URLSearchParams(searchParams);
-    if (value === '' || value === false) {
+    if (value === false) {
+      newParams.set(key, 'false');
+    } else if (value === '' || value === undefined) {
       newParams.delete(key);
     } else {
       newParams.set(key, String(value));
