@@ -739,6 +739,8 @@ export interface ClusterMetricsHistoryResponse {
     document_count?: number;
     shard_count?: number;
     unassigned_shards?: number;
+    disk_used_bytes?: number;
+    disk_total_bytes?: number;
   }>;
 }
 

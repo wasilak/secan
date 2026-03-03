@@ -58,9 +58,7 @@ export function DotBasedTopologyView({
     ? selectedStatesParam.split(',').filter(Boolean)
     : Array.from(SHARD_STATES);
 
-  const showClosed = searchParams.get('showClosed') === 'true';
-  const showSpecial = searchParams.get('showSpecial') === 'true';
-  const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
+  // Note: showClosed, showSpecial, showOnlyAffected removed - backend now handles all filtering
 
   // Apply wildcard filters
   const filteredNodes = useMemo(() => {
@@ -102,16 +100,13 @@ export function DotBasedTopologyView({
     return shards.filter((shard) => {
       // Filter by shard state
       if (!selectedShardStates.includes(shard.state)) return false;
-      
+
       // Filter by index (closed/special/search)
       if (!filteredIndicesList.find((i) => i.name === shard.index)) return false;
-      
-      // Filter by affected (unassigned only)
-      if (showOnlyAffected && shard.state !== 'UNASSIGNED') return false;
-      
+
       return true;
     });
-  }, [shards, selectedShardStates, filteredIndicesList, showOnlyAffected]);
+  }, [shards, selectedShardStates, filteredIndicesList]);
 
   // Separate assigned and unassigned shards BEFORE grouping by node
   const assignedShards = useMemo(() => {

@@ -567,7 +567,7 @@ export function ClusterView() {
   const diskUsageHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
-        value: (d as any).disk_used_bytes || 0,
+        value: d.disk_used_bytes || 0,
         timestamp: new Date(d.date).getTime(),
       }))
       : []; // No sparkline fallback for disk usage

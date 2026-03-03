@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Title,
@@ -113,7 +113,10 @@ export function Dashboard() {
   });
 
   // Extract clusters array from paginated response
-  const clusters: ClusterInfo[] = clustersPaginated?.items ?? [];
+  const clusters: ClusterInfo[] = useMemo(
+    () => clustersPaginated?.items ?? [],
+    [clustersPaginated?.items]
+  );
 
   // Announce loading and error states to screen readers
   useEffect(() => {
