@@ -46,10 +46,11 @@ pub fn transform_cluster_stats(
     // Note: OpenSearch returns -1 for CPU when metrics are unavailable
     let cpu_percent = if let Some(nodes_stats_obj) = stats["nodes_stats"].as_object() {
         // Try nodes_stats.nodes structure
-        let nodes_obj = nodes_stats_obj.get("nodes")
+        let nodes_obj = nodes_stats_obj
+            .get("nodes")
             .and_then(|v| v.as_object())
             .or(Some(nodes_stats_obj)); // Fallback if nodes_stats is directly the nodes object
-        
+
         if let Some(nodes) = nodes_obj {
             let mut total_cpu = 0u64;
             let mut node_count = 0u64;
@@ -60,9 +61,17 @@ pub fn transform_cluster_stats(
                     .as_i64()
                     .map(|v| if v < 0 { 0 } else { v as u64 })
                     .or_else(|| node_stat["os"]["cpu"]["usage"].as_u64())
-                    .or_else(|| node_stat["process"]["cpu"]["percent"].as_i64().map(|v| if v < 0 { 0 } else { v as u64 }))
+                    .or_else(|| {
+                        node_stat["process"]["cpu"]["percent"].as_i64().map(|v| {
+                            if v < 0 {
+                                0
+                            } else {
+                                v as u64
+                            }
+                        })
+                    })
                     .or_else(|| node_stat["cpu"]["percent"].as_u64());
-                
+
                 if let Some(cpu_val) = cpu {
                     total_cpu += cpu_val;
                     node_count += 1;
@@ -204,26 +213,24 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
     let mut result = Vec::new();
 
     // Try to find indices data - it might be at ["indices"] or wrapped differently
-    let indices_obj = indices_stats["indices"]
-        .as_object()
-        .or_else(|| {
-            // Fallback: check if response is wrapped differently
-            tracing::debug!("indices_stats structure: {:?}", indices_stats);
-            None
-        });
+    let indices_obj = indices_stats["indices"].as_object().or_else(|| {
+        // Fallback: check if response is wrapped differently
+        tracing::debug!("indices_stats structure: {:?}", indices_stats);
+        None
+    });
 
     if let Some(indices_map) = indices_obj {
-        tracing::debug!("Transforming {} indices from stats response", indices_map.len());
-        
+        tracing::debug!(
+            "Transforming {} indices from stats response",
+            indices_map.len()
+        );
+
         for (index_name, index_stats) in indices_map {
             let health = index_stats["health"]
                 .as_str()
                 .unwrap_or("unknown")
                 .to_string();
-            let status = index_stats["status"]
-                .as_str()
-                .unwrap_or("open")
-                .to_string();
+            let status = index_stats["status"].as_str().unwrap_or("open").to_string();
 
             let primary_shards = index_stats["primaries"]["shard_stats"]["total_count"]
                 .as_u64()

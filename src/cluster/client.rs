@@ -392,14 +392,20 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse indices stats response")?;
 
         // Debug logging for troubleshooting
-        tracing::debug!("Indices stats response keys: {:?}", stats.as_object().map(|o| o.keys().collect::<Vec<_>>()));
+        tracing::debug!(
+            "Indices stats response keys: {:?}",
+            stats.as_object().map(|o| o.keys().collect::<Vec<_>>())
+        );
         if let Some(indices) = stats["indices"].as_object() {
             tracing::debug!("Indices found: {} indices", indices.len());
             // Log first few index names for debugging
             let sample: Vec<_> = indices.keys().take(5).collect();
             tracing::debug!("Sample indices: {:?}", sample);
         } else {
-            tracing::warn!("No indices found in stats response. Full response: {:?}", stats);
+            tracing::warn!(
+                "No indices found in stats response. Full response: {:?}",
+                stats
+            );
         }
 
         // Get all indices including closed ones from cluster state
@@ -452,9 +458,16 @@ impl ElasticsearchClient for Client {
                         );
                     }
                 }
-                tracing::debug!("Added {} closed indices, total now: {}", indices.len() - indices_before, indices.len());
+                tracing::debug!(
+                    "Added {} closed indices, total now: {}",
+                    indices.len() - indices_before,
+                    indices.len()
+                );
             } else {
-                tracing::warn!("No metadata.indices found in cluster state. State keys: {:?}", state.as_object().map(|o| o.keys().collect::<Vec<_>>()));
+                tracing::warn!(
+                    "No metadata.indices found in cluster state. State keys: {:?}",
+                    state.as_object().map(|o| o.keys().collect::<Vec<_>>())
+                );
             }
         }
 

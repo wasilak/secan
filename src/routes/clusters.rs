@@ -133,11 +133,16 @@ pub async fn list_clusters(
             let version = cluster.client.es_version();
 
             // Fetch cluster name if not in config
-            let cluster_name = cluster_info.name.clone().or_else(|| {
-                health.as_ref()
-                    .and_then(|h: &serde_json::Value| h["cluster_name"].as_str())
-                    .map(|s| s.to_string())
-            }).unwrap_or(cluster_info.id.clone());
+            let cluster_name = cluster_info
+                .name
+                .clone()
+                .or_else(|| {
+                    health
+                        .as_ref()
+                        .and_then(|h: &serde_json::Value| h["cluster_name"].as_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or(cluster_info.id.clone());
 
             result_clusters.push(ClusterInfo {
                 id: cluster_info.id,
@@ -151,7 +156,11 @@ pub async fn list_clusters(
     }
 
     // Apply pagination
-    let response = paginate_vec(result_clusters, params.page as usize, params.page_size as usize);
+    let response = paginate_vec(
+        result_clusters,
+        params.page as usize,
+        params.page_size as usize,
+    );
 
     tracing::debug!(
         total = response.total,
@@ -163,18 +172,18 @@ pub async fn list_clusters(
 }
 
 /// Apply filters to clusters list
-fn filter_clusters(
-    clusters: &[ClusterInfo],
-    params: &ClustersQueryParams,
-) -> Vec<ClusterInfo> {
+fn filter_clusters(clusters: &[ClusterInfo], params: &ClustersQueryParams) -> Vec<ClusterInfo> {
     let _health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
-    
-    clusters.iter()
+
+    clusters
+        .iter()
         .filter(|cluster| {
             // Search filter (cluster name or ID)
             if !params.search.is_empty() {
                 let search_lower = params.search.to_lowercase();
-                let matches_name = cluster.name.as_ref()
+                let matches_name = cluster
+                    .name
+                    .as_ref()
                     .map(|n| n.to_lowercase().contains(&search_lower))
                     .unwrap_or(false);
                 let matches_id = cluster.id.to_lowercase().contains(&search_lower);
@@ -182,10 +191,10 @@ fn filter_clusters(
                     return false;
                 }
             }
-            
+
             // Health filter - would need to fetch health for each cluster
             // For now, skip health filtering at this level (done in frontend or with cached stats)
-            
+
             // Version filter
             if !params.version.is_empty() {
                 let version_str = cluster.es_version.to_string();
@@ -193,7 +202,7 @@ fn filter_clusters(
                     return false;
                 }
             }
-            
+
             true
         })
         .cloned()
@@ -521,7 +530,7 @@ pub async fn get_nodes(
 
     // Apply filters
     let roles_filter: Vec<&str> = params.roles.split(',').filter(|s| !s.is_empty()).collect();
-    
+
     let filtered_nodes: Vec<NodeInfoResponse> = all_nodes
         .into_iter()
         .filter(|node| {
@@ -529,23 +538,27 @@ pub async fn get_nodes(
             if !params.search.is_empty() {
                 let search_lower = params.search.to_lowercase();
                 let matches_name = node.name.to_lowercase().contains(&search_lower);
-                let matches_ip = node.ip.as_ref()
+                let matches_ip = node
+                    .ip
+                    .as_ref()
                     .map(|ip| ip.to_lowercase().contains(&search_lower))
                     .unwrap_or(false);
                 if !matches_name && !matches_ip {
                     return false;
                 }
             }
-            
+
             // Roles filter
             if !roles_filter.is_empty() {
-                let has_matching_role = node.roles.iter()
+                let has_matching_role = node
+                    .roles
+                    .iter()
                     .any(|role| roles_filter.contains(&role.as_str()));
                 if !has_matching_role {
                     return false;
                 }
             }
-            
+
             true
         })
         .collect();
@@ -725,8 +738,12 @@ pub struct IndicesQueryParams {
     pub affected: bool, // show only indices with problems
 }
 
-fn default_page() -> u32 { 1 }
-fn default_page_size() -> u32 { 50 }
+fn default_page() -> u32 {
+    1
+}
+fn default_page_size() -> u32 {
+    50
+}
 
 pub async fn get_indices(
     State(state): State<ClusterState>,
@@ -805,11 +822,12 @@ pub async fn get_indices(
 
     // Transform to frontend format
     let all_indices = transform_indices(&indices_stats);
-    
+
     // Get shards for "affected" filter
     let shards = cluster.cat_shards().await.ok();
-    let shards_by_index: std::collections::HashMap<String, Vec<serde_json::Value>> = 
-        shards.as_ref().map(|s| {
+    let shards_by_index: std::collections::HashMap<String, Vec<serde_json::Value>> = shards
+        .as_ref()
+        .map(|s| {
             let mut map = std::collections::HashMap::new();
             if let Some(array) = s.as_array() {
                 for shard in array {
@@ -821,42 +839,54 @@ pub async fn get_indices(
                 }
             }
             map
-        }).unwrap_or_default();
+        })
+        .unwrap_or_default();
 
     // Apply filters
     let health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
     let status_filter: Vec<&str> = params.status.split(',').filter(|s| !s.is_empty()).collect();
-    
+
     let filtered_indices: Vec<IndexInfoResponse> = all_indices
         .into_iter()
         .filter(|index| {
             // Search filter
-            if !params.search.is_empty() && !index.name.to_lowercase().contains(&params.search.to_lowercase()) {
+            if !params.search.is_empty()
+                && !index
+                    .name
+                    .to_lowercase()
+                    .contains(&params.search.to_lowercase())
+            {
                 return false;
             }
-            
+
             // Health filter
             if !health_filter.is_empty() && !health_filter.contains(&index.health.as_str()) {
                 return false;
             }
-            
+
             // Status filter
             if !status_filter.is_empty() && !status_filter.contains(&index.status.as_str()) {
                 return false;
             }
-            
+
             // Special indices filter
             if !params.show_special && index.name.starts_with('.') {
                 return false;
             }
-            
+
             // Affected filter (only indices with problems)
             if params.affected {
-                let has_problems = shards_by_index.get(&index.name)
+                let has_problems = shards_by_index
+                    .get(&index.name)
                     .map(|shards| {
                         shards.iter().any(|s| {
-                            s.get("state").and_then(|v| v.as_str())
-                                .map(|state| state == "UNASSIGNED" || state == "RELOCATING" || state == "INITIALIZING")
+                            s.get("state")
+                                .and_then(|v| v.as_str())
+                                .map(|state| {
+                                    state == "UNASSIGNED"
+                                        || state == "RELOCATING"
+                                        || state == "INITIALIZING"
+                                })
                                 .unwrap_or(false)
                         })
                     })
@@ -865,7 +895,7 @@ pub async fn get_indices(
                     return false;
                 }
             }
-            
+
             true
         })
         .collect();
@@ -1057,7 +1087,7 @@ pub async fn get_shards(
 
     // Apply filters
     let state_filter: Vec<&str> = params.state.split(',').filter(|s| !s.is_empty()).collect();
-    
+
     let filtered_shards: Vec<ShardInfoResponse> = all_shards
         .into_iter()
         .filter(|shard| {
@@ -1065,20 +1095,28 @@ pub async fn get_shards(
             if !state_filter.is_empty() && !state_filter.contains(&shard.state.as_str()) {
                 return false;
             }
-            
+
             // Index filter (substring match)
-            if !params.index.is_empty() && !shard.index.to_lowercase().contains(&params.index.to_lowercase()) {
+            if !params.index.is_empty()
+                && !shard
+                    .index
+                    .to_lowercase()
+                    .contains(&params.index.to_lowercase())
+            {
                 return false;
             }
-            
+
             // Node filter (substring match on node name)
             if !params.node.is_empty() {
-                let node_name = shard.node.as_ref().map(|s| s.as_str()).unwrap_or("");
-                if !node_name.to_lowercase().contains(&params.node.to_lowercase()) {
+                let node_name = shard.node.as_deref().unwrap_or("");
+                if !node_name
+                    .to_lowercase()
+                    .contains(&params.node.to_lowercase())
+                {
                     return false;
                 }
             }
-            
+
             true
         })
         .collect();
