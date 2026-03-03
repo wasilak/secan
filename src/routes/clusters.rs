@@ -581,22 +581,43 @@ pub async fn get_node_stats(
 /// # Requirements
 ///
 /// Validates: Requirements 4.7
+#[derive(Debug, Deserialize)]
+pub struct IndicesQueryParams {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_page_size")]
+    pub page_size: u32,
+    #[serde(default)]
+    pub search: String,
+    #[serde(default)]
+    pub health: String, // comma-separated: green,yellow,red
+    #[serde(default)]
+    pub status: String, // comma-separated: open,close
+    #[serde(default)]
+    pub show_special: bool, // show indices starting with .
+    #[serde(default)]
+    pub affected: bool, // show only indices with problems
+}
+
+fn default_page() -> u32 { 1 }
+fn default_page_size() -> u32 { 50 }
+
 pub async fn get_indices(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    Query(pagination): Query<PaginationParams>,
+    Query(params): Query<IndicesQueryParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedResponse<IndexInfoResponse>>, ClusterErrorResponse> {
-    let pagination = pagination.validate().map_err(|e| ClusterErrorResponse {
-        error: "invalid_pagination".to_string(),
-        message: e,
-    })?;
-
     tracing::debug!(
         cluster_id = %cluster_id,
-        page = pagination.page,
-        page_size = pagination.page_size,
-        "Getting indices info"
+        page = params.page,
+        page_size = params.page_size,
+        search = %params.search,
+        health = %params.health,
+        status = %params.status,
+        show_special = params.show_special,
+        affected = params.affected,
+        "Getting indices with filters"
     );
 
     // Check cluster access
@@ -620,6 +641,7 @@ pub async fn get_indices(
         })?;
 
     // Get indices stats using SDK typed method
+    tracing::info!(cluster_id = %cluster_id, "Fetching indices stats from cluster");
     let mut indices_stats = cluster.indices_stats().await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
@@ -632,7 +654,21 @@ pub async fn get_indices(
         }
     })?;
 
-    // Merge health status from cluster health API (non-critical, don't fail if it errors)
+    // Log indices stats response
+    if let Some(indices) = indices_stats["indices"].as_object() {
+        tracing::info!(
+            cluster_id = %cluster_id,
+            indices_count = indices.len(),
+            "Indices stats retrieved successfully"
+        );
+    } else {
+        tracing::warn!(
+            cluster_id = %cluster_id,
+            "No indices found in stats response"
+        );
+    }
+
+    // Merge health status from cluster health API
     if let Err(e) = cluster.merge_indices_health(&mut indices_stats).await {
         tracing::debug!(
             cluster_id = %cluster_id,
@@ -643,16 +679,91 @@ pub async fn get_indices(
 
     // Transform to frontend format
     let all_indices = transform_indices(&indices_stats);
+    
+    // Get shards for "affected" filter
+    let shards = cluster.cat_shards().await.ok();
+    let shards_by_index: std::collections::HashMap<String, Vec<serde_json::Value>> = 
+        shards.as_ref().map(|s| {
+            let mut map = std::collections::HashMap::new();
+            if let Some(array) = s.as_array() {
+                for shard in array {
+                    if let Some(index) = shard.get("index").and_then(|v| v.as_str()) {
+                        map.entry(index.to_string())
+                            .or_insert_with(Vec::new)
+                            .push(shard.clone());
+                    }
+                }
+            }
+            map
+        }).unwrap_or_default();
+
+    // Apply filters
+    let health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
+    let status_filter: Vec<&str> = params.status.split(',').filter(|s| !s.is_empty()).collect();
+    
+    let filtered_indices: Vec<IndexInfoResponse> = all_indices
+        .into_iter()
+        .filter(|index| {
+            // Search filter
+            if !params.search.is_empty() && !index.name.to_lowercase().contains(&params.search.to_lowercase()) {
+                return false;
+            }
+            
+            // Health filter
+            if !health_filter.is_empty() && !health_filter.contains(&index.health.as_str()) {
+                return false;
+            }
+            
+            // Status filter
+            if !status_filter.is_empty() && !status_filter.contains(&index.status.as_str()) {
+                return false;
+            }
+            
+            // Special indices filter
+            if !params.show_special && index.name.starts_with('.') {
+                return false;
+            }
+            
+            // Affected filter (only indices with problems)
+            if params.affected {
+                let has_problems = shards_by_index.get(&index.name)
+                    .map(|shards| {
+                        shards.iter().any(|s| {
+                            s.get("state").and_then(|v| v.as_str())
+                                .map(|state| state == "UNASSIGNED" || state == "RELOCATING" || state == "INITIALIZING")
+                                .unwrap_or(false)
+                        })
+                    })
+                    .unwrap_or(false);
+                if !has_problems {
+                    return false;
+                }
+            }
+            
+            true
+        })
+        .collect();
+
+    tracing::info!(
+        cluster_id = %cluster_id,
+        total = filtered_indices.len(),
+        "Indices filtered"
+    );
 
     // Apply pagination
-    let response = paginate_vec(all_indices, pagination.page, pagination.page_size);
+    let response = paginate_vec(
+        filtered_indices,
+        params.page as usize,
+        params.page_size as usize,
+    );
 
-    tracing::debug!(
+    tracing::info!(
         cluster_id = %cluster_id,
         total_indices = response.total,
         page_indices = response.items.len(),
-        page = pagination.page,
-        "Indices info retrieved successfully"
+        page = params.page,
+        page_size = params.page_size,
+        "Indices retrieved successfully"
     );
 
     Ok(Json(response))

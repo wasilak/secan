@@ -426,11 +426,32 @@ export class ApiClient {
    *
    * Requirements: 4.7
    */
-  async getIndices(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<IndexInfo>> {
+  async getIndices(
+    clusterId: string,
+    page: number = 1,
+    pageSize: number = 50,
+    filters?: {
+      search?: string;
+      health?: string[]; // ['green', 'yellow', 'red']
+      status?: string[]; // ['open', 'close']
+      showSpecial?: boolean;
+      affected?: boolean;
+    }
+  ): Promise<PaginatedResponse<IndexInfo>> {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<PaginatedResponse<IndexInfo>>(
         `/clusters/${clusterId}/indices`,
-        { params: { page, page_size: pageSize } }
+        {
+          params: {
+            page,
+            page_size: pageSize,
+            search: filters?.search || '',
+            health: filters?.health?.join(',') || '',
+            status: filters?.status?.join(',') || '',
+            show_special: filters?.showSpecial ?? true, // Default to true
+            affected: filters?.affected || false,
+          },
+        }
       );
       return response.data;
     });

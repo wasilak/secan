@@ -92,7 +92,7 @@ import { ShardContextMenu } from '../components/ShardContextMenu';
 import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
 import { useBulkSelection } from '../hooks/useBulkSelection';
-import type { NodeInfo, IndexInfo, ShardInfo, NodeRole } from '../types/api';
+import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
@@ -618,20 +618,43 @@ export function ClusterView() {
   // Extract nodes array from paginated response (default to empty array while loading)
   const nodesArray: NodeInfo[] = nodesPaginated?.items ?? [];
 
-  // Fetch indices with auto-refresh and pagination
+  // Fetch indices with auto-refresh, pagination, and server-side filtering
+  const indicesFilters = {
+    search: searchParams.get('indicesSearch') || '',
+    health: searchParams.get('health')?.split(',').filter(Boolean) || ['green', 'yellow', 'red', 'unknown'],
+    status: searchParams.get('status')?.split(',').filter(Boolean) || ['open', 'close'],
+    showSpecial: searchParams.get('showSpecial') !== 'false', // Default to true
+    affected: searchParams.get('affected') === 'true',
+  };
+
   const {
     data: indicesPaginated,
     isLoading: indicesLoading,
     error: indicesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'indices', indicesPage],
-    queryFn: () => apiClient.getIndices(id!, indicesPage, 50),
+    queryKey: ['cluster', id, 'indices', indicesPage, indicesFilters],
+    queryFn: () => apiClient.getIndices(id!, indicesPage, 50, indicesFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id,
+    enabled: !!id && activeTab === 'indices', // Only fetch when in indices tab
+  });
+
+  // Fetch ALL indices for topology view (unfiltered, unpaginated)
+  const {
+    data: allIndicesPaginated,
+    isLoading: allIndicesLoading,
+    error: allIndicesError,
+  } = useQuery({
+    queryKey: ['cluster', id, 'indices', 'all'],
+    queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }), // Fetch all with no filters
+    refetchInterval: refreshInterval,
+    enabled: !!id && activeTab === 'topology', // Only fetch when in topology tab
   });
 
   // Extract indices array from paginated response (default to empty array while loading)
   const indicesArray: IndexInfo[] = indicesPaginated?.items ?? [];
+  
+  // Use all indices for topology
+  const allIndicesArray: IndexInfo[] = allIndicesPaginated?.items ?? [];
 
   // Fetch shards with auto-refresh and pagination
   const {
@@ -1085,7 +1108,7 @@ export function ClusterView() {
               <DotBasedTopologyView
                 nodes={nodes}
                 shards={shards}
-                indices={indices}
+                indices={allIndicesArray}
                 searchParams={searchParams}
                 onShardClick={handleTopologyShardClick}
                 relocationMode={relocationMode}
@@ -1098,10 +1121,10 @@ export function ClusterView() {
             ) : (
               <ShardAllocationGrid
                 nodes={nodes}
-                indices={indices}
                 shards={shards}
-                loading={nodesLoading || indicesLoading || shardsLoading}
-                error={nodesError || indicesError || shardsError}
+                indices={allIndicesArray}
+                loading={nodesLoading || allIndicesLoading || shardsLoading}
+                error={nodesError || allIndicesError || shardsError}
                 openIndexModal={openIndexModal}
                 openNodeModal={openNodeModal}
                 searchParams={searchParams}
@@ -1292,6 +1315,7 @@ export function ClusterView() {
         <Card shadow="sm" padding="lg">
           <IndicesList
             indices={indices}
+            indicesPaginated={indicesPaginated}
             loading={indicesLoading}
             error={indicesError}
             openIndexModal={openIndexModal}
@@ -1917,11 +1941,13 @@ function SortableHeader({ column, label, sortColumn, sortDirection, onSort }: So
 
 function IndicesList({
   indices,
+  indicesPaginated,
   loading,
   error,
   openIndexModal,
 }: {
   indices?: IndexInfo[];
+  indicesPaginated?: PaginatedResponse<IndexInfo>;
   loading: boolean;
   error: Error | null;
   openIndexModal: (indexName: string, tab?: string) => void;
@@ -1946,7 +1972,7 @@ function IndicesList({
   const expandedView = searchParams.get('expanded') === 'true';
   const sortAscending = searchParams.get('sort') !== 'desc';
   const showOnlyAffected = searchParams.get('affected') === 'true';
-  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
+  const showSpecialIndices = searchParams.get('showSpecial') !== 'false'; // Default to true
 
   // Column sorting state
   const indicesSortColumn = (searchParams.get('indicesSortColumn') || 'name') as
@@ -2022,13 +2048,13 @@ function IndicesList({
   };
 
   const handleBulkSelectAll = () => {
-    if (paginatedIndices) {
+    if (displayIndices) {
       // If all are already selected, clear selection; otherwise select all
-      const allSelected = paginatedIndices.every((index) => selectedIndices.has(index.name));
+      const allSelected = displayIndices.every((index) => selectedIndices.has(index.name));
       if (allSelected) {
         clearSelection();
       } else {
-        selectAll(paginatedIndices.map((index) => index.name));
+        selectAll(displayIndices.map((index) => index.name));
       }
     }
   };
@@ -2355,56 +2381,36 @@ function IndicesList({
     );
   };
 
-  // Filter indices based on debounced search query and filters
-  const filteredIndices = indices?.filter((index) => {
-    const matchesSearch = index.name.toLowerCase().includes(debouncedSearch.toLowerCase());
-    // Closed indices have health "unknown", so bypass health filter for them
-    const matchesHealth =
-      index.status === 'close' ||
-      selectedHealth.length === 0 ||
-      selectedHealth.includes(index.health);
-    const matchesStatus = selectedStatus.length === 0 || selectedStatus.includes(index.status);
-    const matchesAffected = !showOnlyAffected || hasProblems(index.name);
-    const matchesSpecial = showSpecialIndices || !index.name.startsWith('.');
+  // No client-side filtering - backend handles all filtering
+  // indices array comes pre-filtered and paginated from backend
+  const displayIndices = indices?.slice() || [];
 
-    return matchesSearch && matchesHealth && matchesStatus && matchesAffected && matchesSpecial;
+  // Sort indices by selected column (client-side sorting only)
+  const sortedIndices = [...displayIndices].sort((a, b) => {
+    let compareResult: number;
+
+    switch (indicesSortColumn) {
+      case 'name':
+        compareResult = a.name.localeCompare(b.name);
+        break;
+      case 'health':
+        compareResult = a.health.localeCompare(b.health);
+        break;
+      case 'status':
+        compareResult = a.status.localeCompare(b.status);
+        break;
+      case 'documents':
+        compareResult = a.docsCount - b.docsCount;
+        break;
+      case 'size':
+        compareResult = a.storeSize - b.storeSize;
+        break;
+      default:
+        compareResult = a.name.localeCompare(b.name);
+    }
+
+    return indicesSortDirection === 'asc' ? compareResult : -compareResult;
   });
-
-  // Sort indices by selected column
-  const sortedIndices = filteredIndices
-    ? [...filteredIndices].sort((a, b) => {
-      let compareResult: number;
-
-      switch (indicesSortColumn) {
-        case 'name':
-          compareResult = a.name.localeCompare(b.name);
-          break;
-        case 'health':
-          compareResult = a.health.localeCompare(b.health);
-          break;
-        case 'status':
-          compareResult = a.status.localeCompare(b.status);
-          break;
-        case 'documents':
-          compareResult = a.docsCount - b.docsCount;
-          break;
-        case 'size':
-          compareResult = a.storeSize - b.storeSize;
-          break;
-        default:
-          compareResult = a.name.localeCompare(b.name);
-      }
-
-      return indicesSortDirection === 'asc' ? compareResult : -compareResult;
-    })
-    : undefined;
-
-  // Pagination
-  const totalPages = Math.ceil((sortedIndices?.length || 0) / pageSize);
-  const paginatedIndices = sortedIndices?.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
 
   if (loading) {
     return (
@@ -2706,8 +2712,8 @@ function IndicesList({
                 <Table.Th>
                   <Checkbox
                     aria-label="Select all indices"
-                    checked={count > 0 && count === paginatedIndices?.length}
-                    indeterminate={count > 0 && count < (paginatedIndices?.length || 0)}
+                    checked={count > 0 && count === displayIndices?.length}
+                    indeterminate={count > 0 && count < (displayIndices?.length || 0)}
                     onChange={handleBulkSelectAll}
                     onClick={(e) => e.stopPropagation()}
                   />
@@ -2765,7 +2771,7 @@ function IndicesList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {paginatedIndices?.map((index) => {
+              {displayIndices?.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
                 const hasUnassigned = unassignedCount > 0;
 
@@ -3021,12 +3027,12 @@ function IndicesList({
       )}
 
       {/* Pagination */}
-      {sortedIndices && sortedIndices.length > pageSize && (
+      {indices && indices.length > 0 && indicesPaginated && indicesPaginated.total_pages > 1 && (
         <TablePagination
           currentPage={currentPage}
-          totalPages={totalPages}
+          totalPages={indicesPaginated.total_pages}
           pageSize={pageSize}
-          totalItems={sortedIndices.length}
+          totalItems={indicesPaginated.total}
           onPageChange={handleIndicesPageChange}
           onPageSizeChange={handleIndicesPageSizeChange}
         />
@@ -3634,7 +3640,7 @@ function ShardAllocationGrid({
 
   // Pagination
   const totalPages = Math.ceil(filteredIndicesData.length / pageSize);
-  const paginatedIndices = filteredIndicesData.slice(
+  const displayIndices = filteredIndicesData.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -3720,7 +3726,7 @@ function ShardAllocationGrid({
                 >
                   Node
                 </Table.Th>
-                {paginatedIndices.map((index) => (
+                {displayIndices.map((index) => (
                   <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
                     <Stack gap={4}>
                       <Text
@@ -3772,7 +3778,7 @@ function ShardAllocationGrid({
                       </Badge>
                     </Stack>
                   </Table.Td>
-                  {paginatedIndices.map((index) => {
+                  {displayIndices.map((index) => {
                     const indexUnassigned = unassignedByIndex[index.name] || [];
 
                     return (
@@ -3936,7 +3942,7 @@ function ShardAllocationGrid({
                           )}
                         </Stack>
                       </Table.Td>
-                      {paginatedIndices.map((index) => {
+                      {displayIndices.map((index) => {
                         const indexShards = nodeShards?.get(index.name) || [];
 
                         return (

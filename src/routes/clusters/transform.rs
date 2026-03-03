@@ -203,13 +203,27 @@ pub fn transform_nodes(
 pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
     let mut result = Vec::new();
 
-    if let Some(indices_obj) = indices_stats["indices"].as_object() {
-        for (index_name, index_stats) in indices_obj {
+    // Try to find indices data - it might be at ["indices"] or wrapped differently
+    let indices_obj = indices_stats["indices"]
+        .as_object()
+        .or_else(|| {
+            // Fallback: check if response is wrapped differently
+            tracing::debug!("indices_stats structure: {:?}", indices_stats);
+            None
+        });
+
+    if let Some(indices_map) = indices_obj {
+        tracing::debug!("Transforming {} indices from stats response", indices_map.len());
+        
+        for (index_name, index_stats) in indices_map {
             let health = index_stats["health"]
                 .as_str()
                 .unwrap_or("unknown")
                 .to_string();
-            let status = index_stats["status"].as_str().unwrap_or("open").to_string();
+            let status = index_stats["status"]
+                .as_str()
+                .unwrap_or("open")
+                .to_string();
 
             let primary_shards = index_stats["primaries"]["shard_stats"]["total_count"]
                 .as_u64()
@@ -237,6 +251,9 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
                 uuid,
             });
         }
+        tracing::debug!("Successfully transformed {} indices", result.len());
+    } else {
+        tracing::warn!("No indices data found in indices_stats response");
     }
 
     result

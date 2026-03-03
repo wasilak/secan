@@ -391,6 +391,17 @@ impl ElasticsearchClient for Client {
             .await
             .context("Failed to parse indices stats response")?;
 
+        // Debug logging for troubleshooting
+        tracing::debug!("Indices stats response keys: {:?}", stats.as_object().map(|o| o.keys().collect::<Vec<_>>()));
+        if let Some(indices) = stats["indices"].as_object() {
+            tracing::debug!("Indices found: {} indices", indices.len());
+            // Log first few index names for debugging
+            let sample: Vec<_> = indices.keys().take(5).collect();
+            tracing::debug!("Sample indices: {:?}", sample);
+        } else {
+            tracing::warn!("No indices found in stats response. Full response: {:?}", stats);
+        }
+
         // Get all indices including closed ones from cluster state
         let state_response = self
             .client
@@ -408,11 +419,13 @@ impl ElasticsearchClient for Client {
 
             // Add closed indices to stats with minimal info
             if let Some(metadata) = state["metadata"]["indices"].as_object() {
+                tracing::debug!("Cluster state has {} indices in metadata", metadata.len());
                 if !stats["indices"].is_object() {
                     stats["indices"] = serde_json::json!({});
                 }
 
                 let indices = stats["indices"].as_object_mut().unwrap();
+                let indices_before = indices.len();
                 for (index_name, index_state) in metadata {
                     // Only add if not already in stats (i.e., it's closed)
                     if !indices.contains_key(index_name) {
@@ -439,6 +452,9 @@ impl ElasticsearchClient for Client {
                         );
                     }
                 }
+                tracing::debug!("Added {} closed indices, total now: {}", indices.len() - indices_before, indices.len());
+            } else {
+                tracing::warn!("No metadata.indices found in cluster state. State keys: {:?}", state.as_object().map(|o| o.keys().collect::<Vec<_>>()));
             }
         }
 

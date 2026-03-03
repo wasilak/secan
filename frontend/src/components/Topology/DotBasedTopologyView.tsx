@@ -98,14 +98,19 @@ export function DotBasedTopologyView({
     return filteredIndices.filter((index) => {
       const isClosed = index.status !== 'open';
       const isSpecial = index.name.startsWith('.');
-      
+
       // Apply filters - if filter is OFF, hide those indices
       if (isClosed && !showClosed) return false;
       if (isSpecial && !showSpecial) return false;
-      
+
       return true;
     });
   }, [filteredIndices, showClosed, showSpecial]);
+
+  // Check if indices are being hidden by filters
+  const hiddenIndicesCount = useMemo(() => {
+    return filteredIndices.length - filteredIndicesList.length;
+  }, [filteredIndices, filteredIndicesList]);
 
   // Filter shards (EXACTLY matching ShardAllocationGrid logic)
   const filteredShards = useMemo(() => {
