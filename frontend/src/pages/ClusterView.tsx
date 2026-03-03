@@ -4477,12 +4477,35 @@ function ShardsList({
     setSearchParams(newParams);
   };
 
-  // No client-side filtering - backend handles all filtering
-  // shards array comes pre-filtered and paginated from backend
-  const displayShards = shards?.slice() || [];
+  // Apply all filters to shards
+  const filteredShards = (shards || []).filter((shard) => {
+    // Search filter (index name or node name)
+    if (searchQuery) {
+      const search = searchQuery.toLowerCase();
+      const matchesIndex = shard.index.toLowerCase().includes(search);
+      const matchesNode = shard.node?.toLowerCase().includes(search);
+      if (!matchesIndex && !matchesNode) return false;
+    }
+
+    // State filter
+    if (selectedStates.length > 0 && !selectedStates.includes(shard.state)) {
+      return false;
+    }
+
+    // Primary/Replica filter
+    if (!showPrimaries && shard.primary) return false;
+    if (!showReplicas && !shard.primary) return false;
+
+    // Special indices filter
+    if (!showSpecialIndices && shard.index.startsWith('.')) {
+      return false;
+    }
+
+    return true;
+  });
 
   // Sort shards by selected column (client-side sorting only)
-  const sortedShards = [...displayShards].sort((a, b) => {
+  const sortedShards = [...filteredShards].sort((a, b) => {
     let compareResult: number;
 
     switch (shardsSortColumn) {
