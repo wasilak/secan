@@ -524,14 +524,16 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
 
   // Fetch list of clusters
   const {
-    data: clusters,
+    data: clustersResponse,
     isLoading: clustersLoading,
     error: clustersError,
   } = useQuery({
     queryKey: ['clusters'],
-    queryFn: () => apiClient.getClusters(),
+    queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
   });
+
+  const clusters = clustersResponse?.items;
 
   // Auto-expand current cluster when URL changes
   useEffect(() => {
