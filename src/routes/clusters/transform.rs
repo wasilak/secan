@@ -209,6 +209,7 @@ pub fn transform_nodes(
 }
 
 /// Transform indices stats from SDK response to frontend format
+#[allow(dead_code)] // Kept for backward compatibility
 pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
     let mut result = Vec::new();
 
@@ -261,6 +262,86 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
         tracing::debug!("Successfully transformed {} indices", result.len());
     } else {
         tracing::warn!("No indices data found in indices_stats response");
+    }
+
+    result
+}
+
+/// Transform _cat/indices API response to frontend format
+/// This is MUCH faster than transform_indices() because _cat/indices is lightweight
+pub fn transform_indices_from_cat(cat_indices: &Value) -> Vec<IndexInfoResponse> {
+    let mut result = Vec::new();
+
+    if let Some(indices_array) = cat_indices.as_array() {
+        for index_data in indices_array {
+            let health = index_data["health"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
+            let status = index_data["status"].as_str().unwrap_or("open").to_string();
+
+            let primary_shards = index_data["pri"].as_u64().unwrap_or(0) as u32;
+            let replica_shards = index_data["rep"].as_u64().unwrap_or(0) as u32;
+
+            // Parse docs.count (can be "-" for empty indices)
+            let docs_count = index_data["docs.count"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+
+            // Parse store.size (format: "1.5gb", "500mb", etc.)
+            let store_size = index_data["store.size"]
+                .as_str()
+                .and_then(|s| {
+                    let s = s.to_lowercase();
+                    if s.ends_with("kb") {
+                        s[..s.len() - 2]
+                            .parse::<f64>()
+                            .ok()
+                            .map(|v| (v * 1024.0) as u64)
+                    } else if s.ends_with("mb") {
+                        s[..s.len() - 2]
+                            .parse::<f64>()
+                            .ok()
+                            .map(|v| (v * 1024.0 * 1024.0) as u64)
+                    } else if s.ends_with("gb") {
+                        s[..s.len() - 2]
+                            .parse::<f64>()
+                            .ok()
+                            .map(|v| (v * 1024.0 * 1024.0 * 1024.0) as u64)
+                    } else if s.ends_with("tb") {
+                        s[..s.len() - 2]
+                            .parse::<f64>()
+                            .ok()
+                            .map(|v| (v * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64)
+                    } else {
+                        s.parse::<u64>().ok()
+                    }
+                })
+                .unwrap_or(0);
+
+            let index_name = index_data["index"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
+
+            result.push(IndexInfoResponse {
+                name: index_name,
+                health,
+                status,
+                primary_shards,
+                replica_shards,
+                docs_count,
+                store_size,
+                uuid: None, // _cat/indices doesn't provide UUID
+            });
+        }
+        tracing::debug!(
+            "Transformed {} indices from _cat/indices response",
+            result.len()
+        );
+    } else {
+        tracing::warn!("No indices data found in _cat/indices response");
     }
 
     result

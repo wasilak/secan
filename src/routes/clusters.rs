@@ -15,9 +15,9 @@ mod transform;
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
-    transform_cluster_stats, transform_indices, transform_node_detail_stats, transform_nodes,
-    transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
-    NodeInfoResponse, ShardInfoResponse,
+    transform_cluster_stats, transform_indices_from_cat, transform_node_detail_stats,
+    transform_nodes, transform_shards, ClusterStatsResponse, IndexInfoResponse,
+    NodeDetailStatsResponse, NodeInfoResponse, ShardInfoResponse,
 };
 
 /// Shared application state for cluster routes
@@ -783,64 +783,22 @@ pub async fn get_indices(
             }
         })?;
 
-    // Get indices stats using SDK typed method
-    tracing::debug!(cluster_id = %cluster_id, "Fetching indices stats from cluster");
-    let mut indices_stats = cluster.indices_stats().await.map_err(|e| {
+    // Use lightweight _cat/indices API instead of heavy _stats API
+    // This is MUCH faster for large clusters with many indices
+    let cat_indices = cluster.cat_indices().await.map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,
-            "Failed to get indices stats"
+            "Failed to get indices information"
         );
         ClusterErrorResponse {
-            error: "indices_stats_failed".to_string(),
-            message: format!("Failed to get indices stats: {}", e),
+            error: "indices_failed".to_string(),
+            message: format!("Failed to get indices information: {}", e),
         }
     })?;
 
-    // Log indices stats response
-    if let Some(indices) = indices_stats["indices"].as_object() {
-        tracing::debug!(
-            cluster_id = %cluster_id,
-            indices_count = indices.len(),
-            "Indices stats retrieved successfully"
-        );
-    } else {
-        tracing::warn!(
-            cluster_id = %cluster_id,
-            "No indices found in stats response"
-        );
-    }
-
-    // Merge health status from cluster health API
-    if let Err(e) = cluster.merge_indices_health(&mut indices_stats).await {
-        tracing::debug!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to merge cluster health (non-critical)"
-        );
-    }
-
     // Transform to frontend format
-    let all_indices = transform_indices(&indices_stats);
-
-    // Get shards for "affected" filter
-    let shards = cluster.cat_shards().await.ok();
-    let shards_by_index: std::collections::HashMap<String, Vec<serde_json::Value>> = shards
-        .as_ref()
-        .map(|s| {
-            let mut map = std::collections::HashMap::new();
-            if let Some(array) = s.as_array() {
-                for shard in array {
-                    if let Some(index) = shard.get("index").and_then(|v| v.as_str()) {
-                        map.entry(index.to_string())
-                            .or_insert_with(Vec::new)
-                            .push(shard.clone());
-                    }
-                }
-            }
-            map
-        })
-        .unwrap_or_default();
+    let all_indices = transform_indices_from_cat(&cat_indices);
 
     // Apply filters
     let health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
@@ -874,27 +832,8 @@ pub async fn get_indices(
                 return false;
             }
 
-            // Affected filter (only indices with problems)
-            if params.affected {
-                let has_problems = shards_by_index
-                    .get(&index.name)
-                    .map(|shards| {
-                        shards.iter().any(|s| {
-                            s.get("state")
-                                .and_then(|v| v.as_str())
-                                .map(|state| {
-                                    state == "UNASSIGNED"
-                                        || state == "RELOCATING"
-                                        || state == "INITIALIZING"
-                                })
-                                .unwrap_or(false)
-                        })
-                    })
-                    .unwrap_or(false);
-                if !has_problems {
-                    return false;
-                }
-            }
+            // Note: "affected" filter removed - requires shard-level data which is expensive
+            // Users can use shards view with index filter instead
 
             true
         })

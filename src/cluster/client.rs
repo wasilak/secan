@@ -73,6 +73,9 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get shard information using _cat/shards API (memory-efficient)
     async fn cat_shards(&self) -> Result<Value>;
 
+    /// Get indices information using _cat/indices API (lightweight)
+    async fn cat_indices(&self) -> Result<Value>;
+
     /// Get shard information for a specific node using _cat/shards API (memory-efficient)
     async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value>;
 
@@ -596,6 +599,30 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse cat shards response")
+    }
+
+    /// Get indices information using _cat/indices API (lightweight)
+    /// Returns compact index data - MUCH faster than _stats API
+    async fn cat_indices(&self) -> Result<Value> {
+        // Use _cat/indices API which returns basic index info
+        // Includes: health, status, docs count, store size
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                "/_cat/indices?format=json&bytes=b&h=health,status,index,pri,rep,docs.count,store.size",
+                None,
+            )
+            .await
+            .context("Cat indices request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Cat indices failed with status: {}", response.status());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cat indices response")
     }
 
     /// Get shard information for a specific node
