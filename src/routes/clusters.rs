@@ -1186,21 +1186,18 @@ pub async fn get_node_shards(
         })?;
 
     // Use _cat/shards API with node filter for efficient retrieval
-    let cat_shards = cluster
-        .cat_shards_for_node(&node_id)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                node_id = %node_id,
-                error = %e,
-                "Failed to get shard information for node"
-            );
-            ClusterErrorResponse {
-                error: "shards_failed".to_string(),
-                message: format!("Failed to get shard information: {}", e),
-            }
-        })?;
+    let cat_shards = cluster.cat_shards_for_node(&node_id).await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            node_id = %node_id,
+            error = %e,
+            "Failed to get shard information for node"
+        );
+        ClusterErrorResponse {
+            error: "shards_failed".to_string(),
+            message: format!("Failed to get shard information: {}", e),
+        }
+    })?;
 
     // Transform to frontend format
     let shards = transform_shards(&cat_shards);

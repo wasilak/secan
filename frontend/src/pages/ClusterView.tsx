@@ -1146,6 +1146,9 @@ export function ClusterView() {
                 indexNameFilter={indexNameFilter}
                 nodeNameFilter={nodeNameFilter}
                 matchesWildcard={matchesWildcard}
+                clusterId={id}
+                topologyBatchSize={4}
+                _topologyRetryCount={0}
               />
             ) : (
               <ShardAllocationGrid

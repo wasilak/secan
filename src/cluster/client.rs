@@ -598,31 +598,28 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse cat shards response")
     }
 
-    /// Get shard information for a specific node using _cat/shards API
+    /// Get shard information for a specific node
+    /// Note: This endpoint is deprecated - use get_shards() and filter client-side
+    /// Kept for backward compatibility
     async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value> {
-        let response = self
-            .request(
-                reqwest::Method::GET,
-                &format!(
-                    "/_cat/shards?format=json&bytes=b&h=index,shard,prirep,state,node,docs,store&node={}",
-                    node_id
-                ),
-                None,
-            )
+        // Fetch all shards and filter by node
+        let all_shards = self
+            .cat_shards()
             .await
-            .context("Cat shards for node request failed")?;
+            .context("Failed to fetch all shards")?;
 
-        if !response.status().is_success() {
-            anyhow::bail!(
-                "Cat shards for node failed with status: {}",
-                response.status()
-            );
+        // Filter by node name or ID
+        if let Some(shards_array) = all_shards.as_array() {
+            let filtered: Vec<serde_json::Value> = shards_array
+                .iter()
+                .filter(|shard| shard.get("node").and_then(|v| v.as_str()) == Some(node_id))
+                .cloned()
+                .collect();
+
+            Ok(serde_json::json!(filtered))
+        } else {
+            Ok(serde_json::json!([]))
         }
-
-        response
-            .json()
-            .await
-            .context("Failed to parse cat shards for node response")
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)

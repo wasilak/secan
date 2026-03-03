@@ -13,7 +13,7 @@ export function UnassignedShardsRow({
 }: {
   shards: ShardInfo[];
   indexColors: Record<string, string>;
-  onShardClick?: (shardId: string) => void;
+  onShardClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
 }) {
   if (shards.length === 0) {
     return null;
@@ -40,7 +40,7 @@ export function UnassignedShardsRow({
                 border: `2px solid ${indexColors[shard.index] || '#888'}`,
                 cursor: 'pointer',
               }}
-              onClick={() => onShardClick?.(`${shard.index}[${shard.shard}]`)}
+              onClick={(e) => onShardClick?.(shard, e)}
               title={`${shard.index}[${shard.shard}] - Unassigned`}
             />
           ))}
