@@ -229,11 +229,13 @@ function HeaderTitle() {
   });
 
   // Fetch list of all clusters for dropdown
-  const { data: allClusters } = useQuery({
+  const { data: allClustersResponse } = useQuery({
     queryKey: ['clusters'],
-    queryFn: () => apiClient.getClusters(),
+    queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
   });
+
+  const allClusters = allClustersResponse?.items;
 
   // Handle navigation to dashboard
   const handleGoToDashboard = () => {

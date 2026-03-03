@@ -92,7 +92,7 @@ import { ShardContextMenu } from '../components/ShardContextMenu';
 import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
 import { useBulkSelection } from '../hooks/useBulkSelection';
-import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, PaginatedResponse } from '../types/api';
+import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
@@ -433,11 +433,11 @@ export function ClusterView() {
   const { data: clusterInfo } = useQuery({
     queryKey: ['clusters', id],
     queryFn: async () => {
-      const clusters = await apiClient.getClusters();
-      return clusters.find((c) => c.id === id);
+      const clustersResponse = await apiClient.getClusters(1, 100);
+      return clustersResponse.items.find((c: ClusterInfo) => c.id === id);
     },
     enabled: !!id,
-    staleTime: 60000, // Cache for 1 minute
+    staleTime: 60000,
   });
 
   // Fetch cluster statistics with auto-refresh
@@ -603,16 +603,22 @@ export function ClusterView() {
   const [indicesPage, setIndicesPage] = useState(1);
   const [shardsPage, setShardsPage] = useState(1);
 
-  // Fetch nodes with auto-refresh and pagination
+  // Fetch nodes with auto-refresh, pagination, and server-side filtering
+  const nodesFilters = {
+    search: searchParams.get('nodesSearch') || '',
+    roles: searchParams.get('nodeRoles')?.split(',').filter(Boolean) || [],
+  };
+
   const {
     data: nodesPaginated,
     isLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'nodes', nodesPage],
-    queryFn: () => apiClient.getNodes(id!, nodesPage, 50),
+    queryKey: ['cluster', id, 'nodes', nodesPage, nodesFilters],
+    queryFn: () => apiClient.getNodes(id!, nodesPage, 50, nodesFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id,
+    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Extract nodes array from paginated response (default to empty array while loading)
@@ -647,7 +653,8 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'indices', 'all'],
     queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }), // Fetch all with no filters
     refetchInterval: refreshInterval,
-    enabled: !!id && activeTab === 'topology', // Only fetch when in topology tab
+    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Extract indices array from paginated response (default to empty array while loading)
@@ -656,20 +663,42 @@ export function ClusterView() {
   // Use all indices for topology
   const allIndicesArray: IndexInfo[] = allIndicesPaginated?.items ?? [];
 
-  // Fetch shards with auto-refresh and pagination
+  // Fetch shards with auto-refresh, pagination, and server-side filtering
+  const shardsFilters = {
+    state: searchParams.get('shardState')?.split(',').filter(Boolean) || [],
+    index: searchParams.get('shardIndex') || '',
+    node: searchParams.get('shardNode') || '',
+  };
+
   const {
     data: shardsPaginated,
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery({
-    queryKey: ['cluster', id, 'shards', shardsPage],
-    queryFn: () => apiClient.getShards(id!, shardsPage, 50),
+    queryKey: ['cluster', id, 'shards', shardsPage, shardsFilters],
+    queryFn: () => apiClient.getShards(id!, shardsPage, 50, shardsFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id,
+    enabled: !!id && activeTab === 'shards', // Only fetch when in shards tab
+  });
+
+  // Fetch ALL shards for topology view (unfiltered, unpaginated)
+  const {
+    data: allShardsPaginated,
+    isLoading: allShardsLoading,
+    error: allShardsError,
+  } = useQuery({
+    queryKey: ['cluster', id, 'shards', 'all'],
+    queryFn: () => apiClient.getShards(id!, 1, 10000, {}), // Fetch all with no filters
+    refetchInterval: refreshInterval,
+    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Extract shards array from paginated response (default to empty array while loading)
   const shards: ShardInfo[] = shardsPaginated?.items ?? [];
+  
+  // Use all shards for topology
+  const allShards: ShardInfo[] = allShardsPaginated?.items ?? [];
 
   // Create shorter aliases for backward compatibility with rest of code
   const nodes = nodesArray;
@@ -1106,9 +1135,9 @@ export function ClusterView() {
           <Card shadow="sm" padding="lg">
             {topologyViewType === 'dot' ? (
               <DotBasedTopologyView
-                nodes={nodes}
-                shards={shards}
-                indices={allIndicesArray}
+                nodes={nodes || []}
+                shards={allShards || []}
+                indices={allIndicesArray || []}
                 searchParams={searchParams}
                 onShardClick={handleTopologyShardClick}
                 relocationMode={relocationMode}
@@ -1120,11 +1149,11 @@ export function ClusterView() {
               />
             ) : (
               <ShardAllocationGrid
-                nodes={nodes}
-                shards={shards}
-                indices={allIndicesArray}
-                loading={nodesLoading || allIndicesLoading || shardsLoading}
-                error={nodesError || allIndicesError || shardsError}
+                nodes={nodes || []}
+                shards={allShards || []}
+                indices={allIndicesArray || []}
+                loading={nodesLoading || allIndicesLoading || allShardsLoading}
+                error={nodesError || allIndicesError || allShardsError}
                 openIndexModal={openIndexModal}
                 openNodeModal={openNodeModal}
                 searchParams={searchParams}
@@ -4441,57 +4470,44 @@ function ShardsList({
     setSearchParams(newParams);
   };
 
-  // Filter shards - use searchQuery directly, not debounced, for immediate filtering
-  const filteredShards = shards?.filter((shard) => {
-    const matchesSearch =
-      shard.index.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shard.node?.toLowerCase().includes(searchQuery.toLowerCase());
+  // No client-side filtering - backend handles all filtering
+  // shards array comes pre-filtered and paginated from backend
+  const displayShards = shards?.slice() || [];
 
-    const matchesState = selectedStates.length === 0 || selectedStates.includes(shard.state);
+  // Sort shards by selected column (client-side sorting only)
+  const sortedShards = [...displayShards].sort((a, b) => {
+    let compareResult: number;
 
-    const matchesType = (showPrimaries && shard.primary) || (showReplicas && !shard.primary);
+    switch (shardsSortColumn) {
+      case 'index':
+        compareResult = a.index.localeCompare(b.index);
+        break;
+      case 'shard':
+        compareResult = a.shard - b.shard;
+        break;
+      case 'type':
+        compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
+          b.primary ? 'Primary' : 'Replica'
+        );
+        break;
+      case 'state':
+        compareResult = a.state.localeCompare(b.state);
+        break;
+      case 'node':
+        compareResult = (a.node || '').localeCompare(b.node || '');
+        break;
+      case 'documents':
+        compareResult = a.docs - b.docs;
+        break;
+      case 'size':
+        compareResult = a.store - b.store;
+        break;
+      default:
+        compareResult = a.index.localeCompare(b.index);
+    }
 
-    const matchesSpecial = showSpecialIndices || !shard.index.startsWith('.');
-
-    return matchesSearch && matchesState && matchesType && matchesSpecial;
+    return shardsSortDirection === 'asc' ? compareResult : -compareResult;
   });
-
-  // Sort shards by selected column
-  const sortedShards = filteredShards
-    ? [...filteredShards].sort((a, b) => {
-      let compareResult: number;
-
-      switch (shardsSortColumn) {
-        case 'index':
-          compareResult = a.index.localeCompare(b.index);
-          break;
-        case 'shard':
-          compareResult = a.shard - b.shard;
-          break;
-        case 'type':
-          compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
-            b.primary ? 'Primary' : 'Replica'
-          );
-          break;
-        case 'state':
-          compareResult = a.state.localeCompare(b.state);
-          break;
-        case 'node':
-          compareResult = (a.node || '').localeCompare(b.node || '');
-          break;
-        case 'documents':
-          compareResult = a.docs - b.docs;
-          break;
-        case 'size':
-          compareResult = a.store - b.store;
-          break;
-        default:
-          compareResult = a.index.localeCompare(b.index);
-      }
-
-      return shardsSortDirection === 'asc' ? compareResult : -compareResult;
-    })
-    : [];
 
   if (loading) {
     return (

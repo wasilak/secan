@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import type { ClusterInfo } from '../types/api';
 
 /**
  * Hook to resolve and cache cluster display names
@@ -21,8 +22,8 @@ export function useClusterName(clusterId: string): string {
   const { data: clusterInfo } = useQuery({
     queryKey: ['cluster', clusterId, 'info'],
     queryFn: async () => {
-      const clusters = await apiClient.getClusters();
-      return clusters.find((c) => c.id === clusterId);
+      const clustersResponse = await apiClient.getClusters(1, 100);
+      return clustersResponse.items.find((c: ClusterInfo) => c.id === clusterId);
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });

@@ -25,6 +25,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { SortableTable, SortableTableColumn } from '../components/SortableTable';
 import { getHealthColor } from '../utils/colors';
 import { formatBytes } from '../utils/formatters';
+import type { ClusterInfo } from '../types/api';
 
 /**
  * Simple metric card for dashboard
@@ -98,18 +99,21 @@ export function Dashboard() {
   // Requirements: 12.1, 12.7, 12.8
   useFaviconManager(null);
 
-  // Fetch list of clusters with caching
+  // Fetch list of clusters with caching and server-side filtering
   const {
-    data: clusters,
+    data: clustersPaginated,
     isLoading: clustersLoading,
     error: clustersError,
   } = useQuery({
-    queryKey: ['clusters'],
-    queryFn: () => apiClient.getClusters(),
+    queryKey: ['clusters', 1, 100], // Fetch all with page 1, size 100
+    queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
-    staleTime: 30 * 1000, // Keep data fresh for 30 seconds
-    gcTime: 5 * 60 * 1000, // Cache data for 5 minutes (formerly cacheTime)
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
   });
+
+  // Extract clusters array from paginated response
+  const clusters: ClusterInfo[] = clustersPaginated?.items ?? [];
 
   // Announce loading and error states to screen readers
   useEffect(() => {

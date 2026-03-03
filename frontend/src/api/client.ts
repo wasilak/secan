@@ -265,13 +265,29 @@ export class ApiClient {
   }
 
   /**
-   * Get list of accessible clusters
+   * Get list of accessible clusters with filtering and pagination
    *
    * Requirements: 23.4, 25.4
    */
-  async getClusters(): Promise<ClusterInfo[]> {
+  async getClusters(
+    page: number = 1,
+    pageSize: number = 50,
+    filters?: {
+      search?: string;
+      health?: string[]; // ['green', 'yellow', 'red']
+      version?: string;
+    }
+  ): Promise<PaginatedResponse<ClusterInfo>> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ClusterInfo[]>('/clusters');
+      const response = await this.client.get<PaginatedResponse<ClusterInfo>>('/clusters', {
+        params: {
+          page,
+          page_size: pageSize,
+          search: filters?.search || '',
+          health: filters?.health?.join(',') || '',
+          version: filters?.version || '',
+        },
+      });
       return response.data;
     });
   }
@@ -348,11 +364,26 @@ export class ApiClient {
    *
    * Requirements: 4.6, 14.1, 14.2
    */
-  async getNodes(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<NodeInfo>> {
+  async getNodes(
+    clusterId: string,
+    page: number = 1,
+    pageSize: number = 50,
+    filters?: {
+      search?: string;
+      roles?: string[]; // ['master', 'data', 'ingest']
+    }
+  ): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<PaginatedResponse<NodeInfo>>(
         `/clusters/${clusterId}/nodes`,
-        { params: { page, page_size: pageSize } }
+        {
+          params: {
+            page,
+            page_size: pageSize,
+            search: filters?.search || '',
+            roles: filters?.roles?.join(',') || '',
+          },
+        }
       );
 
       // Ensure optional fields have proper defaults
@@ -458,15 +489,32 @@ export class ApiClient {
   }
 
   /**
-   * Get shard allocation information with pagination
+   * Get shard allocation information with pagination and filtering
    *
    * Requirements: 4.8
    */
-  async getShards(clusterId: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<ShardInfo>> {
+  async getShards(
+    clusterId: string,
+    page: number = 1,
+    pageSize: number = 50,
+    filters?: {
+      state?: string[]; // ['UNASSIGNED', 'STARTED']
+      index?: string;
+      node?: string;
+    }
+  ): Promise<PaginatedResponse<ShardInfo>> {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<PaginatedResponse<ShardInfo>>(
         `/clusters/${clusterId}/shards`,
-        { params: { page, page_size: pageSize } }
+        {
+          params: {
+            page,
+            page_size: pageSize,
+            state: filters?.state?.join(',') || '',
+            index: filters?.index || '',
+            node: filters?.node || '',
+          },
+        }
       );
       return response.data;
     });
