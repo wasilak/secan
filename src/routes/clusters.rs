@@ -13,7 +13,7 @@ use std::sync::Arc;
 mod pagination;
 mod transform;
 
-use pagination::{paginate_vec, PaginatedResponse, PaginationParams};
+use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
     transform_cluster_stats, transform_indices, transform_node_detail_stats, transform_nodes,
     transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
@@ -98,7 +98,7 @@ pub async fn list_clusters(
     let Some(user) = user_ext else {
         tracing::debug!("No authenticated user, returning all clusters (Open mode)");
         // Apply filters even in open mode
-        let mut filtered = filter_clusters(&all_clusters, &params);
+        let filtered = filter_clusters(&all_clusters, &params);
         let response = paginate_vec(filtered, params.page as usize, params.page_size as usize);
         return Ok(Json(response));
     };
@@ -113,7 +113,7 @@ pub async fn list_clusters(
     let user_filtered = filter_clusters_by_access(&all_clusters, &user.0 .0.accessible_clusters);
 
     // Apply additional filters
-    let mut filtered = filter_clusters(&user_filtered, &params);
+    let filtered = filter_clusters(&user_filtered, &params);
 
     tracing::debug!(
         total = all_clusters.len(),
@@ -128,17 +128,14 @@ pub async fn list_clusters(
         if let Ok(cluster) = state.cluster_manager.get_cluster(&cluster_info.id).await {
             // Get health for health filter
             let health = cluster.health().await.ok();
-            let cluster_health = health.as_ref()
-                .and_then(|h| h["status"].as_str())
-                .unwrap_or("unknown");
-            
-            // Get version for version filter  
+
+            // Get version for version filter
             let version = cluster.client.es_version();
 
             // Fetch cluster name if not in config
             let cluster_name = cluster_info.name.clone().or_else(|| {
                 health.as_ref()
-                    .and_then(|h| h["cluster_name"].as_str())
+                    .and_then(|h: &serde_json::Value| h["cluster_name"].as_str())
                     .map(|s| s.to_string())
             }).unwrap_or(cluster_info.id.clone());
 
@@ -170,7 +167,7 @@ fn filter_clusters(
     clusters: &[ClusterInfo],
     params: &ClustersQueryParams,
 ) -> Vec<ClusterInfo> {
-    let health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
+    let _health_filter: Vec<&str> = params.health.split(',').filter(|s| !s.is_empty()).collect();
     
     clusters.iter()
         .filter(|cluster| {

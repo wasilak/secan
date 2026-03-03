@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Pagination query parameters
 #[derive(Debug, Deserialize, Clone, Copy)]
+#[allow(dead_code)] // Kept for potential future use
 pub struct PaginationParams {
     /// Page number (1-indexed)
     #[serde(default = "default_page")]
@@ -20,6 +21,7 @@ fn default_page_size() -> usize {
     50
 }
 
+#[allow(dead_code)] // Kept for potential future use
 impl PaginationParams {
     /// Validate pagination parameters
     pub fn validate(mut self) -> Result<Self, String> {
