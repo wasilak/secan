@@ -69,6 +69,46 @@ lint-frontend:
     # Run TypeScript/React linter
     cd frontend && npm run lint
 
+[group('ci')]
+ci: ci-backend ci-frontend
+    # Run complete CI/CD pipeline for backend and frontend
+
+[group('ci')]
+ci-backend:
+    # Run complete backend CI/CD checks
+    echo "=== BACKEND CI/CD ==="
+    echo "1. Cargo fmt check..."
+    cargo fmt --check
+    echo "✅ PASSED"
+    echo ""
+    echo "2. Cargo clippy..."
+    cargo clippy -- -D warnings
+    echo "✅ PASSED"
+    echo ""
+    echo "3. Cargo test..."
+    cargo test
+    echo "✅ PASSED"
+    echo ""
+    echo "=== BACKEND CI/CD COMPLETE ==="
+
+[group('ci')]
+ci-frontend:
+    # Run complete frontend CI/CD checks
+    echo "=== FRONTEND CI/CD ==="
+    echo "4. NPM lint..."
+    cd frontend && npm run lint
+    echo "✅ PASSED"
+    echo ""
+    echo "5. NPM test..."
+    cd frontend && npm test
+    echo "✅ PASSED"
+    echo ""
+    echo "6. NPM build..."
+    cd frontend && npm run build
+    echo "✅ PASSED"
+    echo ""
+    echo "=== FRONTEND CI/CD COMPLETE ==="
+
 [group('format')]
 format:
     # Format all code
