@@ -229,6 +229,9 @@ pub struct ClusterConfig {
     /// Prometheus configuration (required if metrics_source is Prometheus)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prometheus: Option<PrometheusConfig>,
+    /// Topology view configuration
+    #[serde(default)]
+    pub topology: TopologyConfig,
 }
 
 impl Default for ClusterConfig {
@@ -242,6 +245,7 @@ impl Default for ClusterConfig {
             es_version: default_es_version(),
             metrics_source: MetricsSource::default(),
             prometheus: None,
+            topology: TopologyConfig::default(),
         }
     }
 }
@@ -301,6 +305,30 @@ fn default_es_version() -> u8 {
 pub enum ClientType {
     #[default]
     Sdk,
+}
+
+/// Topology view configuration for progressive loading
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TopologyConfig {
+    /// Number of concurrent node shard requests (default: 4)
+    #[serde(default = "default_topology_batch_size")]
+    pub batch_size: u32,
+    /// Number of retry attempts for failed node shard requests (default: 0)
+    #[serde(default)]
+    pub retry_count: u32,
+}
+
+fn default_topology_batch_size() -> u32 {
+    4
+}
+
+impl Default for TopologyConfig {
+    fn default() -> Self {
+        Self {
+            batch_size: default_topology_batch_size(),
+            retry_count: 0,
+        }
+    }
 }
 
 // Validation implementations

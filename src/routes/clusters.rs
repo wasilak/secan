@@ -1146,6 +1146,75 @@ pub async fn get_shards(
     Ok(Json(response))
 }
 
+/// Get shards allocated on a specific node
+///
+/// Returns shard information for shards on the specified node only.
+/// This is more efficient than fetching all shards and filtering client-side.
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.8
+pub async fn get_node_shards(
+    State(state): State<ClusterState>,
+    Path((cluster_id, node_id)): Path<(String, String)>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+) -> Result<Json<Vec<ShardInfoResponse>>, ClusterErrorResponse> {
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_id = %node_id,
+        "Getting shards for node"
+    );
+
+    // Check cluster access
+    check_cluster_access(&cluster_id, &user_ext)?;
+
+    // Get the cluster
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Use _cat/shards API with node filter for efficient retrieval
+    let cat_shards = cluster
+        .cat_shards_for_node(&node_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                node_id = %node_id,
+                error = %e,
+                "Failed to get shard information for node"
+            );
+            ClusterErrorResponse {
+                error: "shards_failed".to_string(),
+                message: format!("Failed to get shard information: {}", e),
+            }
+        })?;
+
+    // Transform to frontend format
+    let shards = transform_shards(&cat_shards);
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_id = %node_id,
+        shard_count = shards.len(),
+        "Node shards retrieved successfully"
+    );
+
+    Ok(Json(shards))
+}
+
 /// Proxy request to Elasticsearch cluster
 ///
 /// Forwards the request to the specified cluster and returns the response

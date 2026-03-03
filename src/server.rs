@@ -162,6 +162,11 @@ impl Server {
                 "/api/clusters/{id}/shards/{index}/{shard}",
                 get(crate::routes::clusters::get_shard_stats),
             )
+            // Node-specific shard endpoint for progressive loading
+            .route(
+                "/api/clusters/{id}/nodes/{node_id}/shards",
+                get(crate::routes::clusters::get_node_shards),
+            )
             // Shard relocation endpoint
             .route(
                 "/api/clusters/{id}/shards/relocate",

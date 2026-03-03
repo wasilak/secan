@@ -521,6 +521,21 @@ export class ApiClient {
   }
 
   /**
+   * Get shards allocated on a specific node
+   * For progressive loading in topology view
+   *
+   * Requirements: 4.8
+   */
+  async getNodeShards(clusterId: string, nodeId: string): Promise<ShardInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<ShardInfo[]>(
+        `/clusters/${clusterId}/nodes/${nodeId}/shards`
+      );
+      return response.data;
+    });
+  }
+
+  /**
    * Get detailed statistics for a specific shard
    *
    * Requirements: 4.8
