@@ -43,7 +43,7 @@ describe('useClusterName', () => {
 
     const mockStats: ClusterStats = {
       health: 'green',
-      clusterName: 'my-elasticsearch-cluster',
+      clusterName: 'Production Cluster',
       numberOfNodes: 3,
       numberOfDataNodes: 2,
       numberOfIndices: 10,
@@ -55,13 +55,13 @@ describe('useClusterName', () => {
       unassignedShards: 0,
     };
 
-    vi.mocked(apiClient.getClusters).mockResolvedValue(mockClusters);
+    vi.mocked(apiClient.getClusters).mockResolvedValue({ items: mockClusters, total: 1, page: 1, page_size: 100, total_pages: 1 });
     vi.mocked(apiClient.getClusterStats).mockResolvedValue(mockStats);
 
     const { result } = renderHook(() => useClusterName('test-cluster'), { wrapper });
 
     await waitFor(() => {
-      expect(result.current).toBe('my-elasticsearch-cluster');
+      expect(result.current).toBe('Production Cluster');
     });
   });
 
@@ -89,7 +89,7 @@ describe('useClusterName', () => {
       unassignedShards: 0,
     };
 
-    vi.mocked(apiClient.getClusters).mockResolvedValue(mockClusters);
+    vi.mocked(apiClient.getClusters).mockResolvedValue({ items: mockClusters, total: 1, page: 1, page_size: 100, total_pages: 1 });
     vi.mocked(apiClient.getClusterStats).mockResolvedValue(mockStats);
 
     const { result } = renderHook(() => useClusterName('test-cluster'), { wrapper });
@@ -122,7 +122,7 @@ describe('useClusterName', () => {
       },
     ];
 
-    vi.mocked(apiClient.getClusters).mockResolvedValue(mockClusters);
+    vi.mocked(apiClient.getClusters).mockResolvedValue({ items: mockClusters, total: 1, page: 1, page_size: 100, total_pages: 1 });
     vi.mocked(apiClient.getClusterStats).mockImplementation(
       () => new Promise(() => {}) // Never resolves
     );
@@ -158,7 +158,7 @@ describe('useClusterName', () => {
       unassignedShards: 0,
     };
 
-    vi.mocked(apiClient.getClusters).mockResolvedValue(mockClusters);
+    vi.mocked(apiClient.getClusters).mockResolvedValue({ items: mockClusters, total: 1, page: 1, page_size: 100, total_pages: 1 });
     vi.mocked(apiClient.getClusterStats).mockResolvedValue(mockStats);
 
     const { result } = renderHook(() => useClusterName('test-cluster'), { wrapper });
