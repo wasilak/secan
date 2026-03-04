@@ -23,7 +23,12 @@ config = { version = "0.15", features = ["yaml", "toml"] }
 toml = { version = "1.0" }
 
 # HTTP client for Elasticsearch communication
-reqwest = { version = "0.13", default-features = false, features = ["json", "form", "query", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = [
+  "json",
+  "form",
+  "query",
+  "rustls",
+] }
 
 # Elasticsearch Rust SDK
 elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = [
@@ -41,7 +46,7 @@ rust-embed = { version = "8", features = ["compression"] }
 mime_guess = "2"
 
 # Authentication
-bcrypt = "0.18"
+bcrypt = "0.19"
 argon2 = "0.5"
 jsonwebtoken = "10"
 openidconnect = "4"
