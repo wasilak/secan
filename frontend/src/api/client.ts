@@ -79,6 +79,7 @@ export class ApiClient {
     this.client = axios.create({
       baseURL,
       withCredentials: true, // Include cookies for session management
+      timeout: 30000, // 30 second timeout
       headers: {
         'Content-Type': 'application/json',
       },
@@ -238,10 +239,13 @@ export class ApiClient {
 
     // Handle network errors
     if (error.request) {
-      return Promise.reject(new ApiClientError('Network error - unable to reach server', 0));
+      const message = `Network error: ${error.code || error.message || 'unable to reach server'}`;
+      console.error('Network error details:', { code: error.code, message: error.message, config: error.config?.url });
+      return Promise.reject(new ApiClientError(message, 0));
     }
 
     // Handle other errors
+    console.error('Unexpected error:', error);
     return Promise.reject(new ApiClientError(error.message || 'An unexpected error occurred', 0));
   }
 
@@ -1130,7 +1134,8 @@ export class ApiClient {
       >(`/clusters/${clusterId}/${indexName}/_mapping`);
 
       const indexData = response.data[indexName];
-      const properties = indexData?.mappings?.properties || {};
+      // Handle case where index has no mappings (empty index with 0 docs)
+      const properties = indexData?.mappings?.properties ?? {};
 
       const fields: FieldInfo[] = [];
 

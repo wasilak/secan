@@ -69,10 +69,16 @@ export function IndexMappings() {
         `/${indexName}/_mapping`
       );
 
-      // Extract mappings from the response
-      // Response format: { "index-name": { "mappings": { ... } } }
-      const indexData = response.data[indexName] as Record<string, unknown>;
-      return indexData?.mappings as Record<string, unknown>;
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName];
+      
+      // Handle case where index has no mappings (empty index with 0 docs)
+      if (!indexData || typeof indexData !== 'object') {
+        return {} as Record<string, unknown>;
+      }
+      
+      const mappings = (indexData as Record<string, unknown>).mappings;
+      return (mappings && typeof mappings === 'object') ? (mappings as Record<string, unknown>) : ({} as Record<string, unknown>);
     },
     enabled: !!clusterId && !!indexName,
   });
@@ -186,9 +192,6 @@ export function IndexMappings() {
             {indexName}
           </Text>
         </div>
-        <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
-          Back to Indices
-        </Button>
       </Group>
 
       <Stack gap="md">

@@ -68,10 +68,16 @@ export function IndexSettings() {
         `/${indexName}/_settings`
       );
 
-      // Extract settings from the response
-      // Response format: { "index-name": { "settings": { ... } } }
-      const indexData = response.data[indexName] as Record<string, unknown>;
-      return indexData?.settings as Record<string, unknown>;
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName];
+      
+      // Handle case where index response is empty (empty index with 0 docs)
+      if (!indexData || typeof indexData !== 'object') {
+        return {} as Record<string, unknown>;
+      }
+      
+      const settings = (indexData as Record<string, unknown>).settings;
+      return (settings && typeof settings === 'object') ? (settings as Record<string, unknown>) : ({} as Record<string, unknown>);
     },
     enabled: !!clusterId && !!indexName,
   });
@@ -251,13 +257,6 @@ export function IndexSettings() {
         <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Settings" color="red">
           {errorDetails.message}
         </Alert>
-        <Button
-          variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-          mt="md"
-        >
-          Back to Indices
-        </Button>
       </FullWidthContainer>
     );
   }
@@ -271,9 +270,6 @@ export function IndexSettings() {
             {indexName}
           </Text>
         </div>
-        <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
-          Back to Indices
-        </Button>
       </Group>
 
       <Stack gap="md">

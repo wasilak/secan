@@ -198,8 +198,16 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
         `/${indexName}/_settings`
       );
 
-      const indexData = response.data[indexName] as Record<string, unknown>;
-      return indexData?.settings as Record<string, unknown>;
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName];
+      
+      // Handle case where index response is empty (empty index with 0 docs)
+      if (!indexData || typeof indexData !== 'object') {
+        return {} as Record<string, unknown>;
+      }
+      
+      const settings = (indexData as Record<string, unknown>).settings;
+      return (settings && typeof settings === 'object') ? (settings as Record<string, unknown>) : ({} as Record<string, unknown>);
     },
     enabled: !!clusterId && !!indexName,
   });
@@ -222,8 +230,16 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
         `/${indexName}/_mapping`
       );
 
-      const indexData = response.data[indexName] as Record<string, unknown>;
-      return indexData?.mappings as Record<string, unknown>;
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName];
+      
+      // Handle case where index has no mappings (empty index with 0 docs)
+      if (!indexData || typeof indexData !== 'object') {
+        return {} as Record<string, unknown>;
+      }
+      
+      const mappings = (indexData as Record<string, unknown>).mappings;
+      return (mappings && typeof mappings === 'object') ? (mappings as Record<string, unknown>) : ({} as Record<string, unknown>);
     },
     enabled: !!clusterId && !!indexName,
   });
@@ -413,13 +429,6 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
         <Alert icon={<IconAlertCircle size={16} />} title="Error Loading Index" color="red">
           {errorDetails.message}
         </Alert>
-        <Button
-          variant="default"
-          onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}
-          mt="md"
-        >
-          Back to Indices
-        </Button>
       </FullWidthContainer>
     );
   }
@@ -433,11 +442,6 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
               {indexName}
             </Badge>
           </Group>
-          {!searchParams.has('index') && (
-            <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}?tab=indices`)}>
-              Back to Indices
-            </Button>
-          )}
         </Group>
       )}
 
