@@ -1,5 +1,6 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::auth::{OidcAuthProvider, SessionManager};
+use axum::body::Body;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -96,7 +97,7 @@ pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, Erro
 pub async fn oidc_callback(
     State(state): State<AuthState>,
     Query(params): Query<OidcCallbackQuery>,
-) -> Result<Redirect, ErrorResponse> {
+) -> Result<Response, ErrorResponse> {
     let oidc_provider = state.oidc_provider.ok_or_else(|| ErrorResponse {
         error: "oidc_not_configured".to_string(),
         message: "OIDC authentication is not configured".to_string(),
@@ -138,7 +139,7 @@ pub async fn oidc_callback(
         })?;
 
     // Create session
-    let _session_token = oidc_provider.create_session(&claims).await.map_err(|e| {
+    let session_token = oidc_provider.create_session(&claims).await.map_err(|e| {
         tracing::error!(
             auth_method = "oidc",
             user_id = %claims.sub,
@@ -157,11 +158,18 @@ pub async fn oidc_callback(
         "Authentication successful"
     );
 
-    // TODO: Set session token as HTTP-only cookie
-    // For now, redirect to home page
-    // In production, this should set a secure cookie and redirect to the original requested page
+    // Set session token as HTTP-only cookie and redirect to home page
+    let mut response = Response::new(Body::empty());
+    response.headers_mut().insert(
+        http::header::SET_COOKIE,
+        create_session_cookie(&session_token),
+    );
+    response
+        .headers_mut()
+        .insert(http::header::LOCATION, http::HeaderValue::from_static("/"));
+    *response.status_mut() = StatusCode::FOUND;
 
-    Ok(Redirect::to("/"))
+    Ok(response)
 }
 
 /// Login endpoint for local users

@@ -14,7 +14,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconExternalLink } from '@tabler/icons-react';
 import { APP_VERSION, getAppVersion } from '../utils/version';
 
 /**
@@ -30,6 +30,7 @@ export function Login() {
   const [error, setError] = useState('');
   const [authChecking, setAuthChecking] = useState(true);
   const [appVersion, setAppVersion] = useState(APP_VERSION);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
 
   // Get redirect_to from query params, default to dashboard
   const searchParams = new URLSearchParams(location.search);
@@ -64,6 +65,7 @@ export function Login() {
 
           // If OIDC is enabled, redirect to OIDC login
           if (status.oidc_enabled) {
+            setOidcEnabled(true);
             window.location.href = '/api/auth/oidc/login';
             return;
           }
@@ -104,6 +106,69 @@ export function Login() {
     );
   }
 
+  // Show OIDC redirect message if OIDC is enabled
+  if (oidcEnabled) {
+    return (
+      <Box style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
+        <Container size="xs" py="xl">
+          <Paper shadow="md" p="xl" radius="md" withBorder w="100%">
+            <Stack gap={0} align="center" mb="xl">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  font: 'inherit',
+                }}
+              >
+                <Title order={2} ta="center">
+                  Secan
+                </Title>
+              </button>
+              <Text size="xs" c="dimmed">
+                {appVersion}
+              </Text>
+              <Text size="sm" c="dimmed" ta="center">
+                Elasticsearch Cluster Management Tool
+              </Text>
+            </Stack>
+
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red" mb="md">
+                {error}
+              </Alert>
+            )}
+
+            <Stack gap="md" align="center">
+              <Loader size="md" />
+              <Text ta="center" size="sm">
+                Redirecting to OIDC provider...
+              </Text>
+              <Text ta="center" size="xs" c="dimmed">
+                If you are not redirected automatically, click the button below
+              </Text>
+              <Button
+                component="a"
+                href="/api/auth/oidc/login"
+                variant="outline"
+                leftSection={<IconExternalLink size={16} />}
+                fullWidth
+              >
+                Go to OIDC Provider
+              </Button>
+            </Stack>
+          </Paper>
+        </Container>
+      </Box>
+    );
+  }
+
+  // Show regular login form for local authentication
   return (
     <Box style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
       <Container size="xs" py="xl">
