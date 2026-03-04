@@ -765,3 +765,50 @@ export interface NodeMetricsHistoryResponse {
   time_range: TimeRange;
   data: NodeMetricsPoint[];
 }
+
+/**
+ * Task information from cluster tasks API
+ */
+export interface TaskInfo {
+  node: string;
+  id: number;
+  type: string;
+  action: string;
+  start_time_in_millis: number;
+  cancellable: boolean;
+  cancelled: boolean;
+  parent_task_id?: string;
+  running_time_millis?: number;
+}
+
+/**
+ * Detailed task information
+ */
+export interface TaskDetails extends TaskInfo {
+  raw?: Record<string, unknown>;
+}
+
+/**
+ * Tasks list response from API
+ */
+export interface TasksListResponse {
+  tasks: TaskInfo[];
+  unique_types: string[];
+  unique_actions: string[];
+  timestamp: number;
+}
+
+/**
+ * Task details response from API
+ */
+export interface TaskDetailsResponse {
+  task: TaskDetails;
+}
+
+/**
+ * Cancel task response from API
+ */
+export interface CancelTaskResponse {
+  success: boolean;
+  message: string;
+}

@@ -33,6 +33,10 @@ import {
   RelocateShardResponse,
   ClusterMetricsHistoryResponse,
   NodeMetricsHistoryResponse,
+  TaskInfo,
+  TasksListResponse,
+  TaskDetailsResponse,
+  CancelTaskResponse,
 } from '../types/api';
 
 /**
@@ -1495,27 +1499,84 @@ export class ApiClient {
    * Requirements: 1.0, 1.1
    */
   async getNodeMetrics(
-    clusterId: string,
-    nodeId: string,
-    params?: { start?: number; end?: number }
+   clusterId: string,
+   nodeId: string,
+   params?: { start?: number; end?: number }
   ): Promise<NodeMetricsHistoryResponse> {
-    return this.executeWithRetry(async () => {
-      const url = new URL(`/api/clusters/${clusterId}/metrics/nodes/${nodeId}`, window.location.origin);
-      if (params?.start) url.searchParams.append('start', String(params.start));
-      if (params?.end) url.searchParams.append('end', String(params.end));
+   return this.executeWithRetry(async () => {
+     const url = new URL(`/api/clusters/${clusterId}/metrics/nodes/${nodeId}`, window.location.origin);
+     if (params?.start) url.searchParams.append('start', String(params.start));
+     if (params?.end) url.searchParams.append('end', String(params.end));
 
-      const response = await fetch(url.toString(), {
-        credentials: 'include',
-      });
+     const response = await fetch(url.toString(), {
+       credentials: 'include',
+     });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
-      }
+     if (!response.ok) {
+       throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
+     }
 
-      return response.json() as Promise<NodeMetricsHistoryResponse>;
-    });
+     return response.json() as Promise<NodeMetricsHistoryResponse>;
+   });
   }
-}
+
+  /**
+  * Get all active tasks in a cluster with optional filtering
+  *
+  * Requirements: 1, 2, 3 (Task display with filtering)
+  */
+  async getTasks(
+   clusterId: string,
+   filters?: {
+     types?: string[];
+     actions?: string[];
+   }
+  ): Promise<TasksListResponse> {
+   return this.executeWithRetry(async () => {
+     const params: Record<string, string> = {};
+     if (filters?.types && filters.types.length > 0) {
+       params.type_filter = filters.types.join(',');
+     }
+     if (filters?.actions && filters.actions.length > 0) {
+       params.action_filter = filters.actions.join(',');
+     }
+
+     const response = await this.client.get<TasksListResponse>(
+       `/clusters/${clusterId}/tasks`,
+       { params }
+     );
+     return response.data;
+   });
+  }
+
+  /**
+  * Get detailed information about a specific task
+  *
+  * Requirements: 4 (Task details modal)
+  */
+  async getTaskDetails(clusterId: string, taskId: string): Promise<TaskDetailsResponse> {
+   return this.executeWithRetry(async () => {
+     const response = await this.client.get<TaskDetailsResponse>(
+       `/clusters/${clusterId}/tasks/${taskId}`
+     );
+     return response.data;
+   });
+  }
+
+  /**
+  * Cancel a specific task
+  *
+  * Requirements: 5 (Cancel task action)
+  */
+  async cancelTask(clusterId: string, taskId: string): Promise<CancelTaskResponse> {
+   return this.executeWithRetry(async () => {
+     const response = await this.client.post<CancelTaskResponse>(
+       `/clusters/${clusterId}/tasks/${taskId}/_cancel`
+     );
+      return response.data;
+     });
+     }
+     }
 
 /**
  * Default API client instance
