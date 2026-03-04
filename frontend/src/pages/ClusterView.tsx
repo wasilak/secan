@@ -2080,13 +2080,13 @@ function IndicesList({
   };
 
   const handleBulkSelectAll = () => {
-    if (displayIndices) {
+    if (sortedIndices) {
       // If all are already selected, clear selection; otherwise select all
-      const allSelected = displayIndices.every((index) => selectedIndices.has(index.name));
+      const allSelected = sortedIndices.every((index) => selectedIndices.has(index.name));
       if (allSelected) {
         clearSelection();
       } else {
-        selectAll(displayIndices.map((index) => index.name));
+        selectAll(sortedIndices.map((index) => index.name));
       }
     }
   };
@@ -2333,7 +2333,10 @@ function IndicesList({
     }
 
     if (newHealth !== undefined) {
-      if (newHealth.length > 0) {
+      // If all health colors are selected, delete the parameter (no filter)
+      if (newHealth.length === 4) {
+        params.delete('health');
+      } else if (newHealth.length > 0) {
         params.set('health', newHealth.join(','));
       } else {
         params.delete('health');
@@ -2341,7 +2344,10 @@ function IndicesList({
     }
 
     if (newStatus !== undefined) {
-      if (newStatus.length > 0) {
+      // If all statuses are selected, delete the parameter (no filter)
+      if (newStatus.length === 2) {
+        params.delete('status');
+      } else if (newStatus.length > 0) {
         params.set('status', newStatus.join(','));
       } else {
         params.delete('status');
@@ -2415,12 +2421,38 @@ function IndicesList({
     );
   };
 
-  // No client-side filtering - backend handles all filtering
-  // indices array comes pre-filtered and paginated from backend
-  const displayIndices = indices?.slice() || [];
+  // Apply all filters to indices
+  const filteredIndices = (indices || []).filter((index) => {
+    // Search filter
+    if (debouncedSearch && !index.name.toLowerCase().includes(debouncedSearch.toLowerCase())) {
+      return false;
+    }
+
+    // Health filter
+    if (selectedHealth.length > 0 && !selectedHealth.includes(index.health)) {
+      return false;
+    }
+
+    // Status filter
+    if (selectedStatus.length > 0 && !selectedStatus.includes(index.status)) {
+      return false;
+    }
+
+    // Special indices filter
+    if (!showSpecialIndices && index.name.startsWith('.')) {
+      return false;
+    }
+
+    // Affected filter (only indices with problem shards)
+    if (showOnlyAffected && !hasProblems(index.name)) {
+      return false;
+    }
+
+    return true;
+  });
 
   // Sort indices by selected column (client-side sorting only)
-  const sortedIndices = [...displayIndices].sort((a, b) => {
+  const sortedIndices = [...filteredIndices].sort((a, b) => {
     let compareResult: number;
 
     switch (indicesSortColumn) {
@@ -2461,22 +2493,6 @@ function IndicesList({
       <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
         Failed to load indices: {error.message}
       </Alert>
-    );
-  }
-
-  if (!indices || indices.length === 0) {
-    return (
-      <Stack gap="md" align="center" py="xl">
-        <Text c="dimmed">No indices found</Text>
-        {id && (
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => navigate(`/cluster/${id}/indices/create`)}
-          >
-            Create Index
-          </Button>
-        )}
-      </Stack>
     );
   }
 
@@ -2595,6 +2611,11 @@ function IndicesList({
                     const newHealth = isSelected
                       ? selectedHealth.filter((h) => h !== health)
                       : [...selectedHealth, health];
+                    // If unchecking the last health color, reset to all health colors
+                    if (newHealth.length === 0) {
+                      updateFilters(undefined, ['green', 'yellow', 'red', 'unknown'], undefined);
+                      return;
+                    }
                     updateFilters(undefined, newHealth, undefined);
                   }}
                   role="button"
@@ -2605,6 +2626,11 @@ function IndicesList({
                       const newHealth = isSelected
                         ? selectedHealth.filter((h) => h !== health)
                         : [...selectedHealth, health];
+                      // If unchecking the last health color, reset to all health colors
+                      if (newHealth.length === 0) {
+                        updateFilters(undefined, ['green', 'yellow', 'red', 'unknown'], undefined);
+                        return;
+                      }
                       updateFilters(undefined, newHealth, undefined);
                     }
                   }}
@@ -2645,6 +2671,11 @@ function IndicesList({
                     const newStatus = isSelected
                       ? selectedStatus.filter((s) => s !== value)
                       : [...selectedStatus, value];
+                    // If unchecking the last status, reset to all statuses
+                    if (newStatus.length === 0) {
+                      updateFilters(undefined, undefined, ['open', 'close']);
+                      return;
+                    }
                     updateFilters(undefined, undefined, newStatus);
                   }}
                   role="button"
@@ -2655,6 +2686,11 @@ function IndicesList({
                       const newStatus = isSelected
                         ? selectedStatus.filter((s) => s !== value)
                         : [...selectedStatus, value];
+                      // If unchecking the last status, reset to all statuses
+                      if (newStatus.length === 0) {
+                        updateFilters(undefined, undefined, ['open', 'close']);
+                        return;
+                      }
                       updateFilters(undefined, undefined, newStatus);
                     }
                   }}
@@ -2734,20 +2770,16 @@ function IndicesList({
 
       {/* Unassigned shards section - REMOVED, now shown in table column */}
 
-      {sortedIndices && sortedIndices.length === 0 ? (
-        <Text c="dimmed" ta="center" py="xl">
-          No indices match your filters
-        </Text>
-      ) : (
-        <ScrollArea>
-          <Table striped highlightOnHover>
-            <Table.Thead>
+      {/* Always show table with filters - even if no indices match */}
+      <ScrollArea>
+        <Table striped highlightOnHover>
+          <Table.Thead>
               <Table.Tr>
                 <Table.Th>
                   <Checkbox
                     aria-label="Select all indices"
-                    checked={count > 0 && count === displayIndices?.length}
-                    indeterminate={count > 0 && count < (displayIndices?.length || 0)}
+                    checked={count > 0 && count === sortedIndices.length}
+                    indeterminate={count > 0 && count < sortedIndices.length}
                     onChange={handleBulkSelectAll}
                     onClick={(e) => e.stopPropagation()}
                   />
@@ -2805,7 +2837,7 @@ function IndicesList({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {displayIndices?.map((index) => {
+              {sortedIndices.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
                 const hasUnassigned = unassignedCount > 0;
 
@@ -3058,7 +3090,6 @@ function IndicesList({
             </Table.Tbody>
           </Table>
         </ScrollArea>
-      )}
 
       {/* Pagination */}
       {indices && indices.length > 0 && indicesPaginated && indicesPaginated.total_pages > 1 && (
@@ -4595,6 +4626,16 @@ function ShardsList({
             const newStates = selectedStates.includes(state)
               ? selectedStates.filter((s) => s !== state)
               : [...selectedStates, state];
+            // If unchecking the last state, reset to all states
+            if (newStates.length === 0) {
+              updateFilters(
+                undefined,
+                ['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED'],
+                undefined,
+                undefined
+              );
+              return;
+            }
             updateFilters(undefined, newStates, undefined, undefined);
           }}
         />
@@ -4616,11 +4657,17 @@ function ShardsList({
                   transition: 'opacity 150ms ease',
                 }}
                 onClick={() => {
+                  const newShowPrimaries = isPrimary ? !showPrimaries : showPrimaries;
+                  const newShowReplicas = isPrimary ? showReplicas : !showReplicas;
+                  // Prevent unchecking both primaries and replicas
+                  if (!newShowPrimaries && !newShowReplicas) {
+                    return; // Keep at least one type selected
+                  }
                   updateFilters(
                     undefined,
                     undefined,
-                    isPrimary ? !showPrimaries : undefined,
-                    isPrimary ? undefined : !showReplicas
+                    isPrimary ? newShowPrimaries : undefined,
+                    isPrimary ? undefined : newShowReplicas
                   );
                 }}
                 role="button"
@@ -4628,11 +4675,17 @@ function ShardsList({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
+                    const newShowPrimaries = isPrimary ? !showPrimaries : showPrimaries;
+                    const newShowReplicas = isPrimary ? showReplicas : !showReplicas;
+                    // Prevent unchecking both primaries and replicas
+                    if (!newShowPrimaries && !newShowReplicas) {
+                      return; // Keep at least one type selected
+                    }
                     updateFilters(
                       undefined,
                       undefined,
-                      isPrimary ? !showPrimaries : undefined,
-                      isPrimary ? undefined : !showReplicas
+                      isPrimary ? newShowPrimaries : undefined,
+                      isPrimary ? undefined : newShowReplicas
                     );
                   }
                 }}

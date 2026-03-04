@@ -69,12 +69,14 @@ export function ShardAllocationGridFilters({
 
   const updateShardStates = (states: string[]) => {
     const newParams = new URLSearchParams(searchParams);
+    // If all shard states are selected, delete the parameter (no filter)
     if (states.length === SHARD_STATES.length) {
       newParams.delete('shardStates');
     } else if (states.length > 0) {
       newParams.set('shardStates', states.join(','));
     } else {
-      newParams.set('shardStates', SHARD_STATES[0]);
+      // Should never happen due to reset logic, but handle it
+      newParams.delete('shardStates');
     }
     setSearchParams(newParams);
   };
