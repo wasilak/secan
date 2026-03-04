@@ -15,7 +15,7 @@ import {
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   IconAlertCircle,
@@ -125,7 +125,6 @@ interface IndexEditProps {
 
 export function IndexEdit({ constrainToParent = false, hideHeader = false }: IndexEditProps) {
   const params = useParams<{ id?: string; indexName?: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 

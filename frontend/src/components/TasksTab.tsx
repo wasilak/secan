@@ -8,7 +8,6 @@ import { useBulkSelection } from '../hooks/useBulkSelection';
 import { TasksFilters } from './TasksFilters';
 import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
-import { TaskActionsMenu } from './TaskActionsMenu';
 import { apiClient } from '../api/client';
 
 /**
@@ -39,11 +38,10 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
   const [selectedTask, setSelectedTask] = useState<TaskInfo | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isCancellingTask, setIsCancellingTask] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [bulkCancelModalOpen, setBulkCancelModalOpen] = useState(false);
   const [isBulkCancelling, setIsBulkCancelling] = useState(false);
-  const { selectedIndices, isSelected, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
+  const { selectedIndices, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
 
   // Fetch tasks with auto-refresh
   const { tasks, uniqueTypes, uniqueActions, isLoading, error, filterTasks, sortTasks } =
@@ -69,26 +67,7 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
     setIsDetailModalOpen(true);
   }, []);
 
-  // Handle task cancellation
-  const handleCancelTask = useCallback(
-    async (taskId: string) => {
-      try {
-        setIsCancellingTask(true);
-        setCancelError(null);
-        await apiClient.cancelTask(clusterId, taskId);
-        // Refetch tasks after successful cancellation
-        setIsDetailModalOpen(false);
-        setSelectedTask(null);
-        // In production, trigger a refetch of tasks
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to cancel task';
-        setCancelError(message);
-      } finally {
-        setIsCancellingTask(false);
-      }
-    },
-    [clusterId]
-  );
+
 
   // Handle bulk task cancellation
   const handleBulkCancel = useCallback(async () => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Title, Text, Card, Button, Stack, Group, Alert, Box } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -42,7 +42,6 @@ function validateJSON(json: string): string | null {
  */
 export function IndexMappings() {
   const { id: clusterId, indexName } = useParams<{ id: string; indexName: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
 

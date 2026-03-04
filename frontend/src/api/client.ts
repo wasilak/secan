@@ -33,7 +33,6 @@ import {
   RelocateShardResponse,
   ClusterMetricsHistoryResponse,
   NodeMetricsHistoryResponse,
-  TaskInfo,
   TasksListResponse,
   TaskDetailsResponse,
   CancelTaskResponse,

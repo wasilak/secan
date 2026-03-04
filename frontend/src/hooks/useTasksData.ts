@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { TaskInfo, TasksListResponse } from '../types/api';
+import { TaskInfo } from '../types/api';
 import { apiClient } from '../api/client';
 
 /**
