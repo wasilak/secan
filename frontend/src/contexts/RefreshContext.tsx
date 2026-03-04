@@ -69,6 +69,30 @@ export function RefreshProvider({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(Date.now());
 
+  // Calculate optimal cache duration based on refresh interval
+  const calculateCacheDuration = (refreshInterval: RefreshInterval): number => {
+    if (refreshInterval === 0) {
+      // Refresh is OFF: use 5 minutes
+      return 5 * 60 * 1000;
+    }
+    // Cache should be 1.5x the refresh interval to ensure manual/auto refreshes hit cache
+    // while background jobs update data (minimum 3 seconds)
+    const cacheDuration = Math.ceil(refreshInterval * 1.5);
+    return Math.max(cacheDuration, 3000);
+  };
+
+  // Update query client cache when refresh interval changes
+  useEffect(() => {
+    const cacheDuration = calculateCacheDuration(interval);
+    queryClient.setDefaultOptions({
+      queries: {
+        staleTime: cacheDuration,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    });
+  }, [queryClient, interval]);
+
   // Track automatic query refetches to update lastRefreshTime
   useEffect(() => {
     if (interval === 0) return;

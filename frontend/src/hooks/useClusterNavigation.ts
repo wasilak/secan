@@ -131,9 +131,10 @@ export function useClusterNavigation() {
 
       const section = currentSection() || 'indices';
       const url = buildIndexModalUrl(clusterId, indexName, indexSection, section);
-      navigate(url);
+      // Preserve existing search params (filters, pagination, etc.) when navigating to modal
+      navigate(url + location.search);
     },
-    [clusterId, navigate, currentSection]
+    [clusterId, navigate, currentSection, location.search]
   );
 
   /**
@@ -160,6 +161,7 @@ export function useClusterNavigation() {
    *
    * Preserves the current section context while removing any modal overlay.
    * If no section is active, defaults to 'overview'.
+   * Also preserves all existing search params (filters, pagination, etc.)
    */
   const closeModal = useCallback(() => {
     if (!clusterId) {
@@ -169,8 +171,9 @@ export function useClusterNavigation() {
 
     const section = getSectionOrDefault();
     const url = buildClusterSectionUrl(clusterId, section);
-    navigate(url);
-  }, [clusterId, getSectionOrDefault, navigate]);
+    // Preserve existing search params when closing modal
+    navigate(url + location.search);
+  }, [clusterId, getSectionOrDefault, navigate, location.search]);
 
   /**
    * Get current section safely, with default fallback

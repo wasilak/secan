@@ -33,22 +33,36 @@ fn default_port() -> u16 {
 }
 
 /// Cache configuration
+///
+/// Cache duration is automatically calculated from the refresh interval.
+/// Backend defaults to 30 seconds for cluster metadata caching.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheConfig {
-    /// Duration in seconds to cache cluster metadata
+    /// Duration in seconds to cache cluster metadata (optional, defaults to 30s)
+    /// 
+    /// If not specified, the cache will use a default TTL of 30 seconds.
+    /// For optimal performance, cache should be longer than the frontend refresh interval,
+    /// ensuring that manual/automatic refreshes hit cache while background jobs update data.
     #[serde(default = "default_cache_duration")]
-    pub metadata_duration_seconds: u64,
+    pub metadata_duration_seconds: Option<u64>,
 }
 
-fn default_cache_duration() -> u64 {
-    30 // 30 seconds default
+fn default_cache_duration() -> Option<u64> {
+    None // Use backend default (30s)
 }
 
 impl Default for CacheConfig {
     fn default() -> Self {
         Self {
-            metadata_duration_seconds: 30,
+            metadata_duration_seconds: None,
         }
+    }
+}
+
+impl CacheConfig {
+    /// Get the effective cache duration in seconds
+    pub fn get_duration_secs(&self) -> u64 {
+        self.metadata_duration_seconds.unwrap_or(30) // Default to 30 seconds
     }
 }
 

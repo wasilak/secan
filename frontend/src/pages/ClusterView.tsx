@@ -155,6 +155,35 @@ export function ClusterView() {
   // Get resolved cluster name
   const clusterName = useClusterName(id || '');
 
+  // Indices search filter (similar to shards filter, handled at parent level to prevent re-renders of child)
+  const indicesSearch = searchParams.get('indicesSearch') || '';
+  const [localIndicesSearch, setLocalIndicesSearch] = useState(indicesSearch);
+
+  // Sync local input with URL when it changes externally (back/forward navigation)
+  useEffect(() => {
+    setLocalIndicesSearch(searchParams.get('indicesSearch') || '');
+  }, [searchParams.get('indicesSearch')]);
+
+  // Debounce: update URL after 300ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localIndicesSearch !== searchParams.get('indicesSearch')) {
+        const newParams = new URLSearchParams(searchParams);
+        if (localIndicesSearch) {
+          newParams.set('indicesSearch', localIndicesSearch);
+        } else {
+          newParams.delete('indicesSearch');
+        }
+        setSearchParams(newParams);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localIndicesSearch, searchParams, setSearchParams]);
+
+  const setIndicesSearch = (value: string) => {
+    setLocalIndicesSearch(value);
+  };
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
 
@@ -1347,12 +1376,14 @@ export function ClusterView() {
       {activeTab === 'indices' && (
         <Card shadow="sm" padding="lg">
           <IndicesList
-            indices={indices}
-            indicesPaginated={indicesPaginated}
-            loading={indicesLoading}
-            error={indicesError}
-            openIndexModal={openIndexModal}
-          />
+             indices={indices}
+             indicesPaginated={indicesPaginated}
+             loading={indicesLoading}
+             error={indicesError}
+             openIndexModal={openIndexModal}
+             indicesSearch={localIndicesSearch}
+             setIndicesSearch={setIndicesSearch}
+           />
           {indicesPaginated && indicesPaginated.total_pages > 1 && (
             <SimplePagination
               currentPage={indicesPage}
@@ -1981,12 +2012,16 @@ function IndicesList({
   loading,
   error,
   openIndexModal,
+  indicesSearch,
+  setIndicesSearch,
 }: {
   indices?: IndexInfo[];
   indicesPaginated?: PaginatedResponse<IndexInfo>;
   loading: boolean;
   error: Error | null;
   openIndexModal: (indexName: string, tab?: string) => void;
+  indicesSearch: string;
+  setIndicesSearch: (value: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -2095,9 +2130,10 @@ function IndicesList({
     }
   };
 
-  // Debounce search query to avoid excessive filtering
+  // Debounced filtering uses searchQuery from URL
   // Requirements: 31.7 - Debounce user input in search and filter fields
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  // The local state (localSearchInput) is debounced before updating URL (searchQuery)
+  // This prevents focus loss while maintaining proper debounce timing
 
   // Fetch shards to identify unassigned/problem shards (paginated, extract items)
   const { data: shardsPaginatedForIndices } = useQuery({
@@ -2427,10 +2463,10 @@ function IndicesList({
 
   // Apply all filters to indices
   const filteredIndices = (indices || []).filter((index) => {
-    // Search filter
-    if (debouncedSearch && !index.name.toLowerCase().includes(debouncedSearch.toLowerCase())) {
-      return false;
-    }
+     // Search filter (searchQuery is debounced URL value from localSearchInput)
+     if (searchQuery && !index.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+       return false;
+     }
 
     // Health filter
     if (selectedHealth.length > 0 && !selectedHealth.includes(index.health)) {
@@ -2582,13 +2618,13 @@ function IndicesList({
         </Group>
 
         <Group style={{ flex: 1 }}>
-          <TextInput
-            placeholder="Search indices..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
-            style={{ flex: 1, maxWidth: 300 }}
-          />
+           <TextInput
+             placeholder="Search indices..."
+             leftSection={<IconSearch size={16} />}
+             value={indicesSearch}
+             onChange={(e) => setIndicesSearch(e.currentTarget.value)}
+             style={{ flex: 1, maxWidth: 300 }}
+           />
 
           {/* Health filter toggles */}
           <Group gap="md" wrap="wrap">
@@ -3706,7 +3742,11 @@ function ShardAllocationGrid({
     const matchesAffected = !showOnlyAffected || hasProblems(index.name);
     // NEW: Filter indices to only show those with shards after shard state filtering
     const hasShards = indicesWithFilteredShards.has(index.name);
-    return matchesSearch && matchesClosed && matchesSpecial && matchesAffected && hasShards;
+    // Filter by index name wildcard pattern
+    const matchesIndexFilter = !indexNameFilter || !matchesWildcard 
+      ? true 
+      : matchesWildcard(index.name, indexNameFilter);
+    return matchesSearch && matchesClosed && matchesSpecial && matchesAffected && hasShards && matchesIndexFilter;
   });
 
   // Pagination

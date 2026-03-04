@@ -213,6 +213,6 @@ clusters:
     let config = result.unwrap();
 
     assert_eq!(config.server.port, 7777);
-    // Note: cache.metadata_duration_seconds defaults to 30, can't be overridden via env var due to underscore in field name
-    assert_eq!(config.cache.metadata_duration_seconds, 30);
+     // cache.metadata_duration_seconds is optional, defaults to None (which means 30s backend default)
+     assert_eq!(config.cache.metadata_duration_seconds, None);
 }

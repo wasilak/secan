@@ -157,15 +157,6 @@ clusters:
 
 
 # ============================================================================
-# CACHE CONFIGURATION
-# ============================================================================
-
-cache:
-  # Cluster metadata cache duration in seconds (default: 30)
-  metadata_duration_seconds: 30
-
-
-# ============================================================================
 # METRICS CONFIGURATION
 # ============================================================================
 # Secan supports two metrics sources for historical cluster data:

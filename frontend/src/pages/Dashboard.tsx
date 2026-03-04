@@ -586,18 +586,28 @@ export function Dashboard() {
       </Group>
 
       {/* Responsive table with horizontal scroll on mobile */}
-      <Box style={{ overflowX: 'auto' }}>
-        <SortableTable
-          data={displayData}
-          columns={columns}
-          onRowClick={(row) => {
-            // Don't navigate when clicking the totals row
-            if (row.id !== '__total__') {
-              handleClusterClick(row.id);
-            }
-          }}
-        />
-      </Box>
-    </Stack>
-  );
-}
+       <Box style={{ overflowX: 'auto' }}>
+         {clustersLoading ? (
+           <Stack gap="xs">
+             <Skeleton height={40} radius="sm" />
+             <Skeleton height={40} radius="sm" />
+             <Skeleton height={40} radius="sm" />
+             <Skeleton height={40} radius="sm" />
+             <Skeleton height={40} radius="sm" />
+           </Stack>
+         ) : (
+           <SortableTable
+             data={displayData}
+             columns={columns}
+             onRowClick={(row) => {
+               // Don't navigate when clicking the totals row
+               if (row.id !== '__total__') {
+                 handleClusterClick(row.id);
+               }
+             }}
+           />
+         )}
+       </Box>
+      </Stack>
+      );
+      }

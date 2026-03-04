@@ -108,11 +108,20 @@ fn transform_tasks_response(tasks_value: &Value) -> Vec<TaskInfo> {
             if let Some(node_obj) = node_data.as_object() {
                 if let Some(node_tasks) = node_obj.get("tasks").and_then(|v| v.as_object()) {
                     for (_task_key, task_data) in node_tasks {
-                        // Ensure node field is present before deserializing
+                        // Ensure required fields are present before deserializing
                         let mut task_with_node = task_data.clone();
-                        if task_with_node.get("node").is_none() {
-                            if let Some(obj) = task_with_node.as_object_mut() {
+                        if let Some(obj) = task_with_node.as_object_mut() {
+                            // Inject node field if missing
+                            if obj.get("node").is_none() {
                                 obj.insert("node".to_string(), Value::String(node_id.clone()));
+                            }
+                            // Inject start_time_in_millis if missing (default to current time)
+                            if obj.get("start_time_in_millis").is_none() {
+                                let now = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis() as i64;
+                                obj.insert("start_time_in_millis".to_string(), Value::Number(now.into()));
                             }
                         }
 
@@ -617,6 +626,35 @@ mod tests {
         assert_eq!(task_info.id, 123456);
         assert_eq!(task_info.action, "unknown");
         assert_eq!(task_info.task_type, "unknown");
+    }
+
+    #[test]
+    fn test_transform_tasks_without_start_time() {
+        let json_str = r#"{
+            "nodes": {
+                "nodeA": {
+                    "name": "es01",
+                    "tasks": {
+                        "nodeA:1": {
+                            "id": 1,
+                            "type": "transport",
+                            "action": "cluster:monitor/tasks/lists",
+                            "cancellable": true,
+                            "cancelled": false
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks = transform_tasks_response(&tasks_json);
+
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].id, 1);
+        assert_eq!(tasks[0].node, "nodeA");
+        // start_time_in_millis should be injected with current time
+        assert!(tasks[0].start_time_in_millis > 0);
     }
 
     #[test]
