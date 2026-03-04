@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { ReactElement } from 'react';
 import { Button, Modal, Text, Group, Stack, Loader, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { TaskInfo } from '../types/api';
@@ -18,7 +19,7 @@ interface TaskActionsMenuProps {
   isLoading?: boolean;
 }
 
-export function TaskActionsMenu({ task, onCancel, isLoading }: TaskActionsMenuProps): JSX.Element {
+export function TaskActionsMenu({ task, onCancel, isLoading }: TaskActionsMenuProps): ReactElement {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1393,7 +1393,7 @@ export function ClusterView() {
       {activeTab === 'console' && <RestConsole />}
 
       {/* Tasks Section */}
-      {activeTab === 'tasks' && <TasksTab clusterId={id!} refreshInterval={refreshInterval} />}
+      {activeTab === 'tasks' && <TasksTab clusterId={id!} refreshInterval={refreshInterval || undefined} />}
 
       {/* Index Edit Modal */}
       {selectedIndexName && (

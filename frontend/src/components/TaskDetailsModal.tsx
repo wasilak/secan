@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { Modal, Stack, Text, Group, Badge, ScrollArea, Loader, Alert, Tabs, Code } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { TaskInfo, TaskDetails } from '../types/api';
@@ -47,7 +48,7 @@ export function TaskDetailsModal({
   isOpen,
   onClose,
   clusterId,
-}: TaskDetailsModalProps): JSX.Element {
+}: TaskDetailsModalProps): ReactElement {
   const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

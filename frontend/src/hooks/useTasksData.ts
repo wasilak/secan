@@ -20,7 +20,7 @@ export function useTasksData(clusterId: string, refreshInterval?: number) {
   const [uniqueActions, setUniqueActions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const refetchTimeoutRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch tasks from API
   const fetchTasks = useCallback(

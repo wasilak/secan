@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import type { ReactElement } from 'react';
 import { Stack, Container, LoadingOverlay, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { TaskInfo } from '../types/api';
@@ -30,7 +31,7 @@ interface TasksTabProps {
   refreshInterval?: number;
 }
 
-export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): JSX.Element {
+export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactElement {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<string | null>(null);

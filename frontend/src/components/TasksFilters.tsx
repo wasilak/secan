@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ReactElement } from 'react';
 import { MultiSelect, Group, Stack, Text } from '@mantine/core';
 
 /**
@@ -26,7 +27,7 @@ export function TasksFilters({
   selectedActions,
   onTypesChange,
   onActionsChange,
-}: TasksFiltersProps): JSX.Element {
+}: TasksFiltersProps): ReactElement {
   const typeData = uniqueTypes.map((type) => ({
     value: type,
     label: type,

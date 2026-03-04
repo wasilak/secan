@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ReactElement } from 'react';
 import { Table, Text, Tooltip, Group, Badge, Button, Menu } from '@mantine/core';
 import { IconDots, IconTrash } from '@tabler/icons-react';
 import { TaskInfo } from '../types/api';
@@ -64,7 +65,7 @@ export function TasksTable({
   onRowClick,
   onCancel,
   isLoadingCancel,
-}: TasksTableProps): JSX.Element {
+}: TasksTableProps): ReactElement {
   const SortableHeader = ({ label, column }: { label: string; column: string }) => (
     <Table.Th
       onClick={() => onSort(column)}
