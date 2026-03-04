@@ -172,6 +172,19 @@ impl Server {
                 "/api/clusters/{id}/shards/relocate",
                 post(crate::routes::clusters::relocate_shard),
             )
+            // Task management endpoints
+            .route(
+                "/api/clusters/{id}/tasks",
+                get(crate::routes::clusters::tasks::fetch_cluster_tasks),
+            )
+            .route(
+                "/api/clusters/{id}/tasks/{task_id}",
+                get(crate::routes::clusters::tasks::get_task_details),
+            )
+            .route(
+                "/api/clusters/{id}/tasks/{task_id}/_cancel",
+                post(crate::routes::clusters::tasks::cancel_cluster_task),
+            )
             // Metrics endpoints (must be before catch-all proxy route)
             .nest(
                 "/api/clusters/{id}/metrics",
