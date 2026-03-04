@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 mod pagination;
 mod transform;
+pub mod tasks;
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
