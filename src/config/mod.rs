@@ -116,10 +116,16 @@ pub struct OidcConfig {
     pub redirect_uri: String,
     #[serde(default = "default_groups_claim_key")]
     pub groups_claim_key: String,
+    #[serde(default = "default_oidc_redirect_delay")]
+    pub redirect_delay_seconds: u64,
 }
 
 fn default_groups_claim_key() -> String {
     "groups".to_string()
+}
+
+fn default_oidc_redirect_delay() -> u64 {
+    4
 }
 
 /// Role configuration for RBAC
@@ -891,6 +897,7 @@ mod tests {
             client_secret: "secret".to_string(),
             redirect_uri: "https://secan.example.com/api/auth/oidc/redirect".to_string(),
             groups_claim_key: "groups".to_string(),
+            redirect_delay_seconds: 4,
         });
         assert!(config.validate().is_ok());
     }

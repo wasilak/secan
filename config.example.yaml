@@ -67,6 +67,9 @@ auth:
   #   # Optional: Use PKCE (Proof Key for Code Exchange) for additional security
   #   # Recommended for public clients or when client_secret cannot be stored securely
   #   use_pkce: true
+  #   # Optional: Redirect delay in seconds for OIDC login page (default: 4)
+  #   # Controls how long the login page shows the countdown before redirecting
+  #   redirect_delay_seconds: 4
 
   # Optional: role-based access control
   # roles:

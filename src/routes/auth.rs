@@ -308,7 +308,7 @@ pub async fn get_current_user(
 /// Build session cookie
 fn create_session_cookie(token: &str) -> http::HeaderValue {
     let cookie_value = format!(
-        "session_token={}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600",
+        "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
         token
     );
     http::HeaderValue::from_str(&cookie_value).unwrap()
@@ -335,6 +335,8 @@ pub async fn logout(State(_state): State<AuthState>) -> Result<Json<LoginRespons
 pub struct AuthStatusResponse {
     pub mode: String, // "open", "local_users", or "oidc"
     pub oidc_enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oidc_redirect_delay: Option<u64>,
 }
 
 /// Get authentication status
@@ -350,10 +352,17 @@ pub async fn get_auth_status(
     };
 
     let oidc_enabled = state.oidc_provider.is_some();
+    let oidc_redirect_delay = state
+        .config
+        .auth
+        .oidc
+        .as_ref()
+        .map(|c| c.redirect_delay_seconds);
 
     Ok(Json(AuthStatusResponse {
         mode: mode.to_string(),
         oidc_enabled,
+        oidc_redirect_delay,
     }))
 }
 

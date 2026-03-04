@@ -31,6 +31,7 @@ export function Login() {
   const [authChecking, setAuthChecking] = useState(true);
   const [appVersion, setAppVersion] = useState(APP_VERSION);
   const [oidcEnabled, setOidcEnabled] = useState(false);
+  const [countdown, setCountdown] = useState(4);
 
   // Get redirect_to from query params, default to dashboard
   const searchParams = new URLSearchParams(location.search);
@@ -65,8 +66,22 @@ export function Login() {
 
           // If OIDC is enabled, redirect to OIDC login
           if (status.oidc_enabled) {
+            const delay = status.oidc_redirect_delay || 4;
+            setCountdown(delay);
             setOidcEnabled(true);
-            window.location.href = '/api/auth/oidc/login';
+            
+            // Start countdown timer
+            const timer = setInterval(() => {
+              setCountdown((prev) => {
+                if (prev <= 1) {
+                  clearInterval(timer);
+                  window.location.href = '/api/auth/oidc/login';
+                  return 0;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+            
             return;
           }
         }
@@ -148,6 +163,12 @@ export function Login() {
               <Loader size="md" />
               <Text ta="center" size="sm">
                 Redirecting to OIDC provider...
+              </Text>
+              <Text ta="center" size="xl" fw={700} c="blue">
+                {countdown}
+              </Text>
+              <Text ta="center" size="xs" c="dimmed">
+                seconds
               </Text>
               <Text ta="center" size="xs" c="dimmed">
                 If you are not redirected automatically, click the button below

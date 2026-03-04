@@ -399,6 +399,7 @@ mod tests {
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
             groups_claim_key: "groups".to_string(),
+            redirect_delay_seconds: 4,
         };
 
         let metadata = OidcProviderMetadata {
@@ -442,6 +443,7 @@ mod tests {
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
             groups_claim_key: "groups".to_string(),
+            redirect_delay_seconds: 4,
         };
 
         let metadata = OidcProviderMetadata {
@@ -507,6 +509,7 @@ mod tests {
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
             groups_claim_key: "departments".to_string(),
+            redirect_delay_seconds: 4,
         };
 
         let metadata = OidcProviderMetadata {
@@ -564,6 +567,7 @@ mod tests {
             client_secret: "secret".to_string(),
             redirect_uri: "https://app.example.com/callback".to_string(),
             groups_claim_key: "groups".to_string(),
+            redirect_delay_seconds: 4,
         };
 
         let metadata = OidcProviderMetadata {
