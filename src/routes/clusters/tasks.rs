@@ -121,7 +121,10 @@ fn transform_tasks_response(tasks_value: &Value) -> Vec<TaskInfo> {
                                     .duration_since(std::time::UNIX_EPOCH)
                                     .unwrap_or_default()
                                     .as_millis() as i64;
-                                obj.insert("start_time_in_millis".to_string(), Value::Number(now.into()));
+                                obj.insert(
+                                    "start_time_in_millis".to_string(),
+                                    Value::Number(now.into()),
+                                );
                             }
                         }
 

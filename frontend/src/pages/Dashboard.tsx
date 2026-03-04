@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Title,
@@ -20,12 +20,14 @@ import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recha
 import { apiClient } from '../api/client';
 import { HealthStatus } from '../types/api';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import { useCacheDuration } from '../hooks/useCacheDuration';
 import { useScreenReader } from '../lib/accessibility';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { SortableTable, SortableTableColumn } from '../components/SortableTable';
 import { getHealthColor } from '../utils/colors';
 import { formatBytes } from '../utils/formatters';
 import type { ClusterInfo } from '../types/api';
+import { useQueries } from '@tanstack/react-query';
 
 /**
  * Simple metric card for dashboard
@@ -35,9 +37,10 @@ interface MetricCardProps {
   value: number;
   color?: string;
   subValue?: string;
+  suffix?: string;
 }
 
-function MetricCard({ label, value, color = 'var(--mantine-color-blue-6)', subValue }: MetricCardProps) {
+function MetricCard({ label, value, color = 'var(--mantine-color-blue-6)', subValue, suffix }: MetricCardProps) {
   return (
     <Card shadow="sm" padding="lg" style={{ flex: 1, minWidth: '150px' }}>
       <Stack gap="xs">
@@ -45,9 +48,16 @@ function MetricCard({ label, value, color = 'var(--mantine-color-blue-6)', subVa
           {label}
         </Text>
         <Group justify="space-between" align="flex-end">
-          <Text size="xl" fw={700} style={{ color }}>
-            {value.toLocaleString()}
-          </Text>
+          <Group gap="xs" align="flex-end">
+            <Text size="xl" fw={700} style={{ color }}>
+              {value.toLocaleString()}
+            </Text>
+            {suffix && (
+              <Text size="xl" fw={700} c="dimmed">
+                {suffix}
+              </Text>
+            )}
+          </Group>
           {subValue && (
             <Text size="xs" c="dimmed">
               {subValue}
@@ -92,8 +102,8 @@ interface ClusterSummary {
 export function Dashboard() {
   const navigate = useNavigate();
   const refreshInterval = useRefreshInterval();
+  const cacheDuration = useCacheDuration();
   const { announce, announceError } = useScreenReader();
-  const [clusterSummaries, setClusterSummaries] = useState<ClusterSummary[]>([]);
 
   // Always show neutral favicon on clusters list
   // Requirements: 12.1, 12.7, 12.8
@@ -108,8 +118,8 @@ export function Dashboard() {
     queryKey: ['clusters', 1, 100], // Fetch all with page 1, size 100
     queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
-    staleTime: 30 * 1000,
-    gcTime: 5 * 60 * 1000,
+    staleTime: cacheDuration,
+    gcTime: cacheDuration * 2,
   });
 
   // Extract clusters array from paginated response
@@ -129,56 +139,65 @@ export function Dashboard() {
     }
   }, [clustersLoading, clustersError, clusters, announce, announceError]);
 
-  // Fetch stats for all clusters
-  useEffect(() => {
-    if (!clusters || clusters.length === 0) {
-      setClusterSummaries([]);
-      return;
-    }
+  // Fetch stats for all clusters with caching
+  const clusterStatsQueries = useQueries({
+    queries: clusters.map((cluster) => ({
+      queryKey: ['cluster', cluster.id, 'stats'],
+      queryFn: () => apiClient.getClusterStats(cluster.id),
+      refetchInterval: refreshInterval,
+      staleTime: cacheDuration,
+      gcTime: cacheDuration * 2,
+      retry: 1,
+    })),
+  });
 
-    const fetchClusterStats = async () => {
-      try {
-        const summaries = await Promise.all(
-          clusters.map(async (cluster): Promise<ClusterSummary> => {
-            try {
-              const stats = await apiClient.getClusterStats(cluster.id);
+  // Build cluster summaries from cached stats
+  const clusterSummaries: ClusterSummary[] = useMemo(() => {
+    return clusters.map((cluster, index) => {
+      const statsQuery = clusterStatsQueries[index];
+      const stats = statsQuery?.data;
+      const error = statsQuery?.error;
 
-              return {
-                id: cluster.id,
-                name: cluster.name,
-                health: stats.health,
-                nodes: stats.numberOfNodes,
-                shards: stats.activeShards,
-                indices: stats.numberOfIndices,
-                documents: stats.numberOfDocuments,
-                diskUsed: stats.diskUsed,
-                diskTotal: stats.diskTotal,
-                esVersion: stats.esVersion,
-              };
-            } catch (error) {
-              // Handle unreachable clusters
-              return {
-                id: cluster.id,
-                name: cluster.name,
-                health: 'unreachable',
-                nodes: 0,
-                shards: 0,
-                indices: 0,
-                documents: 0,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              };
-            }
-          })
-        );
-
-        setClusterSummaries(summaries);
-      } catch (error) {
-        console.error('Failed to fetch cluster stats:', error);
+      if (error) {
+        return {
+          id: cluster.id,
+          name: cluster.name,
+          health: 'unreachable' as const,
+          nodes: 0,
+          shards: 0,
+          indices: 0,
+          documents: 0,
+          error: error.message,
+        };
       }
-    };
 
-    fetchClusterStats();
-  }, [clusters]);
+      if (!stats) {
+        // Still loading - return placeholder with unknown health
+        return {
+          id: cluster.id,
+          name: cluster.name,
+          health: 'green' as const, // Default while loading
+          nodes: 0,
+          shards: 0,
+          indices: 0,
+          documents: 0,
+        };
+      }
+
+      return {
+        id: cluster.id,
+        name: cluster.name,
+        health: stats.health,
+        nodes: stats.numberOfNodes,
+        shards: stats.activeShards,
+        indices: stats.numberOfIndices,
+        documents: stats.numberOfDocuments,
+        diskUsed: stats.diskUsed,
+        diskTotal: stats.diskTotal,
+        esVersion: stats.esVersion,
+      };
+    });
+  }, [clusters, clusterStatsQueries]);
 
   // Handle cluster row click - navigate to cluster detail view
   const handleClusterClick = (clusterId: string) => {
@@ -579,8 +598,9 @@ export function Dashboard() {
         />
         <MetricCard
           label="Total Disk Usage"
-          value={0}
+          value={totals.diskTotal ? Math.round((totals.diskUsed / totals.diskTotal) * 100) : 0}
           color="var(--mantine-color-orange-6)"
+          suffix="%"
           subValue={totals.diskTotal ? `${formatBytes(totals.diskUsed)} / ${formatBytes(totals.diskTotal)}` : undefined}
         />
       </Group>

@@ -15,7 +15,7 @@ import {
   Anchor,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   IconAlertCircle,
@@ -81,6 +81,7 @@ function formatNumber(value: number | undefined, decimals: number = 0): string {
 export function NodeDetail() {
   const { id: clusterId, nodeId } = useParams<{ id: string; nodeId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const refreshInterval = useRefreshInterval();
 
   // Get current page/route as reset key for sparkline data
@@ -167,7 +168,7 @@ export function NodeDetail() {
               <Button
                 variant="subtle"
                 leftSection={<IconArrowLeft size={16} />}
-                onClick={() => navigate(`/cluster/${clusterId}?tab=nodes`)}
+                onClick={() => navigate(`/cluster/${clusterId}?tab=nodes${location.search ? '&' + location.search.slice(1) : ''}`)}
               >
                 Back to Nodes List
               </Button>

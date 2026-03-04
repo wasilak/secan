@@ -14,7 +14,7 @@ import {
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { DetailPageSkeleton } from '../components/LoadingSkeleton';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
@@ -90,6 +90,7 @@ function StatCard({ title, value, description }: StatCardProps) {
 export function IndexStatistics() {
   const { id: clusterId, indexName } = useParams<{ id: string; indexName: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [statsLevel, setStatsLevel] = useState<'total' | 'primaries'>('total');
 
   // Fetch index statistics
@@ -173,7 +174,7 @@ export function IndexStatistics() {
           >
             Refresh
           </Button>
-          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}`)}>
+          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}${location.search}`)}>
             Back to Cluster
           </Button>
         </Group>

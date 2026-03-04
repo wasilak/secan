@@ -36,27 +36,15 @@ fn default_port() -> u16 {
 ///
 /// Cache duration is automatically calculated from the refresh interval.
 /// Backend defaults to 30 seconds for cluster metadata caching.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CacheConfig {
     /// Duration in seconds to cache cluster metadata (optional, defaults to 30s)
-    /// 
+    ///
     /// If not specified, the cache will use a default TTL of 30 seconds.
     /// For optimal performance, cache should be longer than the frontend refresh interval,
     /// ensuring that manual/automatic refreshes hit cache while background jobs update data.
-    #[serde(default = "default_cache_duration")]
+    #[serde(default)]
     pub metadata_duration_seconds: Option<u64>,
-}
-
-fn default_cache_duration() -> Option<u64> {
-    None // Use backend default (30s)
-}
-
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            metadata_duration_seconds: None,
-        }
-    }
 }
 
 impl CacheConfig {
@@ -661,11 +649,9 @@ impl Config {
             .set_default(
                 "auth.session_timeout_minutes",
                 defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES,
-            )?
-            .set_default(
-                "cache.metadata_duration_seconds",
-                defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS,
             )?;
+        // Note: cache.metadata_duration_seconds is intentionally not set here
+        // to allow None as the default, with 30s as the backend effective default
 
         // Add optional config files (medium priority)
         // Support ${VAR} and ${VAR:-default} environment variable substitution in config files
@@ -719,7 +705,7 @@ impl Config {
                         "session_timeout_minutes": config_rs.get_int("auth.session_timeout_minutes").unwrap_or(defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES as i64),
                     },
                     "cache": {
-                        "metadata_duration_seconds": config_rs.get_int("cache.metadata_duration_seconds").unwrap_or(defaults::DEFAULT_CACHE_METADATA_DURATION_SECONDS as i64),
+                        "metadata_duration_seconds": config_rs.get_int("cache.metadata_duration_seconds").ok(),
                     },
                     "clusters": clusters_value,
                 });

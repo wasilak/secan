@@ -162,7 +162,7 @@ export function ClusterView() {
   // Sync local input with URL when it changes externally (back/forward navigation)
   useEffect(() => {
     setLocalIndicesSearch(searchParams.get('indicesSearch') || '');
-  }, [searchParams.get('indicesSearch')]);
+  }, [searchParams]);
 
   // Debounce: update URL after 300ms of no typing
   useEffect(() => {
