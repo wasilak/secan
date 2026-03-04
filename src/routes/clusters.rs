@@ -11,8 +11,8 @@ use serde_json::Value;
 use std::sync::Arc;
 
 mod pagination;
-mod transform;
 pub mod tasks;
+mod transform;
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
@@ -1339,22 +1339,23 @@ pub async fn proxy_request(
     let mut has_content_type = false;
     for (key, value) in headers.iter() {
         let key_lower = key.to_string().to_lowercase();
-        
+
         // Skip HTTP/2 pseudo-headers and connection-specific headers
-        if key_lower.starts_with(':') || 
-           key_lower == "connection" || 
-           key_lower == "transfer-encoding" ||
-           key_lower == "keep-alive" {
+        if key_lower.starts_with(':')
+            || key_lower == "connection"
+            || key_lower == "transfer-encoding"
+            || key_lower == "keep-alive"
+        {
             continue;
         }
-        
+
         if key_lower == "content-type" {
             has_content_type = true;
         }
-        
+
         axum_response = axum_response.header(key, value);
     }
-    
+
     // Ensure we have a content-type header
     if !has_content_type {
         axum_response = axum_response.header("content-type", "application/json");

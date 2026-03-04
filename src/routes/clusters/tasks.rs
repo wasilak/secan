@@ -110,12 +110,12 @@ fn transform_tasks_response(tasks_value: &Value) -> Vec<TaskInfo> {
                     for (_task_key, task_data) in node_tasks {
                         // Ensure node field is present before deserializing
                         let mut task_with_node = task_data.clone();
-                        if !task_with_node.get("node").is_some() {
+                        if task_with_node.get("node").is_none() {
                             if let Some(obj) = task_with_node.as_object_mut() {
                                 obj.insert("node".to_string(), Value::String(node_id.clone()));
                             }
                         }
-                        
+
                         if let Ok(task_info) = serde_json::from_value::<TaskInfo>(task_with_node) {
                             tasks.push(task_info);
                         }
@@ -205,11 +205,7 @@ pub async fn fetch_cluster_tasks(
     // Fetch tasks from Elasticsearch via the client's request method
     let tasks_response = cluster
         .client
-        .request(
-            reqwest::Method::GET,
-            "/_tasks?pretty",
-            None,
-        )
+        .request(reqwest::Method::GET, "/_tasks?pretty", None)
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "Failed to fetch tasks");
@@ -219,13 +215,10 @@ pub async fn fetch_cluster_tasks(
             }
         })?;
 
-    let text = tasks_response
-        .text()
-        .await
-        .map_err(|e| TaskErrorResponse {
-            error: "parse_error".to_string(),
-            message: format!("Failed to parse response: {}", e),
-        })?;
+    let text = tasks_response.text().await.map_err(|e| TaskErrorResponse {
+        error: "parse_error".to_string(),
+        message: format!("Failed to parse response: {}", e),
+    })?;
 
     let tasks_json: Value = serde_json::from_str(&text).map_err(|e| TaskErrorResponse {
         error: "json_error".to_string(),
@@ -301,13 +294,10 @@ pub async fn get_task_details(
             }
         })?;
 
-    let text = task_response
-        .text()
-        .await
-        .map_err(|e| TaskErrorResponse {
-            error: "parse_error".to_string(),
-            message: format!("Failed to parse response: {}", e),
-        })?;
+    let text = task_response.text().await.map_err(|e| TaskErrorResponse {
+        error: "parse_error".to_string(),
+        message: format!("Failed to parse response: {}", e),
+    })?;
 
     let task_json: Value = serde_json::from_str(&text).map_err(|e| TaskErrorResponse {
         error: "json_error".to_string(),
@@ -316,19 +306,19 @@ pub async fn get_task_details(
 
     // Extract task info and create TaskDetails
     let mut task_value = task_json.get("task").cloned().unwrap_or(task_json.clone());
-    
+
     // Ensure node, id, type, and action fields are present before deserializing
     // task_id format: "node_id:task_number"
     if let Some(colon_pos) = task_id.find(':') {
         let node_id = &task_id[..colon_pos];
         let task_id_str = &task_id[colon_pos + 1..];
-        
+
         if let Some(obj) = task_value.as_object_mut() {
             // Add node field if missing
             if !obj.contains_key("node") {
                 obj.insert("node".to_string(), Value::String(node_id.to_string()));
             }
-            
+
             // Add id field if missing
             if !obj.contains_key("id") {
                 // Try to parse as integer
@@ -336,12 +326,12 @@ pub async fn get_task_details(
                     obj.insert("id".to_string(), Value::Number(id_num.into()));
                 }
             }
-            
+
             // Add type field if missing (default to "unknown")
             if !obj.contains_key("type") {
                 obj.insert("type".to_string(), Value::String("unknown".to_string()));
             }
-            
+
             // Add action field if missing (default to "unknown")
             if !obj.contains_key("action") {
                 obj.insert("action".to_string(), Value::String("unknown".to_string()));
@@ -409,13 +399,10 @@ pub async fn cancel_cluster_task(
         })?;
 
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|e| TaskErrorResponse {
-            error: "parse_error".to_string(),
-            message: format!("Failed to parse response: {}", e),
-        })?;
+    let text = response.text().await.map_err(|e| TaskErrorResponse {
+        error: "parse_error".to_string(),
+        message: format!("Failed to parse response: {}", e),
+    })?;
 
     if status.is_success() {
         tracing::info!(task_id = %task_id, "Task cancelled successfully");
@@ -600,12 +587,12 @@ mod tests {
         }"#;
 
         let mut task_value: Value = serde_json::from_str(json_str).unwrap();
-        
+
         // Simulate the field injection logic
         if let Some(colon_pos) = task_id.find(':') {
             let node_id = &task_id[..colon_pos];
             let task_id_str = &task_id[colon_pos + 1..];
-            
+
             if let Some(obj) = task_value.as_object_mut() {
                 if !obj.contains_key("node") {
                     obj.insert("node".to_string(), Value::String(node_id.to_string()));
@@ -623,7 +610,7 @@ mod tests {
                 }
             }
         }
-        
+
         // Should now deserialize successfully
         let task_info: TaskInfo = serde_json::from_value(task_value).unwrap();
         assert_eq!(task_info.node, "nodeA");
