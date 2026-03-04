@@ -39,7 +39,6 @@ export default defineConfig({
 						{ label: 'Cluster Details', slug: 'features/cluster-details' },
 						{ label: 'Index Management', slug: 'features/index-management' },
 						{ label: 'Shard Management', slug: 'features/shard-management' },
-						{ label: 'Cluster Tasks', slug: 'features/cluster-tasks' },
 						{ label: 'REST Console', slug: 'features/rest-console' },
 						{ label: 'Additional Features', slug: 'features/additional' },
 					],
