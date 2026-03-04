@@ -112,6 +112,21 @@ auth:
 - `redirect_uri` - Callback URL for authentication response
 - `groups_claim_key` - Claim name containing user groups (default: "groups")
 
+**OIDC Login Flow:**
+
+1. User navigates to Secan login page
+2. Secan detects OIDC is enabled
+3. Login page shows "Redirecting to OIDC provider..." with loading indicator
+4. User automatically redirected to OIDC provider
+5. User authenticates with OIDC provider
+6. OIDC provider redirects back to Secan with authorization code
+7. Secan exchanges code for tokens and creates session
+8. Session token set as HTTP-only cookie
+9. User redirected to dashboard
+
+**Manual Fallback:**
+If automatic redirect fails, the login page provides a "Go to OIDC Provider" button for manual navigation.
+
 **Use cases:**
 - Enterprise deployments with centralized authentication
 - Integration with existing identity providers

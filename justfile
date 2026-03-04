@@ -212,6 +212,6 @@ docs-integrate-api:
     cp -r target/doc/secan/* docs/public/api/
 
 [group('docs')]
-docs-build-complete: frontend-build docs-rust-api docs-build docs-integrate-api
+docs-build-complete: frontend-build docs-rust-api docs-integrate-api docs-build
     # Build complete documentation site (Starlight + Rust API)
     # Note: Version management is handled automatically by CI/CD from git tags
