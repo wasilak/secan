@@ -12,7 +12,8 @@ export type ClusterSection =
   | 'indices'
   | 'shards'
   | 'settings'
-  | 'console';
+  | 'console'
+  | 'tasks';
 
 /**
  * Modal types that can be displayed as overlays on cluster sections
@@ -76,6 +77,9 @@ export const clusterRoutes: RouteObject[] = [
   {
     path: 'cluster/:id/console',
   },
+  {
+    path: 'cluster/:id/tasks',
+  },
   // Modal routes - 3 modal types
   {
     path: 'cluster/:id/nodes/:nodeId',
@@ -100,6 +104,7 @@ export const sectionLabels: Record<ClusterSection, string> = {
   shards: 'Shards',
   settings: 'Settings',
   console: 'Console',
+  tasks: 'Tasks',
 };
 
 /**
@@ -114,6 +119,7 @@ export const availableSections: ClusterSection[] = [
   'shards',
   'settings',
   'console',
+  'tasks',
 ];
 
 /**

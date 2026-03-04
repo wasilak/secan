@@ -76,6 +76,7 @@ import { useClusterName } from '../hooks/useClusterName';
 import { IndexEdit } from './IndexEdit';
 import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
+import { TasksTab } from '../components/TasksTab';
 import { Sparkline } from '../components/Sparkline';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
 import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
@@ -1390,6 +1391,9 @@ export function ClusterView() {
 
       {/* Console Section */}
       {activeTab === 'console' && <RestConsole />}
+
+      {/* Tasks Section */}
+      {activeTab === 'tasks' && <TasksTab clusterId={id!} refreshInterval={refreshInterval} />}
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
