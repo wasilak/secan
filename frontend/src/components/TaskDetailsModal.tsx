@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
-import { Modal, Stack, Text, Group, Badge, ScrollArea, Loader, Alert, Tabs, Code } from '@mantine/core';
+import { Modal, Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
+import { JsonViewer } from './JsonViewer';
 
 /**
  * Task details modal component
@@ -87,11 +88,10 @@ export function TaskDetailsModal({
       opened={isOpen}
       onClose={onClose}
       title={`Task Details: ${task.id}`}
-      size="lg"
+      size="xl"
       centered
-      scrollAreaComponent={ScrollArea.Autosize}
     >
-      <Stack gap="lg">
+      <Stack gap="md">
         {/* Error Alert */}
         {error && (
           <Alert icon={<IconAlertCircle size={16} />} color="red">
@@ -183,9 +183,12 @@ export function TaskDetailsModal({
               <Tabs.Tab value="json">JSON</Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="json">
-              <Code block mt="md">
-                {JSON.stringify(taskDetails.raw || taskDetails, null, 2)}
-              </Code>
+              <JsonViewer
+                data={taskDetails.raw || taskDetails}
+                title="Task JSON"
+                height={500}
+                showCopyButton={true}
+              />
             </Tabs.Panel>
           </Tabs>
         ) : null}

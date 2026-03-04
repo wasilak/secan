@@ -102,10 +102,25 @@ pub struct TasksQueryParams {
 fn transform_tasks_response(tasks_value: &Value) -> Vec<TaskInfo> {
     let mut tasks = Vec::new();
 
-    if let Some(tasks_obj) = tasks_value.get("tasks").and_then(|v| v.as_object()) {
-        for (_task_key, task_data) in tasks_obj {
-            if let Ok(task_info) = serde_json::from_value::<TaskInfo>(task_data.clone()) {
-                tasks.push(task_info);
+    // Handle nested structure: nodes.{node_id}.tasks.{task_id}
+    if let Some(nodes) = tasks_value.get("nodes").and_then(|v| v.as_object()) {
+        for (node_id, node_data) in nodes {
+            if let Some(node_obj) = node_data.as_object() {
+                if let Some(node_tasks) = node_obj.get("tasks").and_then(|v| v.as_object()) {
+                    for (_task_key, task_data) in node_tasks {
+                        // Ensure node field is present before deserializing
+                        let mut task_with_node = task_data.clone();
+                        if !task_with_node.get("node").is_some() {
+                            if let Some(obj) = task_with_node.as_object_mut() {
+                                obj.insert("node".to_string(), Value::String(node_id.clone()));
+                            }
+                        }
+                        
+                        if let Ok(task_info) = serde_json::from_value::<TaskInfo>(task_with_node) {
+                            tasks.push(task_info);
+                        }
+                    }
+                }
             }
         }
     }
@@ -300,7 +315,39 @@ pub async fn get_task_details(
     })?;
 
     // Extract task info and create TaskDetails
-    let task_value = task_json.get("task").cloned().unwrap_or(task_json.clone());
+    let mut task_value = task_json.get("task").cloned().unwrap_or(task_json.clone());
+    
+    // Ensure node, id, type, and action fields are present before deserializing
+    // task_id format: "node_id:task_number"
+    if let Some(colon_pos) = task_id.find(':') {
+        let node_id = &task_id[..colon_pos];
+        let task_id_str = &task_id[colon_pos + 1..];
+        
+        if let Some(obj) = task_value.as_object_mut() {
+            // Add node field if missing
+            if !obj.contains_key("node") {
+                obj.insert("node".to_string(), Value::String(node_id.to_string()));
+            }
+            
+            // Add id field if missing
+            if !obj.contains_key("id") {
+                // Try to parse as integer
+                if let Ok(id_num) = task_id_str.parse::<i64>() {
+                    obj.insert("id".to_string(), Value::Number(id_num.into()));
+                }
+            }
+            
+            // Add type field if missing (default to "unknown")
+            if !obj.contains_key("type") {
+                obj.insert("type".to_string(), Value::String("unknown".to_string()));
+            }
+            
+            // Add action field if missing (default to "unknown")
+            if !obj.contains_key("action") {
+                obj.insert("action".to_string(), Value::String("unknown".to_string()));
+            }
+        }
+    }
 
     let task_info = serde_json::from_value::<TaskInfo>(task_value.clone()).map_err(|e| {
         tracing::warn!(error = %e, "Failed to deserialize task");
@@ -452,6 +499,137 @@ mod tests {
         assert_eq!(actions.len(), 2);
         assert!(actions.contains(&"cluster:monitor/tasks/lists".to_string()));
         assert!(actions.contains(&"indices:data/read/search".to_string()));
+    }
+
+    #[test]
+    fn test_transform_nested_tasks() {
+        let json_str = r#"{
+            "nodes": {
+                "nodeA": {
+                    "name": "es01",
+                    "tasks": {
+                        "nodeA:1": {
+                            "node": "nodeA",
+                            "id": 1,
+                            "type": "transport",
+                            "action": "cluster:monitor/tasks/lists",
+                            "start_time_in_millis": 1000,
+                            "cancellable": true,
+                            "cancelled": false
+                        }
+                    }
+                },
+                "nodeB": {
+                    "name": "es02",
+                    "tasks": {
+                        "nodeB:2": {
+                            "node": "nodeB",
+                            "id": 2,
+                            "type": "search",
+                            "action": "indices:data/read/search",
+                            "start_time_in_millis": 2000,
+                            "cancellable": true,
+                            "cancelled": false
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks = transform_tasks_response(&tasks_json);
+
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(tasks[0].id, 1);
+        assert_eq!(tasks[0].node, "nodeA");
+        assert_eq!(tasks[1].id, 2);
+        assert_eq!(tasks[1].node, "nodeB");
+    }
+
+    #[test]
+    fn test_transform_tasks_without_node_field() {
+        let json_str = r#"{
+            "nodes": {
+                "nodeA": {
+                    "name": "es01",
+                    "tasks": {
+                        "nodeA:1": {
+                            "id": 1,
+                            "type": "transport",
+                            "action": "cluster:monitor/tasks/lists",
+                            "start_time_in_millis": 1000,
+                            "cancellable": true,
+                            "cancelled": false
+                        }
+                    }
+                },
+                "nodeB": {
+                    "name": "es02",
+                    "tasks": {
+                        "nodeB:2": {
+                            "id": 2,
+                            "type": "search",
+                            "action": "indices:data/read/search",
+                            "start_time_in_millis": 2000,
+                            "cancellable": true,
+                            "cancelled": false
+                        }
+                    }
+                }
+            }
+        }"#;
+
+        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks = transform_tasks_response(&tasks_json);
+
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(tasks[0].id, 1);
+        assert_eq!(tasks[0].node, "nodeA");
+        assert_eq!(tasks[1].id, 2);
+        assert_eq!(tasks[1].node, "nodeB");
+    }
+
+    #[test]
+    fn test_get_task_details_missing_fields() {
+        // Simulates extracting node, id, type, and action from task_id when not in response
+        let task_id = "nodeA:123456";
+        let json_str = r#"{
+            "cancellable": true,
+            "cancelled": false,
+            "start_time_in_millis": 1000
+        }"#;
+
+        let mut task_value: Value = serde_json::from_str(json_str).unwrap();
+        
+        // Simulate the field injection logic
+        if let Some(colon_pos) = task_id.find(':') {
+            let node_id = &task_id[..colon_pos];
+            let task_id_str = &task_id[colon_pos + 1..];
+            
+            if let Some(obj) = task_value.as_object_mut() {
+                if !obj.contains_key("node") {
+                    obj.insert("node".to_string(), Value::String(node_id.to_string()));
+                }
+                if !obj.contains_key("id") {
+                    if let Ok(id_num) = task_id_str.parse::<i64>() {
+                        obj.insert("id".to_string(), Value::Number(id_num.into()));
+                    }
+                }
+                if !obj.contains_key("type") {
+                    obj.insert("type".to_string(), Value::String("unknown".to_string()));
+                }
+                if !obj.contains_key("action") {
+                    obj.insert("action".to_string(), Value::String("unknown".to_string()));
+                }
+            }
+        }
+        
+        // Should now deserialize successfully
+        let task_info: TaskInfo = serde_json::from_value(task_value).unwrap();
+        assert_eq!(task_info.node, "nodeA");
+        assert_eq!(task_info.id, 123456);
+        assert_eq!(task_info.action, "unknown");
+        assert_eq!(task_info.task_type, "unknown");
     }
 
     #[test]

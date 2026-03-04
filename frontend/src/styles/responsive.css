@@ -321,6 +321,11 @@ img {
   }
 }
 
+/* Prevent layout shift when modal opens (scrollbar disappears) */
+html {
+  overflow-y: scroll;
+}
+
 /* Ensure modals are responsive */
 .mantine-Modal-content {
   max-width: 95vw;

@@ -1,7 +1,6 @@
 import React from 'react';
 import type { ReactElement } from 'react';
-import { Table, Text, Tooltip, Group, Badge, Button, Menu } from '@mantine/core';
-import { IconDots, IconTrash } from '@tabler/icons-react';
+import { Table, Text, Tooltip, Group, Badge, Checkbox } from '@mantine/core';
 import { TaskInfo } from '../types/api';
 
 /**
@@ -53,8 +52,10 @@ interface TasksTableProps {
   sortOrder: 'asc' | 'desc' | 'none';
   onSort: (column: string) => void;
   onRowClick: (task: TaskInfo) => void;
-  onCancel?: (task: TaskInfo) => void;
-  isLoadingCancel?: boolean;
+  selectedTasks?: Set<string>;
+  onToggleSelect?: (taskId: string) => void;
+  onSelectAll?: (tasks: TaskInfo[]) => void;
+  onClearSelection?: () => void;
 }
 
 export function TasksTable({
@@ -63,9 +64,13 @@ export function TasksTable({
   sortOrder,
   onSort,
   onRowClick,
-  onCancel,
-  isLoadingCancel,
+  selectedTasks = new Set(),
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
 }: TasksTableProps): ReactElement {
+  const cancellableTasks = tasks.filter(task => task.cancellable);
+  const allSelected = cancellableTasks.length > 0 && cancellableTasks.every((task) => selectedTasks.has(`${task.node}:${task.id}`));
   const SortableHeader = ({ label, column }: { label: string; column: string }) => (
     <Table.Th
       onClick={() => onSort(column)}
@@ -91,9 +96,37 @@ export function TasksTable({
   }
 
   return (
-    <Table striped highlightOnHover>
+    <Table 
+      striped 
+      highlightOnHover
+      styles={{
+        td: { 
+          padding: '0.75rem 1rem',
+          lineHeight: '1.5',
+          verticalAlign: 'middle',
+        },
+        th: {
+          padding: '0.75rem 1rem',
+          lineHeight: '1.5',
+        },
+      }}
+    >
       <Table.Thead>
         <Table.Tr>
+          <Table.Th style={{ width: '2.5rem' }}>
+            <Checkbox
+              checked={allSelected}
+              indeterminate={selectedTasks.size > 0 && !allSelected}
+              disabled={cancellableTasks.length === 0}
+              onChange={() => {
+                if (allSelected) {
+                  onClearSelection?.();
+                } else if (onSelectAll) {
+                  onSelectAll(cancellableTasks);
+                }
+              }}
+            />
+          </Table.Th>
           <SortableHeader label="Node ID" column="node" />
           <SortableHeader label="Task ID" column="id" />
           <SortableHeader label="Type" column="type" />
@@ -101,16 +134,24 @@ export function TasksTable({
           <SortableHeader label="Start Time" column="start_time_in_millis" />
           <SortableHeader label="Running Time" column="running_time_millis" />
           <Table.Th>Cancellable</Table.Th>
-          <Table.Th>Actions</Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
-        {tasks.map((task) => (
+        {tasks.map((task) => {
+          const taskId = `${task.node}:${task.id}`;
+          return (
           <Table.Tr
-            key={`${task.node}:${task.id}`}
+            key={taskId}
             onClick={() => onRowClick(task)}
             style={{ cursor: 'pointer' }}
           >
+            <Table.Td onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={selectedTasks.has(taskId)}
+                disabled={!task.cancellable}
+                onChange={() => onToggleSelect?.(taskId)}
+              />
+            </Table.Td>
             <Table.Td>
               <Tooltip label={task.node}>
                 <Text size="sm" truncate>
@@ -145,37 +186,11 @@ export function TasksTable({
                 {task.cancellable ? 'Yes' : 'No'}
               </Badge>
             </Table.Td>
-            <Table.Td>
-              {task.cancellable && onCancel && (
-                <Menu shadow="md">
-                  <Menu.Target>
-                    <Button
-                      variant="subtle"
-                      size="xs"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <IconDots size={16} />
-                    </Button>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item
-                      leftSection={<IconTrash size={14} />}
-                      color="red"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCancel(task);
-                      }}
-                      disabled={isLoadingCancel}
-                    >
-                      Cancel Task
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              )}
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
+
+            </Table.Tr>
+            );
+            })}
+            </Table.Tbody>
     </Table>
   );
 }

@@ -118,8 +118,8 @@ export const availableSections: ClusterSection[] = [
   'indices',
   'shards',
   'settings',
-  'console',
   'tasks',
+  'console',
 ];
 
 /**

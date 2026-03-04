@@ -234,6 +234,14 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
+      {
+        path: 'cluster/:id/tasks',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
       // Modal routes
       {
         path: 'cluster/:id/nodes/:nodeId',

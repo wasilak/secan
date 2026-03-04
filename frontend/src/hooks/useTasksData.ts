@@ -94,7 +94,7 @@ export function useTasksData(clusterId: string, refreshInterval?: number) {
   const filterTasks = useCallback(
     (tasksToFilter: TaskInfo[], selectedTypes: string[], selectedActions: string[]) => {
       return tasksToFilter.filter((task) => {
-        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(task.type);
+        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(task.type as string);
         const actionMatch =
           selectedActions.length === 0 || selectedActions.includes(task.action);
         return typeMatch && actionMatch;

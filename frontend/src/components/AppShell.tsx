@@ -59,8 +59,8 @@ const CLUSTER_SECTIONS = [
   { value: 'indices', label: 'Indices', icon: <IconPackage size={16} /> },
   { value: 'shards', label: 'Shards', icon: <IconBox size={16} /> },
   { value: 'settings', label: 'Settings', icon: <IconSettings size={16} /> },
-  { value: 'console', label: 'Console', icon: <IconTerminal size={16} /> },
   { value: 'tasks', label: 'Tasks', icon: <IconPlayerPlay size={16} /> },
+  { value: 'console', label: 'Console', icon: <IconTerminal size={16} /> },
 ];
 
 /**
