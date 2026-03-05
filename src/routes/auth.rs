@@ -138,19 +138,22 @@ pub async fn oidc_callback(
             }
         })?;
 
-    // Create session
-    let session_token = oidc_provider.create_session(&claims).await.map_err(|e| {
-        tracing::error!(
-            auth_method = "oidc",
-            user_id = %claims.sub,
-            error = %e,
-            "Failed to create session"
-        );
-        ErrorResponse {
-            error: "session_creation_failed".to_string(),
-            message: format!("Failed to create session: {}", e),
-        }
-    })?;
+    // Create session (pass access token to fetch groups from userinfo if needed)
+    let session_token = oidc_provider
+        .create_session(&claims, &token_response.access_token)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                auth_method = "oidc",
+                user_id = %claims.sub,
+                error = %e,
+                "Failed to create session"
+            );
+            ErrorResponse {
+                error: "session_creation_failed".to_string(),
+                message: format!("Failed to create session: {}", e),
+            }
+        })?;
 
     tracing::info!(
         auth_method = "oidc",

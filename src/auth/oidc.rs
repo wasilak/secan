@@ -259,7 +259,7 @@ impl OidcAuthProvider {
 
         // Log the decoded payload for debugging
         let payload_str = String::from_utf8_lossy(&payload);
-        tracing::debug!("Decoded JWT payload: {}", payload_str);
+        tracing::info!("Decoded JWT payload: {}", payload_str);
 
         let claims: IdTokenClaims =
             serde_json::from_slice(&payload)
@@ -267,6 +267,8 @@ impl OidcAuthProvider {
                     tracing::error!("JWT parsing error: {} | Payload: {}", e, payload_str);
                     anyhow::anyhow!("Failed to parse JWT claims: {}", e)
                 })?;
+        
+        tracing::info!("Parsed claims - groups field: {:?}", claims.groups);
 
         // Validate issuer
         if claims.iss != self.metadata.issuer {
@@ -339,18 +341,26 @@ impl OidcAuthProvider {
         Ok(token_response)
     }
 
-    /// Extract user information from ID token claims
-    pub fn extract_user_info(&self, claims: &IdTokenClaims) -> AuthUser {
+    /// Extract user information from ID token claims and optionally from userinfo endpoint
+    pub async fn extract_user_info(&self, claims: &IdTokenClaims, access_token: &str) -> AuthUser {
         let username = claims
             .preferred_username
             .clone()
             .or_else(|| claims.email.clone())
             .unwrap_or_else(|| claims.sub.clone());
 
-        // Extract groups from the configured claim key
-        let groups = self.extract_groups(claims);
+        // Extract groups from the ID token first
+        let mut groups = self.extract_groups(claims);
         
-        tracing::info!("Extracted groups from OIDC token: {:?}", groups);
+        tracing::info!("Extracted groups from ID token: {:?}", groups);
+        
+        // If no groups found in ID token, try to fetch from userinfo endpoint
+        if groups.is_empty() {
+            if let Ok(userinfo_groups) = self.fetch_groups_from_userinfo(access_token).await {
+                groups = userinfo_groups;
+                tracing::info!("Fetched groups from userinfo endpoint: {:?}", groups);
+            }
+        }
 
         // Resolve accessible clusters based on groups
         let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
@@ -362,6 +372,65 @@ impl OidcAuthProvider {
         );
 
         AuthUser::new_with_clusters(claims.sub.clone(), username, groups, accessible_clusters)
+    }
+
+    /// Fetch groups from the userinfo endpoint
+    async fn fetch_groups_from_userinfo(&self, access_token: &str) -> Result<Vec<String>> {
+        // Check if userinfo endpoint is available
+        let userinfo_url = self
+            .metadata
+            .userinfo_endpoint
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("UserInfo endpoint not available"))?;
+
+        tracing::debug!("Fetching groups from userinfo endpoint: {}", userinfo_url);
+
+        let response = self
+            .http_client
+            .get(userinfo_url)
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .context("Failed to fetch userinfo")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "UserInfo endpoint returned status {}: {}",
+                response.status(),
+                response.text().await.unwrap_or_default()
+            );
+        }
+
+        let userinfo: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse userinfo response")?;
+
+        // Try to extract groups from the userinfo response
+        if let Some(groups_value) = userinfo.get(&self.config.groups_claim_key) {
+            if let Some(groups_array) = groups_value.as_array() {
+                let groups: Vec<String> = groups_array
+                    .iter()
+                    .filter_map(|g| g.as_str().map(String::from))
+                    .collect();
+                return Ok(groups);
+            }
+        }
+
+        // Also try standard "groups" field
+        if let Some(groups_value) = userinfo.get("groups") {
+            if let Some(groups_array) = groups_value.as_array() {
+                let groups: Vec<String> = groups_array
+                    .iter()
+                    .filter_map(|g| g.as_str().map(String::from))
+                    .collect();
+                if !groups.is_empty() {
+                    return Ok(groups);
+                }
+            }
+        }
+
+        Ok(Vec::new())
     }
 
     /// Extract groups from claims using the configured groups_claim_key
@@ -393,8 +462,8 @@ impl OidcAuthProvider {
     }
 
     /// Create a session for an authenticated user
-    pub async fn create_session(&self, claims: &IdTokenClaims) -> Result<String> {
-        let user = self.extract_user_info(claims);
+    pub async fn create_session(&self, claims: &IdTokenClaims, access_token: &str) -> Result<String> {
+        let user = self.extract_user_info(claims, access_token).await;
         let accessible_clusters = user.accessible_clusters.clone();
         self.session_manager
             .create_session_with_clusters(user, accessible_clusters)
