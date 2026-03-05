@@ -189,8 +189,11 @@ export function ClusterSettingsPage() {
                   defaultLanguage="json"
                   value={persistentSettings}
                   onChange={(value) => setPersistentSettings(value || '')}
+                  theme="vs-dark"
                   onMount={(editor) => {
-                    editor.updateOptions({ readOnly: false });
+                    setTimeout(() => {
+                      editor.updateOptions({ readOnly: false });
+                    }, 0);
                   }}
                   options={{
                     minimap: { enabled: false },
@@ -198,6 +201,7 @@ export function ClusterSettingsPage() {
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
+                    readOnly: false,
                   }}
                 />
               </div>
@@ -222,8 +226,11 @@ export function ClusterSettingsPage() {
                   defaultLanguage="json"
                   value={transientSettings}
                   onChange={(value) => setTransientSettings(value || '')}
+                  theme="vs-dark"
                   onMount={(editor) => {
-                    editor.updateOptions({ readOnly: false });
+                    setTimeout(() => {
+                      editor.updateOptions({ readOnly: false });
+                    }, 0);
                   }}
                   options={{
                     minimap: { enabled: false },
@@ -231,6 +238,7 @@ export function ClusterSettingsPage() {
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
+                    readOnly: false,
                   }}
                 />
               </div>
