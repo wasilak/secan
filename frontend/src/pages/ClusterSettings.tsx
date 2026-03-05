@@ -182,20 +182,23 @@ export function ClusterSettingsPage() {
           </Tabs.List>
 
           <Tabs.Panel value="persistent" pt="md">
-            <Stack gap="md">
-              <Editor
-                height="500px"
-                defaultLanguage="json"
-                value={persistentSettings}
-                onChange={(value) => setPersistentSettings(value || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-              />
+            <Stack gap="md" style={{ minHeight: '600px' }}>
+              <div style={{ flex: 1, minHeight: '500px' }}>
+                <Editor
+                  height="500px"
+                  defaultLanguage="json"
+                  value={persistentSettings}
+                  onChange={(value) => setPersistentSettings(value || '')}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    readOnly: false,
+                  }}
+                />
+              </div>
               <Group justify="flex-end">
                 <Button
                   leftSection={<IconDeviceFloppy size={16} />}
@@ -210,20 +213,23 @@ export function ClusterSettingsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="transient" pt="md">
-            <Stack gap="md">
-              <Editor
-                height="500px"
-                defaultLanguage="json"
-                value={transientSettings}
-                onChange={(value) => setTransientSettings(value || '')}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                }}
-              />
+            <Stack gap="md" style={{ minHeight: '600px' }}>
+              <div style={{ flex: 1, minHeight: '500px' }}>
+                <Editor
+                  height="500px"
+                  defaultLanguage="json"
+                  value={transientSettings}
+                  onChange={(value) => setTransientSettings(value || '')}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    readOnly: false,
+                  }}
+                />
+              </div>
               <Group justify="flex-end">
                 <Button
                   leftSection={<IconDeviceFloppy size={16} />}
