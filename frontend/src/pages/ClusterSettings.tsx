@@ -187,10 +187,11 @@ export function ClusterSettingsPage() {
               <Stack gap="md">
                 <Editor
                   height="500px"
-                  defaultLanguage="json"
+                  language="json"
                   value={persistentSettings}
                   onChange={(value) => setPersistentSettings(value || '')}
                   theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                  path="persistent-settings.json"
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
@@ -218,10 +219,11 @@ export function ClusterSettingsPage() {
               <Stack gap="md">
                 <Editor
                   height="500px"
-                  defaultLanguage="json"
+                  language="json"
                   value={transientSettings}
                   onChange={(value) => setTransientSettings(value || '')}
                   theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                  path="transient-settings.json"
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
