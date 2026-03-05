@@ -189,13 +189,15 @@ export function ClusterSettingsPage() {
                   defaultLanguage="json"
                   value={persistentSettings}
                   onChange={(value) => setPersistentSettings(value || '')}
+                  onMount={(editor) => {
+                    editor.updateOptions({ readOnly: false });
+                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: false,
                   }}
                 />
               </div>
@@ -220,13 +222,15 @@ export function ClusterSettingsPage() {
                   defaultLanguage="json"
                   value={transientSettings}
                   onChange={(value) => setTransientSettings(value || '')}
+                  onMount={(editor) => {
+                    editor.updateOptions({ readOnly: false });
+                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: false,
                   }}
                 />
               </div>
