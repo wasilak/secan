@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, useMantineColorScheme, Paper } from '@mantine/core';
+import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, Box } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -24,7 +24,6 @@ import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 export function ClusterSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { colorScheme } = useMantineColorScheme();
   const [persistentSettings, setPersistentSettings] = useState('');
   const [transientSettings, setTransientSettings] = useState('');
   const [showDefaults, setShowDefaults] = useState(false);
@@ -183,23 +182,31 @@ export function ClusterSettingsPage() {
           </Tabs.List>
 
           <Tabs.Panel value="persistent" pt="md">
-            <Paper shadow="sm" p="md" withBorder>
+            <Card shadow="sm" padding="lg">
               <Stack gap="md">
-                <Editor
-                  height="500px"
-                  language="json"
-                  value={persistentSettings}
-                  onChange={(value) => setPersistentSettings(value || '')}
-                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                  path="persistent-settings.json"
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'on',
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    width: '100%',
                   }}
-                />
+                >
+                  <Editor
+                    height="500px"
+                    defaultLanguage="json"
+                    value={persistentSettings}
+                    onChange={(value) => setPersistentSettings(value || '')}
+                    theme="vs-dark"
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                    }}
+                  />
+                </Box>
                 <Group justify="flex-end">
                   <Button
                     leftSection={<IconDeviceFloppy size={16} />}
@@ -211,27 +218,35 @@ export function ClusterSettingsPage() {
                   </Button>
                 </Group>
               </Stack>
-            </Paper>
+            </Card>
           </Tabs.Panel>
 
           <Tabs.Panel value="transient" pt="md">
-            <Paper shadow="sm" p="md" withBorder>
+            <Card shadow="sm" padding="lg">
               <Stack gap="md">
-                <Editor
-                  height="500px"
-                  language="json"
-                  value={transientSettings}
-                  onChange={(value) => setTransientSettings(value || '')}
-                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                  path="transient-settings.json"
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'on',
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    width: '100%',
                   }}
-                />
+                >
+                  <Editor
+                    height="500px"
+                    defaultLanguage="json"
+                    value={transientSettings}
+                    onChange={(value) => setTransientSettings(value || '')}
+                    theme="vs-dark"
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                    }}
+                  />
+                </Box>
                 <Group justify="flex-end">
                   <Button
                     leftSection={<IconDeviceFloppy size={16} />}
@@ -243,27 +258,35 @@ export function ClusterSettingsPage() {
                   </Button>
                 </Group>
               </Stack>
-            </Paper>
+            </Card>
           </Tabs.Panel>
 
           {showDefaults && (
             <Tabs.Panel value="defaults" pt="md">
-              <Paper shadow="sm" p="md" withBorder>
-                <Editor
-                  height="500px"
-                  defaultLanguage="json"
-                  value={JSON.stringify(settings?.defaults || {}, null, 2)}
-                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    wordWrap: 'off',
-                 }}
-                />
-              </Paper>
+              <Card shadow="sm" padding="lg">
+                <Box
+                  style={{
+                    border: '1px solid var(--mantine-color-gray-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    width: '100%',
+                  }}
+                >
+                  <Editor
+                    height="500px"
+                    defaultLanguage="json"
+                    value={JSON.stringify(settings?.defaults || {}, null, 2)}
+                    theme="vs-dark"
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      wordWrap: 'off',
+                   }}
+                  />
+                </Box>
+              </Card>
             </Tabs.Panel>
           )}
         </Tabs>
