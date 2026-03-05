@@ -356,16 +356,21 @@ pub async fn logout(
 
     tracing::info!("User logged out");
 
-    Ok((
-        StatusCode::OK,
-        [(header::SET_COOKIE, clear_cookie)],
-        Json(LoginResponse {
-            success: true,
-            message: "Logged out successfully".to_string(),
-            session_token: None,
+    // Redirect to login page with logout flag to prevent auto-redirect to OIDC
+    let mut response = Response::new(Body::empty());
+    response.headers_mut().insert(
+        header::SET_COOKIE,
+        clear_cookie.parse().unwrap_or_else(|_| {
+            header::HeaderValue::from_static("session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
         }),
-    )
-        .into_response())
+    );
+    response.headers_mut().insert(
+        header::LOCATION,
+        header::HeaderValue::from_static("/login?logged_out=true"),
+    );
+    *response.status_mut() = StatusCode::FOUND;
+
+    Ok(response)
 }
 
 /// Extract session token from request headers

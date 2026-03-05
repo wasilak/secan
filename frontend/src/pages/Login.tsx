@@ -36,6 +36,7 @@ export function Login() {
   // Get redirect_to from query params, default to dashboard
   const searchParams = new URLSearchParams(location.search);
   const redirectPath = searchParams.get('redirect_to') || '/';
+  const isLoggedOut = searchParams.has('logged_out');
 
   // Check auth status and handle redirects, also fetch version
   useEffect(() => {
@@ -81,8 +82,15 @@ export function Login() {
             return;
           }
 
-          // If OIDC is enabled, redirect to OIDC login
+          // If OIDC is enabled, show OIDC login
           if (status.oidc_enabled) {
+            // If user just logged out, show manual button without countdown
+            if (isLoggedOut) {
+              setOidcEnabled(true);
+              return;
+            }
+            
+            // Otherwise, show countdown and auto-redirect
             const delay = status.oidc_redirect_delay || 4;
             setCountdown(delay);
             setOidcEnabled(true);
@@ -177,16 +185,24 @@ export function Login() {
             )}
 
             <Stack gap="md" align="center">
-              <Loader size="md" />
-              <Text ta="center" size="sm">
-                Redirecting to OIDC provider...
-              </Text>
-              <Text ta="center" size="xl" fw={700} c="blue">
-                {countdown}
-              </Text>
-              <Text ta="center" size="xs" c="dimmed">
-                seconds
-              </Text>
+              {countdown > 0 ? (
+                <>
+                  <Loader size="md" />
+                  <Text ta="center" size="sm">
+                    Redirecting to OIDC provider...
+                  </Text>
+                  <Text ta="center" size="xl" fw={700} c="blue">
+                    {countdown}
+                  </Text>
+                  <Text ta="center" size="xs" c="dimmed">
+                    seconds
+                  </Text>
+                </>
+              ) : (
+                <Text ta="center" size="sm">
+                  Click below to authenticate with your identity provider
+                </Text>
+              )}
               <Text ta="center" size="xs" c="dimmed">
                 If you are not redirected automatically, click the button below
               </Text>
