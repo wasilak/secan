@@ -28,11 +28,38 @@ pub struct TokenResponse {
     pub id_token: String,
 }
 
+/// Helper to deserialize 'aud' which can be either a string or array of strings
+fn deserialize_aud<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Deserialize};
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum AudValue {
+        Single(String),
+        Multiple(Vec<String>),
+    }
+
+    match AudValue::deserialize(deserializer)? {
+        AudValue::Single(aud) => Ok(aud),
+        AudValue::Multiple(mut auds) => {
+            if auds.is_empty() {
+                Err(de::Error::custom("aud array is empty"))
+            } else {
+                Ok(auds.remove(0))
+            }
+        }
+    }
+}
+
 /// OIDC ID token claims
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdTokenClaims {
     pub iss: String,
     pub sub: String,
+    #[serde(deserialize_with = "deserialize_aud")]
     pub aud: String,
     pub exp: u64,
     pub iat: u64,
@@ -203,6 +230,10 @@ impl OidcAuthProvider {
             .context("Failed to parse token response")?;
 
         tracing::info!("Token exchange successful");
+        tracing::debug!(
+            "ID token (first 50 chars): {}",
+            &token_response.id_token[..std::cmp::min(50, token_response.id_token.len())]
+        );
 
         Ok(token_response)
     }
@@ -219,14 +250,23 @@ impl OidcAuthProvider {
         // Split the JWT into parts
         let parts: Vec<&str> = id_token.split('.').collect();
         if parts.len() != 3 {
-            anyhow::bail!("Invalid JWT format");
+            anyhow::bail!("Invalid JWT format: expected 3 parts, got {}", parts.len());
         }
 
         // Decode the payload (second part)
-        let payload = Self::base64_decode(parts[1]).context("Failed to decode JWT payload")?;
+        let payload = Self::base64_decode(parts[1])
+            .context("Failed to decode JWT payload")?;
+
+        // Log the decoded payload for debugging
+        let payload_str = String::from_utf8_lossy(&payload);
+        tracing::debug!("Decoded JWT payload: {}", payload_str);
 
         let claims: IdTokenClaims =
-            serde_json::from_slice(&payload).context("Failed to parse JWT claims")?;
+            serde_json::from_slice(&payload)
+                .map_err(|e| {
+                    tracing::error!("JWT parsing error: {} | Payload: {}", e, payload_str);
+                    anyhow::anyhow!("Failed to parse JWT claims: {}", e)
+                })?;
 
         // Validate issuer
         if claims.iss != self.metadata.issuer {
