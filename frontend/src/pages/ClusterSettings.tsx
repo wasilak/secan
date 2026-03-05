@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,12 +41,12 @@ export function ClusterSettingsPage() {
   });
 
   // Initialize editor values when settings load
-  useState(() => {
+  useEffect(() => {
     if (settings) {
       setPersistentSettings(JSON.stringify(settings.persistent || {}, null, 2));
       setTransientSettings(JSON.stringify(settings.transient || {}, null, 2));
     }
-  });
+  }, [settings]);
 
   // Update settings mutation
   const updateMutation = useMutation({
@@ -201,6 +201,7 @@ export function ClusterSettingsPage() {
                   leftSection={<IconDeviceFloppy size={16} />}
                   onClick={handleSavePersistent}
                   loading={updateMutation.isPending}
+                  disabled={showDefaults}
                 >
                   Save Persistent Settings
                 </Button>
@@ -228,6 +229,7 @@ export function ClusterSettingsPage() {
                   leftSection={<IconDeviceFloppy size={16} />}
                   onClick={handleSaveTransient}
                   loading={updateMutation.isPending}
+                  disabled={showDefaults}
                 >
                   Save Transient Settings
                 </Button>

@@ -1752,8 +1752,8 @@ function NodesList({
                     onSort={handleNodesSortColumn}
                   />
                 </Table.Th>
+                <Table.Th>Version</Table.Th>
                 {expandedView && <Table.Th>IP Address</Table.Th>}
-                {expandedView && <Table.Th>Version</Table.Th>}
                 {expandedView && <Table.Th>Tags</Table.Th>}
                 <Table.Th>Load</Table.Th>
                 <Table.Th>
@@ -1849,17 +1849,15 @@ function NodesList({
                       <RoleIcons roles={node.roles} size={16} />
                     )}
                   </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {node.version || '-'}
+                    </Text>
+                  </Table.Td>
                   {expandedView && (
                     <Table.Td>
                       <Text size="sm" c="dimmed">
                         {node.ip || '-'}
-                      </Text>
-                    </Table.Td>
-                  )}
-                  {expandedView && (
-                    <Table.Td>
-                      <Text size="sm" c="dimmed">
-                        {node.version || '-'}
                       </Text>
                     </Table.Td>
                   )}
