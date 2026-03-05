@@ -307,14 +307,16 @@ pub async fn get_current_user(
 
 /// Build session cookie
 ///
-/// The Secure flag should be enabled in production when served over HTTPS.
-/// It's only omitted for local development over HTTP.
+/// The Secure flag is only set when explicitly enabled via environment variable.
+/// In production behind an HTTPS reverse proxy, set SECAN_SECURE_COOKIES=true
+/// For local development over HTTP, leave it unset or set to false
 fn create_session_cookie(token: &str) -> http::HeaderValue {
-    // Check if we're in production (HTTPS) by checking for secure cookie environment variable
-    // or by detecting if the request came through a secure connection
+    // Only set Secure flag if explicitly enabled via environment variable
+    // Default to false to allow local HTTP development
+    // In production, use SECAN_SECURE_COOKIES=true when behind HTTPS reverse proxy
     let secure_flag = std::env::var("SECAN_SECURE_COOKIES")
-        .map(|v| v.to_lowercase() != "false")
-        .unwrap_or(true);
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false);
 
     let cookie_value = if secure_flag {
         format!(
