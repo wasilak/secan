@@ -28,25 +28,25 @@ export function ClusterSettingsPage() {
   const [transientSettings, setTransientSettings] = useState('');
   const [showDefaults, setShowDefaults] = useState(false);
 
-  // Fetch cluster settings
+  // Fetch cluster settings (don't refetch when showDefaults changes, only fetch defaults once)
   const {
     data: settings,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['cluster', id, 'settings', showDefaults],
-    queryFn: () => apiClient.getClusterSettings(id!, showDefaults),
+    queryKey: ['cluster', id, 'settings'],
+    queryFn: () => apiClient.getClusterSettings(id!, true), // Always fetch defaults for flexibility
     enabled: !!id,
   });
 
-  // Initialize editor values when settings load
+  // Initialize editor values when settings load (only once)
   useEffect(() => {
-    if (settings) {
-      setPersistentSettings(JSON.stringify(settings.persistent || {}, null, 2));
-      setTransientSettings(JSON.stringify(settings.transient || {}, null, 2));
+    if (settings?.persistent !== undefined || settings?.transient !== undefined) {
+      setPersistentSettings(JSON.stringify(settings?.persistent || {}, null, 2));
+      setTransientSettings(JSON.stringify(settings?.transient || {}, null, 2));
     }
-  }, [settings]);
+  }, [settings?.persistent, settings?.transient]);
 
   // Update settings mutation
   const updateMutation = useMutation({
@@ -190,18 +190,14 @@ export function ClusterSettingsPage() {
                   value={persistentSettings}
                   onChange={(value) => setPersistentSettings(value || '')}
                   theme="vs-dark"
-                  onMount={(editor) => {
-                    setTimeout(() => {
-                      editor.updateOptions({ readOnly: false });
-                    }, 0);
-                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: false,
+                    wordWrap: 'on',
+                    folding: true,
                   }}
                 />
               </div>
@@ -227,18 +223,14 @@ export function ClusterSettingsPage() {
                   value={transientSettings}
                   onChange={(value) => setTransientSettings(value || '')}
                   theme="vs-dark"
-                  onMount={(editor) => {
-                    setTimeout(() => {
-                      editor.updateOptions({ readOnly: false });
-                    }, 0);
-                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,
                     automaticLayout: true,
-                    readOnly: false,
+                    wordWrap: 'on',
+                    folding: true,
                   }}
                 />
               </div>
