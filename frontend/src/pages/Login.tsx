@@ -108,7 +108,8 @@ export function Login() {
               });
             }, 1000);
             
-            return;
+            // Cleanup timer on unmount
+            return () => clearInterval(timer);
           }
         }
       } catch (err) {
@@ -120,7 +121,7 @@ export function Login() {
     };
 
     checkAuthStatus();
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, isLoggedOut]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -108,6 +108,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     setUser(null);
+    
+    // Redirect to login page with logout flag to prevent OIDC auto-redirect
+    // This ensures the user sees a manual login button without countdown
+    window.location.href = '/login?logged_out=true';
   };
 
   // Check if authentication is actually enabled
