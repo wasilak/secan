@@ -358,23 +358,29 @@ impl OidcAuthProvider {
 
     /// Extract groups from claims using the configured groups_claim_key
     fn extract_groups(&self, claims: &IdTokenClaims) -> Vec<String> {
-        // First try to get groups from the configured claim key
+        // First check the standard "groups" field in IdTokenClaims
+        if let Some(groups) = &claims.groups {
+            tracing::debug!("Found groups in claims.groups: {:?}", groups);
+            return groups.clone();
+        }
+
+        // Then try to get groups from the configured claim key in extra claims
         if let Some(value) = claims.extra.get(&self.config.groups_claim_key) {
             if let Some(groups) = value.as_array() {
-                return groups
+                let group_strings: Vec<String> = groups
                     .iter()
                     .filter_map(|g| g.as_str().map(String::from))
                     .collect();
+                tracing::debug!(
+                    "Found groups in extra.{}: {:?}",
+                    self.config.groups_claim_key,
+                    group_strings
+                );
+                return group_strings;
             }
         }
 
-        // Fall back to the hardcoded "groups" field for backward compatibility
-        if self.config.groups_claim_key != "groups" {
-            if let Some(groups) = &claims.groups {
-                return groups.clone();
-            }
-        }
-
+        tracing::debug!("No groups found in token claims");
         Vec::new()
     }
 
