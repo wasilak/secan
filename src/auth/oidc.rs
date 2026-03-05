@@ -349,9 +349,17 @@ impl OidcAuthProvider {
 
         // Extract groups from the configured claim key
         let groups = self.extract_groups(claims);
+        
+        tracing::info!("Extracted groups from OIDC token: {:?}", groups);
 
         // Resolve accessible clusters based on groups
         let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
+        
+        tracing::info!(
+            "Resolved cluster access - groups: {:?}, accessible_clusters: {:?}",
+            groups,
+            accessible_clusters
+        );
 
         AuthUser::new_with_clusters(claims.sub.clone(), username, groups, accessible_clusters)
     }

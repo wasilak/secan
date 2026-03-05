@@ -86,6 +86,7 @@ export function Login() {
           if (status.oidc_enabled) {
             // If user just logged out, show manual button without countdown
             if (isLoggedOut) {
+              setCountdown(0);
               setOidcEnabled(true);
               return;
             }
