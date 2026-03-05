@@ -10,7 +10,7 @@
     "@docusaurus/preset-classic": "^2.0.0-alpha.66",
     "@docusaurus/theme-classic": "2.0.0-alpha.66",
     "docusaurus": "2.0.0-alpha.66",
-    "mermaid": "^10.6.1",
+    "mermaid": "^11.0.0",
     "react": "^16.8.4",
     "react-dom": "^16.8.4"
   },
