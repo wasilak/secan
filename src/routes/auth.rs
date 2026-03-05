@@ -3,7 +3,7 @@ use crate::auth::{OidcAuthProvider, SessionManager};
 use axum::body::Body;
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Redirect, Response},
     Extension, Json,
 };
@@ -334,18 +334,53 @@ fn create_session_cookie(token: &str) -> http::HeaderValue {
 
 /// Logout endpoint
 ///
-/// Invalidates the user's session
-pub async fn logout(State(_state): State<AuthState>) -> Result<Json<LoginResponse>, ErrorResponse> {
-    // TODO: Extract session token from cookie
-    // TODO: Invalidate session
+/// Invalidates the user's session and clears the session cookie
+pub async fn logout(
+    State(state): State<AuthState>,
+    headers: axum::http::HeaderMap,
+) -> Result<Response, ErrorResponse> {
+    // Extract session token from cookie
+    if let Some(token) = extract_session_token(&headers) {
+        // Invalidate session
+        if let Err(e) = state.session_manager.invalidate_session(&token).await {
+            tracing::error!("Failed to invalidate session: {}", e);
+        } else {
+            tracing::info!("Session invalidated for user logout");
+        }
+    }
+
+    // Clear session cookie
+    let clear_cookie = format!(
+        "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+    );
 
     tracing::info!("User logged out");
 
-    Ok(Json(LoginResponse {
-        success: true,
-        message: "Logged out successfully".to_string(),
-        session_token: None,
-    }))
+    Ok((
+        StatusCode::OK,
+        [(header::SET_COOKIE, clear_cookie)],
+        Json(LoginResponse {
+            success: true,
+            message: "Logged out successfully".to_string(),
+            session_token: None,
+        }),
+    )
+        .into_response())
+}
+
+/// Extract session token from request headers
+fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    let cookies = headers.get(header::COOKIE)?;
+    let cookies_str = cookies.to_str().ok()?;
+
+    for cookie in cookies_str.split(';') {
+        let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
+        if parts.len() == 2 && parts[0] == "session_token" {
+            return Some(parts[1].to_string());
+        }
+    }
+
+    None
 }
 
 /// Auth status response
