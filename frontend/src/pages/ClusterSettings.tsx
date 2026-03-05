@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge } from '@mantine/core';
+import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, useMantineColorScheme } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -24,6 +24,7 @@ import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 export function ClusterSettingsPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { colorScheme } = useMantineColorScheme();
   const [persistentSettings, setPersistentSettings] = useState('');
   const [transientSettings, setTransientSettings] = useState('');
   const [showDefaults, setShowDefaults] = useState(false);
@@ -183,24 +184,20 @@ export function ClusterSettingsPage() {
 
           <Tabs.Panel value="persistent" pt="md">
             <Stack gap="md" style={{ minHeight: '600px' }}>
-              <div style={{ flex: 1, minHeight: '500px' }}>
-                <Editor
-                  height="500px"
-                  defaultLanguage="json"
-                  value={persistentSettings}
-                  onChange={(value) => setPersistentSettings(value || '')}
-                  theme="vs-dark"
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    wordWrap: 'on',
-                    folding: true,
-                  }}
-                />
-              </div>
+              <Editor
+                height="500px"
+                defaultLanguage="json"
+                value={persistentSettings}
+                onChange={(value) => setPersistentSettings(value || '')}
+                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                }}
+              />
               <Group justify="flex-end">
                 <Button
                   leftSection={<IconDeviceFloppy size={16} />}
@@ -215,25 +212,21 @@ export function ClusterSettingsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="transient" pt="md">
-            <Stack gap="md" style={{ minHeight: '600px' }}>
-              <div style={{ flex: 1, minHeight: '500px' }}>
-                <Editor
-                  height="500px"
-                  defaultLanguage="json"
-                  value={transientSettings}
-                  onChange={(value) => setTransientSettings(value || '')}
-                  theme="vs-dark"
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    wordWrap: 'on',
-                    folding: true,
-                  }}
-                />
-              </div>
+            <Stack gap="md">
+              <Editor
+                height="500px"
+                defaultLanguage="json"
+                value={transientSettings}
+                onChange={(value) => setTransientSettings(value || '')}
+                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                }}
+              />
               <Group justify="flex-end">
                 <Button
                   leftSection={<IconDeviceFloppy size={16} />}
@@ -253,14 +246,15 @@ export function ClusterSettingsPage() {
                 height="500px"
                 defaultLanguage="json"
                 value={JSON.stringify(settings?.defaults || {}, null, 2)}
+                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                 options={{
+                  readOnly: true,
                   minimap: { enabled: false },
                   fontSize: 14,
                   lineNumbers: 'on',
                   scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  readOnly: true,
-                }}
+                  wordWrap: 'off',
+               }}
               />
             </Tabs.Panel>
           )}
