@@ -306,11 +306,27 @@ pub async fn get_current_user(
 }
 
 /// Build session cookie
+///
+/// The Secure flag should be enabled in production when served over HTTPS.
+/// It's only omitted for local development over HTTP.
 fn create_session_cookie(token: &str) -> http::HeaderValue {
-    let cookie_value = format!(
-        "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
-        token
-    );
+    // Check if we're in production (HTTPS) by checking for secure cookie environment variable
+    // or by detecting if the request came through a secure connection
+    let secure_flag = std::env::var("SECAN_SECURE_COOKIES")
+        .map(|v| v.to_lowercase() != "false")
+        .unwrap_or(true);
+
+    let cookie_value = if secure_flag {
+        format!(
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=3600",
+            token
+        )
+    } else {
+        format!(
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
+            token
+        )
+    };
     http::HeaderValue::from_str(&cookie_value).unwrap()
 }
 

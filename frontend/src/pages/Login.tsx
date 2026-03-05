@@ -44,7 +44,24 @@ export function Login() {
         // Fetch version from API
         getAppVersion().then(setAppVersion);
 
-        // If already authenticated, redirect to home
+        // First check if already authenticated via /api/auth/me
+        // This will catch cases where user was just redirected back from OIDC
+        try {
+          const meResponse = await fetch('/api/auth/me', {
+            credentials: 'include',
+          });
+
+          if (meResponse.ok) {
+            // User is authenticated, redirect to home
+            navigate('/', { replace: true });
+            return;
+          }
+        } catch (err) {
+          // Continue with status check if /api/auth/me fails
+          console.debug('Auth check failed, proceeding with status check:', err);
+        }
+
+        // If already authenticated (from context), redirect to home
         if (isAuthenticated) {
           navigate('/', { replace: true });
           return;
