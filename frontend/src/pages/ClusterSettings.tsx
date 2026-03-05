@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, useMantineColorScheme } from '@mantine/core';
+import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, useMantineColorScheme, Paper } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -183,79 +183,85 @@ export function ClusterSettingsPage() {
           </Tabs.List>
 
           <Tabs.Panel value="persistent" pt="md">
-            <Stack gap="md" style={{ minHeight: '600px' }}>
-              <Editor
-                height="500px"
-                defaultLanguage="json"
-                value={persistentSettings}
-                onChange={(value) => setPersistentSettings(value || '')}
-                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'on',
-                }}
-              />
-              <Group justify="flex-end">
-                <Button
-                  leftSection={<IconDeviceFloppy size={16} />}
-                  onClick={handleSavePersistent}
-                  loading={updateMutation.isPending}
-                  disabled={showDefaults}
-                >
-                  Save Persistent Settings
-                </Button>
-              </Group>
-            </Stack>
+            <Paper shadow="sm" p="md" withBorder>
+              <Stack gap="md">
+                <Editor
+                  height="500px"
+                  defaultLanguage="json"
+                  value={persistentSettings}
+                  onChange={(value) => setPersistentSettings(value || '')}
+                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                  }}
+                />
+                <Group justify="flex-end">
+                  <Button
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    onClick={handleSavePersistent}
+                    loading={updateMutation.isPending}
+                    disabled={showDefaults}
+                  >
+                    Save Persistent Settings
+                  </Button>
+                </Group>
+              </Stack>
+            </Paper>
           </Tabs.Panel>
 
           <Tabs.Panel value="transient" pt="md">
-            <Stack gap="md">
-              <Editor
-                height="500px"
-                defaultLanguage="json"
-                value={transientSettings}
-                onChange={(value) => setTransientSettings(value || '')}
-                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'on',
-                }}
-              />
-              <Group justify="flex-end">
-                <Button
-                  leftSection={<IconDeviceFloppy size={16} />}
-                  onClick={handleSaveTransient}
-                  loading={updateMutation.isPending}
-                  disabled={showDefaults}
-                >
-                  Save Transient Settings
-                </Button>
-              </Group>
-            </Stack>
+            <Paper shadow="sm" p="md" withBorder>
+              <Stack gap="md">
+                <Editor
+                  height="500px"
+                  defaultLanguage="json"
+                  value={transientSettings}
+                  onChange={(value) => setTransientSettings(value || '')}
+                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'on',
+                  }}
+                />
+                <Group justify="flex-end">
+                  <Button
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    onClick={handleSaveTransient}
+                    loading={updateMutation.isPending}
+                    disabled={showDefaults}
+                  >
+                    Save Transient Settings
+                  </Button>
+                </Group>
+              </Stack>
+            </Paper>
           </Tabs.Panel>
 
           {showDefaults && (
             <Tabs.Panel value="defaults" pt="md">
-              <Editor
-                height="500px"
-                defaultLanguage="json"
-                value={JSON.stringify(settings?.defaults || {}, null, 2)}
-                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'off',
-               }}
-              />
+              <Paper shadow="sm" p="md" withBorder>
+                <Editor
+                  height="500px"
+                  defaultLanguage="json"
+                  value={JSON.stringify(settings?.defaults || {}, null, 2)}
+                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    wordWrap: 'off',
+                 }}
+                />
+              </Paper>
             </Tabs.Panel>
           )}
         </Tabs>
