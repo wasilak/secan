@@ -895,7 +895,7 @@ mod tests {
             discovery_url: "https://auth.example.com/.well-known/openid-configuration".to_string(),
             client_id: "secan".to_string(),
             client_secret: "secret".to_string(),
-            redirect_uri: "https://secan.example.com/api/auth/oidc/redirect".to_string(),
+            redirect_uri: "https://secan.example.com/api/auth/oidc/callback".to_string(),
             groups_claim_key: "groups".to_string(),
             redirect_delay_seconds: 4,
         });

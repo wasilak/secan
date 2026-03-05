@@ -85,7 +85,7 @@ auth:
     discovery_url: "https://auth.example.com/.well-known/openid-configuration"
     client_id: "secan"
     client_secret: "secret123"
-    redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+    redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
 ```
 
 **OIDC Configuration Fields:**
@@ -154,7 +154,7 @@ Then set the environment variables:
 export AUTH_DISCOVERY_URL="https://auth.example.com/.well-known/openid-configuration"
 export AUTH_CLIENT_ID="secan"
 export AUTH_CLIENT_SECRET="secret123"
-export AUTH_REDIRECT_URI="https://secan.example.com/api/auth/oidc/redirect"
+export AUTH_REDIRECT_URI="https://secan.example.com/api/auth/oidc/callback"
 ```
 
 ### Best Practices

@@ -101,7 +101,7 @@ auth:
     discovery_url: "https://auth.example.com/.well-known/openid-configuration"
     client_id: "secan"
     client_secret: "secret123"
-    redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+    redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
     groups_claim_key: "groups"
 ```
 

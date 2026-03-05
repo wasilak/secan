@@ -46,7 +46,7 @@ auth:
   #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
   #   client_id: "secan"
   #   client_secret: "secret"
-  #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
   
   # Example: OIDC configuration with Otteryak Auth
   # oidc:
@@ -58,7 +58,7 @@ auth:
   #   client_secret: "your-client-secret-here"
   #   # Redirect URI must be registered with your OIDC provider
   #   # Format: https://<your-secan-domain>/api/auth/oidc/redirect
-  #   redirect_uri: "https://secan.example.com/api/auth/oidc/redirect"
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
   #   # Optional: Scopes to request (default: openid profile email)
   #   scopes:
   #     - openid
