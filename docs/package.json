@@ -8,8 +8,8 @@
   },
   "dependencies": {
     "@docusaurus/preset-classic": "^2.0.0-alpha.66",
-    "@docusaurus/theme-classic": "2.0.0-alpha.66",
-    "docusaurus": "2.0.0-alpha.66",
+    "@docusaurus/theme-classic": "2.0.1",
+    "docusaurus": "2.0.0-alpha.378053ac5",
     "mermaid": "^10.6.1",
     "react": "^16.8.4",
     "react-dom": "^16.8.4"
