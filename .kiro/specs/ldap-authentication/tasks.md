@@ -205,10 +205,10 @@ The implementation follows a direct login flow (username/password form submissio
   - Test validation with multiple required groups
   - _Requirements: 5.6, 5.7, 5.8_
 
-- [~] 12. Checkpoint - Ensure core LDAP operations work
+- [x] 12. Checkpoint - Ensure core LDAP operations work
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 13. Implement AuthProvider trait for LdapAuthProvider
+- [x] 13. Implement AuthProvider trait for LdapAuthProvider
   - Implement authenticate async method
   - Extract username and password from AuthRequest::LocalCredentials
   - Return error for non-LocalCredentials request types

@@ -9,11 +9,12 @@ use std::time::Duration;
 use tracing::{error, info};
 
 /// LDAP authentication provider
-#[allow(dead_code)] // Fields will be used in later tasks (6-13)
 pub struct LdapAuthProvider {
     config: LdapConfig,
     session_manager: Arc<SessionManager>,
     conn_settings: LdapConnSettings,
+    rate_limiter: Option<crate::auth::RateLimiter>,
+    permission_resolver: crate::auth::PermissionResolver,
 }
 
 impl LdapAuthProvider {
@@ -65,11 +66,16 @@ impl LdapAuthProvider {
     /// };
     ///
     /// let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let permission_resolver = PermissionResolver::empty();
+    /// let provider = LdapAuthProvider::new(config, session_manager, permission_resolver).await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn new(config: LdapConfig, session_manager: Arc<SessionManager>) -> Result<Self> {
+    pub async fn new(
+        config: LdapConfig,
+        session_manager: Arc<SessionManager>,
+        permission_resolver: crate::auth::PermissionResolver,
+    ) -> Result<Self> {
         // Validate configuration
         config
             .validate()
@@ -129,7 +135,21 @@ impl LdapAuthProvider {
             config,
             session_manager,
             conn_settings,
+            rate_limiter: None,
+            permission_resolver,
         })
+    }
+
+    /// Create a new LDAP authentication provider with rate limiting
+    pub async fn with_rate_limiter(
+        config: LdapConfig,
+        session_manager: Arc<SessionManager>,
+        rate_limiter: crate::auth::RateLimiter,
+        permission_resolver: crate::auth::PermissionResolver,
+    ) -> Result<Self> {
+        let mut provider = Self::new(config, session_manager, permission_resolver).await?;
+        provider.rate_limiter = Some(rate_limiter);
+        Ok(provider)
     }
 
     /// Bind to LDAP server with service account credentials
@@ -962,6 +982,261 @@ impl LdapAuthProvider {
             roles: Vec::new(),               // Roles are not extracted from LDAP
             accessible_clusters: Vec::new(), // Clusters are not extracted from LDAP
         }
+    }
+
+    /// Authenticate a user using LDAP credentials
+    ///
+    /// This method implements the complete LDAP authentication flow:
+    /// 1. Check rate limit to prevent brute force attacks
+    /// 2. Connect to LDAP server and bind with service account
+    /// 3. Search for user in directory
+    /// 4. Authenticate user by binding with their credentials
+    /// 5. Re-bind with service account for group queries
+    /// 6. Query user's group memberships
+    /// 7. Validate required groups (if configured)
+    /// 8. Extract user information from LDAP entry
+    /// 9. Resolve accessible clusters based on groups
+    /// 10. Create session and return session token
+    ///
+    /// # Security
+    ///
+    /// - All authentication failures return None (generic failure)
+    /// - Rate limiting is enforced before attempting LDAP operations
+    /// - User input is sanitized to prevent LDAP injection attacks
+    /// - Detailed errors are logged for administrators but not exposed to clients
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - Username to authenticate
+    /// * `password` - User's password
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Some(session_token))` on successful authentication,
+    /// `Ok(None)` if rate limited or authentication fails,
+    /// or an error if an unexpected error occurs.
+    pub async fn authenticate(&self, username: &str, password: &str) -> Result<Option<String>> {
+        // Check rate limit to prevent brute force attacks
+        if let Some(rate_limiter) = &self.rate_limiter {
+            if rate_limiter.is_rate_limited(username).await {
+                tracing::warn!(
+                    username = %username,
+                    "LDAP authentication blocked: rate limit exceeded"
+                );
+                return Ok(None);
+            }
+        }
+
+        // Get connection from LDAP pool
+        let (conn, mut ldap) =
+            LdapConnAsync::with_settings(self.conn_settings.clone(), &self.config.server_url)
+                .await
+                .map_err(|e| {
+                    error!(
+                        username = %username,
+                        server_url = %self.config.server_url,
+                        error = %e,
+                        "Failed to connect to LDAP server"
+                    );
+                    anyhow!("LDAP connection failed")
+                })?;
+
+        // Drive the connection in the background
+        ldap3::drive!(conn);
+
+        // Bind with service account
+        if let Err(e) = self.bind_service_account(&mut ldap).await {
+            error!(
+                username = %username,
+                error = %e,
+                "Service account bind failed during authentication"
+            );
+            // Attempt to unbind before returning
+            let _ = ldap.unbind().await;
+
+            // Record failed attempt
+            if let Some(rate_limiter) = &self.rate_limiter {
+                rate_limiter.record_failed_attempt(username).await;
+            }
+
+            return Ok(None);
+        }
+
+        // Search for user
+        let user_entry = match self.search_user(&mut ldap, username).await {
+            Ok(entry) => entry,
+            Err(e) => {
+                error!(
+                    username = %username,
+                    error = %e,
+                    "User search failed during authentication"
+                );
+                // Attempt to unbind before returning
+                let _ = ldap.unbind().await;
+
+                // Record failed attempt
+                if let Some(rate_limiter) = &self.rate_limiter {
+                    rate_limiter.record_failed_attempt(username).await;
+                }
+
+                return Ok(None);
+            }
+        };
+
+        let user_dn = user_entry.dn.clone();
+
+        // Authenticate user by binding with their credentials
+        let auth_success = match self.authenticate_user(&mut ldap, &user_dn, password).await {
+            Ok(success) => success,
+            Err(e) => {
+                error!(
+                    username = %username,
+                    user_dn = %user_dn,
+                    error = %e,
+                    "User authentication bind failed"
+                );
+                // Attempt to unbind before returning
+                let _ = ldap.unbind().await;
+
+                // Record failed attempt
+                if let Some(rate_limiter) = &self.rate_limiter {
+                    rate_limiter.record_failed_attempt(username).await;
+                }
+
+                return Ok(None);
+            }
+        };
+
+        if !auth_success {
+            error!(
+                username = %username,
+                user_dn = %user_dn,
+                "User authentication failed: invalid password"
+            );
+            // Attempt to unbind before returning
+            let _ = ldap.unbind().await;
+
+            // Record failed attempt
+            if let Some(rate_limiter) = &self.rate_limiter {
+                rate_limiter.record_failed_attempt(username).await;
+            }
+
+            return Ok(None);
+        }
+
+        // Re-bind with service account for group queries
+        if let Err(e) = self.bind_service_account(&mut ldap).await {
+            error!(
+                username = %username,
+                error = %e,
+                "Service account re-bind failed after user authentication"
+            );
+            // Attempt to unbind before returning
+            let _ = ldap.unbind().await;
+
+            // Record failed attempt
+            if let Some(rate_limiter) = &self.rate_limiter {
+                rate_limiter.record_failed_attempt(username).await;
+            }
+
+            return Ok(None);
+        }
+
+        // Query user's group memberships
+        let groups = match self.get_user_groups(&mut ldap, &user_dn, &user_entry).await {
+            Ok(groups) => groups,
+            Err(e) => {
+                error!(
+                    username = %username,
+                    user_dn = %user_dn,
+                    error = %e,
+                    "Failed to query user groups"
+                );
+                // Attempt to unbind before returning
+                let _ = ldap.unbind().await;
+
+                // Record failed attempt
+                if let Some(rate_limiter) = &self.rate_limiter {
+                    rate_limiter.record_failed_attempt(username).await;
+                }
+
+                return Ok(None);
+            }
+        };
+
+        // Validate required groups
+        if let Err(e) = self.validate_required_groups(&groups) {
+            error!(
+                username = %username,
+                user_dn = %user_dn,
+                groups = ?groups,
+                error = %e,
+                "User failed required group validation"
+            );
+            // Attempt to unbind before returning
+            let _ = ldap.unbind().await;
+
+            // Record failed attempt (access denied counts as failure)
+            if let Some(rate_limiter) = &self.rate_limiter {
+                rate_limiter.record_failed_attempt(username).await;
+            }
+
+            return Ok(None);
+        }
+
+        // Extract user information
+        let auth_user = self.extract_user_info(user_dn.clone(), &user_entry, groups.clone());
+
+        // Unbind LDAP connection
+        if let Err(e) = ldap.unbind().await {
+            error!(
+                username = %username,
+                error = %e,
+                "Failed to unbind LDAP connection"
+            );
+            // Continue anyway since authentication was successful
+        }
+
+        // Record successful authentication (clears rate limit)
+        if let Some(rate_limiter) = &self.rate_limiter {
+            rate_limiter.record_success(username).await;
+        }
+
+        // Resolve accessible clusters based on user's groups
+        let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
+
+        // Create AuthUser with accessible clusters
+        let auth_user_with_clusters = crate::auth::session::AuthUser::new_with_clusters(
+            auth_user.id,
+            auth_user.username.clone(),
+            groups.clone(),
+            accessible_clusters.clone(),
+        );
+
+        // Create session using session_manager
+        let session_token = self
+            .session_manager
+            .create_session(auth_user_with_clusters)
+            .await
+            .context("Failed to create session after successful LDAP authentication")?;
+
+        // Log authentication success with username and groups
+        info!(
+            username = %username,
+            user_dn = %user_dn,
+            groups = ?groups,
+            accessible_clusters = ?accessible_clusters,
+            "LDAP authentication successful"
+        );
+
+        Ok(Some(session_token))
+    }
+
+    /// Get the provider type identifier
+    ///
+    /// Returns "ldap" to identify this as an LDAP authentication provider.
+    pub fn provider_type(&self) -> &str {
+        "ldap"
     }
 }
 
