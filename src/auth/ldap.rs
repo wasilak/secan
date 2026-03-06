@@ -290,19 +290,24 @@ impl LdapAuthProvider {
         let sanitized_username = sanitize_ldap_input(username);
 
         // Determine search strategy based on configuration
-        let (search_base, search_filter, scope) = if let Some(pattern) = &self.config.user_dn_pattern {
-            // Use user_dn_pattern for direct DN construction
-            let user_dn = pattern.replace("{username}", &sanitized_username);
-            // Perform base search (search only the specific DN)
-            (user_dn, "(objectClass=*)".to_string(), Scope::Base)
-        } else if let (Some(base), Some(filter)) = (&self.config.search_base, &self.config.search_filter) {
-            // Use search_base and search_filter for subtree search
-            let search_filter = filter.replace("{username}", &sanitized_username);
-            (base.clone(), search_filter, Scope::Subtree)
-        } else {
-            // This should never happen due to configuration validation
-            return Err(anyhow!("Invalid LDAP configuration: no search method configured"));
-        };
+        let (search_base, search_filter, scope) =
+            if let Some(pattern) = &self.config.user_dn_pattern {
+                // Use user_dn_pattern for direct DN construction
+                let user_dn = pattern.replace("{username}", &sanitized_username);
+                // Perform base search (search only the specific DN)
+                (user_dn, "(objectClass=*)".to_string(), Scope::Base)
+            } else if let (Some(base), Some(filter)) =
+                (&self.config.search_base, &self.config.search_filter)
+            {
+                // Use search_base and search_filter for subtree search
+                let search_filter = filter.replace("{username}", &sanitized_username);
+                (base.clone(), search_filter, Scope::Subtree)
+            } else {
+                // This should never happen due to configuration validation
+                return Err(anyhow!(
+                    "Invalid LDAP configuration: no search method configured"
+                ));
+            };
 
         // Apply connection timeout to search operation
         let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
@@ -372,6 +377,128 @@ impl LdapAuthProvider {
         let entry = SearchEntry::construct(entries.into_iter().next().unwrap());
 
         Ok(entry)
+    }
+
+    /// Authenticate user by binding with their credentials
+    ///
+    /// This method performs a simple bind operation using the user's Distinguished Name
+    /// and password to verify their credentials. The bind operation is subject to the
+    /// configured connection timeout.
+    ///
+    /// # Arguments
+    ///
+    /// * `ldap` - Mutable reference to an LDAP connection
+    /// * `user_dn` - User's Distinguished Name
+    /// * `password` - User's password
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` if the bind succeeds (credentials are valid),
+    /// `Ok(false)` if the bind fails (invalid credentials), or an error if:
+    /// - The bind operation times out
+    /// - A connection error occurs
+    ///
+    /// # Security
+    ///
+    /// This method does not propagate detailed error information to prevent information
+    /// disclosure. It returns `false` for bind failures rather than exposing error details.
+    /// Bind success/failure is logged at debug level for troubleshooting.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use cerebro::auth::ldap::LdapAuthProvider;
+    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
+    /// # use cerebro::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # use ldap3::LdapConnAsync;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+    /// #     search_base: None,
+    /// #     search_filter: None,
+    /// #     group_search_base: None,
+    /// #     group_search_filter: None,
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: None,
+    /// #     required_groups: Vec::new(),
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
+    /// ldap3::drive!(conn);
+    ///
+    /// let user_dn = "uid=testuser,ou=users,dc=example,dc=com";
+    /// let password = "userpassword";
+    /// let is_valid = provider.authenticate_user(&mut ldap, user_dn, password).await?;
+    ///
+    /// if is_valid {
+    ///     println!("Authentication successful");
+    /// } else {
+    ///     println!("Authentication failed");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn authenticate_user(
+        &self,
+        ldap: &mut Ldap,
+        user_dn: &str,
+        password: &str,
+    ) -> Result<bool> {
+        use tracing::debug;
+
+        debug!(user_dn = %user_dn, "Attempting LDAP bind for user authentication");
+
+        // Apply connection timeout to bind operation
+        let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
+
+        let bind_result = tokio::time::timeout(timeout, ldap.simple_bind(user_dn, password))
+            .await
+            .map_err(|_| {
+                debug!(
+                    user_dn = %user_dn,
+                    timeout_seconds = self.config.connection_timeout_seconds,
+                    "LDAP bind timeout during user authentication"
+                );
+                anyhow!("LDAP bind timeout")
+            })?;
+
+        // Check bind result
+        match bind_result {
+            Ok(bind_response) => {
+                // Check if bind was successful
+                match bind_response.success() {
+                    Ok(_) => {
+                        debug!(user_dn = %user_dn, "LDAP bind successful for user");
+                        Ok(true)
+                    }
+                    Err(_) => {
+                        // Bind failed (invalid credentials)
+                        debug!(user_dn = %user_dn, "LDAP bind failed for user (invalid credentials)");
+                        Ok(false)
+                    }
+                }
+            }
+            Err(e) => {
+                // Connection error during bind
+                debug!(
+                    user_dn = %user_dn,
+                    error = %e,
+                    "LDAP bind failed for user (connection error)"
+                );
+                Ok(false)
+            }
+        }
     }
 }
 

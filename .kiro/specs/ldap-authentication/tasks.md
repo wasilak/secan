@@ -115,7 +115,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test search timeout
   - _Requirements: 4.2, 2.5, 2.6, 2.7_
 
-- [~] 8. Implement user authentication (bind)
+- [x] 8. Implement user authentication (bind)
   - Create authenticate_user async method that takes connection, user DN, and password
   - Perform simple_bind with user DN and password
   - Apply connection timeout to bind operation
