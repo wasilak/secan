@@ -1417,9 +1417,6 @@ export function ClusterView() {
         </Card>
       )}
 
-      {/* Settings Section */}
-      {activeTab === 'settings' && <SettingsPanel clusterId={id!} />}
-
       {/* Console Section */}
       {activeTab === 'console' && <RestConsole />}
 
@@ -4981,92 +4978,3 @@ function ShardsList({
   );
 }
 
-/**
- * Settings panel component
- */
-function SettingsPanel({ clusterId }: { clusterId: string }) {
-  const [settings, setSettings] = useState<object | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [includeDefaults, setIncludeDefaults] = useState(false);
-  const { colorScheme } = useMantineColorScheme();
-
-  const fetchSettings = useCallback(
-    async (defaults: boolean) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const params = defaults ? '?include_defaults' : '';
-        const response = await fetch(`/api/clusters/${clusterId}/settings${params}`, {
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch cluster settings');
-        }
-
-        const data = await response.json();
-        setSettings(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [clusterId]
-  );
-
-  useEffect(() => {
-    fetchSettings(includeDefaults);
-  }, [clusterId, includeDefaults, fetchSettings]);
-
-  return (
-    <Stack gap="md">
-      <Group justify="space-between" align="center">
-        <Text fw={500}>Cluster Settings</Text>
-        <Group gap="xs">
-          <Button
-            variant={includeDefaults ? 'filled' : 'light'}
-            size="sm"
-            leftSection={<IconSettings size={16} />}
-            onClick={() => setIncludeDefaults(!includeDefaults)}
-            title={includeDefaults ? 'Hide defaults' : 'Show defaults'}
-          >
-            {includeDefaults ? 'Showing Defaults' : 'Show Defaults'}
-          </Button>
-        </Group>
-      </Group>
-
-      {error && (
-        <Alert icon={<IconAlertCircle size={16} />} color="red">
-          {error}
-        </Alert>
-      )}
-
-      {loading ? (
-        <Card shadow="sm" padding="lg">
-          <Skeleton height={400} radius="md" />
-        </Card>
-      ) : (
-        <Stack gap="xs">
-          <Group justify="flex-end">
-            <CopyButton value={JSON.stringify(settings, null, 2)} tooltip="Copy settings" />
-          </Group>
-          <Card shadow="sm" padding="lg" style={{ overflow: 'auto' }}>
-            <Editor
-              height="500px"
-              defaultLanguage="json"
-              value={JSON.stringify(settings, null, 2)}
-              theme={colorScheme === 'dark' ? 'vs-dark' : 'vs-light'}
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-              }}
-            />
-          </Card>
-        </Stack>
-      )}
-    </Stack>
-  );
-}

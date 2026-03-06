@@ -11,7 +11,6 @@ export type ClusterSection =
   | 'nodes'
   | 'indices'
   | 'shards'
-  | 'settings'
   | 'console'
   | 'tasks';
 
@@ -72,9 +71,6 @@ export const clusterRoutes: RouteObject[] = [
     path: 'cluster/:id/shards',
   },
   {
-    path: 'cluster/:id/settings',
-  },
-  {
     path: 'cluster/:id/console',
   },
   {
@@ -102,7 +98,6 @@ export const sectionLabels: Record<ClusterSection, string> = {
   nodes: 'Nodes',
   indices: 'Indices',
   shards: 'Shards',
-  settings: 'Settings',
   console: 'Console',
   tasks: 'Tasks',
 };
@@ -117,7 +112,6 @@ export const availableSections: ClusterSection[] = [
   'nodes',
   'indices',
   'shards',
-  'settings',
   'tasks',
   'console',
 ];

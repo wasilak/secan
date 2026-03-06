@@ -389,23 +389,6 @@ export interface CreateTemplateRequest {
 }
 
 /**
- * Cluster settings
- */
-export interface ClusterSettings {
-  persistent: Record<string, unknown>;
-  transient: Record<string, unknown>;
-  defaults?: Record<string, unknown>;
-}
-
-/**
- * Update cluster settings request
- */
-export interface UpdateClusterSettingsRequest {
-  persistent?: Record<string, unknown>;
-  transient?: Record<string, unknown>;
-}
-
-/**
  * Text analysis token information
  */
 export interface AnalysisToken {

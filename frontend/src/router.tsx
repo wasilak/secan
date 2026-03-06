@@ -46,9 +46,6 @@ const IndexCreate = lazy(() =>
 );
 const Aliases = lazy(() => import('./pages/Aliases').then((m) => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default: m.Templates })));
-const ClusterSettingsPage = lazy(() =>
-  import('./pages/ClusterSettings').then((m) => ({ default: m.ClusterSettingsPage }))
-);
 const ShardManagement = lazy(() =>
   import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
 );
@@ -82,8 +79,8 @@ const IndexStatistics = lazy(() =>
  * - /cluster/:id/nodes - Nodes section
  * - /cluster/:id/indices - Indices section
  * - /cluster/:id/shards - Shards section
- * - /cluster/:id/settings - Settings section
  * - /cluster/:id/console - REST Console section
+ * - /cluster/:id/tasks - Tasks section
  *
  * Modal Routes (modals overlay on sections):
  * - /cluster/:id/nodes/:nodeId - Node details modal
@@ -321,14 +318,6 @@ export const router = createBrowserRouter([
         element: (
           <LazyRoute>
             <Templates />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/settings',
-        element: (
-          <LazyRoute>
-            <ClusterSettingsPage />
           </LazyRoute>
         ),
       },

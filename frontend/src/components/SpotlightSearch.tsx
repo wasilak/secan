@@ -8,7 +8,6 @@ import {
   IconChartBar,
   IconCopy,
   IconTopologyFull,
-  IconSettings,
   IconTerminal2,
   IconPlayerPlay,
 } from '@tabler/icons-react';
@@ -95,7 +94,6 @@ export function SpotlightSearch() {
         { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '/shards' },
         { id: 'topology-tab', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
         { id: 'tasks-tab', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-        { id: 'settings-tab', label: 'Settings', icon: IconSettings, path: '/settings' },
         { id: 'console-tab', label: 'Console', icon: IconTerminal2, path: '/console' },
       ];
 
@@ -150,7 +148,6 @@ export function SpotlightSearch() {
           { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
           { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
           { id: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-          { id: 'settings', label: 'Settings', icon: IconSettings, path: '/settings' },
           { id: 'console', label: 'Console', icon: IconTerminal2, path: '/console' },
         ];
 

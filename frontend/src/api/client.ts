@@ -15,8 +15,6 @@ import {
   CreateAliasRequest,
   TemplateInfo,
   CreateTemplateRequest,
-  ClusterSettings,
-  UpdateClusterSettingsRequest,
   AnalyzeTextRequest,
   AnalyzeTextResponse,
   IndexAnalyzersResponse,
@@ -1029,38 +1027,6 @@ export class ApiClient {
       } else {
         await this.client.delete(`/clusters/${clusterId}/_template/${name}`);
       }
-    });
-  }
-
-  /**
-   * Get cluster settings
-   *
-   * Requirements: 13.1, 13.2
-   */
-  async getClusterSettings(
-    clusterId: string,
-    includeDefaults: boolean = false
-  ): Promise<ClusterSettings> {
-    return this.executeWithRetry(async () => {
-      const params = includeDefaults ? '?include_defaults=true' : '';
-      const response = await this.client.get<ClusterSettings>(
-        `/clusters/${clusterId}/_cluster/settings${params}`
-      );
-      return response.data;
-    });
-  }
-
-  /**
-   * Update cluster settings
-   *
-   * Requirements: 13.3, 13.4, 13.5
-   */
-  async updateClusterSettings(
-    clusterId: string,
-    request: UpdateClusterSettingsRequest
-  ): Promise<void> {
-    return this.executeWithRetry(async () => {
-      await this.client.put(`/clusters/${clusterId}/_cluster/settings`, request);
     });
   }
 
