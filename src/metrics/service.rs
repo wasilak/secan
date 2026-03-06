@@ -136,6 +136,9 @@ pub struct ClusterMetrics {
     /// Number of initializing shards
     #[serde(skip_serializing_if = "Option::is_none")]
     pub initializing_shards: Option<u32>,
+    /// Prometheus queries used (metric_name -> full query)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus_queries: Option<std::collections::HashMap<String, String>>,
 }
 
 /// Single metric data point with timestamp
@@ -458,51 +461,115 @@ impl MetricsService for PrometheusMetricsService {
             ..Default::default()
         };
 
+        // Build HashMap of metric names to their full PromQL queries
+        let mut prometheus_queries = std::collections::HashMap::new();
+
         // Query each metric in parallel
         metrics.jvm_memory_used_bytes = Some(
             self.query_metric_range("elasticsearch_jvm_memory_used_bytes", &time_range)
                 .await?,
+        );
+        prometheus_queries.insert(
+            "jvm_memory_used_bytes".to_string(),
+            self.build_query("elasticsearch_jvm_memory_used_bytes"),
         );
 
         metrics.jvm_memory_max_bytes = Some(
             self.query_metric_range("elasticsearch_jvm_memory_max_bytes", &time_range)
                 .await?,
         );
+        prometheus_queries.insert(
+            "jvm_memory_max_bytes".to_string(),
+            self.build_query("elasticsearch_jvm_memory_max_bytes"),
+        );
 
         metrics.gc_collection_time_ms = Some(
             self.query_metric_range("elasticsearch_jvm_gc_collection_time_millis", &time_range)
                 .await?,
+        );
+        prometheus_queries.insert(
+            "gc_collection_time_ms".to_string(),
+            self.build_query("elasticsearch_jvm_gc_collection_time_millis"),
         );
 
         metrics.index_rate = Some(
             self.query_metric_range("elasticsearch_indices_indexing_index_total", &time_range)
                 .await?,
         );
+        prometheus_queries.insert(
+            "index_rate".to_string(),
+            self.build_query("elasticsearch_indices_indexing_index_total"),
+        );
 
         metrics.query_rate = Some(
             self.query_metric_range("elasticsearch_indices_search_query_total", &time_range)
                 .await?,
         );
+        prometheus_queries.insert(
+            "query_rate".to_string(),
+            self.build_query("elasticsearch_indices_search_query_total"),
+        );
 
         metrics.disk_used_bytes = Some(
-            self.query_metric_range("elasticsearch_filesystem_data_size_bytes", &time_range)
+            self.query_metric_range("elasticsearch_indices_store_size_bytes", &time_range)
                 .await?,
+        );
+        prometheus_queries.insert(
+            "disk_used_bytes".to_string(),
+            self.build_query("elasticsearch_indices_store_size_bytes"),
         );
 
         metrics.cpu_usage_percent = Some(
             self.query_metric_range("elasticsearch_process_cpu_percent", &time_range)
                 .await?,
         );
+        prometheus_queries.insert(
+            "cpu_usage_percent".to_string(),
+            self.build_query("elasticsearch_process_cpu_percent"),
+        );
 
         metrics.network_bytes_in = Some(
             self.query_metric_range("elasticsearch_transport_rx_bytes", &time_range)
                 .await?,
+        );
+        prometheus_queries.insert(
+            "network_bytes_in".to_string(),
+            self.build_query("elasticsearch_transport_rx_bytes"),
         );
 
         metrics.network_bytes_out = Some(
             self.query_metric_range("elasticsearch_transport_tx_bytes", &time_range)
                 .await?,
         );
+        prometheus_queries.insert(
+            "network_bytes_out".to_string(),
+            self.build_query("elasticsearch_transport_tx_bytes"),
+        );
+
+        // Add queries for cluster stats
+        // For indices count, use PromQL to count unique index metrics
+        prometheus_queries.insert(
+            "indices".to_string(),
+            format!("count({})", self.build_query("elasticsearch_indices_stats_count")),
+        );
+        prometheus_queries.insert(
+            "documents".to_string(),
+            self.build_query("elasticsearch_indices_docs_primary"),
+        );
+        prometheus_queries.insert(
+            "nodes".to_string(),
+            self.build_query("elasticsearch_cluster_health_number_of_nodes"),
+        );
+        prometheus_queries.insert(
+            "shards".to_string(),
+            self.build_query("elasticsearch_cluster_health_active_shards"),
+        );
+        prometheus_queries.insert(
+            "unassigned_shards".to_string(),
+            self.build_query("elasticsearch_cluster_health_unassigned_shards"),
+        );
+
+        metrics.prometheus_queries = Some(prometheus_queries);
 
         debug!(
             "Prometheus metrics for cluster {}: {} time points",

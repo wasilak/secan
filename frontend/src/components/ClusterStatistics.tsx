@@ -5,7 +5,19 @@ import {
   Text,
   useMantineColorScheme,
   type MantineColorScheme,
+  Code,
+  Group,
+  ActionIcon,
+  Tooltip as MantineTooltip,
+  Box,
+  Badge,
 } from '@mantine/core';
+import {
+  IconCopy,
+  IconCheck,
+  IconEye,
+  IconEyeOff,
+} from '@tabler/icons-react';
 import {
   AreaChart,
   Area,
@@ -18,7 +30,7 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   YAxis,
   XAxis,
@@ -56,6 +68,22 @@ interface ClusterStatisticsProps {
 
   // Nodes data for role distribution
   nodes?: NodeInfo[];
+  
+  // Prometheus queries used
+  prometheusQueries?: Record<string, string>;
+  
+  // Hidden indices toggle
+  showHiddenIndices?: boolean;
+  onToggleHiddenIndices?: (show: boolean) => void;
+  hiddenIndicesCount?: number;
+  
+  // All indices data for filtering (includes system indices)
+  allIndices?: Array<{
+    name: string;
+    docsCount?: number;
+    primaries?: number;
+    replicas?: number;
+  }>;
 }
 
 /**
@@ -113,6 +141,101 @@ function PieTooltip({ active, payload, colorScheme }: PieTooltipProps) {
   return null;
 }
 
+/**
+ * CopyButton component for copying query text
+ */
+interface QueryCopyButtonProps {
+  value: string;
+}
+
+function QueryCopyButton({ value }: QueryCopyButtonProps) {
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <MantineTooltip label="Copy query" position="top">
+      <ActionIcon variant="subtle" color="gray" size="sm" onClick={copyToClipboard}>
+        <IconCopy style={{ width: '1rem', height: '1rem' }} />
+      </ActionIcon>
+    </MantineTooltip>
+  );
+}
+
+/**
+ * Display Prometheus query with copy button
+ */
+interface MetricQueryDisplayProps {
+  metricName: string;
+  query?: string;
+}
+
+function MetricQueryDisplay({ metricName, query }: MetricQueryDisplayProps) {
+  if (!query) return null;
+
+  const isApiQuery = query.includes('API');
+  
+  return (
+    <Box mt="xs">
+      <Group gap="xs" wrap="nowrap">
+        <Text size="xs" c="dimmed" style={{ flex: 1 }}>
+          <Code block>{query}</Code>
+        </Text>
+        <QueryCopyButton value={query} />
+      </Group>
+    </Box>
+  );
+}
+
+/**
+ * Hidden indices toggle button (similar to indices list filter)
+ */
+interface HiddenIndicesToggleProps {
+  showHiddenIndices: boolean;
+  onToggle: (show: boolean) => void;
+  hiddenIndicesCount: number;
+}
+
+function HiddenIndicesToggle({ showHiddenIndices, onToggle, hiddenIndicesCount }: HiddenIndicesToggleProps) {
+  return (
+    <Group
+      gap="xs"
+      style={{
+        cursor: 'pointer',
+        opacity: showHiddenIndices ? 1 : 0.5,
+        transition: 'opacity 150ms',
+      }}
+      onClick={() => onToggle(!showHiddenIndices)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggle(!showHiddenIndices);
+        }
+      }}
+      tabIndex={0}
+      role="button"
+    >
+      {showHiddenIndices ? (
+        <IconEye style={{ width: '1rem', height: '1rem' }} stroke={2} color="var(--mantine-color-violet-6)" />
+      ) : (
+        <IconEyeOff style={{ width: '1rem', height: '1rem' }} stroke={2} color="var(--mantine-color-violet-6)" />
+      )}
+      <Text size="xs" c="violet">
+        special
+      </Text>
+      {hiddenIndicesCount > 0 && (
+        <Badge size="xs" variant="light" color="violet">
+          {hiddenIndicesCount}
+        </Badge>
+      )}
+    </Group>
+  );
+}
+
 export function ClusterStatistics({
   nodesHistory,
   indicesHistory,
@@ -122,8 +245,46 @@ export function ClusterStatistics({
   diskUsageHistory,
   stats,
   nodes,
+  prometheusQueries,
+  showHiddenIndices,
+  onToggleHiddenIndices,
+  hiddenIndicesCount,
+  allIndices,
 }: ClusterStatisticsProps) {
   const { colorScheme } = useMantineColorScheme();
+
+  // Calculate system indices statistics from per-index data
+  const systemIndicesCount = allIndices?.filter((idx) => idx.name.startsWith('.')).length || 0;
+  const systemDocsCount = allIndices
+    ?.filter((idx) => idx.name.startsWith('.'))
+    .reduce((sum, idx) => sum + (idx.docsCount || 0), 0) || 0;
+  const systemShardsCount = allIndices
+    ?.filter((idx) => idx.name.startsWith('.'))
+    .reduce((sum, idx) => sum + (idx.primaries || 0) + (idx.replicas || 0), 0) || 0;
+
+  // Filter indices based on showHiddenIndices toggle
+  const filteredIndicesHistory = indicesHistory.map(point => ({
+    ...point,
+    value: showHiddenIndices === false && systemIndicesCount > 0
+      ? Math.max(0, point.value - systemIndicesCount)
+      : point.value,
+  }));
+  
+  // Filter documents based on showHiddenIndices toggle
+  const filteredDocumentsHistory = documentsHistory.map(point => ({
+    ...point,
+    value: showHiddenIndices === false && systemDocsCount > 0
+      ? Math.max(0, point.value - systemDocsCount)
+      : point.value,
+  }));
+  
+  // Filter shards based on showHiddenIndices toggle
+  const filteredShardsHistory = shardsHistory.map(point => ({
+    ...point,
+    value: showHiddenIndices === false && systemShardsCount > 0
+      ? Math.max(0, point.value - systemShardsCount)
+      : point.value,
+  }));
 
   // Theme-aware tooltip styles
   const tooltipStyle = {
@@ -145,9 +306,9 @@ export function ClusterStatistics({
     timestamp: nodePoint.timestamp,
     time: formatTime(nodePoint.timestamp),
     nodes: nodePoint.value,
-    indices: indicesHistory[index]?.value || 0,
-    documents: documentsHistory[index]?.value || 0,
-    shards: shardsHistory[index]?.value || 0,
+    indices: filteredIndicesHistory[index]?.value || 0,
+    documents: filteredDocumentsHistory[index]?.value || 0,
+    shards: filteredShardsHistory[index]?.value || 0,
     unassigned: unassignedHistory[index]?.value || 0,
     diskUsed: diskUsageHistory?.[index]?.value || 0,
   }));
@@ -206,6 +367,17 @@ export function ClusterStatistics({
 
   return (
     <Stack gap="md">
+      {/* Hidden Indices Toggle (top right) */}
+      {onToggleHiddenIndices && hiddenIndicesCount !== undefined && (
+        <Group justify="flex-end" align="flex-start" style={{ width: '100%' }}>
+          <HiddenIndicesToggle
+            showHiddenIndices={showHiddenIndices ?? false}
+            onToggle={onToggleHiddenIndices}
+            hiddenIndicesCount={hiddenIndicesCount}
+          />
+        </Group>
+      )}
+
       {/* First Row: Nodes, Indices, and Disk Usage Over Time (3 columns) */}
       <Grid>
         <Grid.Col span={{ base: 12, md: 4 }}>
@@ -247,7 +419,7 @@ export function ClusterStatistics({
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
+                  <RechartsTooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="nodes"
@@ -261,6 +433,10 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <MetricQueryDisplay 
+                metricName="nodes" 
+                query={prometheusQueries?.nodes} 
+              />
             </Stack>
           </Card>
         </Grid.Col>
@@ -308,7 +484,7 @@ export function ClusterStatistics({
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
+                  <RechartsTooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="indices"
@@ -322,6 +498,10 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <MetricQueryDisplay 
+                metricName="indices" 
+                query={prometheusQueries?.indices} 
+              />
             </Stack>
           </Card>
         </Grid.Col>
@@ -368,12 +548,18 @@ export function ClusterStatistics({
                     stroke="var(--mantine-color-gray-6)"
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={50}
+                    domain={[0, 'dataMax']}
                     tickFormatter={(value) => {
+                      if (value === 0) return '0 B';
+                      const kb = value / 1024;
                       const mb = value / (1024 * 1024);
-                      return mb >= 1024 ? `${(mb / 1024).toFixed(0)}GB` : `${mb.toFixed(0)}MB`;
+                      const gb = value / (1024 * 1024 * 1024);
+                      if (gb >= 1) return `${gb.toFixed(1)}GB`;
+                      if (kb >= 1024) return `${mb.toFixed(1)}MB`;
+                      return `${kb.toFixed(0)}KB`;
                     }}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={tooltipStyle}
                     labelStyle={tooltipLabelStyle}
                     formatter={(value: number | undefined) => {
@@ -394,6 +580,10 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <MetricQueryDisplay 
+                metricName="disk_usage" 
+                query={prometheusQueries?.disk_used_bytes} 
+              />
             </Stack>
           </Card>
         </Grid.Col>
@@ -452,7 +642,7 @@ export function ClusterStatistics({
                     tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
                     width={35}
                   />
-                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
+                  <RechartsTooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="shards"
@@ -477,6 +667,14 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <MetricQueryDisplay 
+                metricName="shards" 
+                query={prometheusQueries?.shards} 
+              />
+              <MetricQueryDisplay 
+                metricName="unassigned_shards" 
+                query={prometheusQueries?.unassigned_shards} 
+              />
             </Stack>
           </Card>
         </Grid.Col>
@@ -521,7 +719,7 @@ export function ClusterStatistics({
                     width={50}
                     tickFormatter={(value) => value.toLocaleString()}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={tooltipStyle}
                     labelStyle={tooltipLabelStyle}
                     formatter={(value: number | undefined) => {
@@ -543,6 +741,10 @@ export function ClusterStatistics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <MetricQueryDisplay 
+                metricName="documents" 
+                query={prometheusQueries?.documents} 
+              />
             </Stack>
           </Card>
         </Grid.Col>
@@ -571,7 +773,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<PieTooltip colorScheme={colorScheme} />} />
+                  <RechartsTooltip content={<PieTooltip colorScheme={colorScheme} />} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -600,7 +802,7 @@ export function ClusterStatistics({
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<PieTooltip colorScheme={colorScheme} />} />
+                  <RechartsTooltip content={<PieTooltip colorScheme={colorScheme} />} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -633,7 +835,7 @@ export function ClusterStatistics({
                     fill="var(--mantine-color-blue-6)"
                     fillOpacity={0.5}
                   />
-                  <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
+                  <RechartsTooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Legend />
                 </RadarChart>
               </ResponsiveContainer>

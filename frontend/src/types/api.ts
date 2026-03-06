@@ -725,6 +725,7 @@ export interface ClusterMetricsHistoryResponse {
     disk_used_bytes?: number;
     disk_total_bytes?: number;
   }>;
+  prometheus_queries?: Record<string, string>;
 }
 
 /**

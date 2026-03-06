@@ -86,6 +86,9 @@ pub struct ClusterMetricsHistoryResponse {
     pub cluster_id: String,
     pub time_range: TimeRange,
     pub data: Vec<ClusterMetricsPoint>,
+    /// Prometheus queries used for each metric (metric_name -> full query)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus_queries: Option<std::collections::HashMap<String, String>>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrometheusValidationRequest {
@@ -265,71 +268,100 @@ pub async fn get_cluster_metrics(
     // Build time series data by combining all metric arrays
     let mut data_points = Vec::new();
 
-    // Use node_count as the base time series (should have most complete data)
+    tracing::info!("Transforming metrics: node_count={:?} disk={:?} jvm={:?}", 
+        backend_metrics.node_count,
+        backend_metrics.disk_used_bytes.as_ref().map(|s| s.len()),
+        backend_metrics.jvm_memory_used_bytes.as_ref().map(|s| s.len())
+    );
+
+    // Check if we have Prometheus time series data (JVM or disk)
+    let has_prometheus_data = backend_metrics.jvm_memory_used_bytes.as_ref().map_or(false, |s| !s.is_empty())
+        || backend_metrics.disk_used_bytes.as_ref().map_or(false, |s| !s.is_empty());
+
+    // Use node_count as the base time series ONLY for internal metrics (no Prometheus time series)
     if let Some(node_counts) = &backend_metrics.node_count {
-        // This is from internal metrics - single value, create synthetic history
-        let now = chrono::Utc::now().timestamp();
-        for i in 0..20 {
-            let ts = now - (i * 60); // 1 minute intervals
-            data_points.push(ClusterMetricsPoint {
-                timestamp: ts,
-                date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
-                    .unwrap_or_else(chrono::Utc::now)
-                    .to_rfc3339(),
-                health: backend_metrics
-                    .health_status
-                    .clone()
-                    .map(|h| match h {
-                        ClusterHealthStatus::Green => "green",
-                        ClusterHealthStatus::Yellow => "yellow",
-                        ClusterHealthStatus::Red => "red",
-                    })
-                    .unwrap_or("green")
-                    .to_string(),
-                node_count: *node_counts,
-                index_count: backend_metrics.index_count,
-                document_count: backend_metrics.document_count,
-                shard_count: backend_metrics.shard_count,
-                unassigned_shards: backend_metrics.unassigned_shards,
-                disk_used_bytes: None, // Not available from internal metrics
-                disk_total_bytes: None,
-            });
-        }
-    } else if let Some(metric_points) = &backend_metrics.jvm_memory_used_bytes {
-        // This is from Prometheus - use actual time series data
-        // Limit to last 20 data points to avoid performance issues
-        let start_idx = metric_points.len().saturating_sub(20);
-        for point in metric_points.iter().skip(start_idx) {
-            // Find corresponding disk_used_bytes value at this timestamp
-            let disk_used = backend_metrics.disk_used_bytes.as_ref().and_then(|disk_series| {
-                disk_series.iter()
-                    .find(|d| d.timestamp == point.timestamp)
-                    .map(|d| d.value as u64)
-            });
+        if !has_prometheus_data {
+            // This is from internal metrics - single value, create synthetic history
+            let now = chrono::Utc::now().timestamp();
+            for i in 0..20 {
+                let ts = now - (i * 60); // 1 minute intervals
+                data_points.push(ClusterMetricsPoint {
+                    timestamp: ts,
+                    date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
+                        .unwrap_or_else(chrono::Utc::now)
+                        .to_rfc3339(),
+                    health: backend_metrics
+                        .health_status
+                        .clone()
+                        .map(|h| match h {
+                            ClusterHealthStatus::Green => "green",
+                            ClusterHealthStatus::Yellow => "yellow",
+                            ClusterHealthStatus::Red => "red",
+                        })
+                        .unwrap_or("green")
+                        .to_string(),
+                    node_count: *node_counts,
+                    index_count: backend_metrics.index_count,
+                    document_count: backend_metrics.document_count,
+                    shard_count: backend_metrics.shard_count,
+                    unassigned_shards: backend_metrics.unassigned_shards,
+                    disk_used_bytes: None, // Not available from internal metrics
+                    disk_total_bytes: None,
+                });
+            }
+        } else {
+            // We have Prometheus data, use disk or JVM as base
+            let disk_series = backend_metrics.disk_used_bytes.as_ref().filter(|s| !s.is_empty());
+            let jvm_series = backend_metrics.jvm_memory_used_bytes.as_ref().filter(|s| !s.is_empty());
             
-            data_points.push(ClusterMetricsPoint {
-                timestamp: point.timestamp,
-                date: chrono::DateTime::<chrono::Utc>::from_timestamp(point.timestamp, 0)
-                    .unwrap_or_else(chrono::Utc::now)
-                    .to_rfc3339(),
-                health: backend_metrics
-                    .health_status
-                    .clone()
-                    .map(|h| match h {
-                        ClusterHealthStatus::Green => "green",
-                        ClusterHealthStatus::Yellow => "yellow",
-                        ClusterHealthStatus::Red => "red",
-                    })
-                    .unwrap_or("green")
-                    .to_string(),
-                node_count: backend_metrics.node_count.unwrap_or(0),
-                index_count: backend_metrics.index_count,
-                document_count: backend_metrics.document_count,
-                shard_count: backend_metrics.shard_count,
-                unassigned_shards: backend_metrics.unassigned_shards,
-                disk_used_bytes: disk_used,
-                disk_total_bytes: None, // Not available from Prometheus
-            });
+            tracing::debug!("disk_series has {} points", disk_series.map(|s| s.len()).unwrap_or(0));
+            tracing::debug!("jvm_series has {} points", jvm_series.map(|s| s.len()).unwrap_or(0));
+            
+            // Use whichever series has data
+            if let Some(base_series) = disk_series.or(jvm_series) {
+                // Limit to last 20 data points to avoid performance issues
+                let start_idx = base_series.len().saturating_sub(20);
+                for point in base_series.iter().skip(start_idx) {
+                    // Get disk value - either from disk series or find matching timestamp
+                    let disk_value = if disk_series.is_some() {
+                        // We're using disk as base, direct value
+                        point.value as u64
+                    } else {
+                        // We're using JVM as base, try to find disk value at this timestamp
+                        backend_metrics.disk_used_bytes.as_ref().and_then(|ds| {
+                            ds.iter()
+                                .find(|d| (d.timestamp - point.timestamp).abs() <= 120)
+                                .map(|d| d.value as u64)
+                        }).unwrap_or(0)
+                    };
+                    
+                    tracing::debug!("point at {} disk_value={}", point.timestamp, disk_value);
+
+                    data_points.push(ClusterMetricsPoint {
+                        timestamp: point.timestamp,
+                        date: chrono::DateTime::<chrono::Utc>::from_timestamp(point.timestamp, 0)
+                            .unwrap_or_else(chrono::Utc::now)
+                            .to_rfc3339(),
+                        health: backend_metrics
+                            .health_status
+                            .clone()
+                            .map(|h| match h {
+                                ClusterHealthStatus::Green => "green",
+                                ClusterHealthStatus::Yellow => "yellow",
+                                ClusterHealthStatus::Red => "red",
+                            })
+                            .unwrap_or("green")
+                            .to_string(),
+                        node_count: backend_metrics.node_count.unwrap_or(0),
+                        index_count: backend_metrics.index_count,
+                        document_count: backend_metrics.document_count,
+                        shard_count: backend_metrics.shard_count,
+                        unassigned_shards: backend_metrics.unassigned_shards,
+                        disk_used_bytes: Some(disk_value),
+                        disk_total_bytes: None,
+                    });
+                }
+            }
         }
     }
 
@@ -340,6 +372,7 @@ pub async fn get_cluster_metrics(
         cluster_id: cluster_id.clone(),
         time_range,
         data: data_points,
+        prometheus_queries: backend_metrics.prometheus_queries,
     };
 
     Ok(Json(response))

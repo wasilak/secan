@@ -519,6 +519,12 @@ export function ClusterView() {
     staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
+  // Hidden indices toggle state
+  const [showHiddenIndices, setShowHiddenIndices] = useState(false);
+  
+  // Extract Prometheus queries from metrics history
+  const prometheusQueries = metricsHistory?.prometheus_queries;
+
   // Track historical data for sparklines (fallback when not in statistics tab)
   // Pass activeTab as resetKey so data resets when switching to statistics tab
   const nodesHistorySparkline = useSparklineData(
@@ -689,9 +695,12 @@ export function ClusterView() {
 
   // Extract indices array from paginated response (default to empty array while loading)
   const indicesArray: IndexInfo[] = indicesPaginated?.items ?? [];
-  
+
   // Use all indices for topology
   const allIndicesArray: IndexInfo[] = allIndicesPaginated?.items ?? [];
+  
+  // Calculate hidden indices count from ALL indices (for statistics tab)
+  const hiddenIndicesCount = allIndicesArray.filter((idx) => idx.name.startsWith('.')).length;
 
   // Fetch shards with auto-refresh, pagination, and server-side filtering
   const shardsFilters = {
@@ -1347,6 +1356,11 @@ export function ClusterView() {
             diskUsageHistory={diskUsageHistory as DataPoint[]}
             stats={stats}
             nodes={nodes}
+            prometheusQueries={prometheusQueries}
+            showHiddenIndices={showHiddenIndices}
+            onToggleHiddenIndices={setShowHiddenIndices}
+            hiddenIndicesCount={hiddenIndicesCount}
+            allIndices={allIndicesArray}
           />
         </Stack>
       )}
