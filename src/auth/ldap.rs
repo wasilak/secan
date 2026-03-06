@@ -719,6 +719,99 @@ impl LdapAuthProvider {
         Ok(group_list)
     }
 
+    /// Validate user is member of required groups
+    ///
+    /// This method enforces group-based access control by verifying that the user
+    /// is a member of at least one required group. If no required groups are configured,
+    /// all authenticated users are allowed.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_groups` - List of group names the user belongs to
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if:
+    /// - No required groups are configured (empty `required_groups` list)
+    /// - User is a member of at least one required group
+    ///
+    /// Returns an error if:
+    /// - Required groups are configured AND user is not a member of any required group
+    ///
+    /// # Security
+    ///
+    /// Validation failures are logged with both the required groups and the user's actual
+    /// groups to aid in troubleshooting access control issues.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+    /// #     search_base: None,
+    /// #     search_filter: None,
+    /// #     group_search_base: None,
+    /// #     group_search_filter: None,
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: None,
+    /// #     required_groups: vec!["app-users".to_string()],
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: secan::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// // User with required group membership
+    /// let user_groups = vec!["app-users".to_string(), "developers".to_string()];
+    /// provider.validate_required_groups(&user_groups)?; // Success
+    ///
+    /// // User without required group membership
+    /// let user_groups = vec!["other-group".to_string()];
+    /// let result = provider.validate_required_groups(&user_groups);
+    /// assert!(result.is_err()); // Access denied
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)] // Will be used in task 13
+    fn validate_required_groups(&self, user_groups: &[String]) -> Result<()> {
+        use tracing::warn;
+
+        // If required_groups is empty, allow all authenticated users
+        if self.config.required_groups.is_empty() {
+            return Ok(());
+        }
+
+        // Check if user is member of at least one required group
+        let has_required = user_groups
+            .iter()
+            .any(|g| self.config.required_groups.contains(g));
+
+        if !has_required {
+            // Log validation failure with required and actual groups
+            warn!(
+                required_groups = ?self.config.required_groups,
+                user_groups = ?user_groups,
+                "LDAP access denied: user is not a member of any required group"
+            );
+            return Err(anyhow!(
+                "Access denied: user is not a member of required groups"
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Extract user information from LDAP entry
     ///
     /// This method extracts user attributes from an LDAP SearchEntry and constructs

@@ -157,7 +157,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test fallback to CN from DN when username attribute missing
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [~] 10. Implement group membership queries
+- [x] 10. Implement group membership queries
   - Create get_user_groups async method that takes connection, user DN, and user entry
   - Implement direct group membership query (search groups where user is member)
   - If group_search_base and group_search_filter configured, search for groups
@@ -184,7 +184,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test combination of both query methods
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [~] 11. Implement required group validation
+- [x] 11. Implement required group validation
   - Create validate_required_groups method that takes user groups
   - If required_groups is empty, return success (allow all authenticated users)
   - Check if user is member of at least one required group
