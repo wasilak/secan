@@ -14,6 +14,7 @@ pub struct AuthConfig {
     pub mode: AuthMode,
     pub local: Option<LocalAuthConfig>,
     pub oidc: Option<OidcConfig>,
+    pub ldap: Option<crate::config::LdapConfig>,
     pub session: SessionConfig,
     pub security: SecurityConfig,
     #[serde(default)]

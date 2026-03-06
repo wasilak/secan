@@ -1,7 +1,7 @@
 //! Authentication provider interface and factory
 //!
 //! This module defines the core authentication provider trait and factory for creating
-//! provider instances based on configuration. It supports local users, OIDC, and open
+//! provider instances based on configuration. It supports local users, OIDC, LDAP, and open
 //! authentication modes.
 
 use anyhow::{anyhow, Result};
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::config::{AuthConfig, AuthMode};
+use super::ldap::LdapAuthProvider;
 use super::local::LocalAuthProvider;
 use super::oidc::OidcAuthProvider;
 use super::open::OpenAuthProvider;
@@ -82,7 +83,7 @@ impl AuthProviderFactory {
     ///
     /// Returns an error if:
     /// - The required configuration for the selected mode is missing
-    /// - Provider initialization fails (e.g., OIDC discovery fails)
+    /// - Provider initialization fails (e.g., OIDC discovery fails, LDAP connection fails)
     pub fn create(&self) -> Result<Box<dyn AuthProvider>> {
         match self.config.mode {
             AuthMode::Local => {
@@ -106,6 +107,18 @@ impl AuthProviderFactory {
 
                 Ok(Box::new(OidcAuthProvider::new(
                     oidc_config.clone(),
+                    self.session_manager.clone(),
+                )?))
+            }
+            AuthMode::Ldap => {
+                let ldap_config = self
+                    .config
+                    .ldap
+                    .as_ref()
+                    .ok_or_else(|| anyhow!("LDAP auth mode requires LDAP configuration"))?;
+
+                Ok(Box::new(LdapAuthProvider::new(
+                    ldap_config.clone(),
                     self.session_manager.clone(),
                 )?))
             }
