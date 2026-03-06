@@ -40,6 +40,7 @@ impl LdapAuthProvider {
     /// ```no_run
     /// use secan::auth::ldap::LdapAuthProvider;
     /// use secan::auth::session::{SessionManager, SessionConfig};
+    /// use secan::auth::PermissionResolver;
     /// use secan::config::LdapConfig;
     /// use std::sync::Arc;
     ///
@@ -172,44 +173,6 @@ impl LdapAuthProvider {
     /// On bind failure, this method logs detailed error information for administrators
     /// but returns a generic "LDAP connection failed" error to prevent information
     /// disclosure to potential attackers.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # use ldap3::LdapConnAsync;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
-    /// #     search_base: None,
-    /// #     search_filter: None,
-    /// #     group_search_base: None,
-    /// #     group_search_filter: None,
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: None,
-    /// #     required_groups: Vec::new(),
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
-    /// ldap3::drive!(conn);
-    ///
-    /// provider.bind_service_account(&mut ldap).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     async fn bind_service_account(&self, ldap: &mut Ldap) -> Result<()> {
         ldap.simple_bind(&self.config.bind_dn, &self.config.bind_password)
@@ -263,46 +226,6 @@ impl LdapAuthProvider {
     /// - Username input is sanitized to prevent LDAP injection
     /// - Search operations are subject to connection timeout
     /// - Errors are logged but generic messages returned to prevent information disclosure
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # use ldap3::LdapConnAsync;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: None,
-    /// #     search_base: Some("ou=users,dc=example,dc=com".to_string()),
-    /// #     search_filter: Some("(uid={username})".to_string()),
-    /// #     group_search_base: None,
-    /// #     group_search_filter: None,
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: None,
-    /// #     required_groups: Vec::new(),
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
-    /// ldap3::drive!(conn);
-    ///
-    /// provider.bind_service_account(&mut ldap).await?;
-    /// let user_entry = provider.search_user(&mut ldap, "testuser").await?;
-    /// println!("Found user: {}", user_entry.dn);
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     async fn search_user(&self, ldap: &mut Ldap, username: &str) -> Result<ldap3::SearchEntry> {
         use ldap3::{Scope, SearchEntry};
@@ -425,52 +348,6 @@ impl LdapAuthProvider {
     /// This method does not propagate detailed error information to prevent information
     /// disclosure. It returns `false` for bind failures rather than exposing error details.
     /// Bind success/failure is logged at debug level for troubleshooting.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # use ldap3::LdapConnAsync;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
-    /// #     search_base: None,
-    /// #     search_filter: None,
-    /// #     group_search_base: None,
-    /// #     group_search_filter: None,
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: None,
-    /// #     required_groups: Vec::new(),
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
-    /// ldap3::drive!(conn);
-    ///
-    /// let user_dn = "uid=testuser,ou=users,dc=example,dc=com";
-    /// let password = "userpassword";
-    /// let is_valid = provider.authenticate_user(&mut ldap, user_dn, password).await?;
-    ///
-    /// if is_valid {
-    ///     println!("Authentication successful");
-    /// } else {
-    ///     println!("Authentication failed");
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     async fn authenticate_user(
         &self,
@@ -558,48 +435,6 @@ impl LdapAuthProvider {
     /// - **Reverse query**: Requires `user_group_attribute` to be configured (e.g., "memberOf").
     ///
     /// If neither is configured, returns an empty vector.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # use ldap3::LdapConnAsync;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
-    /// #     search_base: None,
-    /// #     search_filter: None,
-    /// #     group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
-    /// #     group_search_filter: Some("(member={user_dn})".to_string()),
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: Some("memberOf".to_string()),
-    /// #     required_groups: Vec::new(),
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
-    /// ldap3::drive!(conn);
-    ///
-    /// provider.bind_service_account(&mut ldap).await?;
-    /// let user_entry = provider.search_user(&mut ldap, "testuser").await?;
-    /// let groups = provider.get_user_groups(&mut ldap, &user_entry.dn, &user_entry).await?;
-    ///
-    /// println!("User groups: {:?}", groups);
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     async fn get_user_groups(
         &self,
@@ -762,47 +597,6 @@ impl LdapAuthProvider {
     ///
     /// Validation failures are logged with both the required groups and the user's actual
     /// groups to aid in troubleshooting access control issues.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
-    /// #     search_base: None,
-    /// #     search_filter: None,
-    /// #     group_search_base: None,
-    /// #     group_search_filter: None,
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: None,
-    /// #     required_groups: vec!["app-users".to_string()],
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// // User with required group membership
-    /// let user_groups = vec!["app-users".to_string(), "developers".to_string()];
-    /// provider.validate_required_groups(&user_groups)?; // Success
-    ///
-    /// // User without required group membership
-    /// let user_groups = vec!["other-group".to_string()];
-    /// let result = provider.validate_required_groups(&user_groups);
-    /// assert!(result.is_err()); // Access denied
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     fn validate_required_groups(&self, user_groups: &[String]) -> Result<()> {
         use tracing::warn;
@@ -867,56 +661,6 @@ impl LdapAuthProvider {
     /// - Missing username: Extracts CN from DN
     /// - Missing email: Empty string
     /// - Missing display name: Uses username
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// # use secan::auth::ldap::LdapAuthProvider;
-    /// # use secan::auth::session::{SessionManager, SessionConfig};
-    /// # use secan::config::LdapConfig;
-    /// # use std::sync::Arc;
-    /// # use ldap3::SearchEntry;
-    /// # use std::collections::HashMap;
-    /// # async fn example() -> anyhow::Result<()> {
-    /// # let config = LdapConfig {
-    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
-    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
-    /// #     bind_password: "password".to_string(),
-    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
-    /// #     search_base: None,
-    /// #     search_filter: None,
-    /// #     group_search_base: None,
-    /// #     group_search_filter: None,
-    /// #     group_member_attribute: None,
-    /// #     user_group_attribute: None,
-    /// #     required_groups: Vec::new(),
-    /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: secan::config::TlsMode::None,
-    /// #     tls_skip_verify: false,
-    /// #     username_attribute: "uid".to_string(),
-    /// #     email_attribute: "mail".to_string(),
-    /// #     display_name_attribute: "cn".to_string(),
-    /// # };
-    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
-    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
-    /// let user_dn = "uid=testuser,ou=users,dc=example,dc=com".to_string();
-    /// let mut attrs = HashMap::new();
-    /// attrs.insert("uid".to_string(), vec!["testuser".to_string()]);
-    /// attrs.insert("mail".to_string(), vec!["testuser@example.com".to_string()]);
-    /// attrs.insert("cn".to_string(), vec!["Test User".to_string()]);
-    ///
-    /// let entry = SearchEntry {
-    ///     dn: user_dn.clone(),
-    ///     attrs,
-    /// };
-    ///
-    /// let groups = vec!["app-users".to_string(), "developers".to_string()];
-    /// let user = provider.extract_user_info(user_dn, &entry, groups);
-    ///
-    /// assert_eq!(user.username, "testuser");
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(dead_code)] // Will be used in task 13
     fn extract_user_info(
         &self,

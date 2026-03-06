@@ -343,7 +343,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Include example configurations
   - _Requirements: All requirements_
 
-- [~] 20. Final checkpoint - Ensure all tests pass and documentation is complete
+- [-] 20. Final checkpoint - Ensure all tests pass and documentation is complete
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
