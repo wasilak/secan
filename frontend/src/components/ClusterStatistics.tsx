@@ -589,13 +589,13 @@ export function ClusterStatistics({
         </Grid.Col>
       </Grid>
 
-      {/* Second Row: Shards and Documents Over Time (2 columns) */}
+      {/* Second Row: Active Shards, Unassigned Shards, and Documents Over Time (3 columns) */}
       <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
-                Shards Over Time
+                Active Shards Over Time
               </Text>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart
@@ -612,14 +612,6 @@ export function ClusterStatistics({
                       <stop
                         offset="95%"
                         stopColor="var(--mantine-color-violet-6)"
-                        stopOpacity={0.05}
-                      />
-                    </linearGradient>
-                    <linearGradient id="colorUnassigned" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.3} />
-                      <stop
-                        offset="95%"
-                        stopColor="var(--mantine-color-red-6)"
                         stopOpacity={0.05}
                       />
                     </linearGradient>
@@ -654,6 +646,56 @@ export function ClusterStatistics({
                     dot={{ fill: 'var(--mantine-color-violet-6)', r: 3 }}
                     activeDot={{ r: 5 }}
                   />
+                </AreaChart>
+              </ResponsiveContainer>
+              <MetricQueryDisplay
+                metricName="shards"
+                query={prometheusQueries?.shards}
+              />
+            </Stack>
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 4 }}>
+          <Card shadow="sm" padding="lg">
+            <Stack gap="xs">
+              <Text size="sm" fw={500}>
+                Unassigned Shards Over Time
+              </Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={timeSeriesData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorUnassigned" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--mantine-color-red-6)" stopOpacity={0.3} />
+                      <stop
+                        offset="95%"
+                        stopColor="var(--mantine-color-red-6)"
+                        stopOpacity={0.05}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="var(--mantine-color-dark-4)"
+                    opacity={0.3}
+                  />
+                  <XAxis
+                    dataKey="time"
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
+                    height={40}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    stroke="var(--mantine-color-gray-6)"
+                    tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
+                    width={35}
+                  />
+                  <RechartsTooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} />
                   <Area
                     type="monotone"
                     dataKey="unassigned"
@@ -661,25 +703,21 @@ export function ClusterStatistics({
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorUnassigned)"
-                    name="Unassigned"
+                    name="Unassigned Shards"
                     dot={{ fill: 'var(--mantine-color-red-6)', r: 3 }}
                     activeDot={{ r: 5 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
-              <MetricQueryDisplay 
-                metricName="shards" 
-                query={prometheusQueries?.shards} 
-              />
-              <MetricQueryDisplay 
-                metricName="unassigned_shards" 
-                query={prometheusQueries?.unassigned_shards} 
+              <MetricQueryDisplay
+                metricName="unassigned_shards"
+                query={prometheusQueries?.unassigned_shards}
               />
             </Stack>
           </Card>
         </Grid.Col>
 
-        <Grid.Col span={{ base: 12, md: 6 }}>
+        <Grid.Col span={{ base: 12, md: 4 }}>
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
