@@ -9,6 +9,7 @@ use std::time::Duration;
 use tracing::info;
 
 /// LDAP authentication provider
+#[allow(dead_code)] // Fields will be used in later tasks (6-13)
 pub struct LdapAuthProvider {
     config: LdapConfig,
     session_manager: Arc<SessionManager>,
