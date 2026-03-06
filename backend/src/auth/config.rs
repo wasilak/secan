@@ -26,6 +26,7 @@ pub struct AuthConfig {
 pub enum AuthMode {
     Local,
     Oidc,
+    Ldap,
     Open,
 }
 

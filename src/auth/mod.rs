@@ -8,7 +8,7 @@ pub mod rate_limiter;
 pub mod rbac;
 pub mod session;
 
-pub use ldap::sanitize_ldap_input;
+pub use ldap::{sanitize_ldap_input, LdapAuthProvider};
 pub use local::{hash_password, verify_password, LocalAuthProvider};
 pub use middleware::{auth_middleware, AuthError, AuthState, AuthenticatedUser};
 pub use oidc::OidcAuthProvider;

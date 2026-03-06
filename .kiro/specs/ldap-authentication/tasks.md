@@ -281,7 +281,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test session creation after successful authentication
   - _Requirements: 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 4.10, 8.3_
 
-- [~] 14. Extend AuthProviderFactory to support LDAP mode
+- [x] 14. Extend AuthProviderFactory to support LDAP mode
   - Update AuthProviderFactory::create method to handle AuthMode::Ldap
   - Extract ldap configuration from AuthConfig
   - Return error if LDAP mode selected but configuration missing

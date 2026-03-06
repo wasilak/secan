@@ -25,6 +25,8 @@ pub struct Server {
     pub session_manager: Arc<SessionManager>,
     /// OIDC provider (initialized if OIDC mode is configured)
     pub oidc_provider: Option<Arc<crate::auth::OidcAuthProvider>>,
+    /// LDAP provider (initialized if LDAP mode is configured)
+    pub ldap_provider: Option<Arc<crate::auth::LdapAuthProvider>>,
 }
 
 impl Server {
@@ -70,11 +72,36 @@ impl Server {
             None
         };
 
+        // Initialize LDAP provider if LDAP mode is configured
+        let ldap_provider = if config.auth.mode == crate::config::AuthMode::Ldap {
+            let ldap_config = config
+                .auth
+                .ldap
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("LDAP auth mode requires LDAP configuration"))?;
+
+            let permission_resolver =
+                crate::auth::PermissionResolver::new(config.auth.permissions.clone());
+
+            let provider = crate::auth::LdapAuthProvider::new(
+                ldap_config.clone(),
+                Arc::new(session_manager.clone()),
+                permission_resolver,
+            )
+            .await
+            .context("Failed to initialize LDAP provider")?;
+
+            Some(Arc::new(provider))
+        } else {
+            None
+        };
+
         Ok(Self {
             config: Arc::new(config),
             cluster_manager: Arc::new(cluster_manager),
             session_manager: Arc::new(session_manager),
             oidc_provider,
+            ldap_provider,
         })
     }
 
@@ -91,6 +118,7 @@ impl Server {
         // Create auth state for authentication routes
         let auth_routes_state = crate::routes::AuthState {
             oidc_provider: self.oidc_provider.clone(),
+            ldap_provider: self.ldap_provider.clone(),
             session_manager: self.session_manager.clone(),
             config: self.config.clone(),
         };

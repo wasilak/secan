@@ -5,6 +5,7 @@
 //! and open mode for development.
 
 pub mod config;
+pub mod ldap;
 pub mod local;
 pub mod middleware;
 pub mod oidc;

@@ -15,6 +15,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct AuthState {
     pub oidc_provider: Option<Arc<OidcAuthProvider>>,
+    pub ldap_provider: Option<Arc<crate::auth::LdapAuthProvider>>,
     pub session_manager: Arc<SessionManager>,
     pub config: Arc<crate::config::Config>,
 }
