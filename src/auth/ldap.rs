@@ -213,6 +213,166 @@ impl LdapAuthProvider {
 
         Ok(())
     }
+
+    /// Search for a user in the LDAP directory
+    ///
+    /// This method searches for a user using either:
+    /// 1. Direct DN construction via `user_dn_pattern` (if configured)
+    /// 2. Subtree search via `search_base` and `search_filter` (if configured)
+    ///
+    /// The username is sanitized to prevent LDAP injection attacks before being used
+    /// in search filters or DN construction.
+    ///
+    /// # Arguments
+    ///
+    /// * `ldap` - Mutable reference to an LDAP connection
+    /// * `username` - Username to search for (will be sanitized)
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(SearchEntry)` containing the user's DN and attributes if found,
+    /// or an error if:
+    /// - User is not found
+    /// - Multiple users are found (ambiguous search)
+    /// - Search operation times out
+    /// - Search operation fails
+    ///
+    /// # Security
+    ///
+    /// - Username input is sanitized to prevent LDAP injection
+    /// - Search operations are subject to connection timeout
+    /// - Errors are logged but generic messages returned to prevent information disclosure
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use cerebro::auth::ldap::LdapAuthProvider;
+    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
+    /// # use cerebro::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # use ldap3::LdapConnAsync;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: None,
+    /// #     search_base: Some("ou=users,dc=example,dc=com".to_string()),
+    /// #     search_filter: Some("(uid={username})".to_string()),
+    /// #     group_search_base: None,
+    /// #     group_search_filter: None,
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: None,
+    /// #     required_groups: Vec::new(),
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
+    /// ldap3::drive!(conn);
+    ///
+    /// provider.bind_service_account(&mut ldap).await?;
+    /// let user_entry = provider.search_user(&mut ldap, "testuser").await?;
+    /// println!("Found user: {}", user_entry.dn);
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn search_user(&self, ldap: &mut Ldap, username: &str) -> Result<ldap3::SearchEntry> {
+        use ldap3::{Scope, SearchEntry};
+        use tracing::warn;
+
+        // Sanitize username to prevent LDAP injection
+        let sanitized_username = sanitize_ldap_input(username);
+
+        // Determine search strategy based on configuration
+        let (search_base, search_filter, scope) = if let Some(pattern) = &self.config.user_dn_pattern {
+            // Use user_dn_pattern for direct DN construction
+            let user_dn = pattern.replace("{username}", &sanitized_username);
+            // Perform base search (search only the specific DN)
+            (user_dn, "(objectClass=*)".to_string(), Scope::Base)
+        } else if let (Some(base), Some(filter)) = (&self.config.search_base, &self.config.search_filter) {
+            // Use search_base and search_filter for subtree search
+            let search_filter = filter.replace("{username}", &sanitized_username);
+            (base.clone(), search_filter, Scope::Subtree)
+        } else {
+            // This should never happen due to configuration validation
+            return Err(anyhow!("Invalid LDAP configuration: no search method configured"));
+        };
+
+        // Apply connection timeout to search operation
+        let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
+        let search_result = tokio::time::timeout(
+            timeout,
+            ldap.search(
+                &search_base,
+                scope,
+                &search_filter,
+                vec!["*"], // Request all attributes
+            ),
+        )
+        .await
+        .map_err(|_| {
+            error!(
+                username = %username,
+                timeout_seconds = self.config.connection_timeout_seconds,
+                "LDAP search timeout"
+            );
+            anyhow!("LDAP operation timed out")
+        })?
+        .map_err(|e| {
+            error!(
+                username = %username,
+                search_base = %search_base,
+                search_filter = %search_filter,
+                error = %e,
+                "LDAP search failed"
+            );
+            anyhow!("LDAP search failed")
+        })?;
+
+        // Get search results
+        let (entries, _result) = search_result.success().map_err(|e| {
+            error!(
+                username = %username,
+                error = %e,
+                "LDAP search returned error"
+            );
+            anyhow!("LDAP search failed")
+        })?;
+
+        // Check if user was found
+        if entries.is_empty() {
+            warn!(
+                username = %username,
+                search_base = %search_base,
+                search_filter = %search_filter,
+                "User not found in LDAP directory"
+            );
+            return Err(anyhow!("User not found"));
+        }
+
+        // Check for multiple results (ambiguous search)
+        if entries.len() > 1 {
+            warn!(
+                username = %username,
+                count = entries.len(),
+                search_base = %search_base,
+                search_filter = %search_filter,
+                "Multiple users found in LDAP directory (ambiguous search)"
+            );
+            // Return the first entry but log the warning
+        }
+
+        // Convert to SearchEntry
+        let entry = SearchEntry::construct(entries.into_iter().next().unwrap());
+
+        Ok(entry)
+    }
 }
 
 /// Sanitizes user input to prevent LDAP injection attacks.

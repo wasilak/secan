@@ -87,14 +87,14 @@ The implementation follows a direct login flow (username/password form submissio
 - [x] 5. Checkpoint - Ensure configuration and initialization work
   - Ensure all tests pass, ask the user if questions arise.
 
-- [-] 6. Implement service account binding
+- [x] 6. Implement service account binding
   - Create bind_service_account async method
   - Perform simple_bind with configured bind_dn and bind_password
   - Log detailed error on bind failure
   - Return generic "LDAP connection failed" error to prevent information disclosure
   - _Requirements: 4.1, 4.8_
 
-- [~] 7. Implement user search functionality
+- [x] 7. Implement user search functionality
   - Create search_user async method that takes connection and username
   - Sanitize username input using sanitize_ldap_input
   - If user_dn_pattern is configured, construct user DN and perform base search
