@@ -504,6 +504,221 @@ impl LdapAuthProvider {
         }
     }
 
+    /// Query user's group memberships
+    ///
+    /// This method queries the user's group memberships using two complementary approaches:
+    ///
+    /// 1. **Direct group membership query**: Searches for groups where the user DN is listed
+    ///    in the group's member attribute (e.g., "member" or "memberUid"). This is configured
+    ///    via `group_search_base` and `group_search_filter`.
+    ///
+    /// 2. **Reverse group membership query**: Extracts group DNs from the user's entry
+    ///    (e.g., "memberOf" attribute). This is configured via `user_group_attribute`.
+    ///
+    /// The results from both methods are combined and deduplicated. Group names (CN) are
+    /// extracted from group DNs for easier use in authorization logic.
+    ///
+    /// # Arguments
+    ///
+    /// * `ldap` - Mutable reference to an LDAP connection
+    /// * `user_dn` - User's Distinguished Name
+    /// * `user_entry` - LDAP SearchEntry containing user attributes
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Vec<String>)` containing the list of group names the user belongs to,
+    /// or an error if:
+    /// - Group search operation fails
+    /// - Group search operation times out
+    ///
+    /// # Configuration
+    ///
+    /// - **Direct query**: Requires `group_search_base` and `group_search_filter` to be configured.
+    ///   The `{user_dn}` placeholder in the filter is replaced with the user's DN.
+    /// - **Reverse query**: Requires `user_group_attribute` to be configured (e.g., "memberOf").
+    ///
+    /// If neither is configured, returns an empty vector.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # use ldap3::LdapConnAsync;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+    /// #     search_base: None,
+    /// #     search_filter: None,
+    /// #     group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
+    /// #     group_search_filter: Some("(member={user_dn})".to_string()),
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: Some("memberOf".to_string()),
+    /// #     required_groups: Vec::new(),
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: secan::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
+    /// ldap3::drive!(conn);
+    ///
+    /// provider.bind_service_account(&mut ldap).await?;
+    /// let user_entry = provider.search_user(&mut ldap, "testuser").await?;
+    /// let groups = provider.get_user_groups(&mut ldap, &user_entry.dn, &user_entry).await?;
+    ///
+    /// println!("User groups: {:?}", groups);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)] // Will be used in task 13
+    async fn get_user_groups(
+        &self,
+        ldap: &mut Ldap,
+        user_dn: &str,
+        user_entry: &ldap3::SearchEntry,
+    ) -> Result<Vec<String>> {
+        use ldap3::{Scope, SearchEntry};
+        use std::collections::HashSet;
+        use tracing::debug;
+
+        let mut groups = HashSet::new();
+
+        // 1. Direct group membership query (search groups where user is member)
+        if let (Some(group_search_base), Some(group_search_filter)) = (
+            &self.config.group_search_base,
+            &self.config.group_search_filter,
+        ) {
+            debug!(
+                user_dn = %user_dn,
+                group_search_base = %group_search_base,
+                group_search_filter = %group_search_filter,
+                "Performing direct group membership query"
+            );
+
+            // Replace {user_dn} placeholder in group search filter
+            let search_filter = group_search_filter.replace("{user_dn}", user_dn);
+
+            // Apply connection timeout to search operation
+            let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
+            let search_result = tokio::time::timeout(
+                timeout,
+                ldap.search(
+                    group_search_base,
+                    Scope::Subtree,
+                    &search_filter,
+                    vec!["cn"], // Request CN attribute
+                ),
+            )
+            .await
+            .map_err(|_| {
+                error!(
+                    user_dn = %user_dn,
+                    timeout_seconds = self.config.connection_timeout_seconds,
+                    "LDAP group search timeout"
+                );
+                anyhow!("LDAP group search timed out")
+            })?
+            .map_err(|e| {
+                error!(
+                    user_dn = %user_dn,
+                    group_search_base = %group_search_base,
+                    search_filter = %search_filter,
+                    error = %e,
+                    "LDAP group search failed"
+                );
+                anyhow!("LDAP group search failed")
+            })?;
+
+            // Get search results
+            let (entries, _result) = search_result.success().map_err(|e| {
+                error!(
+                    user_dn = %user_dn,
+                    error = %e,
+                    "LDAP group search returned error"
+                );
+                anyhow!("LDAP group search failed")
+            })?;
+
+            debug!(
+                user_dn = %user_dn,
+                group_count = entries.len(),
+                "Direct group membership query returned {} groups",
+                entries.len()
+            );
+
+            // Extract group names (CN) from group entries
+            for entry in entries {
+                let group_entry = SearchEntry::construct(entry);
+
+                // Try to get CN from attributes first
+                if let Some(cn_values) = group_entry.attrs.get("cn") {
+                    if let Some(cn) = cn_values.first() {
+                        groups.insert(cn.clone());
+                        continue;
+                    }
+                }
+
+                // Fallback: extract CN from group DN
+                let group_name = extract_cn_from_dn(&group_entry.dn);
+                groups.insert(group_name);
+            }
+        }
+
+        // 2. Reverse group membership query (user entry contains group DNs)
+        if let Some(user_group_attribute) = &self.config.user_group_attribute {
+            debug!(
+                user_dn = %user_dn,
+                user_group_attribute = %user_group_attribute,
+                "Performing reverse group membership query"
+            );
+
+            // Extract group DNs from user entry
+            if let Some(group_dns) = user_entry.attrs.get(user_group_attribute) {
+                debug!(
+                    user_dn = %user_dn,
+                    group_count = group_dns.len(),
+                    "Reverse group membership query found {} group DNs",
+                    group_dns.len()
+                );
+
+                // Parse CNs from group DNs
+                for group_dn in group_dns {
+                    let group_name = extract_cn_from_dn(group_dn);
+                    groups.insert(group_name);
+                }
+            } else {
+                debug!(
+                    user_dn = %user_dn,
+                    user_group_attribute = %user_group_attribute,
+                    "User entry does not contain group attribute"
+                );
+            }
+        }
+
+        // Convert HashSet to Vec and sort for consistent ordering
+        let mut group_list: Vec<String> = groups.into_iter().collect();
+        group_list.sort();
+
+        debug!(
+            user_dn = %user_dn,
+            groups = ?group_list,
+            "Combined group membership query results: {} groups",
+            group_list.len()
+        );
+
+        Ok(group_list)
+    }
+
     /// Extract user information from LDAP entry
     ///
     /// This method extracts user attributes from an LDAP SearchEntry and constructs
