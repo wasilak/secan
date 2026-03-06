@@ -295,7 +295,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test factory returns correct provider_type
   - _Requirements: 7.2, 7.3_
 
-- [~] 15. Update configuration loading and validation
+- [x] 15. Update configuration loading and validation
   - Update configuration loader to parse ldap section from config file
   - Call validate_ldap_config when auth mode is Ldap
   - Ensure LDAP configuration is validated at startup
@@ -309,10 +309,10 @@ The implementation follows a direct login flow (username/password form submissio
   - Test default values for optional configuration fields
   - _Requirements: 6.1, 2.11, 2.12, 2.13_
 
-- [~] 16. Checkpoint - Ensure integration with authentication infrastructure works
+- [x] 16. Checkpoint - Ensure integration with authentication infrastructure works
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 17. Add integration tests with mock LDAP server
+- [x] 17. Add integration tests with mock LDAP server
   - Create mock LDAP server for integration testing
   - Test complete authentication flow with mock server
   - Test TLS/StartTLS connections
@@ -325,7 +325,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test rate limiting integration
   - _Requirements: All requirements_
 
-- [~] 18. Create example LDAP configuration
+- [x] 18. Create example LDAP configuration
   - Create example configuration file showing LDAP setup
   - Document all configuration parameters with comments
   - Include examples for OpenLDAP, Active Directory, and FreeIPA
@@ -334,7 +334,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Show required groups configuration
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 2.13_
 
-- [~] 19. Update authentication documentation
+- [x] 19. Update authentication documentation
   - Document LDAP authentication mode in README or docs
   - Explain configuration parameters
   - Provide setup instructions for common LDAP servers
