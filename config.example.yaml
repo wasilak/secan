@@ -71,6 +71,27 @@ auth:
   #   # Controls how long the login page shows the countdown before redirecting
   #   redirect_delay_seconds: 4
 
+  # Optional: LDAP mode configuration
+  # For detailed LDAP configuration examples, see config/examples/
+  # - ldap-minimal.yaml: Minimal required configuration
+  # - ldap-openldap.yaml: Complete OpenLDAP configuration
+  # - ldap-active-directory.yaml: Complete Active Directory configuration
+  # - ldap-freeipa.yaml: Complete FreeIPA configuration
+  # ldap:
+  #   server_url: "ldap://ldap.example.com:389"
+  #   bind_dn: "cn=service-account,dc=example,dc=com"
+  #   bind_password: "service-account-password"
+  #   search_base: "ou=users,dc=example,dc=com"
+  #   search_filter: "(uid={username})"
+  #   # Optional: Group mapping and access control
+  #   group_search_base: "ou=groups,dc=example,dc=com"
+  #   group_search_filter: "(member={user_dn})"
+  #   required_groups:
+  #     - "app-users"
+  #   # Optional: TLS configuration (recommended for production)
+  #   tls_mode: starttls
+  #   # See config/examples/README.md for complete parameter reference
+
   # Optional: role-based access control
   # roles:
   #   - name: "admin"

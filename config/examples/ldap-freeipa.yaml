@@ -1,0 +1,168 @@
+# ============================================================================
+# LDAP Authentication Configuration Example - FreeIPA
+# ============================================================================
+#
+# This example shows how to configure LDAP authentication with FreeIPA.
+# FreeIPA is an integrated identity and authentication solution for Linux/UNIX.
+#
+# Copy the relevant sections to your config.yaml and customize for your
+# environment.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION - LDAP with FreeIPA
+# ============================================================================
+
+auth:
+  # Set authentication mode to LDAP
+  mode: ldap
+
+  # Session timeout in minutes (default: 60)
+  session_timeout_minutes: 60
+
+  # LDAP configuration for FreeIPA
+  ldap:
+    # LDAP server URL
+    # - Use ldap:// for unencrypted connections (development only)
+    # - Use ldaps:// for TLS-encrypted connections (recommended for production)
+    # - FreeIPA typically uses port 389 for LDAP and 636 for LDAPS
+    server_url: "ldap://ipa.example.com:389"
+    
+    # Service account credentials for binding to FreeIPA
+    # This account is used to search for users and query group memberships
+    # Grant minimal required permissions (read-only access to users and groups)
+    #
+    # FreeIPA bind DN format:
+    # - uid=service-account,cn=users,cn=accounts,dc=example,dc=com
+    bind_dn: "uid=service-account,cn=users,cn=accounts,dc=example,dc=com"
+    bind_password: "service-account-password"
+    
+    # User search configuration
+    # Base DN where user searches begin
+    # FreeIPA stores users in: cn=users,cn=accounts,dc=example,dc=com
+    search_base: "cn=users,cn=accounts,dc=example,dc=com"
+    
+    # LDAP filter for finding users
+    # {username} is replaced with the username from the login form
+    # Common FreeIPA filters:
+    #   - (uid={username})           - Match by uid attribute (most common)
+    #   - (krbPrincipalName={username}@EXAMPLE.COM) - Match by Kerberos principal
+    #   - (&(uid={username})(objectClass=inetOrgPerson)) - Match with object class
+    search_filter: "(uid={username})"
+    
+    # Alternative: Direct bind with DN pattern (skip user search)
+    # FreeIPA has predictable DN patterns, so direct bind is possible
+    # Uncomment this and comment out search_base/search_filter to use direct bind
+    # user_dn_pattern: "uid={username},cn=users,cn=accounts,dc=example,dc=com"
+    
+    # Group membership configuration
+    # Base DN where group searches begin
+    # FreeIPA stores groups in: cn=groups,cn=accounts,dc=example,dc=com
+    group_search_base: "cn=groups,cn=accounts,dc=example,dc=com"
+    
+    # LDAP filter for finding groups
+    # {user_dn} is replaced with the user's Distinguished Name
+    # Common FreeIPA group filters:
+    #   - (member={user_dn})         - For standard groups
+    #   - (&(objectClass=groupOfNames)(member={user_dn})) - With object class
+    group_search_filter: "(member={user_dn})"
+    
+    # Attribute containing group members (for direct group membership queries)
+    # FreeIPA uses "member" attribute
+    group_member_attribute: "member"
+    
+    # User attribute containing group DNs (for reverse lookup)
+    # FreeIPA users have a memberOf attribute listing their groups
+    user_group_attribute: "memberOf"
+    
+    # Required groups for access (empty = allow all authenticated users)
+    # Users must be a member of at least one of these groups to access the application
+    # Use the CN (common name) of the group, not the full DN
+    # Leave empty to allow all authenticated FreeIPA users
+    required_groups:
+      - "elasticsearch-users"
+      - "elasticsearch-admins"
+    
+    # Connection timeout in seconds (default: 10)
+    connection_timeout_seconds: 10
+    
+    # TLS/SSL mode: "none", "starttls", or "ldaps"
+    # - none: Unencrypted connection (development only)
+    # - starttls: Upgrade connection to TLS after connecting (recommended)
+    # - ldaps: Use TLS from the start (requires ldaps:// URL and port 636)
+    tls_mode: starttls
+    
+    # Skip TLS certificate verification (for testing only - NEVER use in production)
+    # FreeIPA uses self-signed certificates by default, but you should install the CA cert
+    tls_skip_verify: false
+    
+    # User attribute mapping
+    # These attributes are extracted from the FreeIPA user entry
+    username_attribute: "uid"           # User ID
+    email_attribute: "mail"             # Email address
+    display_name_attribute: "cn"        # Common name (full name)
+
+# ============================================================================
+# CLUSTER CONFIGURATION
+# ============================================================================
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "http://localhost:9200"
+    es_version: 8
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# FreeIPA Schema Notes:
+# - Standard object classes: inetOrgPerson, posixAccount, krbPrincipalAux
+# - Common user attributes: uid, cn, sn, givenName, mail, krbPrincipalName
+# - Group object class: groupOfNames, posixGroup
+# - Group member attribute: member (contains user DNs)
+# - User group attribute: memberOf (contains group DNs)
+# - Kerberos integration: krbPrincipalName attribute for Kerberos principals
+#
+# FreeIPA Specific Features:
+# - Integrated Kerberos: Users have Kerberos principals (user@REALM)
+# - POSIX attributes: Users and groups have POSIX attributes (uidNumber, gidNumber)
+# - HBAC rules: Host-based access control (not used for LDAP authentication)
+# - Sudo rules: Sudo access control (not used for LDAP authentication)
+# - DNS integration: FreeIPA includes DNS server
+# - Certificate authority: FreeIPA includes CA for TLS certificates
+#
+# Security Best Practices:
+# - Always use TLS in production (starttls or ldaps)
+# - Install FreeIPA CA certificate on the application server
+# - Never skip certificate verification in production
+# - Use a dedicated service account with minimal permissions
+# - Store passwords in environment variables, not in config files
+# - Enable required_groups to restrict access
+# - Monitor authentication logs for suspicious activity
+# - Consider using Kerberos authentication instead of LDAP (future enhancement)
+#
+# Installing FreeIPA CA Certificate:
+# 1. Download CA certificate from FreeIPA server:
+#    wget http://ipa.example.com/ipa/config/ca.crt
+# 2. Install CA certificate on your system:
+#    - RHEL/CentOS: cp ca.crt /etc/pki/ca-trust/source/anchors/ && update-ca-trust
+#    - Debian/Ubuntu: cp ca.crt /usr/local/share/ca-certificates/ && update-ca-certificates
+#    - macOS: security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt
+#
+# Troubleshooting:
+# - Set logging level to DEBUG to see LDAP queries and responses
+# - Verify service account can bind: ldapsearch -x -H "ldap://ipa.example.com" -D "bind_dn" -W -b "search_base"
+# - Test user search: ldapsearch -x -H "ldap://ipa.example.com" -D "bind_dn" -W -b "search_base" "(uid=username)"
+# - Test group search: ldapsearch -x -H "ldap://ipa.example.com" -D "bind_dn" -W -b "group_search_base" "(member=user_dn)"
+# - Check FreeIPA logs: /var/log/dirsrv/slapd-*/access and /var/log/dirsrv/slapd-*/errors
+# - Verify user account is not disabled: ipa user-show username
+# - Ensure service account has permission to read user and group objects
