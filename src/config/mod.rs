@@ -1132,4 +1132,366 @@ mod tests {
         let auth = ClusterAuth::None;
         assert!(auth.validate(cluster_id).is_ok());
     }
+
+    #[test]
+    fn test_ldap_config_validation_valid() {
+        // Valid configuration with user_dn_pattern
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+        assert!(config.validate().is_ok());
+
+        // Valid configuration with search_base and search_filter
+        let config = LdapConfig {
+            server_url: "ldaps://ldap.example.com:636".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: Some("ou=users,dc=example,dc=com".to_string()),
+            search_filter: Some("(uid={username})".to_string()),
+            group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
+            group_search_filter: Some("(member={user_dn})".to_string()),
+            group_member_attribute: Some("member".to_string()),
+            user_group_attribute: None,
+            required_groups: vec!["app-users".to_string()],
+            connection_timeout_seconds: 30,
+            tls_mode: TlsMode::Ldaps,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_ldap_config_validation_invalid_url_scheme() {
+        let mut config = LdapConfig {
+            server_url: "http://ldap.example.com".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must use ldap:// or ldaps://"));
+
+        // Test with https scheme
+        config.server_url = "https://ldap.example.com".to_string();
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must use ldap:// or ldaps://"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_empty_bind_dn() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: String::new(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("bind_dn cannot be empty"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_empty_bind_password() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: String::new(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("bind_password cannot be empty"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_zero_timeout() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 0,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("connection_timeout_seconds must be positive"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_missing_user_search_config() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_incomplete_user_search_config() {
+        // Only search_base without search_filter
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: Some("ou=users,dc=example,dc=com".to_string()),
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+
+        // Only search_filter without search_base
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: None,
+            search_filter: Some("(uid={username})".to_string()),
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_incomplete_group_mapping() {
+        // Only group_search_base without group_search_filter
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("group mapping requires both group_search_base and group_search_filter"));
+
+        // Only group_search_filter without group_search_base
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: Some("(member={user_dn})".to_string()),
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("group mapping requires both group_search_base and group_search_filter"));
+    }
+
+    #[test]
+    fn test_auth_config_validation_ldap() {
+        let mut config = AuthConfig {
+            mode: AuthMode::Ldap,
+            session_timeout_minutes: 60,
+            local_users: None,
+            oidc: None,
+            ldap: None,
+            roles: Vec::new(),
+            permissions: Vec::new(),
+        };
+
+        // Should fail without LDAP config
+        assert!(config.validate().is_err());
+
+        // Should succeed with valid LDAP config
+        config.ldap = Some(LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        });
+        assert!(config.validate().is_ok());
+    }
 }

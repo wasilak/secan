@@ -22,7 +22,7 @@ The implementation follows a direct login flow (username/password form submissio
   - **Validates: Requirements 6.2, 6.3, 6.4, 6.7, 6.8**
   - Test that invalid configurations (empty bind DN, empty password, invalid URL scheme, zero timeout, missing required fields) are rejected with descriptive errors
 
-- [~] 2. Implement configuration validation
+- [-] 2. Implement configuration validation
   - Create validate_config function that checks all LdapConfig parameters
   - Validate server URL has ldap:// or ldaps:// scheme
   - Validate bind_dn and bind_password are not empty
