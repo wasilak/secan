@@ -124,6 +124,18 @@ pub struct ClusterMetrics {
     /// Number of indices
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index_count: Option<u32>,
+    /// Number of documents
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_count: Option<u64>,
+    /// Number of unassigned shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unassigned_shards: Option<u32>,
+    /// Number of relocating shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relocating_shards: Option<u32>,
+    /// Number of initializing shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initializing_shards: Option<u32>,
 }
 
 /// Single metric data point with timestamp

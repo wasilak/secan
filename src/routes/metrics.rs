@@ -74,6 +74,10 @@ pub struct ClusterMetricsPoint {
     pub shard_count: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unassigned_shards: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_used_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_total_bytes: Option<u64>,
 }
 
 /// Cluster metrics history response
@@ -229,9 +233,27 @@ pub async fn get_cluster_metrics(
                     serde_json::from_value::<crate::cluster::manager::ClusterHealth>(client)
                 {
                     prom_metrics.node_count = Some(health.number_of_nodes);
-                    prom_metrics.index_count = None; // Not available from health API
                     prom_metrics.shard_count = Some(health.active_shards);
                     prom_metrics.health_status = Some(health.status);
+                }
+            }
+            // Fetch index count, document count, and unassigned shards from cluster stats API
+            if let Ok(stats) = cluster_conn.client.cluster_stats().await {
+                if let Some(count) = stats["indices"]["count"].as_u64() {
+                    prom_metrics.index_count = Some(count as u32);
+                }
+                if let Some(docs_count) = stats["indices"]["docs"]["count"].as_u64() {
+                    prom_metrics.document_count = Some(docs_count);
+                }
+                // Also get shard details from cluster stats
+                if let Some(unassigned) = stats["unassigned_shards"].as_u64() {
+                    prom_metrics.unassigned_shards = Some(unassigned as u32);
+                }
+                if let Some(relocating) = stats["relocating_shards"].as_u64() {
+                    prom_metrics.relocating_shards = Some(relocating as u32);
+                }
+                if let Some(initializing) = stats["initializing_shards"].as_u64() {
+                    prom_metrics.initializing_shards = Some(initializing as u32);
                 }
             }
 
@@ -266,9 +288,11 @@ pub async fn get_cluster_metrics(
                     .to_string(),
                 node_count: *node_counts,
                 index_count: backend_metrics.index_count,
-                document_count: None,
+                document_count: backend_metrics.document_count,
                 shard_count: backend_metrics.shard_count,
-                unassigned_shards: None,
+                unassigned_shards: backend_metrics.unassigned_shards,
+                disk_used_bytes: None, // Not available from internal metrics
+                disk_total_bytes: None,
             });
         }
     } else if let Some(metric_points) = &backend_metrics.jvm_memory_used_bytes {
@@ -276,6 +300,13 @@ pub async fn get_cluster_metrics(
         // Limit to last 20 data points to avoid performance issues
         let start_idx = metric_points.len().saturating_sub(20);
         for point in metric_points.iter().skip(start_idx) {
+            // Find corresponding disk_used_bytes value at this timestamp
+            let disk_used = backend_metrics.disk_used_bytes.as_ref().and_then(|disk_series| {
+                disk_series.iter()
+                    .find(|d| d.timestamp == point.timestamp)
+                    .map(|d| d.value as u64)
+            });
+            
             data_points.push(ClusterMetricsPoint {
                 timestamp: point.timestamp,
                 date: chrono::DateTime::<chrono::Utc>::from_timestamp(point.timestamp, 0)
@@ -293,9 +324,11 @@ pub async fn get_cluster_metrics(
                     .to_string(),
                 node_count: backend_metrics.node_count.unwrap_or(0),
                 index_count: backend_metrics.index_count,
-                document_count: None,
+                document_count: backend_metrics.document_count,
                 shard_count: backend_metrics.shard_count,
-                unassigned_shards: None,
+                unassigned_shards: backend_metrics.unassigned_shards,
+                disk_used_bytes: disk_used,
+                disk_total_bytes: None, // Not available from Prometheus
             });
         }
     }
