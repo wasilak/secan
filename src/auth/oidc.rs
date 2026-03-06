@@ -5,7 +5,8 @@
 
 use anyhow::{anyhow, Context, Result};
 use base64::Engine;
-use serde::{Deserialize, Serialize};
+use reqwest::Client as HttpClient;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -13,17 +14,6 @@ use crate::config::OidcConfig;
 
 use super::session::{AuthUser, SessionManager};
 use super::permissions::PermissionResolver;
-
-/// ID Token claims extracted from JWT
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IdTokenClaims {
-    pub sub: String,
-    pub aud: Vec<String>,
-    pub exp: u64,
-    pub iat: u64,
-    #[serde(flatten)]
-    pub additional_claims: Value,
-}
 
 /// OIDC Provider Metadata from discovery
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,14 +25,56 @@ pub struct OidcProviderMetadata {
     pub jwks_uri: String,
 }
 
-/// OIDC authentication provider
-///
-/// Uses HTTP-based OIDC protocol implementation for better compatibility
+/// Helper function to deserialize audience claim which can be string or array
+fn deserialize_aud<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use serde::de::Error;
+
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(s) => Ok(vec![s]),
+        Value::Array(arr) => arr
+            .into_iter()
+            .map(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| Error::custom("audience must be string or array of strings"))
+            })
+            .collect(),
+        _ => Err(Error::custom("audience must be string or array of strings")),
+    }
+}
+
+/// ID Token claims extracted from JWT
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdTokenClaims {
+    pub sub: String,
+    #[serde(deserialize_with = "deserialize_aud")]
+    pub aud: Vec<String>,
+    pub exp: u64,
+    pub iat: u64,
+    #[serde(flatten)]
+    pub additional_claims: Value,
+}
+
+/// Token response from OIDC provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: Option<u64>,
+    pub id_token: String,
+    pub refresh_token: Option<String>,
+}
+
+/// OIDC authentication provider using HTTP-based implementation
 pub struct OidcAuthProvider {
     config: OidcConfig,
     session_manager: Arc<SessionManager>,
     metadata: OidcProviderMetadata,
-    http_client: reqwest::Client,
+    http_client: HttpClient,
     permission_resolver: PermissionResolver,
 }
 
@@ -57,11 +89,12 @@ impl OidcAuthProvider {
         tracing::debug!("OIDC client_id: {}", config.client_id);
         tracing::debug!("OIDC redirect_uri: {}", config.redirect_uri);
 
+        let http_client = HttpClient::new();
+
         // Discover OIDC provider metadata
         let discovery_url = &config.discovery_url;
         tracing::info!("Discovering OIDC provider metadata: {}", discovery_url);
 
-        let http_client = reqwest::Client::new();
         let metadata_response = http_client
             .get(discovery_url)
             .send()
@@ -121,6 +154,8 @@ impl OidcAuthProvider {
 
     /// Get the authorization URL for redirecting the user to the OIDC provider
     pub fn get_authorization_url(&self, state: &str) -> String {
+        use urlencoding::encode;
+
         let params = [
             ("client_id", self.config.client_id.as_str()),
             ("redirect_uri", self.config.redirect_uri.as_str()),
@@ -131,7 +166,7 @@ impl OidcAuthProvider {
 
         let query_string = params
             .iter()
-            .map(|(k, v)| format!("{}={}", k, urlencoding::encode(v)))
+            .map(|(k, v)| format!("{}={}", k, encode(v)))
             .collect::<Vec<_>>()
             .join("&");
 
@@ -177,27 +212,55 @@ impl OidcAuthProvider {
     }
 
     /// Validate and decode ID token
-    /// Note: This is a simplified validation that checks basic claims.
-    /// For production, consider using a JWT library with full validation.
     pub fn validate_id_token(&self, id_token_str: &str) -> Result<IdTokenClaims> {
         tracing::info!("Validating ID token");
 
-        // Decode JWT (without validation for now - we trust the HTTPS connection to the token endpoint)
-        // In production, you should validate the signature using the JWKS endpoint
         let parts: Vec<&str> = id_token_str.split('.').collect();
         if parts.len() != 3 {
-            return Err(anyhow!("Invalid ID token format"));
+            return Err(anyhow!(
+                "Invalid ID token format: expected 3 parts, got {}",
+                parts.len()
+            ));
         }
 
-        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        let payload_bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(parts[1])
             .context("Failed to decode ID token payload")?;
+
+        let payload_str = String::from_utf8_lossy(&payload_bytes);
+        tracing::debug!("ID token payload: {}", payload_str);
+
         let claims: IdTokenClaims =
-            serde_json::from_slice(&payload).context("Failed to parse ID token claims")?;
+            serde_json::from_slice(&payload_bytes).context("Failed to parse ID token claims")?;
 
         tracing::info!("ID token validated successfully for subject: {}", claims.sub);
 
         Ok(claims)
+    }
+
+    /// Extract user groups from ID token claims
+    fn extract_groups_from_claims(&self, claims: &IdTokenClaims) -> Vec<String> {
+        // Try standard "groups" claim first
+        if let Some(groups) = claims.additional_claims.get("groups") {
+            if let Ok(groups_array) = serde_json::from_value::<Vec<String>>(groups.clone()) {
+                tracing::debug!("Found groups in ID token claims: {:?}", groups_array);
+                return groups_array;
+            }
+        }
+
+        // Try configured groups claim key
+        if let Some(groups) = claims.additional_claims.get(&self.config.groups_claim_key) {
+            if let Ok(groups_array) = serde_json::from_value::<Vec<String>>(groups.clone()) {
+                tracing::debug!(
+                    "Found groups in ID token claims (key: {}): {:?}",
+                    self.config.groups_claim_key,
+                    groups_array
+                );
+                return groups_array;
+            }
+        }
+
+        Vec::new()
     }
 
     /// Fetch user groups from the userinfo endpoint
@@ -264,36 +327,11 @@ impl OidcAuthProvider {
         Ok(groups)
     }
 
-    /// Extract user groups from ID token claims
-    fn extract_groups_from_claims(&self, claims: &IdTokenClaims) -> Vec<String> {
-        // Try standard "groups" claim first
-        if let Some(groups) = claims.additional_claims.get("groups") {
-            if let Ok(groups_array) = serde_json::from_value::<Vec<String>>(groups.clone()) {
-                tracing::debug!("Found groups in ID token claims: {:?}", groups_array);
-                return groups_array;
-            }
-        }
-
-        // Try configured groups claim key
-        if let Some(groups) = claims.additional_claims.get(&self.config.groups_claim_key) {
-            if let Ok(groups_array) = serde_json::from_value::<Vec<String>>(groups.clone()) {
-                tracing::debug!(
-                    "Found groups in ID token claims (key: {}): {:?}",
-                    self.config.groups_claim_key,
-                    groups_array
-                );
-                return groups_array;
-            }
-        }
-
-        Vec::new()
-    }
-
     /// Create a session for an authenticated user
     pub async fn create_session(
         &self,
         claims: &IdTokenClaims,
-        access_token: &str,
+        token_response: &TokenResponse,
     ) -> Result<String> {
         // Extract user information
         let user_id = claims.sub.clone();
@@ -317,7 +355,10 @@ impl OidcAuthProvider {
 
         // If no groups in ID token, fetch from userinfo endpoint
         if groups.is_empty() {
-            groups = self.fetch_user_groups(access_token).await.unwrap_or_default();
+            groups = self
+                .fetch_user_groups(&token_response.access_token)
+                .await
+                .unwrap_or_default();
         }
 
         // Resolve accessible clusters based on groups
@@ -330,7 +371,12 @@ impl OidcAuthProvider {
         );
 
         // Create authenticated user
-        let auth_user = AuthUser::new_with_clusters(user_id, username, groups, accessible_clusters.clone());
+        let auth_user = AuthUser::new_with_clusters(
+            user_id,
+            username,
+            groups,
+            accessible_clusters.clone(),
+        );
 
         // Create session
         let token = self
@@ -341,14 +387,4 @@ impl OidcAuthProvider {
 
         Ok(token)
     }
-}
-
-/// Token response from OIDC provider
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenResponse {
-    pub access_token: String,
-    pub token_type: String,
-    pub expires_in: Option<u64>,
-    pub id_token: String,
-    pub refresh_token: Option<String>,
 }

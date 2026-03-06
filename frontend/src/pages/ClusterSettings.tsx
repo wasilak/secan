@@ -3,7 +3,7 @@ import { Title, Text, Card, Group, Stack, Button, Alert, Tabs, Badge, Box } from
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
-import { IconAlertCircle, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconAlertCircle, IconDeviceFloppy, IconX } from '@tabler/icons-react';
 import { Editor } from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import type { UpdateClusterSettingsRequest } from '../types/api';
@@ -27,6 +27,9 @@ export function ClusterSettingsPage() {
   const [persistentSettings, setPersistentSettings] = useState('');
   const [transientSettings, setTransientSettings] = useState('');
   const [showDefaults, setShowDefaults] = useState(false);
+  const [persistentModified, setPersistentModified] = useState(false);
+  const [transientModified, setTransientModified] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Fetch cluster settings (don't refetch when showDefaults changes, only fetch defaults once)
   const {
@@ -45,6 +48,8 @@ export function ClusterSettingsPage() {
     if (settings?.persistent !== undefined || settings?.transient !== undefined) {
       setPersistentSettings(JSON.stringify(settings?.persistent || {}, null, 2));
       setTransientSettings(JSON.stringify(settings?.transient || {}, null, 2));
+      setPersistentModified(false);
+      setTransientModified(false);
     }
   }, [settings?.persistent, settings?.transient]);
 
@@ -60,15 +65,32 @@ export function ClusterSettingsPage() {
         color: 'green',
       });
       refetch();
+      setPersistentModified(false);
+      setTransientModified(false);
+      setSaveError(null);
     },
     onError: (error: Error) => {
+      const errorMsg = `Failed to update cluster settings: ${error.message}`;
+      setSaveError(errorMsg);
       notifications.show({
         title: 'Error',
-        message: `Failed to update cluster settings: ${error.message}`,
+        message: errorMsg,
         color: 'red',
       });
     },
   });
+
+  const handlePersistentChange = (value: string | undefined) => {
+    setPersistentSettings(value || '');
+    setSaveError(null);
+    setPersistentModified(true);
+  };
+
+  const handleTransientChange = (value: string | undefined) => {
+    setTransientSettings(value || '');
+    setSaveError(null);
+    setTransientModified(true);
+  };
 
   const handleSavePersistent = () => {
     try {
@@ -93,6 +115,16 @@ export function ClusterSettingsPage() {
         message: `Invalid JSON: ${(error as Error).message}`,
         color: 'red',
       });
+    }
+  };
+
+  const handleReset = () => {
+    if (settings) {
+      setPersistentSettings(JSON.stringify(settings?.persistent || {}, null, 2));
+      setTransientSettings(JSON.stringify(settings?.transient || {}, null, 2));
+      setPersistentModified(false);
+      setTransientModified(false);
+      setSaveError(null);
     }
   };
 
@@ -121,7 +153,7 @@ export function ClusterSettingsPage() {
   }
 
   return (
-    <FullWidthContainer>
+    <FullWidthContainer style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Cluster Settings</Title>
@@ -150,7 +182,20 @@ export function ClusterSettingsPage() {
         </Stack>
       </Alert>
 
-      <Card shadow="sm" padding="lg">
+      {saveError && (
+        <Alert
+          icon={<IconAlertCircle size={16} />}
+          title="Save Failed"
+          color="red"
+          mb="md"
+          withCloseButton
+          onClose={() => setSaveError(null)}
+        >
+          <Text size="sm">{saveError}</Text>
+        </Alert>
+      )}
+
+      <Card shadow="sm" padding="lg" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Tabs defaultValue="persistent">
           <Tabs.List>
             <Tabs.Tab value="persistent">
@@ -182,20 +227,27 @@ export function ClusterSettingsPage() {
           </Tabs.List>
 
           <Tabs.Panel value="persistent" pt="md">
-            <Card shadow="sm" padding="lg">
-              <Stack gap="md">
+            <Stack gap="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <Box>
+                <Text size="sm" fw={500} mb="xs">
+                  Persistent Settings (JSON)
+                </Text>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Edit the persistent settings below
+                </Text>
                 <Box
                   style={{
                     border: '1px solid var(--mantine-color-gray-4)',
                     borderRadius: 'var(--mantine-radius-sm)',
                     width: '100%',
+                    maxWidth: '100%',
                   }}
                 >
                   <Editor
                     height="500px"
                     defaultLanguage="json"
                     value={persistentSettings}
-                    onChange={(value) => setPersistentSettings(value || '')}
+                    onChange={handlePersistentChange}
                     theme="vs-dark"
                     options={{
                       minimap: { enabled: false },
@@ -207,35 +259,49 @@ export function ClusterSettingsPage() {
                     }}
                   />
                 </Box>
-                <Group justify="flex-end">
-                  <Button
-                    leftSection={<IconDeviceFloppy size={16} />}
-                    onClick={handleSavePersistent}
-                    loading={updateMutation.isPending}
-                    disabled={showDefaults}
-                  >
-                    Save Persistent Settings
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
+              </Box>
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  onClick={handleReset}
+                  disabled={!persistentModified || updateMutation.isPending}
+                >
+                  Reset
+                </Button>
+                <Button
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSavePersistent}
+                  loading={updateMutation.isPending}
+                  disabled={!persistentModified || showDefaults}
+                >
+                  Save Persistent Settings
+                </Button>
+              </Group>
+            </Stack>
           </Tabs.Panel>
 
           <Tabs.Panel value="transient" pt="md">
-            <Card shadow="sm" padding="lg">
-              <Stack gap="md">
+            <Stack gap="md" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <Box>
+                <Text size="sm" fw={500} mb="xs">
+                  Transient Settings (JSON)
+                </Text>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Edit the transient settings below
+                </Text>
                 <Box
                   style={{
                     border: '1px solid var(--mantine-color-gray-4)',
                     borderRadius: 'var(--mantine-radius-sm)',
                     width: '100%',
+                    maxWidth: '100%',
                   }}
                 >
                   <Editor
                     height="500px"
                     defaultLanguage="json"
                     value={transientSettings}
-                    onChange={(value) => setTransientSettings(value || '')}
+                    onChange={handleTransientChange}
                     theme="vs-dark"
                     options={{
                       minimap: { enabled: false },
@@ -247,18 +313,25 @@ export function ClusterSettingsPage() {
                     }}
                   />
                 </Box>
-                <Group justify="flex-end">
-                  <Button
-                    leftSection={<IconDeviceFloppy size={16} />}
-                    onClick={handleSaveTransient}
-                    loading={updateMutation.isPending}
-                    disabled={showDefaults}
-                  >
-                    Save Transient Settings
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
+              </Box>
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  onClick={handleReset}
+                  disabled={!transientModified || updateMutation.isPending}
+                >
+                  Reset
+                </Button>
+                <Button
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSaveTransient}
+                  loading={updateMutation.isPending}
+                  disabled={!transientModified || showDefaults}
+                >
+                  Save Transient Settings
+                </Button>
+              </Group>
+            </Stack>
           </Tabs.Panel>
 
           {showDefaults && (
@@ -269,6 +342,7 @@ export function ClusterSettingsPage() {
                     border: '1px solid var(--mantine-color-gray-4)',
                     borderRadius: 'var(--mantine-radius-sm)',
                     width: '100%',
+                    maxWidth: '100%',
                   }}
                 >
                   <Editor
@@ -282,8 +356,9 @@ export function ClusterSettingsPage() {
                       fontSize: 14,
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
-                      wordWrap: 'off',
-                   }}
+                      automaticLayout: true,
+                      wordWrap: 'on',
+                    }}
                   />
                 </Box>
               </Card>

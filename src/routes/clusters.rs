@@ -434,6 +434,111 @@ pub async fn get_cluster_settings(
     Ok(Json(settings))
 }
 
+/// Update cluster settings
+///
+/// Updates persistent and/or transient cluster settings
+/// Only modified settings need to be provided in the request body
+pub async fn update_cluster_settings(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    Json(request): Json<ClusterSettingsUpdateRequest>,
+) -> Result<Json<Value>, ClusterErrorResponse> {
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        "Updating cluster settings"
+    );
+
+    // Check cluster access
+    check_cluster_access(&cluster_id, &user_ext)?;
+
+    // Get the cluster (verify it exists)
+    let _cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    // Build request body for Elasticsearch
+    let mut settings_body = serde_json::Map::new();
+
+    // Add persistent settings if provided
+    if let Some(persistent) = request.persistent {
+        settings_body.insert("persistent".to_string(), persistent);
+    }
+
+    // Add transient settings if provided
+    if let Some(transient) = request.transient {
+        settings_body.insert("transient".to_string(), transient);
+    }
+
+    if settings_body.is_empty() {
+        return Err(ClusterErrorResponse {
+            error: "no_settings".to_string(),
+            message: "At least one of 'persistent' or 'transient' settings must be provided"
+                .to_string(),
+        });
+    }
+
+    // Update cluster settings via cluster manager proxy request
+    let response = state
+        .cluster_manager
+        .proxy_request(&cluster_id, Method::PUT, "/_cluster/settings", Some(serde_json::Value::Object(settings_body)))
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to update cluster settings"
+            );
+            ClusterErrorResponse {
+                error: "update_failed".to_string(),
+                message: format!("Failed to update cluster settings: {}", e),
+            }
+        })?;
+
+    let response_value = response
+        .json::<Value>()
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to parse update response"
+            );
+            ClusterErrorResponse {
+                error: "parse_failed".to_string(),
+                message: format!("Failed to parse update response: {}", e),
+            }
+        })?;
+
+    tracing::info!(
+        cluster_id = %cluster_id,
+        "Cluster settings updated successfully"
+    );
+
+    Ok(Json(response_value))
+}
+
+/// Request body for updating cluster settings
+#[derive(Debug, Deserialize)]
+pub struct ClusterSettingsUpdateRequest {
+    /// Persistent settings (survive cluster restarts)
+    pub persistent: Option<Value>,
+    /// Transient settings (do not survive cluster restarts)
+    pub transient: Option<Value>,
+}
+
 /// Get nodes information using SDK typed methods with pagination
 ///
 /// Returns paginated nodes info in frontend-compatible format

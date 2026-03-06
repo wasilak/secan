@@ -123,12 +123,9 @@ pub async fn oidc_callback(
             }
         })?;
 
-    let id_token_str = &token_response.id_token;
-    let access_token = &token_response.access_token;
-
     // Validate and decode ID token
     let claims = oidc_provider
-        .validate_id_token(id_token_str)
+        .validate_id_token(&token_response.id_token)
         .map_err(|e| {
             tracing::error!(
                 auth_method = "oidc",
@@ -141,9 +138,9 @@ pub async fn oidc_callback(
             }
         })?;
 
-    // Create session (pass access token to fetch groups from userinfo if needed)
+    // Create session with token response
     let session_token = oidc_provider
-        .create_session(&claims, access_token)
+        .create_session(&claims, &token_response)
         .await
         .map_err(|e| {
             tracing::error!(

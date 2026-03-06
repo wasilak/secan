@@ -5,7 +5,7 @@ use anyhow::Context;
 use axum::{
     http::Method,
     middleware,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use std::sync::Arc;
@@ -141,6 +141,10 @@ impl Server {
             .route(
                 "/api/clusters/{id}/settings",
                 get(crate::routes::clusters::get_cluster_settings),
+            )
+            .route(
+                "/api/clusters/{id}/settings",
+                put(crate::routes::clusters::update_cluster_settings),
             )
             .route(
                 "/api/clusters/{id}/nodes",
