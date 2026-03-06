@@ -451,6 +451,7 @@ pub async fn get_auth_status(
         AuthMode::Open => "open",
         AuthMode::LocalUsers => "local_users",
         AuthMode::Oidc => "oidc",
+        AuthMode::Ldap => "ldap",
     };
 
     let oidc_enabled = state.oidc_provider.is_some();

@@ -142,7 +142,7 @@ fn test_prometheus_validation_request_serialization() {
 /// Test aggregation of node counts
 #[test]
 fn test_metrics_aggregation_node_counts() {
-    let counts = vec![Some(2), Some(3), None, Some(1)];
+    let counts = [Some(2), Some(3), None, Some(1)];
 
     let total: u32 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 6);
@@ -151,7 +151,7 @@ fn test_metrics_aggregation_node_counts() {
 /// Test aggregation of shard counts
 #[test]
 fn test_metrics_aggregation_shard_counts() {
-    let counts = vec![Some(10), Some(15), Some(5)];
+    let counts = [Some(10), Some(15), Some(5)];
 
     let total: u32 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 30);
@@ -160,7 +160,7 @@ fn test_metrics_aggregation_shard_counts() {
 /// Test aggregation of document counts
 #[test]
 fn test_metrics_aggregation_documents() {
-    let counts = vec![Some(1000000), Some(2000000), Some(500000)];
+    let counts = [Some(1000000), Some(2000000), Some(500000)];
 
     let total: u64 = counts.iter().filter_map(|c| *c).sum();
     assert_eq!(total, 3500000);

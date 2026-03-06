@@ -80,6 +80,8 @@ pub struct AuthConfig {
     pub local_users: Option<Vec<LocalUser>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub oidc: Option<OidcConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ldap: Option<LdapConfig>,
     #[serde(default)]
     pub roles: Vec<RoleConfig>,
     #[serde(default)]
@@ -96,6 +98,7 @@ fn default_session_timeout() -> u64 {
 pub enum AuthMode {
     LocalUsers,
     Oidc,
+    Ldap,
     Open,
 }
 
@@ -126,6 +129,105 @@ fn default_groups_claim_key() -> String {
 
 fn default_oidc_redirect_delay() -> u64 {
     4
+}
+
+/// LDAP TLS mode
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TlsMode {
+    None,
+    StartTls,
+    Ldaps,
+}
+
+fn default_ldap_timeout() -> u64 {
+    10
+}
+
+fn default_ldap_tls_mode() -> TlsMode {
+    TlsMode::None
+}
+
+fn default_ldap_username_attr() -> String {
+    "uid".to_string()
+}
+
+fn default_ldap_email_attr() -> String {
+    "mail".to_string()
+}
+
+fn default_ldap_display_name_attr() -> String {
+    "cn".to_string()
+}
+
+/// LDAP configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LdapConfig {
+    /// LDAP server URL (e.g., "ldap://ldap.example.com:389" or "ldaps://ldap.example.com:636")
+    pub server_url: String,
+
+    /// Service account bind DN for searching users
+    pub bind_dn: String,
+
+    /// Service account password
+    pub bind_password: String,
+
+    /// User DN pattern for direct bind (e.g., "uid={username},ou=users,dc=example,dc=com")
+    /// If not provided, user search is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_dn_pattern: Option<String>,
+
+    /// Base DN for user searches (e.g., "ou=users,dc=example,dc=com")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_base: Option<String>,
+
+    /// LDAP filter for user searches (e.g., "(uid={username})")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_filter: Option<String>,
+
+    /// Base DN for group searches (e.g., "ou=groups,dc=example,dc=com")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_search_base: Option<String>,
+
+    /// LDAP filter for group searches (e.g., "(member={user_dn})")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_search_filter: Option<String>,
+
+    /// Attribute containing group members (e.g., "member" or "memberUid")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_member_attribute: Option<String>,
+
+    /// User attribute containing group DNs (for reverse lookup)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_group_attribute: Option<String>,
+
+    /// Required groups for access (empty = allow all authenticated users)
+    #[serde(default)]
+    pub required_groups: Vec<String>,
+
+    /// Connection timeout in seconds
+    #[serde(default = "default_ldap_timeout")]
+    pub connection_timeout_seconds: u64,
+
+    /// TLS/SSL mode: "none", "starttls", or "ldaps"
+    #[serde(default = "default_ldap_tls_mode")]
+    pub tls_mode: TlsMode,
+
+    /// Skip TLS certificate verification (for testing only)
+    #[serde(default)]
+    pub tls_skip_verify: bool,
+
+    /// Username attribute (default: "uid")
+    #[serde(default = "default_ldap_username_attr")]
+    pub username_attribute: String,
+
+    /// Email attribute (default: "mail")
+    #[serde(default = "default_ldap_email_attr")]
+    pub email_attribute: String,
+
+    /// Display name attribute (default: "cn")
+    #[serde(default = "default_ldap_display_name_attr")]
+    pub display_name_attribute: String,
 }
 
 /// Role configuration for RBAC
@@ -420,6 +522,15 @@ impl AuthConfig {
                     oidc.validate()?;
                 }
             }
+            AuthMode::Ldap => {
+                if self.ldap.is_none() {
+                    anyhow::bail!("LDAP mode requires LDAP configuration");
+                }
+
+                if let Some(ldap) = &self.ldap {
+                    ldap.validate()?;
+                }
+            }
             AuthMode::Open => {
                 // No validation needed for open mode
             }
@@ -473,6 +584,54 @@ impl OidcConfig {
 
         if self.groups_claim_key.is_empty() {
             anyhow::bail!("OIDC groups_claim_key cannot be empty");
+        }
+
+        Ok(())
+    }
+}
+
+impl LdapConfig {
+    /// Validate LDAP configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // Validate server URL scheme
+        if !self.server_url.starts_with("ldap://") && !self.server_url.starts_with("ldaps://") {
+            anyhow::bail!(
+                "LDAP server_url must use ldap:// or ldaps:// scheme, got: {}",
+                self.server_url
+            );
+        }
+
+        // Validate bind credentials
+        if self.bind_dn.is_empty() {
+            anyhow::bail!("LDAP bind_dn cannot be empty");
+        }
+
+        if self.bind_password.is_empty() {
+            anyhow::bail!("LDAP bind_password cannot be empty");
+        }
+
+        // Validate user search configuration
+        if self.user_dn_pattern.is_none()
+            && (self.search_base.is_none() || self.search_filter.is_none())
+        {
+            anyhow::bail!(
+                "LDAP configuration must provide either user_dn_pattern or both search_base and search_filter"
+            );
+        }
+
+        // Validate group search configuration
+        let has_group_base = self.group_search_base.is_some();
+        let has_group_filter = self.group_search_filter.is_some();
+
+        if has_group_base != has_group_filter {
+            anyhow::bail!(
+                "LDAP group mapping requires both group_search_base and group_search_filter"
+            );
+        }
+
+        // Validate timeout
+        if self.connection_timeout_seconds == 0 {
+            anyhow::bail!("LDAP connection_timeout_seconds must be positive");
         }
 
         Ok(())
@@ -818,6 +977,7 @@ impl Default for AuthConfig {
             session_timeout_minutes: 60,
             local_users: None,
             oidc: None,
+            ldap: None,
             roles: Vec::new(),
             permissions: Vec::new(),
         }
@@ -860,6 +1020,7 @@ mod tests {
             session_timeout_minutes: 60,
             local_users: None,
             oidc: None,
+            ldap: None,
             roles: Vec::new(),
             permissions: Vec::new(),
         };
@@ -883,6 +1044,7 @@ mod tests {
             session_timeout_minutes: 60,
             local_users: None,
             oidc: None,
+            ldap: None,
             roles: Vec::new(),
             permissions: Vec::new(),
         };

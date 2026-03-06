@@ -325,6 +325,7 @@ mod tests {
                 session_timeout_minutes: 60,
                 local_users: None,
                 oidc: None,
+                ldap: None,
                 roles: vec![],
                 permissions: vec![],
             },
