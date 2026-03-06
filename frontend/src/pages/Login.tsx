@@ -101,7 +101,7 @@ export function Login() {
               setCountdown((prev) => {
                 if (prev <= 1) {
                   clearInterval(timer);
-                  window.location.href = '/api/auth/oidc/login';
+                  window.location.href = `/api/auth/oidc/login?redirect_to=${encodeURIComponent(redirectPath)}`;
                   return 0;
                 }
                 return prev - 1;
@@ -210,7 +210,7 @@ export function Login() {
               </Text>
               <Button
                 component="a"
-                href="/api/auth/oidc/login"
+                href={`/api/auth/oidc/login?redirect_to=${encodeURIComponent(redirectPath)}`}
                 variant="outline"
                 leftSection={<IconExternalLink size={16} />}
                 fullWidth

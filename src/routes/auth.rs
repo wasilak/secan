@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Extension, Json,
 };
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -41,6 +42,12 @@ pub struct OidcCallbackQuery {
     pub state: String,
 }
 
+/// OIDC login query parameters
+#[derive(Debug, Deserialize)]
+pub struct OidcLoginQuery {
+    pub redirect_to: Option<String>,
+}
+
 /// Error response
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
@@ -68,7 +75,10 @@ impl IntoResponse for ErrorResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 29.2
-pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, ErrorResponse> {
+pub async fn oidc_login(
+    State(state): State<AuthState>,
+    Query(params): Query<OidcLoginQuery>,
+) -> Result<Redirect, ErrorResponse> {
     let oidc_provider = state.oidc_provider.ok_or_else(|| ErrorResponse {
         error: "oidc_not_configured".to_string(),
         message: "OIDC authentication is not configured".to_string(),
@@ -77,10 +87,18 @@ pub async fn oidc_login(State(state): State<AuthState>) -> Result<Redirect, Erro
     // Generate a random state parameter for CSRF protection
     let state_param = crate::auth::generate_token();
 
+    // Encode redirect_to in state parameter (base64 encode to preserve special chars)
+    let state_with_redirect = if let Some(redirect_to) = params.redirect_to {
+        let combined = format!("{}|{}", redirect_to, state_param);
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(combined.as_bytes())
+    } else {
+        state_param
+    };
+
     // TODO: Store state parameter in a temporary cache for validation in callback
     // For now, we'll just generate it
 
-    let auth_url = oidc_provider.get_authorization_url(&state_param);
+    let auth_url = oidc_provider.get_authorization_url(&state_with_redirect);
 
     tracing::info!(auth_method = "oidc", "Initiating OIDC authentication flow");
 
@@ -161,7 +179,22 @@ pub async fn oidc_callback(
         "Authentication successful"
     );
 
-    // Set session token as HTTP-only cookie and redirect to home page
+    // Decode redirect_to from state parameter
+    let redirect_to = if let Ok(decoded_bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&params.state) {
+        if let Ok(decoded) = String::from_utf8(decoded_bytes) {
+            // State format: redirect_to|csrf_token
+            decoded.split('|').next().filter(|s| !s.is_empty()).map(String::from)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    // Default to home page if no redirect or invalid redirect
+    let redirect_path = redirect_to.unwrap_or_else(|| "/".to_string());
+
+    // Set session token as HTTP-only cookie and redirect
     let mut response = Response::new(Body::empty());
     response.headers_mut().insert(
         http::header::SET_COOKIE,
@@ -169,7 +202,7 @@ pub async fn oidc_callback(
     );
     response
         .headers_mut()
-        .insert(http::header::LOCATION, http::HeaderValue::from_static("/"));
+        .insert(http::header::LOCATION, http::HeaderValue::from_str(&redirect_path).unwrap_or_else(|_| http::HeaderValue::from_static("/")));
     *response.status_mut() = StatusCode::FOUND;
 
     Ok(response)
