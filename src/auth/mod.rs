@@ -1,4 +1,5 @@
 // Authentication module
+pub mod ldap;
 pub mod local;
 pub mod middleware;
 pub mod oidc;
@@ -7,6 +8,7 @@ pub mod rate_limiter;
 pub mod rbac;
 pub mod session;
 
+pub use ldap::sanitize_ldap_input;
 pub use local::{hash_password, verify_password, LocalAuthProvider};
 pub use middleware::{auth_middleware, AuthError, AuthState, AuthenticatedUser};
 pub use oidc::OidcAuthProvider;
