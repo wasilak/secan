@@ -2,11 +2,11 @@
 
 use crate::auth::session::SessionManager;
 use crate::config::LdapConfig;
-use anyhow::{Context, Result};
-use ldap3::{LdapConnAsync, LdapConnSettings};
+use anyhow::{anyhow, Context, Result};
+use ldap3::{Ldap, LdapConnAsync, LdapConnSettings};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::info;
+use tracing::{error, info};
 
 /// LDAP authentication provider
 #[allow(dead_code)] // Fields will be used in later tasks (6-13)
@@ -130,6 +130,88 @@ impl LdapAuthProvider {
             session_manager,
             conn_settings,
         })
+    }
+
+    /// Bind to LDAP server with service account credentials
+    ///
+    /// This method performs a simple bind operation using the configured service account
+    /// credentials (bind_dn and bind_password). The service account is used to search for
+    /// users and query group memberships during authentication.
+    ///
+    /// # Arguments
+    ///
+    /// * `ldap` - Mutable reference to an LDAP connection
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the bind succeeds, or an error if:
+    /// - The bind operation fails (invalid credentials, connection error, etc.)
+    ///
+    /// # Security
+    ///
+    /// On bind failure, this method logs detailed error information for administrators
+    /// but returns a generic "LDAP connection failed" error to prevent information
+    /// disclosure to potential attackers.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use cerebro::auth::ldap::LdapAuthProvider;
+    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
+    /// # use cerebro::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # use ldap3::LdapConnAsync;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+    /// #     search_base: None,
+    /// #     search_filter: None,
+    /// #     group_search_base: None,
+    /// #     group_search_filter: None,
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: None,
+    /// #     required_groups: Vec::new(),
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let (conn, mut ldap) = LdapConnAsync::new(&provider.config.server_url).await?;
+    /// ldap3::drive!(conn);
+    ///
+    /// provider.bind_service_account(&mut ldap).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn bind_service_account(&self, ldap: &mut Ldap) -> Result<()> {
+        ldap.simple_bind(&self.config.bind_dn, &self.config.bind_password)
+            .await
+            .map_err(|e| {
+                error!(
+                    bind_dn = %self.config.bind_dn,
+                    error = %e,
+                    "LDAP service account bind failed"
+                );
+                anyhow!("LDAP connection failed")
+            })?
+            .success()
+            .map_err(|e| {
+                error!(
+                    bind_dn = %self.config.bind_dn,
+                    error = %e,
+                    "LDAP service account bind failed"
+                );
+                anyhow!("LDAP connection failed")
+            })?;
+
+        Ok(())
     }
 }
 

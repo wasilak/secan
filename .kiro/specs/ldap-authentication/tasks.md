@@ -87,7 +87,7 @@ The implementation follows a direct login flow (username/password form submissio
 - [x] 5. Checkpoint - Ensure configuration and initialization work
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 6. Implement service account binding
+- [-] 6. Implement service account binding
   - Create bind_service_account async method
   - Perform simple_bind with configured bind_dn and bind_password
   - Log detailed error on bind failure
