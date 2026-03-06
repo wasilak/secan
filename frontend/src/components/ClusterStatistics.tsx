@@ -64,6 +64,11 @@ interface ClusterStatisticsProps {
     activePrimaryShards?: number;
     unassignedShards?: number;
     relocatingShards?: number;
+    memoryUsed?: number;
+    memoryTotal?: number;
+    cpuPercent?: number;
+    diskUsed?: number;
+    diskTotal?: number;
   };
 
   // Nodes data for role distribution
@@ -327,19 +332,20 @@ export function ClusterStatistics({
     fullMark: Math.max(...Array.from(roleCount.values())) + 2, // Add padding for better visualization
   }));
 
-  // Prepare node types data for donut chart
-  const nodeTypesData = [
+  // Prepare node types data for donut chart - REPLACED with Memory Usage
+  // Show current memory utilization from stats
+  const memoryUsageData = stats?.memoryTotal && stats?.memoryTotal > 0 ? [
     {
-      name: 'Data Nodes',
-      value: stats?.numberOfDataNodes || 0,
+      name: 'Used Memory',
+      value: stats.memoryUsed || 0,
       color: 'var(--mantine-color-blue-6)',
     },
     {
-      name: 'Other Nodes',
-      value: (stats?.numberOfNodes || 0) - (stats?.numberOfDataNodes || 0),
+      name: 'Free Memory',
+      value: stats.memoryTotal - (stats.memoryUsed || 0),
       color: 'var(--mantine-color-gray-6)',
     },
-  ].filter((item) => item.value > 0);
+  ].filter((item) => item.value > 0) : [];
 
   // Prepare shard types data for donut chart
   const shardTypesData = [
@@ -794,27 +800,35 @@ export function ClusterStatistics({
           <Card shadow="sm" padding="lg">
             <Stack gap="xs">
               <Text size="sm" fw={500}>
-                Node Types
+                Memory Usage
               </Text>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={nodeTypesData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {nodeTypesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip content={<PieTooltip colorScheme={colorScheme} />} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              {memoryUsageData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={memoryUsageData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {memoryUsageData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip content={<PieTooltip colorScheme={colorScheme} />} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <Stack justify="center" align="center" style={{ height: 200 }}>
+                  <Text size="sm" c="dimmed">
+                    Memory data not available
+                  </Text>
+                </Stack>
+              )}
             </Stack>
           </Card>
         </Grid.Col>
