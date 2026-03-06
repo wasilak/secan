@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use crate::config::OidcConfig;
 
-use super::session::{AuthUser, SessionManager};
 use super::permissions::PermissionResolver;
+use super::session::{AuthUser, SessionManager};
 
 /// OIDC Provider Metadata from discovery
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,7 +233,10 @@ impl OidcAuthProvider {
         let claims: IdTokenClaims =
             serde_json::from_slice(&payload_bytes).context("Failed to parse ID token claims")?;
 
-        tracing::info!("ID token validated successfully for subject: {}", claims.sub);
+        tracing::info!(
+            "ID token validated successfully for subject: {}",
+            claims.sub
+        );
 
         Ok(claims)
     }
@@ -371,12 +374,8 @@ impl OidcAuthProvider {
         );
 
         // Create authenticated user
-        let auth_user = AuthUser::new_with_clusters(
-            user_id,
-            username,
-            groups,
-            accessible_clusters.clone(),
-        );
+        let auth_user =
+            AuthUser::new_with_clusters(user_id, username, groups, accessible_clusters.clone());
 
         // Create session
         let token = self

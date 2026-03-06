@@ -27,7 +27,6 @@ import {
   IconPackage,
   IconDatabase,
   IconBox,
-  IconSettings,
   IconTerminal,
   IconChartLine,
   IconPlayerPlay,

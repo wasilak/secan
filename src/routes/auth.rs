@@ -180,10 +180,16 @@ pub async fn oidc_callback(
     );
 
     // Decode redirect_to from state parameter
-    let redirect_to = if let Ok(decoded_bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&params.state) {
+    let redirect_to = if let Ok(decoded_bytes) =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&params.state)
+    {
         if let Ok(decoded) = String::from_utf8(decoded_bytes) {
             // State format: redirect_to|csrf_token
-            decoded.split('|').next().filter(|s| !s.is_empty()).map(String::from)
+            decoded
+                .split('|')
+                .next()
+                .filter(|s| !s.is_empty())
+                .map(String::from)
         } else {
             None
         }
@@ -200,9 +206,11 @@ pub async fn oidc_callback(
         http::header::SET_COOKIE,
         create_session_cookie(&session_token),
     );
-    response
-        .headers_mut()
-        .insert(http::header::LOCATION, http::HeaderValue::from_str(&redirect_path).unwrap_or_else(|_| http::HeaderValue::from_static("/")));
+    response.headers_mut().insert(
+        http::header::LOCATION,
+        http::HeaderValue::from_str(&redirect_path)
+            .unwrap_or_else(|_| http::HeaderValue::from_static("/")),
+    );
     *response.status_mut() = StatusCode::FOUND;
 
     Ok(response)
@@ -386,9 +394,7 @@ pub async fn logout(
     }
 
     // Clear session cookie
-    let clear_cookie = format!(
-        "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
-    );
+    let clear_cookie = "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0".to_string();
 
     tracing::info!("User logged out");
 
@@ -397,7 +403,9 @@ pub async fn logout(
     response.headers_mut().insert(
         header::SET_COOKIE,
         clear_cookie.parse().unwrap_or_else(|_| {
-            header::HeaderValue::from_static("session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
+            header::HeaderValue::from_static(
+                "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+            )
         }),
     );
     response.headers_mut().insert(

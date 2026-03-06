@@ -121,7 +121,7 @@ export function Login() {
     };
 
     checkAuthStatus();
-  }, [isAuthenticated, navigate, isLoggedOut]);
+  }, [isAuthenticated, navigate, isLoggedOut, redirectPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

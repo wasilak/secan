@@ -493,7 +493,12 @@ pub async fn update_cluster_settings(
     // Update cluster settings via cluster manager proxy request
     let response = state
         .cluster_manager
-        .proxy_request(&cluster_id, Method::PUT, "/_cluster/settings", Some(serde_json::Value::Object(settings_body)))
+        .proxy_request(
+            &cluster_id,
+            Method::PUT,
+            "/_cluster/settings",
+            Some(serde_json::Value::Object(settings_body)),
+        )
         .await
         .map_err(|e| {
             tracing::error!(
@@ -507,20 +512,17 @@ pub async fn update_cluster_settings(
             }
         })?;
 
-    let response_value = response
-        .json::<Value>()
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Failed to parse update response"
-            );
-            ClusterErrorResponse {
-                error: "parse_failed".to_string(),
-                message: format!("Failed to parse update response: {}", e),
-            }
-        })?;
+    let response_value = response.json::<Value>().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to parse update response"
+        );
+        ClusterErrorResponse {
+            error: "parse_failed".to_string(),
+            message: format!("Failed to parse update response: {}", e),
+        }
+    })?;
 
     tracing::info!(
         cluster_id = %cluster_id,
