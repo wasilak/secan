@@ -130,7 +130,7 @@ The implementation follows a direct login flow (username/password form submissio
   - Test bind timeout
   - _Requirements: 4.3, 9.3_
 
-- [~] 9. Implement user attribute extraction
+- [x] 9. Implement user attribute extraction
   - Create extract_user_info method that takes user DN, SearchEntry, and groups
   - Extract username from configured username_attribute (default: "uid")
   - Extract email from configured email_attribute (default: "mail")

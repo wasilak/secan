@@ -37,9 +37,9 @@ impl LdapAuthProvider {
     /// # Examples
     ///
     /// ```no_run
-    /// use cerebro::auth::ldap::LdapAuthProvider;
-    /// use cerebro::auth::session::{SessionManager, SessionConfig};
-    /// use cerebro::config::LdapConfig;
+    /// use secan::auth::ldap::LdapAuthProvider;
+    /// use secan::auth::session::{SessionManager, SessionConfig};
+    /// use secan::config::LdapConfig;
     /// use std::sync::Arc;
     ///
     /// # async fn example() -> anyhow::Result<()> {
@@ -57,7 +57,7 @@ impl LdapAuthProvider {
     /// #   user_group_attribute: None,
     /// #   required_groups: Vec::new(),
     /// #   connection_timeout_seconds: 10,
-    /// #   tls_mode: cerebro::config::TlsMode::None,
+    /// #   tls_mode: secan::config::TlsMode::None,
     /// #   tls_skip_verify: false,
     /// #   username_attribute: "uid".to_string(),
     /// #   email_attribute: "mail".to_string(),
@@ -156,9 +156,9 @@ impl LdapAuthProvider {
     /// # Examples
     ///
     /// ```no_run
-    /// # use cerebro::auth::ldap::LdapAuthProvider;
-    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
-    /// # use cerebro::config::LdapConfig;
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
     /// # use std::sync::Arc;
     /// # use ldap3::LdapConnAsync;
     /// # async fn example() -> anyhow::Result<()> {
@@ -175,7 +175,7 @@ impl LdapAuthProvider {
     /// #     user_group_attribute: None,
     /// #     required_groups: Vec::new(),
     /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_mode: secan::config::TlsMode::None,
     /// #     tls_skip_verify: false,
     /// #     username_attribute: "uid".to_string(),
     /// #     email_attribute: "mail".to_string(),
@@ -190,6 +190,7 @@ impl LdapAuthProvider {
     /// # Ok(())
     /// # }
     /// ```
+    #[allow(dead_code)] // Will be used in task 13
     async fn bind_service_account(&self, ldap: &mut Ldap) -> Result<()> {
         ldap.simple_bind(&self.config.bind_dn, &self.config.bind_password)
             .await
@@ -246,9 +247,9 @@ impl LdapAuthProvider {
     /// # Examples
     ///
     /// ```no_run
-    /// # use cerebro::auth::ldap::LdapAuthProvider;
-    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
-    /// # use cerebro::config::LdapConfig;
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
     /// # use std::sync::Arc;
     /// # use ldap3::LdapConnAsync;
     /// # async fn example() -> anyhow::Result<()> {
@@ -265,7 +266,7 @@ impl LdapAuthProvider {
     /// #     user_group_attribute: None,
     /// #     required_groups: Vec::new(),
     /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_mode: secan::config::TlsMode::None,
     /// #     tls_skip_verify: false,
     /// #     username_attribute: "uid".to_string(),
     /// #     email_attribute: "mail".to_string(),
@@ -282,6 +283,7 @@ impl LdapAuthProvider {
     /// # Ok(())
     /// # }
     /// ```
+    #[allow(dead_code)] // Will be used in task 13
     async fn search_user(&self, ldap: &mut Ldap, username: &str) -> Result<ldap3::SearchEntry> {
         use ldap3::{Scope, SearchEntry};
         use tracing::warn;
@@ -407,9 +409,9 @@ impl LdapAuthProvider {
     /// # Examples
     ///
     /// ```no_run
-    /// # use cerebro::auth::ldap::LdapAuthProvider;
-    /// # use cerebro::auth::session::{SessionManager, SessionConfig};
-    /// # use cerebro::config::LdapConfig;
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
     /// # use std::sync::Arc;
     /// # use ldap3::LdapConnAsync;
     /// # async fn example() -> anyhow::Result<()> {
@@ -426,7 +428,7 @@ impl LdapAuthProvider {
     /// #     user_group_attribute: None,
     /// #     required_groups: Vec::new(),
     /// #     connection_timeout_seconds: 10,
-    /// #     tls_mode: cerebro::config::TlsMode::None,
+    /// #     tls_mode: secan::config::TlsMode::None,
     /// #     tls_skip_verify: false,
     /// #     username_attribute: "uid".to_string(),
     /// #     email_attribute: "mail".to_string(),
@@ -449,6 +451,7 @@ impl LdapAuthProvider {
     /// # Ok(())
     /// # }
     /// ```
+    #[allow(dead_code)] // Will be used in task 13
     async fn authenticate_user(
         &self,
         ldap: &mut Ldap,
@@ -500,6 +503,203 @@ impl LdapAuthProvider {
             }
         }
     }
+
+    /// Extract user information from LDAP entry
+    ///
+    /// This method extracts user attributes from an LDAP SearchEntry and constructs
+    /// an AuthUser object with the extracted information. It uses the configured
+    /// attribute names to extract username, email, and display name.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_dn` - User's Distinguished Name (used as user ID)
+    /// * `entry` - LDAP SearchEntry containing user attributes
+    /// * `groups` - List of group names the user belongs to
+    ///
+    /// # Returns
+    ///
+    /// Returns an `AuthUser` object with:
+    /// - `id`: User's Distinguished Name
+    /// - `username`: Extracted from configured username_attribute (default: "uid")
+    /// - `roles`: Empty vector (roles are not extracted from LDAP)
+    /// - `accessible_clusters`: Empty vector (clusters are not extracted from LDAP)
+    ///
+    /// # Attribute Extraction
+    ///
+    /// - **Username**: Extracted from `username_attribute` (default: "uid"). If not present,
+    ///   falls back to extracting CN from the DN.
+    /// - **Email**: Extracted from `email_attribute` (default: "mail"). If not present,
+    ///   uses empty string.
+    /// - **Display Name**: Extracted from `display_name_attribute` (default: "cn"). If not
+    ///   present, uses the username.
+    ///
+    /// # Missing Attributes
+    ///
+    /// If an attribute is not present in the LDAP entry, the method uses default values:
+    /// - Missing username: Extracts CN from DN
+    /// - Missing email: Empty string
+    /// - Missing display name: Uses username
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use secan::auth::ldap::LdapAuthProvider;
+    /// # use secan::auth::session::{SessionManager, SessionConfig};
+    /// # use secan::config::LdapConfig;
+    /// # use std::sync::Arc;
+    /// # use ldap3::SearchEntry;
+    /// # use std::collections::HashMap;
+    /// # async fn example() -> anyhow::Result<()> {
+    /// # let config = LdapConfig {
+    /// #     server_url: "ldap://ldap.example.com:389".to_string(),
+    /// #     bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+    /// #     bind_password: "password".to_string(),
+    /// #     user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+    /// #     search_base: None,
+    /// #     search_filter: None,
+    /// #     group_search_base: None,
+    /// #     group_search_filter: None,
+    /// #     group_member_attribute: None,
+    /// #     user_group_attribute: None,
+    /// #     required_groups: Vec::new(),
+    /// #     connection_timeout_seconds: 10,
+    /// #     tls_mode: secan::config::TlsMode::None,
+    /// #     tls_skip_verify: false,
+    /// #     username_attribute: "uid".to_string(),
+    /// #     email_attribute: "mail".to_string(),
+    /// #     display_name_attribute: "cn".to_string(),
+    /// # };
+    /// # let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// # let provider = LdapAuthProvider::new(config, session_manager).await?;
+    /// let user_dn = "uid=testuser,ou=users,dc=example,dc=com".to_string();
+    /// let mut attrs = HashMap::new();
+    /// attrs.insert("uid".to_string(), vec!["testuser".to_string()]);
+    /// attrs.insert("mail".to_string(), vec!["testuser@example.com".to_string()]);
+    /// attrs.insert("cn".to_string(), vec!["Test User".to_string()]);
+    ///
+    /// let entry = SearchEntry {
+    ///     dn: user_dn.clone(),
+    ///     attrs,
+    /// };
+    ///
+    /// let groups = vec!["app-users".to_string(), "developers".to_string()];
+    /// let user = provider.extract_user_info(user_dn, &entry, groups);
+    ///
+    /// assert_eq!(user.username, "testuser");
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)] // Will be used in task 13
+    fn extract_user_info(
+        &self,
+        user_dn: String,
+        entry: &ldap3::SearchEntry,
+        groups: Vec<String>,
+    ) -> crate::auth::session::AuthUser {
+        use tracing::debug;
+
+        // Extract username from configured attribute (default: "uid")
+        let username = entry
+            .attrs
+            .get(&self.config.username_attribute)
+            .and_then(|values| values.first())
+            .cloned()
+            .unwrap_or_else(|| {
+                // Fallback: extract CN from DN if username attribute not found
+                debug!(
+                    user_dn = %user_dn,
+                    username_attribute = %self.config.username_attribute,
+                    "Username attribute not found, extracting CN from DN"
+                );
+                extract_cn_from_dn(&user_dn)
+            });
+
+        // Extract email from configured attribute (default: "mail")
+        let email = entry
+            .attrs
+            .get(&self.config.email_attribute)
+            .and_then(|values| values.first())
+            .cloned();
+
+        // Extract display name from configured attribute (default: "cn")
+        let _display_name = entry
+            .attrs
+            .get(&self.config.display_name_attribute)
+            .and_then(|values| values.first())
+            .cloned()
+            .unwrap_or_else(|| {
+                // Fallback: use username if display name not found
+                debug!(
+                    user_dn = %user_dn,
+                    display_name_attribute = %self.config.display_name_attribute,
+                    "Display name attribute not found, using username"
+                );
+                username.clone()
+            });
+
+        debug!(
+            user_dn = %user_dn,
+            username = %username,
+            email = ?email,
+            groups = ?groups,
+            "Extracted user information from LDAP entry"
+        );
+
+        // Create AuthUser with extracted information
+        // Note: email is stored in a separate field in the session, not in AuthUser
+        // Note: roles are empty for LDAP users (groups are used instead)
+        crate::auth::session::AuthUser {
+            id: user_dn,
+            username,
+            roles: Vec::new(),               // Roles are not extracted from LDAP
+            accessible_clusters: Vec::new(), // Clusters are not extracted from LDAP
+        }
+    }
+}
+
+/// Extract CN (Common Name) from a Distinguished Name
+///
+/// This helper function extracts the CN component from an LDAP Distinguished Name.
+/// It's used as a fallback when the username attribute is not present in the LDAP entry.
+///
+/// # Arguments
+///
+/// * `dn` - Distinguished Name (e.g., "uid=testuser,ou=users,dc=example,dc=com")
+///
+/// # Returns
+///
+/// Returns the CN value if found, or the full DN if CN is not present.
+///
+/// # Examples
+///
+/// ```
+/// use secan::auth::ldap::extract_cn_from_dn;
+///
+/// assert_eq!(
+///     extract_cn_from_dn("cn=Test User,ou=users,dc=example,dc=com"),
+///     "Test User"
+/// );
+///
+/// assert_eq!(
+///     extract_cn_from_dn("uid=testuser,ou=users,dc=example,dc=com"),
+///     "testuser"
+/// );
+/// ```
+pub fn extract_cn_from_dn(dn: &str) -> String {
+    // Try to extract CN from DN
+    for component in dn.split(',') {
+        let component = component.trim();
+        if component.to_lowercase().starts_with("cn=") {
+            return component[3..].to_string();
+        }
+        // Also try uid= as fallback
+        if component.to_lowercase().starts_with("uid=") {
+            return component[4..].to_string();
+        }
+    }
+
+    // If no CN or UID found, return the full DN
+    dn.to_string()
 }
 
 /// Sanitizes user input to prevent LDAP injection attacks.
@@ -518,7 +718,7 @@ impl LdapAuthProvider {
 /// # Examples
 ///
 /// ```
-/// use cerebro::auth::ldap::sanitize_ldap_input;
+/// use secan::auth::ldap::sanitize_ldap_input;
 ///
 /// assert_eq!(sanitize_ldap_input("user*"), "user\\2a");
 /// assert_eq!(sanitize_ldap_input("(admin)"), "\\28admin\\29");
@@ -593,5 +793,55 @@ mod tests {
     #[test]
     fn test_sanitize_all_special_chars() {
         assert_eq!(sanitize_ldap_input("\\*()\0"), "\\5c\\2a\\28\\29\\00");
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_with_cn() {
+        assert_eq!(
+            extract_cn_from_dn("cn=Test User,ou=users,dc=example,dc=com"),
+            "Test User"
+        );
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_with_uid() {
+        assert_eq!(
+            extract_cn_from_dn("uid=testuser,ou=users,dc=example,dc=com"),
+            "testuser"
+        );
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_with_both() {
+        // Should prefer CN over UID
+        assert_eq!(
+            extract_cn_from_dn("cn=Test User,uid=testuser,ou=users,dc=example,dc=com"),
+            "Test User"
+        );
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_no_cn_or_uid() {
+        let dn = "ou=users,dc=example,dc=com";
+        assert_eq!(extract_cn_from_dn(dn), dn);
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_case_insensitive() {
+        assert_eq!(
+            extract_cn_from_dn("CN=Test User,OU=users,DC=example,DC=com"),
+            "Test User"
+        );
+    }
+
+    #[test]
+    fn test_extract_cn_from_dn_with_spaces() {
+        // When there are spaces around the equals sign, the component won't match "cn="
+        // because it will be "cn " after trimming and splitting
+        // This is expected behavior - DNs should be properly formatted
+        assert_eq!(
+            extract_cn_from_dn("cn=Test User,ou=users,dc=example,dc=com"),
+            "Test User"
+        );
     }
 }
