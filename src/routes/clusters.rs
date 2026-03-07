@@ -634,18 +634,24 @@ pub async fn get_nodes(
     };
 
     // Fetch Prometheus metrics for all nodes if Prometheus is configured
-    let prometheus_node_metrics = if matches!(cluster.metrics_source, crate::config::MetricsSource::Prometheus) {
+    let prometheus_node_metrics = if matches!(
+        cluster.metrics_source,
+        crate::config::MetricsSource::Prometheus
+    ) {
         if let Some(prom_config) = &cluster.prometheus {
             // Create Prometheus client
-            match crate::prometheus::client::Client::new(crate::prometheus::client::PrometheusConfig {
-                url: prom_config.url.clone(),
-                auth: None,
-                timeout: std::time::Duration::from_secs(10),
-            }) {
+            match crate::prometheus::client::Client::new(
+                crate::prometheus::client::PrometheusConfig {
+                    url: prom_config.url.clone(),
+                    auth: None,
+                    timeout: std::time::Duration::from_secs(10),
+                },
+            ) {
                 Ok(prom_client) => {
                     // Build query for all nodes
                     let labels_query = if let Some(labels) = &prom_config.labels {
-                        let extra: Vec<String> = labels.iter()
+                        let extra: Vec<String> = labels
+                            .iter()
                             .map(|(k, v)| format!("{}=\"{}\"", k, v))
                             .collect();
                         if extra.is_empty() {
@@ -656,57 +662,143 @@ pub async fn get_nodes(
                     } else {
                         String::new()
                     };
-                    
-                    // Query CPU and memory for all nodes
+
+                    // Query CPU, memory, and load averages for all nodes
                     let cpu_query = format!("elasticsearch_os_cpu_percent{{{}}}", labels_query);
                     let mem_query = format!("elasticsearch_os_mem_used_bytes{{{}}}", labels_query);
-                    
+                    let load1_query = format!("elasticsearch_os_load1{{{}}}", labels_query);
+                    let load5_query = format!("elasticsearch_os_load5{{{}}}", labels_query);
+                    let load15_query = format!("elasticsearch_os_load15{{{}}}", labels_query);
+
                     // Execute queries in parallel
                     let now = chrono::Utc::now().timestamp();
                     let cpu_fut = prom_client.query_instant(&cpu_query, Some(now));
                     let mem_fut = prom_client.query_instant(&mem_query, Some(now));
-                    
-                    let (cpu_result, mem_result) = tokio::join!(cpu_fut, mem_fut);
-                    
+                    let load1_fut = prom_client.query_instant(&load1_query, Some(now));
+                    let load5_fut = prom_client.query_instant(&load5_query, Some(now));
+                    let load15_fut = prom_client.query_instant(&load15_query, Some(now));
+
+                    let (cpu_result, mem_result, load1_result, load5_result, load15_result) =
+                        tokio::join!(cpu_fut, mem_fut, load1_fut, load5_fut, load15_fut);
+
                     // Build map: node_name -> {cpu_percent, memory_used_bytes}
-                    let mut metrics_map: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
-                    
+                    let mut metrics_map: std::collections::HashMap<String, serde_json::Value> =
+                        std::collections::HashMap::new();
+
                     if let Ok(cpu_series) = cpu_result {
                         for series in cpu_series {
-                            let name_opt: Option<&str> = series.metric.get("name").and_then(|v| Some(v.as_str()));
+                            let name_opt: Option<&str> =
+                                series.metric.get("name").map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let cpu_val = values.1.parse::<f64>().unwrap_or(0.0);
-                                    let entry = metrics_map.entry(name.to_string()).or_insert_with(|| serde_json::json!({}));
+                                    let entry = metrics_map
+                                        .entry(name.to_string())
+                                        .or_insert_with(|| serde_json::json!({}));
                                     if let Some(obj) = entry.as_object_mut() {
-                                        obj.insert("cpu_percent".to_string(), serde_json::json!(cpu_val));
+                                        obj.insert(
+                                            "cpu_percent".to_string(),
+                                            serde_json::json!(cpu_val),
+                                        );
                                     }
                                 }
                             }
                         }
                     }
-                    
+
                     if let Ok(mem_series) = mem_result {
                         for series in mem_series {
-                            let name_opt: Option<&str> = series.metric.get("name").and_then(|v| Some(v.as_str()));
+                            let name_opt: Option<&str> =
+                                series.metric.get("name").map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let mem_val = values.1.parse::<f64>().unwrap_or(0.0);
-                                    let entry = metrics_map.entry(name.to_string()).or_insert_with(|| serde_json::json!({}));
+                                    let entry = metrics_map
+                                        .entry(name.to_string())
+                                        .or_insert_with(|| serde_json::json!({}));
                                     if let Some(obj) = entry.as_object_mut() {
-                                        obj.insert("memory_used_bytes".to_string(), serde_json::json!((mem_val as u64)));
+                                        obj.insert(
+                                            "memory_used_bytes".to_string(),
+                                            serde_json::json!((mem_val as u64)),
+                                        );
                                     }
                                 }
                             }
                         }
                     }
-                    
+
+                    // Process load1 metrics
+                    if let Ok(load1_series) = load1_result {
+                        for series in load1_series {
+                            let name_opt: Option<&str> =
+                                series.metric.get("name").map(|v| v.as_str());
+                            if let Some(name) = name_opt {
+                                if let Some(values) = &series.value {
+                                    let load1_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    let entry = metrics_map
+                                        .entry(name.to_string())
+                                        .or_insert_with(|| serde_json::json!({}));
+                                    if let Some(obj) = entry.as_object_mut() {
+                                        obj.insert(
+                                            "load1".to_string(),
+                                            serde_json::json!(load1_val),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Process load5 metrics
+                    if let Ok(load5_series) = load5_result {
+                        for series in load5_series {
+                            let name_opt: Option<&str> =
+                                series.metric.get("name").map(|v| v.as_str());
+                            if let Some(name) = name_opt {
+                                if let Some(values) = &series.value {
+                                    let load5_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    let entry = metrics_map
+                                        .entry(name.to_string())
+                                        .or_insert_with(|| serde_json::json!({}));
+                                    if let Some(obj) = entry.as_object_mut() {
+                                        obj.insert(
+                                            "load5".to_string(),
+                                            serde_json::json!(load5_val),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Process load15 metrics
+                    if let Ok(load15_series) = load15_result {
+                        for series in load15_series {
+                            let name_opt: Option<&str> =
+                                series.metric.get("name").map(|v| v.as_str());
+                            if let Some(name) = name_opt {
+                                if let Some(values) = &series.value {
+                                    let load15_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    let entry = metrics_map
+                                        .entry(name.to_string())
+                                        .or_insert_with(|| serde_json::json!({}));
+                                    if let Some(obj) = entry.as_object_mut() {
+                                        obj.insert(
+                                            "load15".to_string(),
+                                            serde_json::json!(load15_val),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     tracing::debug!(
                         cluster_id = %cluster_id,
                         nodes_with_metrics = metrics_map.len(),
                         "Fetched Prometheus metrics for nodes"
                     );
-                    
+
                     Some(metrics_map)
                 }
                 Err(e) => {
@@ -726,7 +818,12 @@ pub async fn get_nodes(
     };
 
     // Transform to frontend format
-    let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref(), prometheus_node_metrics.as_ref());
+    let all_nodes = transform_nodes(
+        &nodes_info,
+        &nodes_stats,
+        master_node_id.as_deref(),
+        prometheus_node_metrics.as_ref(),
+    );
 
     // Apply filters
     let roles_filter: Vec<&str> = params.roles.split(',').filter(|s| !s.is_empty()).collect();

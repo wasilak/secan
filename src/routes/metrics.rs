@@ -272,15 +272,25 @@ pub async fn get_cluster_metrics(
     // Build time series data by combining all metric arrays
     let mut data_points = Vec::new();
 
-    tracing::info!("Transforming metrics: node_count={:?} disk={:?} jvm={:?}", 
+    tracing::info!(
+        "Transforming metrics: node_count={:?} disk={:?} jvm={:?}",
         backend_metrics.node_count,
         backend_metrics.disk_used_bytes.as_ref().map(|s| s.len()),
-        backend_metrics.jvm_memory_used_bytes.as_ref().map(|s| s.len())
+        backend_metrics
+            .jvm_memory_used_bytes
+            .as_ref()
+            .map(|s| s.len())
     );
 
     // Check if we have Prometheus time series data (JVM or disk)
-    let has_prometheus_data = backend_metrics.jvm_memory_used_bytes.as_ref().map_or(false, |s| !s.is_empty())
-        || backend_metrics.disk_used_bytes.as_ref().map_or(false, |s| !s.is_empty());
+    let has_prometheus_data = backend_metrics
+        .jvm_memory_used_bytes
+        .as_ref()
+        .is_some_and(|s| !s.is_empty())
+        || backend_metrics
+            .disk_used_bytes
+            .as_ref()
+            .is_some_and(|s| !s.is_empty());
 
     // Use node_count as the base time series ONLY for internal metrics (no Prometheus time series)
     if let Some(node_counts) = &backend_metrics.node_count {
@@ -311,18 +321,30 @@ pub async fn get_cluster_metrics(
                     unassigned_shards: backend_metrics.unassigned_shards,
                     disk_used_bytes: None, // Not available from internal metrics
                     disk_total_bytes: None,
-                    cpu_percent: None, // Not available from internal metrics
+                    cpu_percent: None,       // Not available from internal metrics
                     memory_used_bytes: None, // Not available from internal metrics
                 });
             }
         } else {
             // We have Prometheus data, use disk or JVM as base
-            let disk_series = backend_metrics.disk_used_bytes.as_ref().filter(|s| !s.is_empty());
-            let jvm_series = backend_metrics.jvm_memory_used_bytes.as_ref().filter(|s| !s.is_empty());
-            
-            tracing::debug!("disk_series has {} points", disk_series.map(|s| s.len()).unwrap_or(0));
-            tracing::debug!("jvm_series has {} points", jvm_series.map(|s| s.len()).unwrap_or(0));
-            
+            let disk_series = backend_metrics
+                .disk_used_bytes
+                .as_ref()
+                .filter(|s| !s.is_empty());
+            let jvm_series = backend_metrics
+                .jvm_memory_used_bytes
+                .as_ref()
+                .filter(|s| !s.is_empty());
+
+            tracing::debug!(
+                "disk_series has {} points",
+                disk_series.map(|s| s.len()).unwrap_or(0)
+            );
+            tracing::debug!(
+                "jvm_series has {} points",
+                jvm_series.map(|s| s.len()).unwrap_or(0)
+            );
+
             // Use whichever series has data
             if let Some(base_series) = disk_series.or(jvm_series) {
                 // Limit to last 20 data points to avoid performance issues
@@ -334,27 +356,41 @@ pub async fn get_cluster_metrics(
                         point.value as u64
                     } else {
                         // We're using JVM as base, try to find disk value at this timestamp
-                        backend_metrics.disk_used_bytes.as_ref().and_then(|ds| {
-                            ds.iter()
-                                .find(|d| (d.timestamp - point.timestamp).abs() <= 120)
-                                .map(|d| d.value as u64)
-                        }).unwrap_or(0)
+                        backend_metrics
+                            .disk_used_bytes
+                            .as_ref()
+                            .and_then(|ds| {
+                                ds.iter()
+                                    .find(|d| (d.timestamp - point.timestamp).abs() <= 120)
+                                    .map(|d| d.value as u64)
+                            })
+                            .unwrap_or(0)
                     };
-                    
+
                     tracing::debug!("point at {} disk_value={}", point.timestamp, disk_value);
-                    
+
                     // Get CPU and Memory values at this timestamp
-                    let cpu_value = backend_metrics.cpu_usage_percent.as_ref().and_then(|cpu_series| {
-                        cpu_series.iter()
-                            .find(|c| (c.timestamp - point.timestamp).abs() <= 120)
-                            .map(|c| c.value)
-                    });
-                    
-                    let memory_value = backend_metrics.jvm_memory_used_bytes.as_ref().and_then(|mem_series| {
-                        mem_series.iter()
-                            .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
-                            .map(|m| m.value as u64)
-                    });
+                    let cpu_value =
+                        backend_metrics
+                            .cpu_usage_percent
+                            .as_ref()
+                            .and_then(|cpu_series| {
+                                cpu_series
+                                    .iter()
+                                    .find(|c| (c.timestamp - point.timestamp).abs() <= 120)
+                                    .map(|c| c.value)
+                            });
+
+                    let memory_value =
+                        backend_metrics
+                            .jvm_memory_used_bytes
+                            .as_ref()
+                            .and_then(|mem_series| {
+                                mem_series
+                                    .iter()
+                                    .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
+                                    .map(|m| m.value as u64)
+                            });
 
                     data_points.push(ClusterMetricsPoint {
                         timestamp: point.timestamp,
@@ -478,11 +514,20 @@ pub async fn get_node_metrics(
 
     // Get node name from Elasticsearch (needed for Prometheus queries)
     // The node_id from URL is the ES node ID, but Prometheus uses node name
-    let node_name = cluster_conn.client.nodes_info().await
+    let node_name = cluster_conn
+        .client
+        .nodes_info()
+        .await
         .ok()
-        .and_then(|info| info.get("nodes").and_then(|n| n.get(&node_id)).and_then(|n| n.get("name")).and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .and_then(|info| {
+            info.get("nodes")
+                .and_then(|n| n.get(&node_id))
+                .and_then(|n| n.get("name"))
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| node_id.clone());
-    
+
     debug!("Node ID: {}, Node Name: {}", node_id, node_name);
 
     // Only support Prometheus for node-level historical metrics
@@ -547,37 +592,19 @@ pub async fn get_node_metrics(
     } else {
         base_labels
     };
-    
+
     // Build queries with all labels (node name + cluster + any custom labels)
     // Include all 3 load average metrics
-    let heap_query = format!(
-        "elasticsearch_os_mem_used_bytes{{{}}}",
-        all_labels
-    );
-    let cpu_query = format!(
-        "elasticsearch_os_cpu_percent{{{}}}",
-        all_labels
-    );
-    let load1_query = format!(
-        "elasticsearch_os_load1{{{}}}",
-        all_labels
-    );
-    let load5_query = format!(
-        "elasticsearch_os_load5{{{}}}",
-        all_labels
-    );
-    let load15_query = format!(
-        "elasticsearch_os_load15{{{}}}",
-        all_labels
-    );
+    let heap_query = format!("elasticsearch_os_mem_used_bytes{{{}}}", all_labels);
+    let cpu_query = format!("elasticsearch_os_cpu_percent{{{}}}", all_labels);
+    let load1_query = format!("elasticsearch_os_load1{{{}}}", all_labels);
+    let load5_query = format!("elasticsearch_os_load5{{{}}}", all_labels);
+    let load15_query = format!("elasticsearch_os_load15{{{}}}", all_labels);
     let disk_avail_query = format!(
         "elasticsearch_filesystem_data_available_bytes{{{}}}",
         all_labels
     );
-    let disk_size_query = format!(
-        "elasticsearch_filesystem_data_size_bytes{{{}}}",
-        all_labels
-    );
+    let disk_size_query = format!("elasticsearch_filesystem_data_size_bytes{{{}}}", all_labels);
 
     // Fetch metrics in parallel
     let heap_used_fut = prom_client.query_range(&heap_query, time_range.start, time_range.end, 60);
@@ -590,8 +617,15 @@ pub async fn get_node_metrics(
     let disk_size_fut =
         prom_client.query_range(&disk_size_query, time_range.start, time_range.end, 60);
 
-    let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size) =
-        tokio::join!(heap_used_fut, cpu_fut, load1_fut, load5_fut, load15_fut, disk_avail_fut, disk_size_fut);
+    let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size) = tokio::join!(
+        heap_used_fut,
+        cpu_fut,
+        load1_fut,
+        load5_fut,
+        load15_fut,
+        disk_avail_fut,
+        disk_size_fut
+    );
 
     // Helper to extract values from time series
     let extract_values = |result: Result<Vec<crate::prometheus::client::TimeSeriesData>, _>,
@@ -635,7 +669,10 @@ pub async fn get_node_metrics(
         let cpu = cpu_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
         let load1 = load1_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
         let load5 = load5_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
-        let load15 = load15_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        let load15 = load15_values
+            .iter()
+            .find(|(t, _)| *t == ts)
+            .map(|(_, v)| *v);
 
         let disk_used_percent = disk_avail_values
             .iter()
@@ -669,14 +706,19 @@ pub async fn get_node_metrics(
         node_id: node_id.clone(),
         time_range,
         data: data_points,
-        prometheus_queries: Some(serde_json::json!({
-            "heap": heap_query,
-            "disk": disk_avail_query,
-            "cpu": cpu_query,
-            "load1": load1_query,
-            "load5": load5_query,
-            "load15": load15_query
-        }).as_object().unwrap().clone()),
+        prometheus_queries: Some(
+            serde_json::json!({
+                "heap": heap_query,
+                "disk": disk_avail_query,
+                "cpu": cpu_query,
+                "load1": load1_query,
+                "load5": load5_query,
+                "load15": load15_query
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ),
     };
 
     Ok(Json(response))

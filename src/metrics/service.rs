@@ -550,7 +550,10 @@ impl MetricsService for PrometheusMetricsService {
         // For indices count, use PromQL to count unique index metrics
         prometheus_queries.insert(
             "indices".to_string(),
-            format!("count({})", self.build_query("elasticsearch_indices_stats_count")),
+            format!(
+                "count({})",
+                self.build_query("elasticsearch_indices_stats_count")
+            ),
         );
         prometheus_queries.insert(
             "documents".to_string(),

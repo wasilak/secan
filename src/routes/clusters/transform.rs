@@ -170,11 +170,14 @@ pub fn transform_nodes(
             let node_name = node_info["name"].as_str().unwrap_or("");
             let cpu_percent = if let Some(prom_metrics) = prometheus_metrics {
                 // Try to get CPU from Prometheus metrics
-                prom_metrics.get(node_name)
+                prom_metrics
+                    .get(node_name)
                     .and_then(|m| m.get("cpu_percent"))
                     .and_then(|v| v.as_f64())
                     .map(|v| v as u32)
-                    .unwrap_or_else(|| node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32)
+                    .unwrap_or_else(|| {
+                        node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32
+                    })
             } else {
                 node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32
             };
@@ -182,7 +185,8 @@ pub fn transform_nodes(
             // Parse Memory - use Prometheus metrics if available
             let (heap_used, heap_max) = if let Some(prom_metrics) = prometheus_metrics {
                 // Try to get memory from Prometheus metrics
-                let mem_used = prom_metrics.get(node_name)
+                let mem_used = prom_metrics
+                    .get(node_name)
                     .and_then(|m| m.get("memory_used_bytes"))
                     .and_then(|v| v.as_u64())
                     .unwrap_or(heap_used);
@@ -192,10 +196,24 @@ pub fn transform_nodes(
                 (heap_used, heap_max)
             };
 
-            // Extract load average (1-minute)
-            let load_average = node_stats["os"]["cpu"]["load_average"]["1m"]
-                .as_f64()
-                .or_else(|| node_stats["os"]["load_average"].as_f64());
+            // Extract load average (1-minute) - use Prometheus metrics if available
+            let load_average = if let Some(prom_metrics) = prometheus_metrics {
+                // Try to get load1 from Prometheus metrics
+                prom_metrics
+                    .get(node_name)
+                    .and_then(|m| m.get("load1"))
+                    .and_then(|v| v.as_f64())
+                    .or_else(|| {
+                        // Fallback to ES stats
+                        node_stats["os"]["cpu"]["load_average"]["1m"]
+                            .as_f64()
+                            .or_else(|| node_stats["os"]["load_average"].as_f64())
+                    })
+            } else {
+                node_stats["os"]["cpu"]["load_average"]["1m"]
+                    .as_f64()
+                    .or_else(|| node_stats["os"]["load_average"].as_f64())
+            };
 
             // Extract and format uptime
             let uptime_millis = node_stats["jvm"]["uptime_in_millis"].as_u64();
@@ -631,7 +649,7 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats, Some("node1"));
+        let result = transform_nodes(&nodes_info, &nodes_stats, Some("node1"), None);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
@@ -686,7 +704,7 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats, Some("other-node"));
+        let result = transform_nodes(&nodes_info, &nodes_stats, Some("other-node"), None);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "data-node");
@@ -734,7 +752,7 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+        let result = transform_nodes(&nodes_info, &nodes_stats, None, None);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
@@ -789,7 +807,7 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+        let result = transform_nodes(&nodes_info, &nodes_stats, None, None);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
@@ -839,7 +857,7 @@ mod tests {
             }
         });
 
-        let result = transform_nodes(&nodes_info, &nodes_stats, None);
+        let result = transform_nodes(&nodes_info, &nodes_stats, None, None);
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].name, "test-node");
