@@ -2,27 +2,31 @@
   "name": "secan-docs",
   "version": "1.0.0",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
+    "start": "docusaurus start --base-url /secan/",
+    "build": "docusaurus build",
+    "serve": "docusaurus serve --base-url /secan/",
+    "clear": "docusaurus clear",
     "check-links": "markdown-link-check src/content/docs/**/*.md --config .markdown-link-check.json",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@docusaurus/preset-classic": "^2.0.0-alpha.66",
-    "@docusaurus/theme-classic": "2.0.0-alpha.66",
-    "docusaurus": "2.0.0-alpha.66",
-    "mermaid": "^10.6.1",
-    "react": "^16.8.4",
-    "react-dom": "^16.8.4"
+    "@docusaurus/preset-classic": "^3.6.3",
+    "@docusaurus/theme-mermaid": "^3.6.3",
+    "mermaid": "^11.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@docusaurus/module-type-aliases": "^3.6.3",
+    "@docusaurus/tsconfig": "^3.6.3",
+    "@docusaurus/types": "^3.6.3",
     "@types/node": "^20.0.0",
     "markdown-link-check": "^3.11.2",
+    "typescript": "^5.7.2",
     "vitest": "^1.0.0"
   },
   "engines": {
-    "node": ">=16.8.0"
+    "node": ">=18.0.0"
   }
 }
