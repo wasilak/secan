@@ -2,7 +2,9 @@
 
 ## Introduction
 
-This feature adds an APM-style visualization for Elasticsearch index details, providing a visual representation of shard distribution across nodes. The visualization displays the index in the center, with nodes containing primary shards on the left and nodes containing replica shards on the right, similar to APM service map layouts.
+This feature adds an APM-style visualization tab to the existing Index Details Modal, providing a visual representation of shard distribution across nodes. The visualization displays the index in the center, with nodes containing primary shards on the left and nodes containing replica shards on the right, similar to APM service map layouts.
+
+**Implementation Approach**: This is a frontend-only feature that adds a new "Visualization" tab (first position, active by default) to the existing Index Details Modal in ClusterView.tsx. It leverages existing backend APIs (getShards, getNodes) and data types (ShardInfo, NodeInfo) without requiring any backend changes.
 
 ## Glossary
 
@@ -89,17 +91,17 @@ This feature adds an APM-style visualization for Elasticsearch index details, pr
 4. WHEN a shard is relocating, THE Index_Visualization SHALL indicate the source and target nodes
 5. WHEN a shard is initializing, THE Index_Visualization SHALL display the initialization progress
 
-### Requirement 7: Integrate with Index Details View
+### Requirement 7: Integrate with Index Details Modal
 
-**User Story:** As a cluster administrator, I want to access the APM-style visualization from the index details page, so that I can view it alongside other index information.
+**User Story:** As a cluster administrator, I want to access the APM-style visualization from the index details modal, so that I can view it alongside other index information.
 
 #### Acceptance Criteria
 
-1. THE Index_Details_View SHALL include a tab or section for the APM-style visualization
-2. WHEN the visualization tab is selected, THE Index_Details_View SHALL load and display the Index_Visualization
-3. THE Index_Details_View SHALL provide a toggle to switch between the visualization and other views
-4. THE Index_Visualization SHALL refresh automatically when shard allocation changes
-5. THE Index_Details_View SHALL display a loading indicator while fetching shard distribution data
+1. THE Index_Details_Modal SHALL include a "Visualization" tab as the FIRST tab (leftmost position)
+2. WHEN the Index_Details_Modal opens, THE "Visualization" tab SHALL be active by default
+3. THE Index_Details_Modal SHALL provide tabs to switch between Visualization, Settings, Mappings, and Stats views
+4. THE Index_Visualization SHALL refresh automatically when shard allocation changes (via TanStack Query refetch interval)
+5. THE Index_Details_Modal SHALL display a loading indicator while fetching shard distribution data
 
 ### Requirement 8: Support Responsive Layout
 
@@ -113,17 +115,17 @@ This feature adds an APM-style visualization for Elasticsearch index details, pr
 4. THE Index_Visualization SHALL use responsive font sizes for node and shard labels
 5. WHEN the viewport is resized, THE Index_Visualization SHALL recalculate and redraw the layout
 
-### Requirement 9: Fetch Shard Allocation Data
+### Requirement 9: Fetch Shard Allocation Data (Frontend Only)
 
-**User Story:** As a system, I need to retrieve shard allocation data from Elasticsearch, so that the visualization can display accurate information.
+**User Story:** As the visualization component, I need to retrieve shard allocation data from existing APIs, so that I can display accurate information.
 
 #### Acceptance Criteria
 
-1. THE Index_Visualization SHALL fetch shard allocation data using the Elasticsearch `_cat/shards` API
-2. THE Index_Visualization SHALL fetch node information using the Elasticsearch `_cat/nodes` API
-3. WHEN the API request fails, THE Index_Visualization SHALL display an error message
-4. THE Index_Visualization SHALL parse the API response and extract shard distribution information
-5. THE Index_Visualization SHALL cache shard allocation data for 30 seconds to reduce API calls
+1. THE Index_Visualization SHALL fetch shard allocation data using the existing `getShards()` API and filter by index name in the frontend
+2. THE Index_Visualization SHALL fetch node information using the existing `getNodes()` API for tooltip details
+3. WHEN the API request fails, THE Index_Visualization SHALL display an error message with retry option
+4. THE Index_Visualization SHALL use TanStack Query to manage data fetching, caching, and automatic refetching
+5. THE Index_Visualization SHALL cache shard allocation data for 30 seconds (via TanStack Query staleTime) to reduce API calls
 
 ### Requirement 10: Export Visualization
 
