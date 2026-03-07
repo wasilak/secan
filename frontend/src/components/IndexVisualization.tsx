@@ -256,13 +256,17 @@ interface ShardIndicatorProps {
  * 
  * Color coding (Requirements 3.1, 3.2, 3.3, 3.4, 3.5):
  * - STARTED: Green border (healthy)
- * - INITIALIZING: Yellow border (transitional)
- * - RELOCATING: Orange border (transitional)
+ * - INITIALIZING: Yellow border (transitional) with progress indicator
+ * - RELOCATING: Orange border (transitional) with arrow indicator
  * - UNASSIGNED: Red border (critical)
  * 
  * Display format (Requirements 6.1, 6.2):
  * - Primary shards: Show shard number only (e.g., "0", "1", "2")
  * - Replica shards: Show shard number (e.g., "0", "1", "2")
+ * 
+ * Edge cases (Requirements 6.4, 6.5):
+ * - Relocating shards: Show arrow indicator (→) to indicate movement
+ * - Initializing shards: Show progress indicator (⏳) to indicate initialization
  * 
  * Tooltip content (Requirement 4.2):
  * - Index name
@@ -271,6 +275,7 @@ interface ShardIndicatorProps {
  * - State
  * - Document count
  * - Size (formatted using formatBytes)
+ * - Relocating node (if applicable)
  * 
  * @param props - Component props
  * @returns Shard indicator element with tooltip
@@ -282,6 +287,7 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
   /**
    * Tooltip content with shard details
    * Requirements: 4.2 - Display index, shard number, state, docs, size
+   * Requirements: 6.4 - Display relocating node when applicable
    * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
@@ -301,6 +307,20 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
       <div style={{ marginBottom: '4px' }}>
         <strong>State:</strong> {shard.state}
       </div>
+      
+      {/* Show relocating target node - Requirements: 6.4 */}
+      {shard.state === 'RELOCATING' && shard.relocatingNode && (
+        <div style={{ marginBottom: '4px' }}>
+          <strong>Relocating to:</strong> {shard.relocatingNode}
+        </div>
+      )}
+      
+      {/* Show current node if assigned */}
+      {shard.node && (
+        <div style={{ marginBottom: '4px' }}>
+          <strong>Node:</strong> {shard.node}
+        </div>
+      )}
       
       <div style={{ marginBottom: '4px' }}>
         <strong>Documents:</strong> {shard.docs.toLocaleString()}
@@ -344,7 +364,7 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
         }}
         // Accessibility
         role="gridcell"
-        aria-label={`Shard ${shard.shard} of index ${shard.index}, ${shard.primary ? 'primary' : 'replica'}, state ${shard.state}`}
+        aria-label={`Shard ${shard.shard} of index ${shard.index}, ${shard.primary ? 'primary' : 'replica'}, state ${shard.state}${shard.state === 'RELOCATING' && shard.relocatingNode ? `, relocating to ${shard.relocatingNode}` : ''}`}
       >
         {/* Shard number - Requirements: 6.1, 6.2 */}
         {shard.shard}
@@ -363,6 +383,44 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
             }}
             aria-hidden="true"
           />
+        )}
+        
+        {/* Relocating indicator - Requirements: 6.4 */}
+        {/* Show arrow (→) to indicate shard is moving to another node */}
+        {shard.state === 'RELOCATING' && (
+          <Box
+            style={{
+              position: 'absolute',
+              bottom: '2px',
+              right: '2px',
+              fontSize: '10px',
+              lineHeight: '10px',
+              color: 'var(--mantine-color-orange-6)',
+            }}
+            aria-hidden="true"
+            title="Relocating"
+          >
+            →
+          </Box>
+        )}
+        
+        {/* Initializing indicator - Requirements: 6.5 */}
+        {/* Show hourglass (⏳) to indicate shard is initializing */}
+        {shard.state === 'INITIALIZING' && (
+          <Box
+            style={{
+              position: 'absolute',
+              bottom: '2px',
+              right: '2px',
+              fontSize: '10px',
+              lineHeight: '10px',
+              color: 'var(--mantine-color-yellow-6)',
+            }}
+            aria-hidden="true"
+            title="Initializing"
+          >
+            ⏳
+          </Box>
         )}
       </Box>
     </Tooltip>
@@ -1106,6 +1164,12 @@ export function IndexVisualization({
     return visible;
   }, [needsGrouping, replicaGroups, filteredReplicaNodes, expandedGroups]);
   
+  // Separate unassigned shards - Requirements: 3.5
+  // Unassigned shards have no node assignment and should be displayed separately
+  const unassignedShards = useMemo(() => {
+    return shardData.filter(s => s.state === 'UNASSIGNED');
+  }, [shardData]);
+  
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
   const placeholderPrimaryShards = shardData.filter(s => s.primary).length;
@@ -1416,7 +1480,7 @@ export function IndexVisualization({
                 </Box>
               )}
               
-              {/* Replica node groups */}
+              {/* Replica node groups - Requirements: 1.5 - Only show if replicas exist */}
               {replicaGroups && replicaGroups.length > 0 && (
                 <Box>
                   <Text size="sm" fw={600} mb="xs" c="green">
@@ -1489,6 +1553,27 @@ export function IndexVisualization({
                       </Card>
                     ))}
                   </Stack>
+                </Box>
+              )}
+              
+              {/* Unassigned shards section - Requirements: 3.5 */}
+              {/* Display unassigned shards in separate section at bottom */}
+              {unassignedShards.length > 0 && (
+                <Box>
+                  <Text size="sm" fw={600} mb="xs" c="red">
+                    Unassigned Shards ({unassignedShards.length})
+                  </Text>
+                  <Card padding="md" withBorder>
+                    <Group gap={4} wrap="wrap">
+                      {unassignedShards.map((shard) => (
+                        <ShardIndicator
+                          key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
+                          shard={shard}
+                          fontSizes={fontSizes}
+                        />
+                      ))}
+                    </Group>
+                  </Card>
                 </Box>
               )}
             </Stack>
@@ -1565,7 +1650,8 @@ export function IndexVisualization({
                     </Box>
                     
                     {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-                    {visibleReplicaNodes.map((node) => (
+                    {/* Requirements: 1.5 - Only render replica nodes if they exist (index has replicas) */}
+                    {visibleReplicaNodes.length > 0 && visibleReplicaNodes.map((node) => (
                       <NodeCard 
                         key={`replica-${node.nodeId}`} 
                         node={node} 
@@ -1635,7 +1721,8 @@ export function IndexVisualization({
                   </Box>
                   
                   {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-                  {visibleReplicaNodes.map((node) => (
+                  {/* Requirements: 1.5 - Only render replica nodes if they exist (index has replicas) */}
+                  {visibleReplicaNodes.length > 0 && visibleReplicaNodes.map((node) => (
                     <NodeCard 
                       key={`replica-${node.nodeId}`} 
                       node={node} 
@@ -1643,6 +1730,27 @@ export function IndexVisualization({
                       fontSizes={fontSizes}
                     />
                   ))}
+                </Box>
+              )}
+              
+              {/* Unassigned shards section - Requirements: 3.5 */}
+              {/* Display unassigned shards in separate section at bottom */}
+              {unassignedShards.length > 0 && (
+                <Box mt="md">
+                  <Text size="sm" fw={600} mb="xs" c="red">
+                    Unassigned Shards ({unassignedShards.length})
+                  </Text>
+                  <Card padding="md" withBorder>
+                    <Group gap={4} wrap="wrap">
+                      {unassignedShards.map((shard) => (
+                        <ShardIndicator
+                          key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
+                          shard={shard}
+                          fontSizes={fontSizes}
+                        />
+                      ))}
+                    </Group>
+                  </Card>
                 </Box>
               )}
             </>
