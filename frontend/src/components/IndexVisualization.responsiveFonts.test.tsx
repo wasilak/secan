@@ -1,7 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IndexVisualization } from './IndexVisualization';
+import * as useIndexShardsModule from '../hooks/useIndexShards';
+import type { ShardInfo } from '../types/api';
+
+// Mock placeholder shard data for tests
+const mockShards: ShardInfo[] = [
+  {
+    index: 'test-index',
+    shard: 0,
+    primary: true,
+    state: 'STARTED',
+    node: 'node-1',
+    docs: 1000,
+    store: 5000000,
+  },
+  {
+    index: 'test-index',
+    shard: 1,
+    primary: true,
+    state: 'STARTED',
+    node: 'node-2',
+    docs: 2000,
+    store: 10000000,
+  },
+];
 
 /**
  * Test suite for responsive font sizes in IndexVisualization
@@ -12,14 +37,35 @@ import { IndexVisualization } from './IndexVisualization';
  * to maintain readability at different screen sizes.
  */
 describe('IndexVisualization - Responsive Font Sizes', () => {
+  beforeEach(() => {
+    // Mock useIndexShards hook to return test data
+    vi.spyOn(useIndexShardsModule, 'useIndexShards').mockReturnValue({
+      data: mockShards,
+      isLoading: false,
+      error: null,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+  });
+  
   /**
-   * Helper function to render component with Mantine provider
+   * Helper function to render component with Mantine and QueryClient providers
    */
   const renderWithProvider = (component: React.ReactElement) => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+    
     return render(
-      <MantineProvider>
-        {component}
-      </MantineProvider>
+      <QueryClientProvider client={queryClient}>
+        <MantineProvider>
+          {component}
+        </MantineProvider>
+      </QueryClientProvider>
     );
   };
 

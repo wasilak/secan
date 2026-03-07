@@ -1,17 +1,82 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IndexVisualization } from './IndexVisualization';
 import userEvent from '@testing-library/user-event';
+import * as useIndexShardsModule from '../hooks/useIndexShards';
+import type { ShardInfo } from '../types/api';
+
+// Mock placeholder shard data for tests
+const mockShards: ShardInfo[] = [
+  {
+    index: 'test-index',
+    shard: 0,
+    primary: true,
+    state: 'STARTED',
+    node: 'node-1',
+    docs: 1000,
+    store: 5000000,
+  },
+  {
+    index: 'test-index',
+    shard: 1,
+    primary: true,
+    state: 'STARTED',
+    node: 'node-2',
+    docs: 2000,
+    store: 10000000,
+  },
+  {
+    index: 'test-index',
+    shard: 0,
+    primary: false,
+    state: 'STARTED',
+    node: 'node-3',
+    docs: 1000,
+    store: 5000000,
+  },
+  {
+    index: 'test-index',
+    shard: 1,
+    primary: false,
+    state: 'STARTED',
+    node: 'node-4',
+    docs: 2000,
+    store: 10000000,
+  },
+];
 
 /**
- * Test wrapper with Mantine provider
+ * Test wrapper with Mantine and QueryClient providers
  */
 function renderWithMantine(component: React.ReactElement) {
-  return render(<MantineProvider>{component}</MantineProvider>);
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider>{component}</MantineProvider>
+    </QueryClientProvider>
+  );
 }
 
 describe('IndexVisualization', () => {
+  beforeEach(() => {
+    // Mock useIndexShards hook to return test data
+    vi.spyOn(useIndexShardsModule, 'useIndexShards').mockReturnValue({
+      data: mockShards,
+      isLoading: false,
+      error: null,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+  });
   describe('Task 4.1: Center Index Element', () => {
     it('should render center index card with index name', () => {
       renderWithMantine(
