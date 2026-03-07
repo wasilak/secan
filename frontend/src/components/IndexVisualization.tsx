@@ -10,6 +10,106 @@ import {
   Center,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { getHealthColor } from '../utils/colors';
+import type { HealthStatus } from '../types/api';
+
+/**
+ * Props for the CenterIndexElement component
+ * 
+ * Requirements: 1.1, 4.4, 4.5
+ */
+interface CenterIndexElementProps {
+  /**
+   * Index name to display
+   */
+  indexName: string;
+  
+  /**
+   * Health status of the index (green, yellow, red)
+   */
+  health: HealthStatus;
+  
+  /**
+   * Total number of primary shards
+   */
+  primaryShards: number;
+  
+  /**
+   * Total number of replica shards
+   */
+  replicaShards: number;
+}
+
+/**
+ * CenterIndexElement Component
+ * 
+ * Renders the center index card in the APM-style visualization.
+ * Displays the index name, health status with color coding, and shard counts.
+ * This is the focal point of the visualization that will be connected to nodes.
+ * 
+ * Requirements: 1.1, 4.4, 4.5
+ * 
+ * @param props - Component props
+ * @returns Center index card element
+ */
+function CenterIndexElement({
+  indexName,
+  health,
+  primaryShards,
+  replicaShards,
+}: CenterIndexElementProps) {
+  return (
+    <Card
+      shadow="md"
+      padding="lg"
+      radius="md"
+      withBorder
+      style={{
+        minWidth: 250,
+        maxWidth: 300,
+      }}
+    >
+      <Stack gap="sm">
+        {/* Index name header */}
+        <Text size="lg" fw={700} ta="center">
+          {indexName}
+        </Text>
+        
+        {/* Health status badge with color coding */}
+        <Group justify="center">
+          <Badge
+            color={getHealthColor(health)}
+            variant="filled"
+            size="lg"
+          >
+            {health.toUpperCase()}
+          </Badge>
+        </Group>
+        
+        {/* Shard counts */}
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Primary Shards:
+            </Text>
+            <Text size="sm" fw={600}>
+              {primaryShards}
+            </Text>
+          </Group>
+          
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Replica Shards:
+            </Text>
+            <Text size="sm" fw={600}>
+              {replicaShards}
+            </Text>
+          </Group>
+        </Stack>
+      </Stack>
+    </Card>
+  );
+}
 
 /**
  * Props for the IndexVisualization component
@@ -73,8 +173,14 @@ export function IndexVisualization({
   // TODO: Implement visualization controls (Task 8)
   
   // Placeholder loading state
-  const isLoading = true;
+  const isLoading = false;
   const error = null;
+  
+  // Placeholder data for center index element (Task 4.1)
+  // This will be replaced with real data from useIndexShards hook in Task 2.1
+  const placeholderHealth: HealthStatus = 'green';
+  const placeholderPrimaryShards = 5;
+  const placeholderReplicaShards = 1;
   
   if (isLoading) {
     return (
@@ -110,15 +216,20 @@ export function IndexVisualization({
               Index Visualization
             </Text>
             <Badge color="blue" variant="light">
-              {indexName}
+              APM-Style Layout
             </Badge>
           </Group>
           
+          {/* Visualization container */}
           <Box h={400} style={{ position: 'relative' }}>
             <Center h="100%">
-              <Text size="sm" c="dimmed">
-                Visualization will be rendered here
-              </Text>
+              {/* Center index element (Task 4.1) */}
+              <CenterIndexElement
+                indexName={indexName}
+                health={placeholderHealth}
+                primaryShards={placeholderPrimaryShards}
+                replicaShards={placeholderReplicaShards}
+              />
             </Center>
           </Box>
         </Stack>
