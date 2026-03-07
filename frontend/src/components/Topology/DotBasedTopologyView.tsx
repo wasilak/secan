@@ -1,9 +1,15 @@
 import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Grid, Paper, Text, Tooltip, Flex, Box, Badge, Group, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
+import {
+  parseGroupingFromUrl,
+  type GroupingAttribute,
+  type GroupingConfig,
+} from '../../utils/topologyGrouping';
 
 /**
  * Format bytes to human-readable format
@@ -31,6 +37,8 @@ interface DotBasedTopologyViewProps {
   clusterId?: string;
   topologyBatchSize?: number;
   _topologyRetryCount?: number;
+  groupBy?: GroupingAttribute;
+  groupValue?: string;
 }
 
 /**
@@ -64,7 +72,58 @@ export function DotBasedTopologyView({
   clusterId,
   topologyBatchSize = 4,
   _topologyRetryCount = 0,
+  groupBy,
+  groupValue,
 }: DotBasedTopologyViewProps) {
+  // Use React Router's useSearchParams for URL manipulation
+  const [urlSearchParams, setUrlSearchParams] = useSearchParams();
+  
+  // Grouping state management
+  const [groupingConfig, setGroupingConfig] = useState<GroupingConfig>(() => {
+    // Parse grouping from URL on component mount
+    // Priority: props > URL params
+    if (groupBy) {
+      return { attribute: groupBy, value: groupValue };
+    }
+    return parseGroupingFromUrl(urlSearchParams);
+  });
+
+  // Update URL when grouping changes
+  useEffect(() => {
+    // Only update URL if grouping is controlled by component (not props)
+    if (!groupBy) {
+      // Preserve existing params and merge with grouping params
+      const mergedParams = new URLSearchParams(urlSearchParams);
+      
+      // Remove old grouping params
+      mergedParams.delete('groupBy');
+      mergedParams.delete('groupValue');
+      
+      // Add new grouping params if not 'none'
+      if (groupingConfig.attribute !== 'none') {
+        mergedParams.set('groupBy', groupingConfig.attribute);
+        if (groupingConfig.value) {
+          mergedParams.set('groupValue', groupingConfig.value);
+        }
+      }
+      
+      setUrlSearchParams(mergedParams, { replace: true });
+    }
+  }, [groupingConfig, groupBy, urlSearchParams, setUrlSearchParams]);
+
+  // Sync with URL changes (browser back/forward)
+  useEffect(() => {
+    if (!groupBy) {
+      const parsedConfig = parseGroupingFromUrl(urlSearchParams);
+      if (
+        parsedConfig.attribute !== groupingConfig.attribute ||
+        parsedConfig.value !== groupingConfig.value
+      ) {
+        setGroupingConfig(parsedConfig);
+      }
+    }
+  }, [urlSearchParams, groupBy, groupingConfig]);
+
   // Progressive loading state
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
   const [allShardsLoaded, setAllShardsLoaded] = useState(false);
