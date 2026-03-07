@@ -7,6 +7,7 @@ import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import {
   parseGroupingFromUrl,
+  calculateNodeGroups,
   type GroupingAttribute,
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
@@ -123,6 +124,15 @@ export function DotBasedTopologyView({
       }
     }
   }, [urlSearchParams, groupBy, groupingConfig]);
+
+  // Calculate node groups based on grouping configuration
+  // Memoized to avoid unnecessary recalculations
+  // Recalculates when nodes or grouping config changes
+  // Note: Will be used in task 6.4 for rendering groups
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const nodeGroups = useMemo(() => {
+    return calculateNodeGroups(nodes, groupingConfig);
+  }, [nodes, groupingConfig]);
 
   // Progressive loading state
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
