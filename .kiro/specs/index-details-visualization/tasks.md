@@ -150,7 +150,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Maintain zoom level state
     - _Requirements: 5.5_
   
-  - [-] 8.2 Implement node search/filter
+  - [x] 8.2 Implement node search/filter
     - Add Mantine TextInput for search
     - Filter displayed nodes based on search query
     - Update visualization to show only matching nodes
@@ -160,7 +160,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 11: Node filter reduces displayed nodes**
     - **Validates: Requirements 5.4**
   
-  - [~] 8.4 Implement export functionality
+  - [-] 8.4 Implement export functionality
     - Add export buttons for PNG and SVG formats using Mantine Menu
     - Generate PNG image using html-to-image library
     - Generate SVG by serializing SVG DOM

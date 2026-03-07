@@ -11,9 +11,12 @@ import {
   Tooltip,
   ActionIcon,
   TextInput,
+  Menu,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
-import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX } from '@tabler/icons-react';
+import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { toPng } from 'html-to-image';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
   calculateNodePositions,
@@ -756,6 +759,144 @@ export function IndexVisualization({
     setSearchQuery('');
   };
   
+  // Export state management - Requirements: 10.1, 10.2, 10.3
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  
+  /**
+   * Generate filename for export with index name and timestamp
+   * Requirements: 10.4 - Include index name and timestamp in exported image
+   * 
+   * Format: {indexName}-visualization-{timestamp}.{extension}
+   * Example: my-index-visualization-2024-01-15T10-30-45.png
+   * 
+   * @param extension - File extension (png or svg)
+   * @returns Formatted filename
+   */
+  const generateExportFilename = (extension: 'png' | 'svg'): string => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    return `${indexName}-visualization-${timestamp}.${extension}`;
+  };
+  
+  /**
+   * Export visualization as PNG image
+   * Requirements: 10.1, 10.2, 10.5
+   * 
+   * Uses html-to-image library to convert the visualization container to PNG.
+   * Includes error handling and user notifications.
+   */
+  const handleExportPNG = async () => {
+    setIsExporting(true);
+    
+    try {
+      // Get the visualization container element
+      const visualizationElement = document.getElementById('visualization-container');
+      
+      if (!visualizationElement) {
+        throw new Error('Visualization container not found');
+      }
+      
+      // Generate PNG image using html-to-image
+      const dataUrl = await toPng(visualizationElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2, // Higher quality export
+      });
+      
+      // Create download link and trigger download - Requirements: 10.5
+      const link = document.createElement('a');
+      link.download = generateExportFilename('png');
+      link.href = dataUrl;
+      link.click();
+      
+      // Show success notification
+      notifications.show({
+        title: 'Export Successful',
+        message: 'Visualization exported as PNG',
+        color: 'green',
+      });
+    } catch (error) {
+      // Handle export errors gracefully
+      console.error('Failed to export PNG:', error);
+      notifications.show({
+        title: 'Export Failed',
+        message: error instanceof Error ? error.message : 'Failed to export visualization as PNG',
+        color: 'red',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
+  /**
+   * Export visualization as SVG image
+   * Requirements: 10.1, 10.3, 10.5
+   * 
+   * Serializes SVG DOM elements to create an SVG file.
+   * Includes error handling and user notifications.
+   */
+  const handleExportSVG = async () => {
+    setIsExporting(true);
+    
+    try {
+      // Get the visualization container element
+      const visualizationElement = document.getElementById('visualization-container');
+      
+      if (!visualizationElement) {
+        throw new Error('Visualization container not found');
+      }
+      
+      // Clone the element to avoid modifying the original
+      const clonedElement = visualizationElement.cloneNode(true) as HTMLElement;
+      
+      // Create SVG wrapper
+      const svgWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgWrapper.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      svgWrapper.setAttribute('width', visualizationElement.offsetWidth.toString());
+      svgWrapper.setAttribute('height', visualizationElement.offsetHeight.toString());
+      
+      // Create foreignObject to embed HTML content
+      const foreignObject = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+      foreignObject.setAttribute('width', '100%');
+      foreignObject.setAttribute('height', '100%');
+      foreignObject.appendChild(clonedElement);
+      
+      svgWrapper.appendChild(foreignObject);
+      
+      // Serialize SVG to string
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgWrapper);
+      
+      // Create blob and download link - Requirements: 10.5
+      const blob = new Blob([svgString], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.download = generateExportFilename('svg');
+      link.href = url;
+      link.click();
+      
+      // Clean up
+      URL.revokeObjectURL(url);
+      
+      // Show success notification
+      notifications.show({
+        title: 'Export Successful',
+        message: 'Visualization exported as SVG',
+        color: 'green',
+      });
+    } catch (error) {
+      // Handle export errors gracefully
+      console.error('Failed to export SVG:', error);
+      notifications.show({
+        title: 'Export Failed',
+        message: error instanceof Error ? error.message : 'Failed to export visualization as SVG',
+        color: 'red',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  
   // Responsive breakpoint detection - Requirements: 8.1, 8.2, 8.5
   // Reuse responsive pattern from ShardGrid component
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -939,6 +1080,41 @@ export function IndexVisualization({
                 </Badge>
               )}
               
+              {/* Export menu - Requirements: 10.1, 10.2, 10.3 */}
+              <Menu shadow="md" width={200} position="bottom-end">
+                <Menu.Target>
+                  <Tooltip label="Export Visualization" position="bottom" withArrow>
+                    <ActionIcon
+                      variant="light"
+                      color="green"
+                      size="lg"
+                      loading={isExporting}
+                      aria-label="Export visualization"
+                    >
+                      <IconDownload size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Menu.Target>
+                
+                <Menu.Dropdown>
+                  <Menu.Label>Export Format</Menu.Label>
+                  <Menu.Item
+                    leftSection={<IconFileTypePng size={16} />}
+                    onClick={handleExportPNG}
+                    disabled={isExporting}
+                  >
+                    Export as PNG
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconFileTypeSvg size={16} />}
+                    onClick={handleExportSVG}
+                    disabled={isExporting}
+                  >
+                    Export as SVG
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+              
               {/* Zoom controls - Requirements: 5.5 */}
               <Group gap={4}>
                 <Tooltip label="Zoom In" position="bottom" withArrow>
@@ -1012,6 +1188,7 @@ export function IndexVisualization({
           {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
           {/* Container adapts to viewport width and recalculates on resize */}
           <Box
+            id="visualization-container"
             h={positioningConfig.containerHeight}
             style={{
               position: 'relative',
