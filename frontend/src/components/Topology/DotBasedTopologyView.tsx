@@ -1,5 +1,4 @@
 import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Grid, Paper, Text, Tooltip, Flex, Box, Badge, Group, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
@@ -81,9 +80,6 @@ export function DotBasedTopologyView({
   groupBy,
   groupValue,
 }: DotBasedTopologyViewProps) {
-  // Use React Router's useSearchParams for URL manipulation
-  const [urlSearchParams, setUrlSearchParams] = useSearchParams();
-  
   // Grouping state management
   const [groupingConfig, setGroupingConfig] = useState<GroupingConfig>(() => {
     // Parse grouping from URL on component mount
@@ -91,40 +87,38 @@ export function DotBasedTopologyView({
     if (groupBy) {
       return { attribute: groupBy, value: groupValue };
     }
-    // Use the searchParams prop if provided, otherwise use URL search params
-    const params = searchParams || urlSearchParams;
-    return parseGroupingFromUrl(params);
+    return parseGroupingFromUrl(searchParams);
   });
 
   // Update URL when grouping changes
   useEffect(() => {
     // Only update URL if grouping is controlled by component (not props)
-    if (!groupBy) {
-      // Preserve existing params and merge with grouping params
-      const mergedParams = new URLSearchParams(urlSearchParams);
+    if (!groupBy && typeof window !== 'undefined') {
+      const currentUrl = new URL(window.location.href);
+      const params = new URLSearchParams(currentUrl.search);
       
       // Remove old grouping params
-      mergedParams.delete('groupBy');
-      mergedParams.delete('groupValue');
+      params.delete('groupBy');
+      params.delete('groupValue');
       
       // Add new grouping params if not 'none'
       if (groupingConfig.attribute !== 'none') {
-        mergedParams.set('groupBy', groupingConfig.attribute);
+        params.set('groupBy', groupingConfig.attribute);
         if (groupingConfig.value) {
-          mergedParams.set('groupValue', groupingConfig.value);
+          params.set('groupValue', groupingConfig.value);
         }
       }
       
-      setUrlSearchParams(mergedParams, { replace: true });
+      // Update URL without page reload
+      const newUrl = `${currentUrl.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
     }
-  }, [groupingConfig, groupBy, urlSearchParams, setUrlSearchParams]);
+  }, [groupingConfig, groupBy]);
 
   // Sync with URL changes (browser back/forward)
   useEffect(() => {
     if (!groupBy) {
-      // Use the searchParams prop if provided, otherwise use URL search params
-      const params = searchParams || urlSearchParams;
-      const parsedConfig = parseGroupingFromUrl(params);
+      const parsedConfig = parseGroupingFromUrl(searchParams);
       if (
         parsedConfig.attribute !== groupingConfig.attribute ||
         parsedConfig.value !== groupingConfig.value
@@ -132,7 +126,7 @@ export function DotBasedTopologyView({
         setGroupingConfig(parsedConfig);
       }
     }
-  }, [searchParams, urlSearchParams, groupBy, groupingConfig]);
+  }, [searchParams, groupBy, groupingConfig]);
 
   // Calculate node groups based on grouping configuration
   // Memoized to avoid unnecessary recalculations
