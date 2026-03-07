@@ -8,9 +8,11 @@ import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import {
   parseGroupingFromUrl,
   calculateNodeGroups,
+  hasCustomLabels,
   type GroupingAttribute,
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
+import { GroupingControl } from './GroupingControl';
 
 /**
  * Format bytes to human-readable format
@@ -133,6 +135,26 @@ export function DotBasedTopologyView({
   const nodeGroups = useMemo(() => {
     return calculateNodeGroups(nodes, groupingConfig);
   }, [nodes, groupingConfig]);
+
+  // Check if nodes have custom labels for GroupingControl
+  const availableLabels = useMemo(() => {
+    if (!hasCustomLabels(nodes)) {
+      return [];
+    }
+    // Extract unique labels from all nodes
+    const labels = new Set<string>();
+    nodes.forEach(node => {
+      if (node.tags && node.tags.length > 0) {
+        node.tags.forEach(tag => labels.add(tag));
+      }
+    });
+    return Array.from(labels);
+  }, [nodes]);
+
+  // Handler for grouping changes
+  const handleGroupingChange = useCallback((attribute: GroupingAttribute) => {
+    setGroupingConfig({ attribute });
+  }, []);
 
   // Progressive loading state
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
@@ -283,6 +305,15 @@ export function DotBasedTopologyView({
 
   return (
     <div>
+      {/* Grouping Control */}
+      <Box mb="md">
+        <GroupingControl
+          currentGrouping={groupingConfig.attribute}
+          availableLabels={availableLabels}
+          onGroupingChange={handleGroupingChange}
+        />
+      </Box>
+
       {/* Nodes Grid */}
       <Grid gutter="md">
         {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
