@@ -37,7 +37,7 @@
 
 - [ ] 3. Fix Prometheus metrics integration
 
-  - [-] 3.1 Update metrics integration layer to use correct elasticsearch_exporter metric names
+  - [x] 3.1 Update metrics integration layer to use correct elasticsearch_exporter metric names
     - Update Prometheus query builder to use `elasticsearch_os_cpu_percent{}` for CPU usage
     - Update Prometheus query builder to use `elasticsearch_os_load1{}`, `elasticsearch_os_load5{}`, `elasticsearch_os_load15{}` for load averages
     - Update Prometheus query builder to use `elasticsearch_os_mem_actual_free_bytes{}`, `elasticsearch_os_mem_actual_used_bytes{}`, `elasticsearch_os_mem_free_bytes{}`, `elasticsearch_os_mem_used_bytes{}` for memory statistics
@@ -47,7 +47,7 @@
     - _Preservation: Non-Prometheus metrics sources continue to work (3.1), non-metric data displays correctly (3.2, 3.3), cluster switching works (3.4), error handling preserved (3.5)_
     - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5_
 
-  - [~] 3.2 Update nodes list view to display Prometheus metrics
+  - [-] 3.2 Update nodes list view to display Prometheus metrics
     - Integrate metrics fetching with nodes list component
     - Display CPU usage, load averages, and memory statistics from Prometheus
     - Handle cases where metrics are unavailable or incomplete

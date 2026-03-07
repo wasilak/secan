@@ -119,6 +119,11 @@ fn test_cluster_metrics_creation() {
         node_count: Some(3),
         shard_count: Some(15),
         index_count: Some(5),
+        document_count: None,
+        unassigned_shards: None,
+        relocating_shards: None,
+        initializing_shards: None,
+        prometheus_queries: None,
     };
 
     assert_eq!(metrics.cluster_id, "test-cluster");
