@@ -211,7 +211,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - _Requirements: 7.1, 7.2, 7.3_
 
 - [ ] 11. Implement automatic refresh
-  - [-] 11.1 Configure TanStack Query refetch interval
+  - [x] 11.1 Configure TanStack Query refetch interval
     - Set refetchInterval to 30000ms in useIndexShards hook
     - Display subtle refresh indicator when data is being updated
     - _Requirements: 7.4_
@@ -221,7 +221,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 7.4**
 
 - [ ] 12. Implement error handling and edge cases
-  - [~] 12.1 Handle API errors in frontend
+  - [-] 12.1 Handle API errors in frontend
     - Display Mantine Alert when shard data fetch fails
     - Provide retry button for failed requests
     - Handle empty shard arrays gracefully

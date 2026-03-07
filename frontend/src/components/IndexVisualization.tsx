@@ -913,9 +913,10 @@ export function IndexVisualization({
     return calculateResponsiveFontSizes(viewportWidth);
   }, [viewportWidth]);
   
-  // Fetch shard data using useIndexShards hook - Requirements: 7.4, 9.1
+  // Fetch shard data using useIndexShards hook - Requirements: 7.4, 9.1, 9.3
   // The hook is configured with refetchInterval of 30000ms (30 seconds)
-  const { data: shards, isLoading, error, isFetching } = useIndexShards(
+  // Includes refetch function for manual retry on errors
+  const { data: shards, isLoading, error, isFetching, refetch } = useIndexShards(
     clusterId,
     indexName,
     refreshInterval,
@@ -1144,6 +1145,8 @@ export function IndexVisualization({
     );
   }
   
+  // Handle API errors - Requirements: 9.3
+  // Display error message with retry button for failed requests
   if (error) {
     return (
       <Alert
@@ -1151,7 +1154,41 @@ export function IndexVisualization({
         title="Failed to Load Visualization"
         color="red"
       >
-        <Text size="sm">{error instanceof Error ? error.message : 'An error occurred while loading shard data'}</Text>
+        <Stack gap="sm">
+          <Text size="sm">
+            {error instanceof Error ? error.message : 'An error occurred while loading shard data'}
+          </Text>
+          <Group>
+            <ActionIcon
+              variant="filled"
+              color="red"
+              size="md"
+              onClick={() => refetch()}
+              aria-label="Retry loading visualization"
+            >
+              <IconRefresh size={16} />
+            </ActionIcon>
+            <Text size="xs" c="dimmed">
+              Click to retry
+            </Text>
+          </Group>
+        </Stack>
+      </Alert>
+    );
+  }
+  
+  // Handle empty shard arrays gracefully - Requirements: 9.3
+  // Show appropriate message when no shards exist for the index
+  if (!shards || shards.length === 0) {
+    return (
+      <Alert
+        icon={<IconAlertCircle size={16} />}
+        title="No Shards Found"
+        color="yellow"
+      >
+        <Text size="sm">
+          No shard data available for index "{indexName}". The index may not have any allocated shards yet.
+        </Text>
       </Alert>
     );
   }
