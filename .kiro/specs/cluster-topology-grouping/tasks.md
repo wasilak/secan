@@ -147,7 +147,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
 - [x] 7. Checkpoint - Verify integration
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Performance optimization and error handling
+- [x] 8. Performance optimization and error handling
   - [x] 8.1 Add performance optimizations
     - Verify `useMemo` is used for group calculation
     - Add debouncing to grouping changes if needed
@@ -156,7 +156,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Ensure grouping updates within 500ms for 100 nodes
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
   
-  - [-] 8.2 Implement error handling
+  - [x] 8.2 Implement error handling
     - Add console warning for invalid grouping parameters
     - Handle missing node attributes gracefully (create "undefined" group)
     - Filter out empty groups before rendering
@@ -171,7 +171,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Use fast-check to generate node arrays with and without labels
 
 - [ ] 9. Final integration and testing
-  - [~] 9.1 Verify all node types are displayed
+  - [-] 9.1 Verify all node types are displayed
     - Test with clusters containing master, data, ingest, ml, coordinating nodes
     - Verify no nodes are filtered based on roles
     - Verify existing node visualization is unchanged
