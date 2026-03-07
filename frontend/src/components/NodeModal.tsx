@@ -10,6 +10,7 @@ import { TimeRangePicker, TIME_RANGE_PRESETS, type TimeRangePreset } from './Tim
 import type { NodeDetailStats, NodeMetricsHistoryResponse } from '../types/api';
 import type { ClusterInfo } from '../types/api';
 import { useState } from 'react';
+import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 /**
@@ -76,6 +77,40 @@ export function NodeModal({
     staleTime: 60000,
   });
 
+  // Extract Prometheus queries from metrics response
+  const prometheusQueries = nodeMetrics?.prometheus_queries;
+  
+  // Prepare Prometheus metrics data for charts - memoized to trigger re-renders
+  const prometheusMetricsData = React.useMemo(() => {
+    if (!isPrometheus || !nodeMetrics) return undefined;
+    return {
+      heapHistory: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.heap_used_bytes || 0,
+      })),
+      cpuHistory: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.cpu_percent || 0,
+      })),
+      diskHistory: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.disk_used_percent || 0,
+      })),
+      loadHistory: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.load_average_1m || 0,
+      })),
+      load5History: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.load_average_5m || 0,
+      })),
+      load15History: nodeMetrics.data.map(d => ({
+        timestamp: d.timestamp,
+        value: d.load_average_15m || 0,
+      })),
+    };
+  }, [nodeMetrics, isPrometheus]);
+
   return (
     <Modal.Root opened={opened} onClose={onClose} size="90%">
       <Modal.Overlay />
@@ -116,6 +151,8 @@ export function NodeModal({
           nodeStats={nodeStats}
           loading={isLoading}
           isPrometheus={isPrometheus}
+          prometheusQueries={prometheusQueries}
+          prometheusMetrics={prometheusMetricsData}
         />
       )}
 

@@ -740,6 +740,9 @@ export interface NodeMetricsPoint {
   heap_max_bytes?: number;
   cpu_percent?: number;
   disk_used_percent?: number;
+  load_average_1m?: number;
+  load_average_5m?: number;
+  load_average_15m?: number;
 }
 
 /**
@@ -750,6 +753,12 @@ export interface NodeMetricsHistoryResponse {
   node_id: string;
   time_range: TimeRange;
   data: NodeMetricsPoint[];
+  prometheus_queries?: {
+    heap?: string;
+    disk?: string;
+    cpu?: string;
+    load?: string;
+  };
 }
 
 /**

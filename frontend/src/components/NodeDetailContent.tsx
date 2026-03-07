@@ -69,6 +69,15 @@ interface NodeDetailContentProps {
     heapHistory?: Array<{ timestamp: number; value: number }>;
     cpuHistory?: Array<{ timestamp: number; value: number }>;
     diskHistory?: Array<{ timestamp: number; value: number }>;
+    loadHistory?: Array<{ timestamp: number; value: number }>;
+    load5History?: Array<{ timestamp: number; value: number }>;
+    load15History?: Array<{ timestamp: number; value: number }>;
+  };
+  prometheusQueries?: {
+    heap?: string;
+    disk?: string;
+    cpu?: string;
+    load?: string;
   };
   isPrometheus?: boolean;
 }
@@ -92,6 +101,7 @@ interface NodeDetailContentProps {
 export function NodeDetailContent({
   nodeStats,
   prometheusMetrics,
+  prometheusQueries,
   isPrometheus = false,
 }: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
@@ -106,26 +116,37 @@ export function NodeDetailContent({
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(clusterId);
 
-  // Track historical data for charts
-  // Pass resetKey so data resets when navigating away from this node
-  // Request timestamps for proper time-series charts
-  const heapHistory = useSparklineData(
-    nodeStats?.heapPercent,
-    50, // Keep last 50 data points
-    resetKey,
-    true // withTimestamps
-  ) as DataPoint[];
+  // Generate sparkline data (used as fallback when Prometheus not available)
+  const sparklineHeap = useSparklineData(nodeStats?.heapPercent, 50, resetKey, true) as DataPoint[];
+  const sparklineDisk = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true) as DataPoint[];
+  const sparklineCpu = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true) as DataPoint[];
+  const sparklineLoad = useSparklineData(nodeStats?.loadAverage?.[0], 50, resetKey, true) as DataPoint[];
 
-  const diskHistory = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true) as DataPoint[];
+  // Use Prometheus time-series data when available, otherwise fallback to sparkline (fake) data
+  // Prometheus data has real timestamps and values from the time range selector
+  const heapHistory: DataPoint[] = isPrometheus && prometheusMetrics?.heapHistory
+    ? prometheusMetrics.heapHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineHeap;
 
-  const cpuHistory = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true) as DataPoint[];
+  const diskHistory: DataPoint[] = isPrometheus && prometheusMetrics?.diskHistory
+    ? prometheusMetrics.diskHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineDisk;
 
-  const loadHistory = useSparklineData(
-    nodeStats?.loadAverage?.[0], // Use 1-minute load average
-    50,
-    resetKey,
-    true
-  ) as DataPoint[];
+  const cpuHistory: DataPoint[] = isPrometheus && prometheusMetrics?.cpuHistory
+    ? prometheusMetrics.cpuHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineCpu;
+
+  const loadHistory: DataPoint[] = isPrometheus && prometheusMetrics?.loadHistory
+    ? prometheusMetrics.loadHistory.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineLoad;
+
+  const load5History: DataPoint[] = isPrometheus && prometheusMetrics?.load5History
+    ? prometheusMetrics.load5History.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineLoad;
+
+  const load15History: DataPoint[] = isPrometheus && prometheusMetrics?.load15History
+    ? prometheusMetrics.load15History.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
+    : sparklineLoad;
 
   return (
     <Stack gap="md">
@@ -377,6 +398,9 @@ export function NodeDetailContent({
             diskHistory={diskHistory}
             cpuHistory={cpuHistory}
             loadHistory={loadHistory}
+            load5History={load5History}
+            load15History={load15History}
+            prometheusQueries={prometheusQueries}
           />
         </Stack>
       </Card>

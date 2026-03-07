@@ -412,6 +412,12 @@ pub struct NodeMetricsPoint {
     pub cpu_percent: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk_used_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub load_average_1m: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub load_average_5m: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub load_average_15m: Option<f64>,
 }
 
 /// Node metrics history response
@@ -421,6 +427,9 @@ pub struct NodeMetricsHistoryResponse {
     pub node_id: String,
     pub time_range: TimeRange,
     pub data: Vec<NodeMetricsPoint>,
+    /// Prometheus queries used for each metric (metric_name -> full query)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus_queries: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 /// Get node metrics from Prometheus
@@ -467,6 +476,15 @@ pub async fn get_node_metrics(
             })?
     };
 
+    // Get node name from Elasticsearch (needed for Prometheus queries)
+    // The node_id from URL is the ES node ID, but Prometheus uses node name
+    let node_name = cluster_conn.client.nodes_info().await
+        .ok()
+        .and_then(|info| info.get("nodes").and_then(|n| n.get(&node_id)).and_then(|n| n.get("name")).and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .unwrap_or_else(|| node_id.clone());
+    
+    debug!("Node ID: {}, Node Name: {}", node_id, node_name);
+
     // Only support Prometheus for node-level historical metrics
     if !matches!(
         cluster_conn.metrics_source,
@@ -512,10 +530,11 @@ pub async fn get_node_metrics(
             message: format!("Failed to create Prometheus client: {}", e),
         })?;
 
-    // Build Prometheus queries with node filter
-    // Use label filters from cluster config if available
-    let base_labels = format!("node=\"{}\"", node_id);
-    let additional_labels = if let Some(labels) = &prometheus_config.labels {
+    // Build query strings with node name filter AND cluster labels from config
+    // Use OS-level metrics which are more accurate
+    // Combine node name with cluster labels for precise filtering
+    let base_labels = format!("name=\"{}\"", node_name);
+    let all_labels = if let Some(labels) = &prometheus_config.labels {
         let extra: Vec<String> = labels
             .iter()
             .map(|(k, v)| format!("{}=\"{}\"", k, v))
@@ -528,32 +547,51 @@ pub async fn get_node_metrics(
     } else {
         base_labels
     };
-
-    // Build query strings separately to avoid temporary value issues
+    
+    // Build queries with all labels (node name + cluster + any custom labels)
+    // Include all 3 load average metrics
     let heap_query = format!(
-        "elasticsearch_jvm_memory_used_bytes{{{}}}",
-        additional_labels.replace("node=", "area=\"heap\",node=")
+        "elasticsearch_os_mem_used_bytes{{{}}}",
+        all_labels
     );
-    let cpu_query = format!("elasticsearch_process_cpu_percent{{{}}}", additional_labels);
+    let cpu_query = format!(
+        "elasticsearch_os_cpu_percent{{{}}}",
+        all_labels
+    );
+    let load1_query = format!(
+        "elasticsearch_os_load1{{{}}}",
+        all_labels
+    );
+    let load5_query = format!(
+        "elasticsearch_os_load5{{{}}}",
+        all_labels
+    );
+    let load15_query = format!(
+        "elasticsearch_os_load15{{{}}}",
+        all_labels
+    );
     let disk_avail_query = format!(
         "elasticsearch_filesystem_data_available_bytes{{{}}}",
-        additional_labels
+        all_labels
     );
     let disk_size_query = format!(
         "elasticsearch_filesystem_data_size_bytes{{{}}}",
-        additional_labels
+        all_labels
     );
 
     // Fetch metrics in parallel
     let heap_used_fut = prom_client.query_range(&heap_query, time_range.start, time_range.end, 60);
     let cpu_fut = prom_client.query_range(&cpu_query, time_range.start, time_range.end, 60);
+    let load1_fut = prom_client.query_range(&load1_query, time_range.start, time_range.end, 60);
+    let load5_fut = prom_client.query_range(&load5_query, time_range.start, time_range.end, 60);
+    let load15_fut = prom_client.query_range(&load15_query, time_range.start, time_range.end, 60);
     let disk_avail_fut =
         prom_client.query_range(&disk_avail_query, time_range.start, time_range.end, 60);
     let disk_size_fut =
         prom_client.query_range(&disk_size_query, time_range.start, time_range.end, 60);
 
-    let (heap_used, cpu, disk_avail, disk_size) =
-        tokio::join!(heap_used_fut, cpu_fut, disk_avail_fut, disk_size_fut);
+    let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size) =
+        tokio::join!(heap_used_fut, cpu_fut, load1_fut, load5_fut, load15_fut, disk_avail_fut, disk_size_fut);
 
     // Helper to extract values from time series
     let extract_values = |result: Result<Vec<crate::prometheus::client::TimeSeriesData>, _>,
@@ -573,6 +611,9 @@ pub async fn get_node_metrics(
 
     let heap_values = extract_values(heap_used, 0);
     let cpu_values = extract_values(cpu, 0);
+    let load1_values = extract_values(load1, 0);
+    let load5_values = extract_values(load5, 0);
+    let load15_values = extract_values(load15, 0);
     let disk_avail_values = extract_values(disk_avail, 0);
     let disk_size_values = extract_values(disk_size, 0);
 
@@ -592,6 +633,9 @@ pub async fn get_node_metrics(
             .find(|(t, _)| *t == ts)
             .map(|(_, v)| *v as u64);
         let cpu = cpu_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        let load1 = load1_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        let load5 = load5_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        let load15 = load15_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
 
         let disk_used_percent = disk_avail_values
             .iter()
@@ -614,6 +658,9 @@ pub async fn get_node_metrics(
             heap_max_bytes: heap_used, // Approximate - could be enhanced with separate max query
             cpu_percent: cpu,
             disk_used_percent,
+            load_average_1m: load1,
+            load_average_5m: load5,
+            load_average_15m: load15,
         });
     }
 
@@ -622,6 +669,14 @@ pub async fn get_node_metrics(
         node_id: node_id.clone(),
         time_range,
         data: data_points,
+        prometheus_queries: Some(serde_json::json!({
+            "heap": heap_query,
+            "disk": disk_avail_query,
+            "cpu": cpu_query,
+            "load1": load1_query,
+            "load5": load5_query,
+            "load15": load15_query
+        }).as_object().unwrap().clone()),
     };
 
     Ok(Json(response))

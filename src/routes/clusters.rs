@@ -633,8 +633,100 @@ pub async fn get_nodes(
         }
     };
 
+    // Fetch Prometheus metrics for all nodes if Prometheus is configured
+    let prometheus_node_metrics = if matches!(cluster.metrics_source, crate::config::MetricsSource::Prometheus) {
+        if let Some(prom_config) = &cluster.prometheus {
+            // Create Prometheus client
+            match crate::prometheus::client::Client::new(crate::prometheus::client::PrometheusConfig {
+                url: prom_config.url.clone(),
+                auth: None,
+                timeout: std::time::Duration::from_secs(10),
+            }) {
+                Ok(prom_client) => {
+                    // Build query for all nodes
+                    let labels_query = if let Some(labels) = &prom_config.labels {
+                        let extra: Vec<String> = labels.iter()
+                            .map(|(k, v)| format!("{}=\"{}\"", k, v))
+                            .collect();
+                        if extra.is_empty() {
+                            String::new()
+                        } else {
+                            format!(",{}", extra.join(","))
+                        }
+                    } else {
+                        String::new()
+                    };
+                    
+                    // Query CPU and memory for all nodes
+                    let cpu_query = format!("elasticsearch_os_cpu_percent{{{}}}", labels_query);
+                    let mem_query = format!("elasticsearch_os_mem_used_bytes{{{}}}", labels_query);
+                    
+                    // Execute queries in parallel
+                    let now = chrono::Utc::now().timestamp();
+                    let cpu_fut = prom_client.query_instant(&cpu_query, Some(now));
+                    let mem_fut = prom_client.query_instant(&mem_query, Some(now));
+                    
+                    let (cpu_result, mem_result) = tokio::join!(cpu_fut, mem_fut);
+                    
+                    // Build map: node_name -> {cpu_percent, memory_used_bytes}
+                    let mut metrics_map: std::collections::HashMap<String, serde_json::Value> = std::collections::HashMap::new();
+                    
+                    if let Ok(cpu_series) = cpu_result {
+                        for series in cpu_series {
+                            let name_opt: Option<&str> = series.metric.get("name").and_then(|v| Some(v.as_str()));
+                            if let Some(name) = name_opt {
+                                if let Some(values) = &series.value {
+                                    let cpu_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    let entry = metrics_map.entry(name.to_string()).or_insert_with(|| serde_json::json!({}));
+                                    if let Some(obj) = entry.as_object_mut() {
+                                        obj.insert("cpu_percent".to_string(), serde_json::json!(cpu_val));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if let Ok(mem_series) = mem_result {
+                        for series in mem_series {
+                            let name_opt: Option<&str> = series.metric.get("name").and_then(|v| Some(v.as_str()));
+                            if let Some(name) = name_opt {
+                                if let Some(values) = &series.value {
+                                    let mem_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    let entry = metrics_map.entry(name.to_string()).or_insert_with(|| serde_json::json!({}));
+                                    if let Some(obj) = entry.as_object_mut() {
+                                        obj.insert("memory_used_bytes".to_string(), serde_json::json!((mem_val as u64)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    tracing::debug!(
+                        cluster_id = %cluster_id,
+                        nodes_with_metrics = metrics_map.len(),
+                        "Fetched Prometheus metrics for nodes"
+                    );
+                    
+                    Some(metrics_map)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        cluster_id = %cluster_id,
+                        error = %e,
+                        "Failed to create Prometheus client for node metrics"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     // Transform to frontend format
-    let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref());
+    let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref(), prometheus_node_metrics.as_ref());
 
     // Apply filters
     let roles_filter: Vec<&str> = params.roles.split(',').filter(|s| !s.is_empty()).collect();

@@ -1,4 +1,5 @@
-import { Card, Stack, Text, type MantineColorScheme } from '@mantine/core';
+import React from 'react';
+import { Card, Stack, Text, Code, Group, ActionIcon, Tooltip, useMantineColorScheme } from '@mantine/core';
 import {
   AreaChart,
   Area,
@@ -9,8 +10,8 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
+import { IconCopy, IconCheck } from '@tabler/icons-react';
 import type { DataPoint } from '../../hooks/useSparklineData';
-import CopyButton from '../CopyButton';
 
 interface TimeSeriesChartProps {
   title: string;
@@ -39,6 +40,40 @@ function formatTime(timestamp: number): string {
 }
 
 /**
+ * CopyButton component for copying query text
+ */
+function QueryCopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <Tooltip label={copied ? 'Copied!' : 'Copy query'} position="top">
+      <ActionIcon
+        variant="subtle"
+        color={copied ? 'green' : 'gray'}
+        size="sm"
+        onClick={copyToClipboard}
+      >
+        {copied ? (
+          <IconCheck style={{ width: '1rem', height: '1rem' }} />
+        ) : (
+          <IconCopy style={{ width: '1rem', height: '1rem' }} />
+        )}
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
+/**
  * Generic time series area chart component
  */
 export function TimeSeriesChart({
@@ -53,14 +88,25 @@ export function TimeSeriesChart({
   query,
   height = 200,
 }: TimeSeriesChartProps) {
+  const { colorScheme } = useMantineColorScheme();
   const hasData = data && data.length > 0;
+  
+  // Theme-aware code block colors
+  const isDark = colorScheme === 'dark';
+  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
+  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
 
   return (
     <Card shadow="sm" padding="lg">
       <Stack gap="xs">
-        <Text size="sm" fw={500}>
-          {title}
-        </Text>
+        <Group justify="space-between" wrap="nowrap">
+          <Text size="sm" fw={500}>
+            {title}
+          </Text>
+          {query && (
+            <QueryCopyButton value={query} />
+          )}
+        </Group>
         {hasData ? (
           <ResponsiveContainer width="100%" height={height}>
             <AreaChart
@@ -127,23 +173,22 @@ export function TimeSeriesChart({
           </Stack>
         )}
         {query && (
-          <Stack gap="xs">
-            <Text size="xs" c="dimmed" style={{ flex: 1 }}>
-              <code
-                style={{
-                  backgroundColor: 'var(--mantine-color-dark-6)',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  display: 'block',
-                  overflow: 'auto',
-                }}
-              >
-                {query}
-              </code>
-            </Text>
-            <CopyButton value={query} />
-          </Stack>
+          <Code
+            block
+            style={{
+              backgroundColor: codeBg,
+              color: codeColor,
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}
+          >
+            {query}
+          </Code>
         )}
       </Stack>
     </Card>

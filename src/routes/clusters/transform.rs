@@ -119,12 +119,14 @@ pub fn transform_cluster_stats(
 ///
 /// # Parameters
 /// * `nodes_info` - Node information from /_nodes API
-/// * `nodes_stats` - Node statistics from /_nodes/stats API
+/// * `nodes_stats` - Node statistics from /_nodes/stats API  
 /// * `master_node_id` - Optional master node ID from /_cat/master or cluster state
+/// * `prometheus_metrics` - Optional Prometheus metrics (node_name -> {cpu_percent, memory_used})
 pub fn transform_nodes(
     nodes_info: &Value,
     nodes_stats: &Value,
     master_node_id: Option<&str>,
+    prometheus_metrics: Option<&std::collections::HashMap<String, serde_json::Value>>,
 ) -> Vec<NodeInfoResponse> {
     let mut result = Vec::new();
 
@@ -164,8 +166,31 @@ pub fn transform_nodes(
                 .unwrap_or(0);
             let disk_used = disk_total.saturating_sub(disk_available);
 
-            // Parse CPU
-            let cpu_percent = node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32;
+            // Parse CPU - use Prometheus metrics if available, otherwise fallback to ES stats
+            let node_name = node_info["name"].as_str().unwrap_or("");
+            let cpu_percent = if let Some(prom_metrics) = prometheus_metrics {
+                // Try to get CPU from Prometheus metrics
+                prom_metrics.get(node_name)
+                    .and_then(|m| m.get("cpu_percent"))
+                    .and_then(|v| v.as_f64())
+                    .map(|v| v as u32)
+                    .unwrap_or_else(|| node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32)
+            } else {
+                node_stats["os"]["cpu"]["percent"].as_u64().unwrap_or(0) as u32
+            };
+
+            // Parse Memory - use Prometheus metrics if available
+            let (heap_used, heap_max) = if let Some(prom_metrics) = prometheus_metrics {
+                // Try to get memory from Prometheus metrics
+                let mem_used = prom_metrics.get(node_name)
+                    .and_then(|m| m.get("memory_used_bytes"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(heap_used);
+                // For heap_max, we still need ES stats as Prometheus doesn't provide max
+                (mem_used, heap_max)
+            } else {
+                (heap_used, heap_max)
+            };
 
             // Extract load average (1-minute)
             let load_average = node_stats["os"]["cpu"]["load_average"]["1m"]
