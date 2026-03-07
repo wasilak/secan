@@ -8,6 +8,7 @@ import {
   Alert,
   Loader,
   Center,
+  Tooltip,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
@@ -48,7 +49,7 @@ interface CenterIndexElementProps {
 /**
  * Props for the NodeCard component
  * 
- * Requirements: 2.1, 2.2
+ * Requirements: 2.1, 2.2, 4.1
  */
 interface NodeCardProps {
   /**
@@ -60,6 +61,18 @@ interface NodeCardProps {
    * Optional callback when node is clicked
    */
   onClick?: (nodeId: string) => void;
+  
+  /**
+   * Optional node metrics for tooltip display
+   * These will be populated when real node data is available
+   */
+  nodeMetrics?: {
+    heapUsed?: number;
+    heapMax?: number;
+    diskUsed?: number;
+    diskTotal?: number;
+    cpuPercent?: number;
+  };
 }
 
 /**
@@ -275,50 +288,138 @@ function ConnectionLines({
  * 
  * Renders a node card with name, shard count, and individual shard indicators.
  * Used for both primary and replica nodes in the visualization.
+ * Displays a tooltip on hover with detailed node information.
  * 
- * Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2
+ * Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 6.1, 6.2
  * 
  * @param props - Component props
  * @returns Node card element
  */
-function NodeCard({ node, onClick }: NodeCardProps) {
+function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
+  /**
+   * Format bytes to human-readable size
+   * 
+   * @param bytes - Size in bytes
+   * @returns Formatted size string
+   */
+  const formatBytes = (bytes?: number): string => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
+  
+  /**
+   * Format percentage value
+   * 
+   * @param value - Percentage value (0-100)
+   * @returns Formatted percentage string
+   */
+  const formatPercent = (value?: number): string => {
+    if (value === undefined || value === null) return 'N/A';
+    return `${value.toFixed(1)}%`;
+  };
+  
+  /**
+   * Tooltip content with node details
+   * Requirements: 4.1 - Display node name, ID, shard count, heap, disk, CPU
+   */
+  const tooltipContent = (
+    <div style={{ fontSize: 'var(--mantine-font-size-xs)' }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: 'var(--mantine-font-size-sm)' }}>
+        {node.nodeName}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Node ID:</strong> {node.nodeId}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Shard Count:</strong> {node.shardCount}
+      </div>
+      
+      {nodeMetrics && (
+        <>
+          {nodeMetrics.heapUsed !== undefined && nodeMetrics.heapMax !== undefined && (
+            <div style={{ marginBottom: '4px' }}>
+              <strong>Heap:</strong> {formatBytes(nodeMetrics.heapUsed)} / {formatBytes(nodeMetrics.heapMax)}
+              {' '}({formatPercent((nodeMetrics.heapUsed / nodeMetrics.heapMax) * 100)})
+            </div>
+          )}
+          
+          {nodeMetrics.diskUsed !== undefined && nodeMetrics.diskTotal !== undefined && (
+            <div style={{ marginBottom: '4px' }}>
+              <strong>Disk:</strong> {formatBytes(nodeMetrics.diskUsed)} / {formatBytes(nodeMetrics.diskTotal)}
+              {' '}({formatPercent((nodeMetrics.diskUsed / nodeMetrics.diskTotal) * 100)})
+            </div>
+          )}
+          
+          {nodeMetrics.cpuPercent !== undefined && (
+            <div style={{ marginBottom: '4px' }}>
+              <strong>CPU:</strong> {formatPercent(nodeMetrics.cpuPercent)}
+            </div>
+          )}
+        </>
+      )}
+      
+      {!nodeMetrics && (
+        <div style={{ marginTop: '8px', fontStyle: 'italic', color: 'var(--mantine-color-dimmed)' }}>
+          Detailed metrics will be available when connected to real cluster data
+        </div>
+      )}
+    </div>
+  );
+  
   return (
-    <Card
-      shadow="sm"
-      padding="md"
-      radius="md"
-      withBorder
-      style={{
-        position: 'absolute',
-        left: node.x,
-        top: node.y,
-        width: 180,
-        cursor: onClick ? 'pointer' : 'default',
-        zIndex: 1,
-      }}
-      onClick={() => onClick?.(node.nodeId)}
+    <Tooltip
+      label={tooltipContent}
+      position="top"
+      withArrow
+      arrowSize={6}
+      offset={8}
+      openDelay={200}
+      transitionProps={{ duration: 150 }}
+      multiline
+      w={300}
     >
-      <Stack gap="xs">
-        <Text size="sm" fw={600} truncate>
-          {node.nodeName}
-        </Text>
-        <Group justify="space-between">
-          <Text size="xs" c="dimmed">
-            Shards:
+      <Card
+        shadow="sm"
+        padding="md"
+        radius="md"
+        withBorder
+        style={{
+          position: 'absolute',
+          left: node.x,
+          top: node.y,
+          width: 180,
+          cursor: onClick ? 'pointer' : 'default',
+          zIndex: 1,
+        }}
+        onClick={() => onClick?.(node.nodeId)}
+      >
+        <Stack gap="xs">
+          <Text size="sm" fw={600} truncate>
+            {node.nodeName}
           </Text>
-          <Badge size="sm" variant="light">
-            {node.shardCount}
-          </Badge>
-        </Group>
-        
-        {/* Individual shard indicators - Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2 */}
-        <Group gap={4} wrap="wrap">
-          {node.shards.map((shard) => (
-            <ShardIndicator key={`${shard.index}-${shard.shard}-${shard.primary}`} shard={shard} />
-          ))}
-        </Group>
-      </Stack>
-    </Card>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed">
+              Shards:
+            </Text>
+            <Badge size="sm" variant="light">
+              {node.shardCount}
+            </Badge>
+          </Group>
+          
+          {/* Individual shard indicators - Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2 */}
+          <Group gap={4} wrap="wrap">
+            {node.shards.map((shard) => (
+              <ShardIndicator key={`${shard.index}-${shard.shard}-${shard.primary}`} shard={shard} />
+            ))}
+          </Group>
+        </Stack>
+      </Card>
+    </Tooltip>
   );
 }
 
