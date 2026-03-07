@@ -10,15 +10,18 @@ import {
   Center,
   Tooltip,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
   calculateNodePositions,
   DEFAULT_POSITIONING_CONFIG,
   type NodePosition,
+  type PositioningConfig,
 } from '../utils/nodePositioning';
 import { formatBytes } from '../utils/formatters';
 import type { HealthStatus, ShardInfo } from '../types/api';
+import { useMemo } from 'react';
 
 /**
  * Props for the CenterIndexElement component
@@ -606,8 +609,12 @@ export function IndexVisualization({
   // TODO: Implement data transformation logic (Task 3) - DONE: using calculateNodePositions
   // TODO: Implement SVG-based visualization rendering (Task 4.3 - visual connections)
   // TODO: Implement interactive elements (Task 6)
-  // TODO: Implement responsive layout (Task 7)
+  // TODO: Implement responsive layout (Task 7) - IN PROGRESS
   // TODO: Implement visualization controls (Task 8)
+  
+  // Responsive breakpoint detection - Requirements: 8.1, 8.2, 8.5
+  // Reuse responsive pattern from ShardGrid component
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   // Placeholder loading state
   const isLoading = false;
@@ -654,22 +661,57 @@ export function IndexVisualization({
     },
   ];
   
-  // Calculate node positions using the positioning logic (Task 4.2)
-  const { primaryNodes, replicaNodes } = calculateNodePositions(
-    placeholderShards,
-    DEFAULT_POSITIONING_CONFIG
-  );
+  // Calculate responsive positioning configuration - Requirements: 8.1, 8.5
+  // Memoize configuration to avoid unnecessary recalculations
+  const positioningConfig: PositioningConfig = useMemo(() => {
+    if (isMobile) {
+      // Mobile layout: stack nodes vertically
+      // Requirements: 8.2 - Stack nodes vertically when viewport width < 768px
+      return {
+        containerWidth: 350, // Narrower container for mobile
+        containerHeight: 800, // Taller container to accommodate vertical stacking
+        centerWidth: 200, // Smaller center element
+        nodeHeight: 120, // Taller nodes for better touch targets
+        nodeSpacing: 30, // More spacing between stacked nodes
+        horizontalOffset: 0, // No horizontal offset in vertical layout
+      };
+    }
+    
+    // Desktop layout: use default APM-style horizontal layout
+    return DEFAULT_POSITIONING_CONFIG;
+  }, [isMobile]);
+  
+  // Calculate node positions using responsive configuration - Requirements: 8.1, 8.5
+  // Recalculates when viewport size changes via useMediaQuery
+  const { primaryNodes, replicaNodes } = useMemo(() => {
+    return calculateNodePositions(placeholderShards, positioningConfig);
+  }, [placeholderShards, positioningConfig]);
   
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
   const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
   const placeholderReplicaShards = placeholderShards.filter(s => !s.primary).length;
   
-  // Calculate center index position for connection lines
-  const centerX = DEFAULT_POSITIONING_CONFIG.containerWidth / 2 - DEFAULT_POSITIONING_CONFIG.centerWidth / 2;
-  const centerY = DEFAULT_POSITIONING_CONFIG.containerHeight / 2;
+  // Calculate center index position for connection lines - Requirements: 8.1, 8.5
+  // Adjust based on layout mode (horizontal vs vertical)
+  const centerX = useMemo(() => {
+    if (isMobile) {
+      // Center horizontally in mobile view
+      return (positioningConfig.containerWidth - positioningConfig.centerWidth) / 2;
+    }
+    return positioningConfig.containerWidth / 2 - positioningConfig.centerWidth / 2;
+  }, [isMobile, positioningConfig]);
+  
+  const centerY = useMemo(() => {
+    if (isMobile) {
+      // Position center element at top in mobile view for vertical stacking
+      return 50;
+    }
+    return positioningConfig.containerHeight / 2;
+  }, [isMobile, positioningConfig]);
+  
   const nodeWidth = 180; // Must match NodeCard width
-  const nodeHeight = DEFAULT_POSITIONING_CONFIG.nodeHeight;
+  const nodeHeight = positioningConfig.nodeHeight;
   
   if (isLoading) {
     return (
@@ -705,17 +747,20 @@ export function IndexVisualization({
               Index Visualization
             </Text>
             <Badge color="blue" variant="light">
-              APM-Style Layout
+              {isMobile ? 'Vertical Layout' : 'APM-Style Layout'}
             </Badge>
           </Group>
           
-          {/* Visualization container with absolute positioning */}
+          {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
+          {/* Container adapts to viewport width and recalculates on resize */}
           <Box
-            h={DEFAULT_POSITIONING_CONFIG.containerHeight}
+            h={positioningConfig.containerHeight}
             style={{
               position: 'relative',
-              width: DEFAULT_POSITIONING_CONFIG.containerWidth,
+              width: positioningConfig.containerWidth,
               margin: '0 auto',
+              // Smooth transition when switching between layouts
+              transition: 'width 0.3s ease, height 0.3s ease',
             }}
           >
             {/* Connection lines - Requirements: 1.4 */}
@@ -724,12 +769,12 @@ export function IndexVisualization({
               replicaNodes={replicaNodes}
               centerX={centerX}
               centerY={centerY}
-              centerWidth={DEFAULT_POSITIONING_CONFIG.centerWidth}
+              centerWidth={positioningConfig.centerWidth}
               nodeWidth={nodeWidth}
               nodeHeight={nodeHeight}
             />
             
-            {/* Primary nodes (left side) - Requirements: 1.2, 2.3 */}
+            {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
             {primaryNodes.map((node) => (
               <NodeCard key={`primary-${node.nodeId}`} node={node} onClick={onNodeClick} />
             ))}
@@ -739,8 +784,10 @@ export function IndexVisualization({
               style={{
                 position: 'absolute',
                 left: centerX,
-                top: centerY - 80,
+                top: isMobile ? centerY : centerY - 80,
                 zIndex: 2,
+                // Smooth transition when switching between layouts
+                transition: 'left 0.3s ease, top 0.3s ease',
               }}
             >
               <CenterIndexElement
@@ -751,7 +798,7 @@ export function IndexVisualization({
               />
             </Box>
             
-            {/* Replica nodes (right side) - Requirements: 1.3, 2.4 */}
+            {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
             {replicaNodes.map((node) => (
               <NodeCard key={`replica-${node.nodeId}`} node={node} onClick={onNodeClick} />
             ))}

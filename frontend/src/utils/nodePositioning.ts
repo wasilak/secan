@@ -180,12 +180,13 @@ export function calculateVerticalPositions(
 }
 
 /**
- * Calculate positions for primary nodes (left side)
+ * Calculate positions for primary nodes (left side on desktop, top on mobile)
  * 
- * Positions primary shard nodes on the left side of the center index element.
- * Nodes are distributed vertically with even spacing and centered in the container.
+ * Positions primary shard nodes on the left side of the center index element
+ * in desktop view. In mobile view (when horizontalOffset is 0), positions
+ * nodes vertically above the center element.
  * 
- * Requirements: 1.2, 2.3
+ * Requirements: 1.2, 2.3, 8.2
  * 
  * @param nodes - Array of nodes with primary shards
  * @param config - Positioning configuration
@@ -194,15 +195,43 @@ export function calculateVerticalPositions(
  * @example
  * const primaryNodes = [{ nodeId: 'node-1', shards: [...], shardCount: 2 }];
  * const positions = calculatePrimaryNodePositions(primaryNodes, config);
- * // Returns: [{ nodeId: 'node-1', x: 200, y: 260, ... }]
+ * // Desktop: [{ nodeId: 'node-1', x: 200, y: 260, ... }]
+ * // Mobile: [{ nodeId: 'node-1', x: 85, y: 150, ... }]
  */
 export function calculatePrimaryNodePositions(
   nodes: NodeWithShards[],
   config: PositioningConfig
 ): NodePosition[] {
-  const yPositions = calculateVerticalPositions(nodes.length, config);
+  // Determine if this is mobile layout (vertical stacking)
+  const isMobileLayout = config.horizontalOffset === 0;
   
-  // X position: left side, offset from center
+  if (isMobileLayout) {
+    // Mobile: center nodes horizontally, position at top of container
+    // Requirements: 8.2 - Stack nodes vertically when viewport width < 768px
+    const startYOffset = 100; // Start position at top for primary nodes
+    
+    const yPositions: number[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const y = startYOffset + i * (config.nodeHeight + config.nodeSpacing);
+      yPositions.push(y);
+    }
+    
+    const centerX = config.containerWidth / 2;
+    const nodeWidth = 180; // Standard node card width
+    const x = centerX - nodeWidth / 2;
+    
+    return nodes.map((node, index) => ({
+      nodeId: node.nodeId,
+      nodeName: node.nodeName,
+      x,
+      y: yPositions[index],
+      shards: node.shards,
+      shardCount: node.shardCount,
+    }));
+  }
+  
+  // Desktop: position on left side
+  const yPositions = calculateVerticalPositions(nodes.length, config);
   const centerX = config.containerWidth / 2;
   const x = centerX - config.centerWidth / 2 - config.horizontalOffset;
   
@@ -217,12 +246,13 @@ export function calculatePrimaryNodePositions(
 }
 
 /**
- * Calculate positions for replica nodes (right side)
+ * Calculate positions for replica nodes (right side on desktop, bottom on mobile)
  * 
- * Positions replica shard nodes on the right side of the center index element.
- * Nodes are distributed vertically with even spacing and centered in the container.
+ * Positions replica shard nodes on the right side of the center index element
+ * in desktop view. In mobile view (when horizontalOffset is 0), positions
+ * nodes vertically below the center element.
  * 
- * Requirements: 1.3, 2.4
+ * Requirements: 1.3, 2.4, 8.2
  * 
  * @param nodes - Array of nodes with replica shards
  * @param config - Positioning configuration
@@ -231,15 +261,43 @@ export function calculatePrimaryNodePositions(
  * @example
  * const replicaNodes = [{ nodeId: 'node-2', shards: [...], shardCount: 1 }];
  * const positions = calculateReplicaNodePositions(replicaNodes, config);
- * // Returns: [{ nodeId: 'node-2', x: 800, y: 260, ... }]
+ * // Desktop: [{ nodeId: 'node-2', x: 800, y: 260, ... }]
+ * // Mobile: [{ nodeId: 'node-2', x: 85, y: 450, ... }]
  */
 export function calculateReplicaNodePositions(
   nodes: NodeWithShards[],
   config: PositioningConfig
 ): NodePosition[] {
-  const yPositions = calculateVerticalPositions(nodes.length, config);
+  // Determine if this is mobile layout (vertical stacking)
+  const isMobileLayout = config.horizontalOffset === 0;
   
-  // X position: right side, offset from center
+  if (isMobileLayout) {
+    // Mobile: center nodes horizontally, position below center element
+    // Calculate Y positions starting after the center element
+    const startYOffset = 300; // Start position below center element (increased from 250)
+    
+    const yPositions: number[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const y = startYOffset + i * (config.nodeHeight + config.nodeSpacing);
+      yPositions.push(y);
+    }
+    
+    const centerX = config.containerWidth / 2;
+    const nodeWidth = 180; // Standard node card width
+    const x = centerX - nodeWidth / 2;
+    
+    return nodes.map((node, index) => ({
+      nodeId: node.nodeId,
+      nodeName: node.nodeName,
+      x,
+      y: yPositions[index],
+      shards: node.shards,
+      shardCount: node.shardCount,
+    }));
+  }
+  
+  // Desktop: position on right side
+  const yPositions = calculateVerticalPositions(nodes.length, config);
   const centerX = config.containerWidth / 2;
   const x = centerX + config.centerWidth / 2 + config.horizontalOffset;
   

@@ -103,7 +103,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 7: Node hover displays tooltip**
     - **Validates: Requirements 4.1**
   
-  - [-] 6.3 Implement shard hover tooltips
+  - [x] 6.3 Implement shard hover tooltips
     - Add hover event handlers to shard indicators
     - Display Mantine Tooltip with shard details (index, shard number, state, docs, size)
     - Reuse existing `formatBytes` utility for size formatting
@@ -113,7 +113,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 8: Shard hover displays tooltip**
     - **Validates: Requirements 4.2**
   
-  - [~] 6.5 Implement node click navigation
+  - [x] 6.5 Implement node click navigation
     - Add click event handlers to node cards
     - Use existing `openNodeModal` or `navigateToNode` pattern from ClusterView
     - Pass node ID to navigation handler
@@ -124,7 +124,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 4.3**
 
 - [ ] 7. Implement responsive layout
-  - [~] 7.1 Implement viewport width adaptation
+  - [-] 7.1 Implement viewport width adaptation
     - Calculate layout based on available viewport width
     - Stack nodes vertically when viewport width < 768px (reuse responsive patterns from ShardGrid)
     - Recalculate layout on window resize using `useMediaQuery` hook

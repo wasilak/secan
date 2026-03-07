@@ -508,4 +508,180 @@ describe('nodePositioning', () => {
       expect(unassignedShards).toHaveLength(0);
     });
   });
+
+  describe('Responsive Layout - Mobile Vertical Stacking', () => {
+    // Mobile configuration with horizontalOffset = 0 triggers vertical stacking
+    // Requirements: 8.1, 8.2, 8.5
+    const mobileConfig: PositioningConfig = {
+      containerWidth: 350,
+      containerHeight: 800,
+      centerWidth: 200,
+      nodeHeight: 120,
+      nodeSpacing: 30,
+      horizontalOffset: 0, // This triggers mobile layout
+    };
+
+    it('should stack primary nodes vertically and center horizontally on mobile', () => {
+      const nodes: NodeWithShards[] = [
+        {
+          nodeId: 'node-1',
+          nodeName: 'node-1',
+          shards: [],
+          shardCount: 2,
+        },
+        {
+          nodeId: 'node-2',
+          nodeName: 'node-2',
+          shards: [],
+          shardCount: 1,
+        },
+      ];
+
+      const positions = calculatePrimaryNodePositions(nodes, mobileConfig);
+
+      expect(positions).toHaveLength(2);
+      
+      // All nodes should be centered horizontally
+      // X = (350 / 2) - (180 / 2) = 85
+      expect(positions[0].x).toBe(85);
+      expect(positions[1].x).toBe(85);
+      
+      // Nodes should be stacked vertically with spacing
+      expect(positions[1].y).toBeGreaterThan(positions[0].y);
+      const verticalSpacing = positions[1].y - positions[0].y;
+      expect(verticalSpacing).toBe(mobileConfig.nodeHeight + mobileConfig.nodeSpacing);
+    });
+
+    it('should stack replica nodes vertically below center element on mobile', () => {
+      const nodes: NodeWithShards[] = [
+        {
+          nodeId: 'node-3',
+          nodeName: 'node-3',
+          shards: [],
+          shardCount: 1,
+        },
+        {
+          nodeId: 'node-4',
+          nodeName: 'node-4',
+          shards: [],
+          shardCount: 1,
+        },
+      ];
+
+      const positions = calculateReplicaNodePositions(nodes, mobileConfig);
+
+      expect(positions).toHaveLength(2);
+      
+      // All nodes should be centered horizontally
+      expect(positions[0].x).toBe(85);
+      expect(positions[1].x).toBe(85);
+      
+      // Nodes should be stacked vertically
+      expect(positions[1].y).toBeGreaterThan(positions[0].y);
+      
+      // Replica nodes should start below center element (Y > 250)
+      expect(positions[0].y).toBeGreaterThan(250);
+    });
+
+    it('should calculate full mobile layout with primary and replica nodes stacked', () => {
+      const shards: ShardInfo[] = [
+        {
+          index: 'test-index',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 5000000,
+        },
+        {
+          index: 'test-index',
+          shard: 1,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-2',
+          docs: 2000,
+          store: 10000000,
+        },
+        {
+          index: 'test-index',
+          shard: 0,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-3',
+          docs: 1000,
+          store: 5000000,
+        },
+        {
+          index: 'test-index',
+          shard: 1,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-4',
+          docs: 2000,
+          store: 10000000,
+        },
+      ];
+
+      const { primaryNodes, replicaNodes } = calculateNodePositions(shards, mobileConfig);
+
+      expect(primaryNodes).toHaveLength(2);
+      expect(replicaNodes).toHaveLength(2);
+
+      // All nodes should be centered horizontally (same X)
+      expect(primaryNodes[0].x).toBe(primaryNodes[1].x);
+      expect(replicaNodes[0].x).toBe(replicaNodes[1].x);
+      expect(primaryNodes[0].x).toBe(replicaNodes[0].x);
+
+      // Primary nodes should be above replica nodes
+      expect(primaryNodes[0].y).toBeLessThan(replicaNodes[0].y);
+      expect(primaryNodes[1].y).toBeLessThan(replicaNodes[0].y);
+    });
+
+    it('should switch from desktop to mobile layout when horizontalOffset changes', () => {
+      const shards: ShardInfo[] = [
+        {
+          index: 'test-index',
+          shard: 0,
+          primary: true,
+          state: 'STARTED',
+          node: 'node-1',
+          docs: 1000,
+          store: 5000000,
+        },
+        {
+          index: 'test-index',
+          shard: 0,
+          primary: false,
+          state: 'STARTED',
+          node: 'node-2',
+          docs: 1000,
+          store: 5000000,
+        },
+      ];
+
+      // Desktop layout
+      const desktopConfig: PositioningConfig = {
+        ...DEFAULT_POSITIONING_CONFIG,
+        horizontalOffset: 300,
+      };
+      const desktopLayout = calculateNodePositions(shards, desktopConfig);
+
+      // Mobile layout
+      const mobileLayout = calculateNodePositions(shards, mobileConfig);
+
+      // Desktop: primary on left, replica on right
+      expect(desktopLayout.primaryNodes[0].x).toBeLessThan(
+        desktopLayout.replicaNodes[0].x
+      );
+
+      // Mobile: both centered at same X
+      expect(mobileLayout.primaryNodes[0].x).toBe(mobileLayout.replicaNodes[0].x);
+
+      // Mobile: primary above replica
+      expect(mobileLayout.primaryNodes[0].y).toBeLessThan(
+        mobileLayout.replicaNodes[0].y
+      );
+    });
+  });
 });
