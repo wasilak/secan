@@ -123,18 +123,36 @@ export function DotBasedTopologyView({
   }, [nodes, groupingConfig]);
 
   // Check if nodes have custom labels for GroupingControl
+  // Extract unique label NAMES (not individual values)
   const availableLabels = useMemo(() => {
     if (!hasCustomLabels(nodes)) {
       return [];
     }
-    // Extract unique labels from all nodes
-    const labels = new Set<string>();
+    
+    // Extract unique label names from all node tags
+    // Tags can follow patterns:
+    // - "labelName-value" (e.g., "zone-a", "rack-1") -> extract "zone", "rack"
+    // - "labelName" (e.g., "production", "staging") -> use as-is
+    const labelNames = new Set<string>();
+    
     nodes.forEach(node => {
       if (node.tags && node.tags.length > 0) {
-        node.tags.forEach(tag => labels.add(tag));
+        node.tags.forEach(tag => {
+          // Extract label name by splitting on first hyphen
+          const hyphenIndex = tag.indexOf('-');
+          if (hyphenIndex > 0) {
+            // Has hyphen: extract prefix as label name
+            const labelName = tag.substring(0, hyphenIndex);
+            labelNames.add(labelName);
+          } else {
+            // No hyphen: use entire tag as label name
+            labelNames.add(tag);
+          }
+        });
       }
     });
-    return Array.from(labels);
+    
+    return Array.from(labelNames).sort();
   }, [nodes]);
 
   // Handler for grouping changes

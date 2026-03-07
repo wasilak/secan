@@ -128,15 +128,26 @@ export function hasCustomLabels(nodes: NodeInfo[]): boolean {
  * Calculate node groups based on grouping configuration
  * 
  * Partitions nodes into groups based on the specified attribute.
- * Nodes without the grouping attribute are placed in an "undefined" group.
+ * Nodes can appear in multiple groups if they have multiple values for the attribute.
  * 
  * @param nodes - Array of nodes to group
  * @param config - Grouping configuration
  * @returns Map of group key to nodes
  * 
  * @example
+ * // By role: nodes appear in all groups for each role they have
  * calculateNodeGroups(nodes, { attribute: 'role' });
- * // Returns: Map { 'master' => [...], 'data' => [...], 'undefined' => [...] }
+ * // Returns: Map { 'master' => [node1, node2], 'data' => [node1, node3], ... }
+ * 
+ * @example
+ * // By type: two groups - master and other
+ * calculateNodeGroups(nodes, { attribute: 'type' });
+ * // Returns: Map { 'master' => [nodes with master role], 'other' => [all other nodes] }
+ * 
+ * @example
+ * // By label: groups by all values of the specified label name
+ * calculateNodeGroups(nodes, { attribute: 'label', value: 'zone' });
+ * // Returns: Map { 'zone-a' => [...], 'zone-b' => [...], 'undefined' => [...] }
  */
 export function calculateNodeGroups(
   nodes: NodeInfo[],
@@ -149,27 +160,92 @@ export function calculateNodeGroups(
     return groups;
   }
   
-  for (const node of nodes) {
-    let groupKey: string;
-    
-    switch (config.attribute) {
-      case 'role':
-        groupKey = getNodePrimaryRole(node);
-        break;
-      case 'type':
-        groupKey = determineNodeType(node);
-        break;
-      case 'label':
-        groupKey = getNodeLabel(node, config.value);
-        break;
-      default:
-        groupKey = 'all';
-    }
-    
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, []);
-    }
-    groups.get(groupKey)!.push(node);
+  switch (config.attribute) {
+    case 'role':
+      // Group by role: nodes appear in ALL groups for each role they have (duplication allowed)
+      for (const node of nodes) {
+        if (!node.roles || node.roles.length === 0) {
+          if (!groups.has('undefined')) {
+            groups.set('undefined', []);
+          }
+          groups.get('undefined')!.push(node);
+        } else {
+          // Add node to EVERY role group it belongs to
+          for (const role of node.roles) {
+            if (!groups.has(role)) {
+              groups.set(role, []);
+            }
+            groups.get(role)!.push(node);
+          }
+        }
+      }
+      break;
+      
+    case 'type':
+      // Group by type: ONLY TWO groups - "master" (nodes with master role) and "other" (all other nodes)
+      for (const node of nodes) {
+        const isMaster = node.roles && node.roles.includes('master');
+        const groupKey = isMaster ? 'master' : 'other';
+        
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        groups.get(groupKey)!.push(node);
+      }
+      break;
+      
+    case 'label':
+      // Group by label: config.value is the label NAME (e.g., "zone", "production")
+      // Extract all VALUES for that label name and create groups
+      if (config.value) {
+        const labelName = config.value;
+        
+        for (const node of nodes) {
+          if (!node.tags || node.tags.length === 0) {
+            // Node has no tags at all
+            if (!groups.has('undefined')) {
+              groups.set('undefined', []);
+            }
+            groups.get('undefined')!.push(node);
+          } else {
+            // Find tags that match the label name
+            // Two patterns:
+            // 1. "labelName-value" (e.g., "zone-a" matches label "zone")
+            // 2. "labelName" exact match (e.g., "production" matches label "production")
+            const matchingTags = node.tags.filter(tag => {
+              // Check for exact match first
+              if (tag === labelName) {
+                return true;
+              }
+              // Check for prefix match with hyphen
+              return tag.startsWith(`${labelName}-`);
+            });
+            
+            if (matchingTags.length === 0) {
+              // Node has tags but none match this label
+              if (!groups.has('undefined')) {
+                groups.set('undefined', []);
+              }
+              groups.get('undefined')!.push(node);
+            } else {
+              // Add node to each matching label value group
+              for (const tag of matchingTags) {
+                if (!groups.has(tag)) {
+                  groups.set(tag, []);
+                }
+                groups.get(tag)!.push(node);
+              }
+            }
+          }
+        }
+      } else {
+        // No specific label selected - shouldn't happen with new UI, but fallback to no grouping
+        groups.set('all', nodes);
+      }
+      break;
+      
+    default:
+      groups.set('all', nodes);
   }
   
   return groups;

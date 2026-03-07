@@ -11,7 +11,7 @@ export interface GroupingControlProps {
   currentGrouping: GroupingAttribute;
   /** Currently active grouping value (for label-specific grouping) */
   currentGroupingValue?: string;
-  /** Array of custom labels available in the cluster */
+  /** Array of custom label NAMES available in the cluster (e.g., ["zone", "rack"]) */
   availableLabels: string[];
   /** Callback invoked when grouping selection changes */
   onGroupingChange: (attribute: GroupingAttribute, value?: string) => void;
@@ -23,9 +23,9 @@ export interface GroupingControlProps {
  * 
  * This component displays a dropdown/select control with grouping options:
  * - None: No grouping (default view)
- * - By Role: Group nodes by their primary role
- * - By Type: Group nodes by their type classification
- * - By Label: Group nodes by custom labels (disabled when no labels exist)
+ * - By Role: Group nodes by their roles (nodes appear in all role groups)
+ * - By Type: Group nodes into Master and Other
+ * - By Label: Group nodes by values of a specific label name
  * 
  * The component highlights the currently active grouping option and calls the
  * onGroupingChange callback when the user selects a different option.
@@ -36,8 +36,8 @@ export interface GroupingControlProps {
  * ```tsx
  * <GroupingControl
  *   currentGrouping="role"
- *   availableLabels={['zone-a', 'zone-b']}
- *   onGroupingChange={(attribute) => setGrouping(attribute)}
+ *   availableLabels={['zone', 'rack']}
+ *   onGroupingChange={(attribute, value) => setGrouping(attribute, value)}
  * />
  * ```
  */
@@ -52,17 +52,16 @@ export function GroupingControl({
     { value: 'none', label: 'None' },
     { value: 'role', label: 'By Role' },
     { value: 'type', label: 'By Type' },
-    { value: 'label', label: 'By Label (All)', disabled: availableLabels.length === 0 },
-    // Add individual label options
-    ...availableLabels.map(label => ({
-      value: `label:${label}`,
-      label: `By Label: ${label}`,
+    // Add individual label NAME options (not values)
+    ...availableLabels.map(labelName => ({
+      value: `label:${labelName}`,
+      label: `By Label: ${labelName}`,
       disabled: false,
     })),
   ];
 
   // Determine current value for the select
-  // If grouping by label with a specific value, use "label:value" format
+  // If grouping by label with a specific label name, use "label:labelName" format
   // Otherwise use the attribute directly
   const selectValue = currentGrouping === 'label' && currentGroupingValue
     ? `label:${currentGroupingValue}`
@@ -77,8 +76,8 @@ export function GroupingControl({
         if (value) {
           // Handle label-specific grouping
           if (value.startsWith('label:')) {
-            const labelValue = value.substring(6); // Remove 'label:' prefix
-            onGroupingChange('label' as GroupingAttribute, labelValue);
+            const labelName = value.substring(6); // Remove 'label:' prefix
+            onGroupingChange('label' as GroupingAttribute, labelName);
           } else {
             onGroupingChange(value as GroupingAttribute);
           }
@@ -89,6 +88,13 @@ export function GroupingControl({
       styles={{
         input: {
           fontSize: '0.875rem',
+        },
+        dropdown: {
+          minWidth: 'fit-content',
+          width: 'auto',
+        },
+        option: {
+          whiteSpace: 'nowrap',
         },
       }}
     />
