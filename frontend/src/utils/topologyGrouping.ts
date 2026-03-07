@@ -287,19 +287,8 @@ export function getGroupLabel(groupKey: string, attribute: GroupingAttribute): s
     return 'All Nodes';
   }
   
-  switch (attribute) {
-    case 'role':
-      // Use role as-is (lowercased, with underscores, etc.)
-      return groupKey;
-    case 'type':
-      // Use type as-is
-      return groupKey;
-    case 'label':
-      // For labels, keep the "Label: " prefix for clarity
-      return `Label: ${groupKey}`;
-    default:
-      return groupKey;
-  }
+  // Use group key as-is for all types
+  return groupKey;
 }
 
 /**
