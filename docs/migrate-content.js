@@ -93,6 +93,37 @@ function convertCardGridComponents(content) {
 }
 
 /**
+ * Convert Starlight links to Docusaurus format
+ * - Removes /secan/ prefix from internal links
+ * - Removes trailing slashes from links
+ * - Updates paths to match Docusaurus routing
+ * 
+ * @param {string} content - Markdown content with links
+ * @returns {string} Content with converted links
+ */
+function convertLinks(content) {
+  let converted = content;
+  
+  // Remove /secan/ prefix from internal links
+  // Pattern: [text](/secan/path) or [text](/secan/path/)
+  converted = converted.replace(/\]\(\/secan\//g, '](/')
+  
+  // Remove trailing slashes from markdown links (Docusaurus convention)
+  // Pattern: [text](/path/) -> [text](/path)
+  // But preserve external links (http://, https://)
+  converted = converted.replace(/\]\(([^)]+)\/\)/g, (match, linkPath) => {
+    // Don't remove trailing slash from external URLs
+    if (linkPath.startsWith('http://') || linkPath.startsWith('https://')) {
+      return match;
+    }
+    // Remove trailing slash from internal links
+    return `](${linkPath})`;
+  });
+  
+  return converted;
+}
+
+/**
  * Remove Starlight component imports
  * 
  * @param {string} content - Markdown content with imports
@@ -151,6 +182,9 @@ function convertComponents(content) {
   
   // Convert individual Card components
   converted = convertCardComponents(converted);
+  
+  // Convert links to Docusaurus format
+  converted = convertLinks(converted);
   
   // Escape curly braces to prevent MDX parsing issues
   converted = escapeCurlyBraces(converted);
@@ -294,6 +328,7 @@ module.exports = {
   convertCardComponents,
   convertCardGridComponents,
   removeStarlightImports,
+  convertLinks,
   escapeCurlyBraces,
   convertComponents,
   getAllMarkdownFiles,

@@ -16,12 +16,12 @@ The implementation will be done incrementally, with each phase building on the p
     - Add scripts with baseUrl flag: start (docusaurus start --base-url /secan/), build (docusaurus build), serve (docusaurus serve --base-url /secan/), clear (docusaurus clear)
     - _Requirements: 7.11, 7.12, 12.1, 12.3, 12.5, 12.7, 16.1, 16.2, 16.3, 16.4, 16.6, 16.7, 16.8_
   
-  - [-] 1.2 Install dependencies and verify setup
+  - [x] 1.2 Install dependencies and verify setup
     - Run npm install to install all dependencies
     - Verify node_modules is populated correctly
     - _Requirements: 16.1-16.8_
   
-  - [~] 1.3 Create Docusaurus directory structure
+  - [x] 1.3 Create Docusaurus directory structure
     - Create docs/docs/ for documentation content
     - Create docs/src/components/ for custom React components
     - Create docs/src/css/ for custom styling
@@ -30,7 +30,7 @@ The implementation will be done incrementally, with each phase building on the p
     - _Requirements: 14.1, 14.3, 14.4_
 
 - [ ] 2. Configuration migration
-  - [~] 2.1 Create docusaurus.config.js with site metadata
+  - [x] 2.1 Create docusaurus.config.js with site metadata
     - Set title to "Secan"
     - Set tagline describing Secan
     - Set url to https://wasilak.github.io
@@ -40,31 +40,31 @@ The implementation will be done incrementally, with each phase building on the p
     - Configure onBrokenLinks and onBrokenMarkdownLinks
     - _Requirements: 7.9, 7.10, 13.1, 13.2, 13.8, 13.9, 17.1, 17.2_
   
-  - [~] 2.2 Configure navbar in docusaurus.config.js
+  - [x] 2.2 Configure navbar in docusaurus.config.js
     - Add Secan title
     - Configure logo with sproutling.png
     - Add GitHub link to navbar
     - Add version dropdown to navbar
     - _Requirements: 13.4, 5.1_
   
-  - [~] 2.3 Configure footer in docusaurus.config.js
+  - [x] 2.3 Configure footer in docusaurus.config.js
     - Add footer links
     - Add copyright notice
     - _Requirements: 13.5_
   
-  - [~] 2.4 Configure theme settings
+  - [x] 2.4 Configure theme settings
     - Set default color mode to dark
     - Enable respectPrefersColorScheme
     - Configure primary colors for light and dark modes
     - _Requirements: 4.4, 4.5, 13.7, 15.2, 15.3, 15.4_
   
-  - [~] 2.5 Configure Mermaid plugin
+  - [x] 2.5 Configure Mermaid plugin
     - Add @docusaurus/theme-mermaid to themes
     - Configure Mermaid theme for light and dark modes
     - Set theme variables for Secan branding colors
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 13.6, 15.7_
   
-  - [~] 2.6 Create sidebars.js with navigation structure
+  - [x] 2.6 Create sidebars.js with navigation structure
     - Define "Getting Started" category with about, installation, architecture
     - Define "Features" category with all feature pages
     - Define "Authentication & Authorization" category
@@ -73,21 +73,21 @@ The implementation will be done incrementally, with each phase building on the p
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.9, 11.3, 13.10_
 
 - [ ] 3. Content migration script
-  - [~] 3.1 Create migration script to convert markdown files
+  - [x] 3.1 Create migration script to convert markdown files
     - Write Node.js script to read all files from docs/src/content/docs/
     - Parse frontmatter from each markdown file
     - Convert Starlight frontmatter to Docusaurus format (remove template field)
     - Write converted files to docs/docs/ preserving directory structure
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
   
-  - [~] 3.2 Implement component conversion in migration script
+  - [x] 3.2 Implement component conversion in migration script
     - Convert Starlight Card components to Docusaurus Admonitions
     - Convert Starlight CardGrid to CSS Grid div with className
     - Preserve Mermaid code blocks as-is
     - Preserve standard code blocks as-is
     - _Requirements: 1.5, 1.6, 1.7, 10.3_
   
-  - [~] 3.3 Implement link conversion in migration script
+  - [-] 3.3 Implement link conversion in migration script
     - Remove /secan/ prefix from internal links
     - Remove trailing slashes from links
     - Update paths to match Docusaurus routing
