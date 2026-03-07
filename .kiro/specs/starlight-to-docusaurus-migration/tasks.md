@@ -87,18 +87,18 @@ The implementation will be done incrementally, with each phase building on the p
     - Preserve standard code blocks as-is
     - _Requirements: 1.5, 1.6, 1.7, 10.3_
   
-  - [-] 3.3 Implement link conversion in migration script
+  - [x] 3.3 Implement link conversion in migration script
     - Remove /secan/ prefix from internal links
     - Remove trailing slashes from links
     - Update paths to match Docusaurus routing
     - _Requirements: 1.8, 17.5_
   
-  - [~] 3.4 Implement asset path conversion in migration script
+  - [x] 3.4 Implement asset path conversion in migration script
     - Convert relative asset paths (../../assets/) to /img/ paths
     - Update all image references in markdown
     - _Requirements: 1.9, 14.5_
   
-  - [~] 3.5 Run migration script and verify output
+  - [x] 3.5 Run migration script and verify output
     - Execute migration script
     - Verify all markdown files exist in docs/docs/
     - Verify directory structure is preserved
@@ -106,12 +106,12 @@ The implementation will be done incrementally, with each phase building on the p
     - _Requirements: 1.1-1.9_
 
 - [ ] 4. Asset migration
-  - [~] 4.1 Copy logo and favicon to static directory
+  - [x] 4.1 Copy logo and favicon to static directory
     - Copy frontend/public/sproutling.png to docs/static/img/sproutling.png
     - Create or copy favicon to docs/static/img/favicon.ico
     - _Requirements: 5.8, 14.2, 14.6_
   
-  - [~] 4.2 Copy additional assets if they exist
+  - [-] 4.2 Copy additional assets if they exist
     - Check for social card image and copy if exists
     - Copy any other images from Starlight to docs/static/img/
     - _Requirements: 14.7_

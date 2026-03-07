@@ -1,0 +1,169 @@
+---
+title: Prometheus Metrics Integration
+description: Configure and use Prometheus metrics with Secan
+---
+
+Secan supports both internal Elasticsearch metrics and external Prometheus monitoring. This guide covers Prometheus integration setup and usage.
+
+## Configuration
+
+To enable Prometheus metrics for a cluster, add the `metrics_source` configuration:
+
+```yaml
+clusters:
+  - id: my-cluster
+    name: My Cluster
+    url: http://elasticsearch:9200
+    # Enable Prometheus metrics
+    metrics_source: prometheus
+    prometheus_url: http://prometheus:9090
+    prometheus_job_name: elasticsearch  # Optional
+    prometheus_labels:                   # Optional
+      cluster: prod
+      region: us-east-1
+```
+
+### Configuration Options
+
+- `metrics_source`: `internal` or `prometheus` (default: `internal`)
+- `prometheus_url`: URL of your Prometheus instance
+- `prometheus_job_name`: Prometheus scrape job name (optional, for filtering)
+- `prometheus_labels`: Additional label filters (optional)
+
+## Time Range Selection
+
+When using Prometheus, the Statistics tab provides time range selection:
+
+### Preset Ranges
+- Last 1 hour
+- Last 6 hours
+- Last 24 hours
+- Last 7 days
+- Last 30 days
+
+### Custom Ranges
+Select specific start and end dates with times. Custom selections persist in the URL for easy sharing.
+
+## Metrics Displayed
+
+### Time Series Charts
+- **Nodes & Indices Over Time**: Track growth and changes
+- **Shards Over Time**: Monitor shard allocation trends
+- **Documents Over Time**: Observe document count changes
+
+### Distribution Charts
+- **Node Types**: Data nodes vs. other node types
+- **Shard Distribution**: Primary, replica, unassigned, and relocating shards
+- **Nodes by Role**: Distribution of node roles
+
+### Health Visualization
+- **Cluster Health Heatmap**: Grid visualization of health status over time
+- **Color Coding**: Green (healthy), Yellow (warning), Red (critical)
+
+## API Endpoints
+
+### Get Cluster Metrics
+
+```
+GET /api/clusters/:cluster_id/metrics?start=\{unix_seconds\}&end=\{unix_seconds\}
+```
+
+Returns current metrics for the specified time range.
+
+**Query Parameters:**
+- `start`: Unix timestamp in seconds (defaults to 24 hours ago)
+- `end`: Unix timestamp in seconds (defaults to now)
+
+**Response:**
+```json
+\{
+  "clusterId": "my-cluster",
+  "timestamp": 1677000000,
+  "health": "green",
+  "nodeCount": 5,
+  "indexCount": 42,
+  "documentCount": 10000000,
+  "shardCount": 125,
+  "unassignedShards": 0,
+  "memoryUsagePercent": 65,
+  "diskUsagePercent": 45,
+  "cpuUsagePercent": 30
+\}
+```
+
+### Get Metrics History
+
+```
+GET /api/clusters/:cluster_id/metrics/history?start=\{unix_seconds\}&end=\{unix_seconds\}
+```
+
+Returns historical metrics for heatmap visualization (defaults to 7 days).
+
+### Validate Prometheus Endpoint
+
+```
+POST /api/prometheus/validate
+```
+
+Test connectivity to a Prometheus instance.
+
+**Request:**
+```json
+\{
+  "url": "http://prometheus:9090",
+  "job_name": "elasticsearch",
+  "labels": \{
+    "cluster": "prod"
+  \}
+\}
+```
+
+**Response:**
+```json
+\{
+  "status": "success",
+  "message": "Successfully connected to Prometheus",
+  "reachable": true
+\}
+```
+
+## Development Notes
+
+### Time Format
+- All timestamps are in **Unix seconds** (not milliseconds)
+- Use UTC timezone for consistency
+- Client handles timezone conversion for display
+
+### Performance
+- Time series limited to prevent performance issues
+- Use appropriate step intervals for your data
+- Longer time ranges require more data transfer
+
+### Color Scheme
+Health status colors follow the Secan theme:
+- **Green**: Healthy cluster (green-6)
+- **Yellow**: Warning state (yellow-6)
+- **Red**: Critical state (red-6)
+
+## Troubleshooting
+
+### Prometheus Not Reachable
+- Verify the `prometheus_url` is correct and accessible
+- Check network connectivity to the Prometheus instance
+- Use the validation endpoint to test connectivity
+
+### No Metrics Data
+- Ensure Prometheus is collecting Elasticsearch metrics
+- Verify the `prometheus_job_name` matches your scrape config
+- Check that metrics are being scraped with appropriate labels
+
+### Incorrect Time Range
+- Verify Unix timestamp format (seconds, not milliseconds)
+- Ensure start time is before end time
+- Check that metrics exist for the requested time range
+
+## Next Steps
+
+- [Configuration Guide](/configuration) - Full cluster configuration
+- [API Documentation](/api) - Complete API reference (Rust)
+- [Getting Started](/getting-started) - Initial setup guide
