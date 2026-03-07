@@ -9,9 +9,10 @@ import {
   Loader,
   Center,
   Tooltip,
+  ActionIcon,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset } from '@tabler/icons-react';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
   calculateNodePositions,
@@ -21,7 +22,7 @@ import {
 } from '../utils/nodePositioning';
 import { formatBytes } from '../utils/formatters';
 import type { HealthStatus, ShardInfo } from '../types/api';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 /**
  * Responsive font size configuration
@@ -724,6 +725,24 @@ export function IndexVisualization({
   // TODO: Implement responsive layout (Task 7) - IN PROGRESS
   // TODO: Implement visualization controls (Task 8)
   
+  // Zoom state management - Requirements: 5.5
+  // Default zoom level is 1.0 (100%)
+  // Min: 0.5 (50%), Max: 2.0 (200%)
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  
+  // Zoom control handlers - Requirements: 5.5
+  const handleZoomIn = () => {
+    setZoomLevel((prev) => Math.min(prev + 0.2, 2.0));
+  };
+  
+  const handleZoomOut = () => {
+    setZoomLevel((prev) => Math.max(prev - 0.2, 0.5));
+  };
+  
+  const handleZoomReset = () => {
+    setZoomLevel(1.0);
+  };
+  
   // Responsive breakpoint detection - Requirements: 8.1, 8.2, 8.5
   // Reuse responsive pattern from ShardGrid component
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -868,9 +887,57 @@ export function IndexVisualization({
             <Text size="lg" fw={600}>
               Index Visualization
             </Text>
-            <Badge color="blue" variant="light">
-              {isMobile ? 'Vertical Layout' : 'APM-Style Layout'}
-            </Badge>
+            <Group gap="xs">
+              <Badge color="blue" variant="light">
+                {isMobile ? 'Vertical Layout' : 'APM-Style Layout'}
+              </Badge>
+              
+              {/* Zoom controls - Requirements: 5.5 */}
+              <Group gap={4}>
+                <Tooltip label="Zoom In" position="bottom" withArrow>
+                  <ActionIcon
+                    variant="light"
+                    color="blue"
+                    size="lg"
+                    onClick={handleZoomIn}
+                    disabled={zoomLevel >= 2.0}
+                    aria-label="Zoom in"
+                  >
+                    <IconZoomIn size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                
+                <Tooltip label="Zoom Out" position="bottom" withArrow>
+                  <ActionIcon
+                    variant="light"
+                    color="blue"
+                    size="lg"
+                    onClick={handleZoomOut}
+                    disabled={zoomLevel <= 0.5}
+                    aria-label="Zoom out"
+                  >
+                    <IconZoomOut size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                
+                <Tooltip label="Reset Zoom" position="bottom" withArrow>
+                  <ActionIcon
+                    variant="light"
+                    color="blue"
+                    size="lg"
+                    onClick={handleZoomReset}
+                    disabled={zoomLevel === 1.0}
+                    aria-label="Reset zoom"
+                  >
+                    <IconZoomReset size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                
+                <Badge color="gray" variant="light" size="sm">
+                  {Math.round(zoomLevel * 100)}%
+                </Badge>
+              </Group>
+            </Group>
           </Group>
           
           {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
@@ -883,6 +950,11 @@ export function IndexVisualization({
               margin: '0 auto',
               // Smooth transition when switching between layouts
               transition: 'width 0.3s ease, height 0.3s ease',
+              // Apply zoom transform - Requirements: 5.5
+              transform: `scale(${zoomLevel})`,
+              transformOrigin: 'center center',
+              // Smooth zoom transition
+              transitionProperty: 'width, height, transform',
             }}
           >
             {/* Connection lines - Requirements: 1.4 */}
