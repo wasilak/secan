@@ -77,7 +77,7 @@ describe('GroupingControl', () => {
     expect(input).toBeInTheDocument();
   });
 
-  it('displays current grouping value as "By Label"', () => {
+  it('displays current grouping value as "By Label (All)"', () => {
     const mockOnChange = vi.fn();
     
     render(
@@ -90,7 +90,25 @@ describe('GroupingControl', () => {
       </TestWrapper>
     );
     
-    const input = screen.getByDisplayValue('By Label');
+    const input = screen.getByDisplayValue('By Label (All)');
+    expect(input).toBeInTheDocument();
+  });
+
+  it('displays current grouping value as "By Label: zone-a" when specific label selected', () => {
+    const mockOnChange = vi.fn();
+    
+    render(
+      <TestWrapper>
+        <GroupingControl
+          currentGrouping="label"
+          currentGroupingValue="zone-a"
+          availableLabels={['zone-a', 'zone-b']}
+          onGroupingChange={mockOnChange}
+        />
+      </TestWrapper>
+    );
+    
+    const input = screen.getByDisplayValue('By Label: zone-a');
     expect(input).toBeInTheDocument();
   });
 

@@ -151,8 +151,8 @@ export function DotBasedTopologyView({
   }, [nodes]);
 
   // Handler for grouping changes
-  const handleGroupingChange = useCallback((attribute: GroupingAttribute) => {
-    setGroupingConfig({ attribute });
+  const handleGroupingChange = useCallback((attribute: GroupingAttribute, value?: string) => {
+    setGroupingConfig({ attribute, value });
   }, []);
 
   // Progressive loading state
@@ -431,6 +431,7 @@ export function DotBasedTopologyView({
         <GroupingErrorBoundary>
           <GroupingControl
             currentGrouping={groupingConfig.attribute}
+            currentGroupingValue={groupingConfig.value}
             availableLabels={availableLabels}
             onGroupingChange={handleGroupingChange}
           />

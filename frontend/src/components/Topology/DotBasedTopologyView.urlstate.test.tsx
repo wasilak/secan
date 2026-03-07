@@ -89,6 +89,10 @@ function getGroupingSelectValue(): string {
 function renderWithRouter(initialURL: string = '/cluster/test/topology/dot') {
   const user = userEvent.setup();
   
+  // Extract search params from URL
+  const url = new URL(initialURL, 'http://localhost');
+  const searchParams = new URLSearchParams(url.search);
+  
   const result = render(
     <MantineProvider>
       <MemoryRouter initialEntries={[initialURL]}>
@@ -100,7 +104,7 @@ function renderWithRouter(initialURL: string = '/cluster/test/topology/dot') {
                 nodes={mockNodes}
                 shards={mockShards}
                 indices={mockIndices}
-                searchParams={new URLSearchParams()}
+                searchParams={searchParams}
                 clusterId="test"
               />
             }
@@ -165,7 +169,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
 
       await waitFor(() => {
         const value = getGroupingSelectValue();
-        expect(value).toBe('By Label');
+        expect(value).toBe('By Label (All)');
       });
 
       await waitFor(() => {
@@ -264,7 +268,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
 
       await waitFor(() => {
         const value = getGroupingSelectValue();
-        expect(value).toBe('By Label');
+        expect(value).toBe('By Label (All)');
       });
 
       await waitFor(() => {
@@ -301,7 +305,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
 
       await waitFor(() => {
         const value = getGroupingSelectValue();
-        expect(value).toBe('By Label');
+        expect(value).toBe('By Label: zone-a');
       });
 
       // Verify specific label grouping is applied

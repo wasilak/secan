@@ -9,10 +9,12 @@ import type { GroupingAttribute } from '../../utils/topologyGrouping';
 export interface GroupingControlProps {
   /** Currently active grouping attribute */
   currentGrouping: GroupingAttribute;
+  /** Currently active grouping value (for label-specific grouping) */
+  currentGroupingValue?: string;
   /** Array of custom labels available in the cluster */
   availableLabels: string[];
   /** Callback invoked when grouping selection changes */
-  onGroupingChange: (attribute: GroupingAttribute) => void;
+  onGroupingChange: (attribute: GroupingAttribute, value?: string) => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export interface GroupingControlProps {
  */
 export function GroupingControl({
   currentGrouping,
+  currentGroupingValue,
   availableLabels,
   onGroupingChange,
 }: GroupingControlProps) {
@@ -49,21 +52,40 @@ export function GroupingControl({
     { value: 'none', label: 'None' },
     { value: 'role', label: 'By Role' },
     { value: 'type', label: 'By Type' },
-    { value: 'label', label: 'By Label', disabled: availableLabels.length === 0 },
+    { value: 'label', label: 'By Label (All)', disabled: availableLabels.length === 0 },
+    // Add individual label options
+    ...availableLabels.map(label => ({
+      value: `label:${label}`,
+      label: `By Label: ${label}`,
+      disabled: false,
+    })),
   ];
+
+  // Determine current value for the select
+  // If grouping by label with a specific value, use "label:value" format
+  // Otherwise use the attribute directly
+  const selectValue = currentGrouping === 'label' && currentGroupingValue
+    ? `label:${currentGroupingValue}`
+    : currentGrouping;
 
   return (
     <Select
       label="Group Nodes"
       data={groupingOptions}
-      value={currentGrouping}
+      value={selectValue}
       onChange={(value) => {
         if (value) {
-          onGroupingChange(value as GroupingAttribute);
+          // Handle label-specific grouping
+          if (value.startsWith('label:')) {
+            const labelValue = value.substring(6); // Remove 'label:' prefix
+            onGroupingChange('label' as GroupingAttribute, labelValue);
+          } else {
+            onGroupingChange(value as GroupingAttribute);
+          }
         }
       }}
       size="sm"
-      w={180}
+      w={220}
       styles={{
         input: {
           fontSize: '0.875rem',
