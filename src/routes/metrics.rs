@@ -78,6 +78,10 @@ pub struct ClusterMetricsPoint {
     pub disk_used_bytes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disk_total_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_percent: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_used_bytes: Option<u64>,
 }
 
 /// Cluster metrics history response
@@ -307,6 +311,8 @@ pub async fn get_cluster_metrics(
                     unassigned_shards: backend_metrics.unassigned_shards,
                     disk_used_bytes: None, // Not available from internal metrics
                     disk_total_bytes: None,
+                    cpu_percent: None, // Not available from internal metrics
+                    memory_used_bytes: None, // Not available from internal metrics
                 });
             }
         } else {
@@ -336,6 +342,19 @@ pub async fn get_cluster_metrics(
                     };
                     
                     tracing::debug!("point at {} disk_value={}", point.timestamp, disk_value);
+                    
+                    // Get CPU and Memory values at this timestamp
+                    let cpu_value = backend_metrics.cpu_usage_percent.as_ref().and_then(|cpu_series| {
+                        cpu_series.iter()
+                            .find(|c| (c.timestamp - point.timestamp).abs() <= 120)
+                            .map(|c| c.value)
+                    });
+                    
+                    let memory_value = backend_metrics.jvm_memory_used_bytes.as_ref().and_then(|mem_series| {
+                        mem_series.iter()
+                            .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
+                            .map(|m| m.value as u64)
+                    });
 
                     data_points.push(ClusterMetricsPoint {
                         timestamp: point.timestamp,
@@ -359,6 +378,8 @@ pub async fn get_cluster_metrics(
                         unassigned_shards: backend_metrics.unassigned_shards,
                         disk_used_bytes: Some(disk_value),
                         disk_total_bytes: None,
+                        cpu_percent: cpu_value,
+                        memory_used_bytes: memory_value,
                     });
                 }
             }

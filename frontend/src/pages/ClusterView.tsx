@@ -608,6 +608,22 @@ export function ClusterView() {
       }))
       : []; // No sparkline fallback for disk usage
 
+  const cpuHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+        value: d.cpu_percent || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
+      : [];
+
+  const memoryHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+        value: d.memory_used_bytes || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
+      : [];
+
   // For Sparkline components (needs number[])
   const nodesHistoryNumbers =
     activeTab === 'statistics' && metricsHistory?.data
@@ -1349,6 +1365,8 @@ export function ClusterView() {
 
           <ClusterStatistics
             nodesHistory={nodesHistory as DataPoint[]}
+            cpuHistory={cpuHistory as DataPoint[]}
+            memoryHistory={memoryHistory as DataPoint[]}
             indicesHistory={indicesHistory as DataPoint[]}
             documentsHistory={documentsHistory as DataPoint[]}
             shardsHistory={shardsHistory as DataPoint[]}

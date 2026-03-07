@@ -724,6 +724,8 @@ export interface ClusterMetricsHistoryResponse {
     unassigned_shards?: number;
     disk_used_bytes?: number;
     disk_total_bytes?: number;
+    cpu_percent?: number;
+    memory_used_bytes?: number;
   }>;
   prometheus_queries?: Record<string, string>;
 }
