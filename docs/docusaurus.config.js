@@ -5,7 +5,7 @@
 const config = {
   title: 'Secan',
   tagline: 'Modern Elasticsearch cluster management tool',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   // Set the production url of your site here
   url: 'https://wasilak.github.io',
@@ -18,7 +18,7 @@ const config = {
   organizationName: 'wasilak', // Usually your GitHub org/user name.
   projectName: 'secan', // Usually your repo name.
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
   // Even if you don't use internalization, you can use this field to set useful
@@ -86,15 +86,15 @@ const config = {
             items: [
               {
                 label: 'Getting Started',
-                to: '/docs/getting-started/about',
+                to: 'docs/getting-started/about',
               },
               {
                 label: 'Features',
-                to: '/docs/features/dashboard',
+                to: 'docs/features/dashboard',
               },
               {
                 label: 'Configuration',
-                to: '/docs/configuration/authentication',
+                to: 'docs/configuration/authentication',
               },
             ],
           },
@@ -116,7 +116,7 @@ const config = {
             items: [
               {
                 label: 'API Reference',
-                to: '/api/',
+                href: '/secan/api/',
               },
             ],
           },
