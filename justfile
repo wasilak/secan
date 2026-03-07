@@ -187,31 +187,26 @@ version-bump TAG:
 
 [group('docs')]
 docs-dev:
-    # Start documentation development server
-    cd docs && npm run dev
+    # Start Docusaurus development server (serves at http://localhost:3000/secan/)
+    cd docs && npm run start
 
 [group('docs')]
 docs-build:
-    # Build documentation for production
-    cd docs && npm ci && npm run build
+    # Build Docusaurus documentation for production
+    cd docs && npm run build
 
 [group('docs')]
 docs-preview:
-    # Preview production documentation build
-    cd docs && npm run preview
+    # Preview production Docusaurus build (serves at http://localhost:3000/secan/)
+    cd docs && npm run serve
 
 [group('docs')]
 docs-rust-api:
     # Generate Rust API documentation
-    cargo doc --no-deps --release
+    cargo doc --no-deps --document-private-items
 
 [group('docs')]
-docs-integrate-api:
-    # Copy Rust API docs to public folder for direct serving
-    mkdir -p docs/public/api
-    cp -r target/doc/secan/* docs/public/api/
-
-[group('docs')]
-docs-build-complete: frontend-build docs-rust-api docs-integrate-api docs-build
-    # Build complete documentation site (Starlight + Rust API)
-    # Note: Version management is handled automatically by CI/CD from git tags
+docs-build-complete: frontend-build docs-rust-api docs-build
+    # Build complete documentation site (Docusaurus + Rust API)
+    mkdir -p docs/build/api
+    cp -r target/doc/* docs/build/api/
