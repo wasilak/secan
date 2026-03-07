@@ -12,6 +12,7 @@ import {
   ActionIcon,
   TextInput,
   Menu,
+  ScrollArea,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
 import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg } from '@tabler/icons-react';
@@ -1009,6 +1010,10 @@ export function IndexVisualization({
   const filteredNodeCount = filteredPrimaryNodes.length + filteredReplicaNodes.length;
   const isFiltered = searchQuery.trim().length > 0;
   
+  // Determine if scrolling is needed - Requirements: 5.1, 5.2
+  // Enable ScrollArea when more than 10 nodes total
+  const needsScrolling = totalNodeCount > 10;
+  
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
   const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
@@ -1187,73 +1192,153 @@ export function IndexVisualization({
           
           {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
           {/* Container adapts to viewport width and recalculates on resize */}
-          <Box
-            id="visualization-container"
-            h={positioningConfig.containerHeight}
-            style={{
-              position: 'relative',
-              width: positioningConfig.containerWidth,
-              margin: '0 auto',
-              // Smooth transition when switching between layouts
-              transition: 'width 0.3s ease, height 0.3s ease',
-              // Apply zoom transform - Requirements: 5.5
-              transform: `scale(${zoomLevel})`,
-              transformOrigin: 'center center',
-              // Smooth zoom transition
-              transitionProperty: 'width, height, transform',
-            }}
-          >
-            {/* Connection lines - Requirements: 1.4 */}
-            <ConnectionLines
-              primaryNodes={filteredPrimaryNodes}
-              replicaNodes={filteredReplicaNodes}
-              centerX={centerX}
-              centerY={centerY}
-              centerWidth={positioningConfig.centerWidth}
-              nodeWidth={nodeWidth}
-              nodeHeight={nodeHeight}
-            />
-            
-            {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
-            {filteredPrimaryNodes.map((node) => (
-              <NodeCard 
-                key={`primary-${node.nodeId}`} 
-                node={node} 
-                onClick={onNodeClick}
-                fontSizes={fontSizes}
-              />
-            ))}
-            
-            {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
-            <Box
+          {/* Wrap in ScrollArea when more than 10 nodes - Requirements: 5.1, 5.2 */}
+          {needsScrolling ? (
+            <ScrollArea
+              h={600}
+              scrollbarSize={12}
+              scrollHideDelay={500}
               style={{
-                position: 'absolute',
-                left: centerX,
-                top: isMobile ? centerY : centerY - 80,
-                zIndex: 2,
-                // Smooth transition when switching between layouts
-                transition: 'left 0.3s ease, top 0.3s ease',
+                width: '100%',
               }}
             >
-              <CenterIndexElement
-                indexName={indexName}
-                health={placeholderHealth}
-                primaryShards={placeholderPrimaryShards}
-                replicaShards={placeholderReplicaShards}
-                fontSizes={fontSizes}
+              <Box
+                id="visualization-container"
+                h={positioningConfig.containerHeight}
+                style={{
+                  position: 'relative',
+                  width: positioningConfig.containerWidth,
+                  margin: '0 auto',
+                  // Smooth transition when switching between layouts
+                  transition: 'width 0.3s ease, height 0.3s ease',
+                  // Apply zoom transform - Requirements: 5.5
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  // Smooth zoom transition
+                  transitionProperty: 'width, height, transform',
+                }}
+              >
+                {/* Connection lines - Requirements: 1.4 */}
+                <ConnectionLines
+                  primaryNodes={filteredPrimaryNodes}
+                  replicaNodes={filteredReplicaNodes}
+                  centerX={centerX}
+                  centerY={centerY}
+                  centerWidth={positioningConfig.centerWidth}
+                  nodeWidth={nodeWidth}
+                  nodeHeight={nodeHeight}
+                />
+                
+                {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
+                {filteredPrimaryNodes.map((node) => (
+                  <NodeCard 
+                    key={`primary-${node.nodeId}`} 
+                    node={node} 
+                    onClick={onNodeClick}
+                    fontSizes={fontSizes}
+                  />
+                ))}
+                
+                {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
+                <Box
+                  style={{
+                    position: 'absolute',
+                    left: centerX,
+                    top: isMobile ? centerY : centerY - 80,
+                    zIndex: 2,
+                    // Smooth transition when switching between layouts
+                    transition: 'left 0.3s ease, top 0.3s ease',
+                  }}
+                >
+                  <CenterIndexElement
+                    indexName={indexName}
+                    health={placeholderHealth}
+                    primaryShards={placeholderPrimaryShards}
+                    replicaShards={placeholderReplicaShards}
+                    fontSizes={fontSizes}
+                  />
+                </Box>
+                
+                {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
+                {filteredReplicaNodes.map((node) => (
+                  <NodeCard 
+                    key={`replica-${node.nodeId}`} 
+                    node={node} 
+                    onClick={onNodeClick}
+                    fontSizes={fontSizes}
+                  />
+                ))}
+              </Box>
+            </ScrollArea>
+          ) : (
+            <Box
+              id="visualization-container"
+              h={positioningConfig.containerHeight}
+              style={{
+                position: 'relative',
+                width: positioningConfig.containerWidth,
+                margin: '0 auto',
+                // Smooth transition when switching between layouts
+                transition: 'width 0.3s ease, height 0.3s ease',
+                // Apply zoom transform - Requirements: 5.5
+                transform: `scale(${zoomLevel})`,
+                transformOrigin: 'center center',
+                // Smooth zoom transition
+                transitionProperty: 'width, height, transform',
+              }}
+            >
+              {/* Connection lines - Requirements: 1.4 */}
+              <ConnectionLines
+                primaryNodes={filteredPrimaryNodes}
+                replicaNodes={filteredReplicaNodes}
+                centerX={centerX}
+                centerY={centerY}
+                centerWidth={positioningConfig.centerWidth}
+                nodeWidth={nodeWidth}
+                nodeHeight={nodeHeight}
               />
+              
+              {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
+              {filteredPrimaryNodes.map((node) => (
+                <NodeCard 
+                  key={`primary-${node.nodeId}`} 
+                  node={node} 
+                  onClick={onNodeClick}
+                  fontSizes={fontSizes}
+                />
+              ))}
+              
+              {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
+              <Box
+                style={{
+                  position: 'absolute',
+                  left: centerX,
+                  top: isMobile ? centerY : centerY - 80,
+                  zIndex: 2,
+                  // Smooth transition when switching between layouts
+                  transition: 'left 0.3s ease, top 0.3s ease',
+                }}
+              >
+                <CenterIndexElement
+                  indexName={indexName}
+                  health={placeholderHealth}
+                  primaryShards={placeholderPrimaryShards}
+                  replicaShards={placeholderReplicaShards}
+                  fontSizes={fontSizes}
+                />
+              </Box>
+              
+              {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
+              {filteredReplicaNodes.map((node) => (
+                <NodeCard 
+                  key={`replica-${node.nodeId}`} 
+                  node={node} 
+                  onClick={onNodeClick}
+                  fontSizes={fontSizes}
+                />
+              ))}
             </Box>
-            
-            {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-            {filteredReplicaNodes.map((node) => (
-              <NodeCard 
-                key={`replica-${node.nodeId}`} 
-                node={node} 
-                onClick={onNodeClick}
-                fontSizes={fontSizes}
-              />
-            ))}
-          </Box>
+          )}
         </Stack>
       </Card>
     </Box>

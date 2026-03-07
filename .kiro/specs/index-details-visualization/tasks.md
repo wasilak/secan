@@ -160,7 +160,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 11: Node filter reduces displayed nodes**
     - **Validates: Requirements 5.4**
   
-  - [-] 8.4 Implement export functionality
+  - [x] 8.4 Implement export functionality
     - Add export buttons for PNG and SVG formats using Mantine Menu
     - Generate PNG image using html-to-image library
     - Generate SVG by serializing SVG DOM
@@ -173,7 +173,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 10.4**
 
 - [ ] 9. Handle large-scale deployments
-  - [~] 9.1 Implement scrolling for many nodes
+  - [-] 9.1 Implement scrolling for many nodes
     - Add Mantine ScrollArea when more than 10 nodes
     - Maintain visual clarity with scroll indicators
     - _Requirements: 5.1, 5.2_
