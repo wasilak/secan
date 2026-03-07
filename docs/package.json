@@ -2,9 +2,9 @@
   "name": "secan-docs",
   "version": "1.0.0",
   "scripts": {
-    "dev": "docusaurus start",
-    "build": "docusaurus build",
-    "preview": "docusaurus serve",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
     "check-links": "markdown-link-check src/content/docs/**/*.md --config .markdown-link-check.json",
     "test": "vitest run",
     "test:watch": "vitest"

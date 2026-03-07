@@ -44,6 +44,12 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Monitoring',
+					items: [
+						{ label: 'Elasticsearch Exporter', slug: 'monitoring/elasticsearch-exporter' },
+					],
+				},
+				{
 					label: 'Authentication & Authorization',
 					items: [
 						{ label: 'Overview', slug: 'authentication' },
