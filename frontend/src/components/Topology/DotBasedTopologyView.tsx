@@ -115,19 +115,6 @@ export function DotBasedTopologyView({
     }
   }, [groupingConfig, groupBy]);
 
-  // Sync with URL changes (browser back/forward)
-  useEffect(() => {
-    if (!groupBy) {
-      const parsedConfig = parseGroupingFromUrl(searchParams);
-      if (
-        parsedConfig.attribute !== groupingConfig.attribute ||
-        parsedConfig.value !== groupingConfig.value
-      ) {
-        setGroupingConfig(parsedConfig);
-      }
-    }
-  }, [searchParams, groupBy, groupingConfig]);
-
   // Calculate node groups based on grouping configuration
   // Memoized to avoid unnecessary recalculations
   // Recalculates when nodes or grouping config changes
