@@ -92,7 +92,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
 - [x] 5. Checkpoint - Verify new components
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 6. Enhance DotBasedTopologyView component
+- [x] 6. Enhance DotBasedTopologyView component
   - [x] 6.1 Add grouping state management to DotBasedTopologyView
     - Add `groupBy` and `groupValue` props to component interface
     - Add state for current grouping configuration
@@ -114,7 +114,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Check for custom labels using `hasCustomLabels()` utility
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
   
-  - [-] 6.4 Integrate GroupRenderer into node rendering
+  - [x] 6.4 Integrate GroupRenderer into node rendering
     - Wrap node rendering logic with GroupRenderer components
     - Render one GroupRenderer per group
     - Pass group key, label, and nodes to each GroupRenderer
@@ -144,11 +144,11 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Test that GroupRenderer components are rendered for each group
     - Test backward compatibility when grouping is disabled
 
-- [ ] 7. Checkpoint - Verify integration
+- [x] 7. Checkpoint - Verify integration
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Performance optimization and error handling
-  - [~] 8.1 Add performance optimizations
+  - [-] 8.1 Add performance optimizations
     - Verify `useMemo` is used for group calculation
     - Add debouncing to grouping changes if needed
     - Test performance with 100 nodes
