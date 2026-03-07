@@ -35,7 +35,7 @@
   - Mark task complete when tests are written, run, and passing on unfixed code
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 3. Fix Prometheus metrics integration
+- [x] 3. Fix Prometheus metrics integration
 
   - [x] 3.1 Update metrics integration layer to use correct elasticsearch_exporter metric names
     - Update Prometheus query builder to use `elasticsearch_os_cpu_percent{}` for CPU usage
@@ -90,7 +90,7 @@
     - Confirm error handling works gracefully
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [-] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise
   - Verify nodes list view displays Prometheus metrics correctly
   - Verify cluster overview page displays aggregated Prometheus metrics correctly

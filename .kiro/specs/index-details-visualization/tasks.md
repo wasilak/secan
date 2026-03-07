@@ -46,19 +46,19 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 5: Shard counts match actual allocation**
     - **Validates: Requirements 2.2**
   
-  - [-] 3.3 Handle unassigned shards
+  - [x] 3.3 Handle unassigned shards
     - Filter shards with no node assignment
     - Collect unassigned shards into separate array
     - _Requirements: 3.5_
 
 - [ ] 4. Implement SVG-based visualization rendering
-  - [~] 4.1 Implement center index element
+  - [x] 4.1 Implement center index element
     - Render center index card with index name
     - Display index health status with color coding (reuse existing `getHealthColor` utility)
     - Display total primary and replica shard counts
     - _Requirements: 1.1, 4.4, 4.5_
   
-  - [~] 4.2 Implement node positioning logic
+  - [-] 4.2 Implement node positioning logic
     - Calculate positions for primary nodes on left side
     - Calculate positions for replica nodes on right side
     - Handle vertical spacing for multiple nodes

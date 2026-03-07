@@ -11,7 +11,12 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getHealthColor } from '../utils/colors';
-import type { HealthStatus } from '../types/api';
+import {
+  calculateNodePositions,
+  DEFAULT_POSITIONING_CONFIG,
+  type NodePosition,
+} from '../utils/nodePositioning';
+import type { HealthStatus, ShardInfo } from '../types/api';
 
 /**
  * Props for the CenterIndexElement component
@@ -38,6 +43,67 @@ interface CenterIndexElementProps {
    * Total number of replica shards
    */
   replicaShards: number;
+}
+
+/**
+ * Props for the NodeCard component
+ * 
+ * Requirements: 2.1, 2.2
+ */
+interface NodeCardProps {
+  /**
+   * Node position information
+   */
+  node: NodePosition;
+  
+  /**
+   * Optional callback when node is clicked
+   */
+  onClick?: (nodeId: string) => void;
+}
+
+/**
+ * NodeCard Component
+ * 
+ * Renders a node card with name and shard count at the specified position.
+ * Used for both primary and replica nodes in the visualization.
+ * 
+ * Requirements: 2.1, 2.2
+ * 
+ * @param props - Component props
+ * @returns Node card element
+ */
+function NodeCard({ node, onClick }: NodeCardProps) {
+  return (
+    <Card
+      shadow="sm"
+      padding="md"
+      radius="md"
+      withBorder
+      style={{
+        position: 'absolute',
+        left: node.x,
+        top: node.y,
+        width: 180,
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+      onClick={() => onClick?.(node.nodeId)}
+    >
+      <Stack gap="xs">
+        <Text size="sm" fw={600} truncate>
+          {node.nodeName}
+        </Text>
+        <Group justify="space-between">
+          <Text size="xs" c="dimmed">
+            Shards:
+          </Text>
+          <Badge size="sm" variant="light">
+            {node.shardCount}
+          </Badge>
+        </Group>
+      </Stack>
+    </Card>
+  );
 }
 
 /**
@@ -162,12 +228,12 @@ export interface IndexVisualizationProps {
 export function IndexVisualization({
   clusterId: _clusterId,
   indexName,
-  onNodeClick: _onNodeClick,
+  onNodeClick,
   refreshInterval: _refreshInterval = 30000,
 }: IndexVisualizationProps) {
   // TODO: Implement data fetching with useIndexShards hook (Task 2.1)
-  // TODO: Implement data transformation logic (Task 3)
-  // TODO: Implement SVG-based visualization rendering (Task 4)
+  // TODO: Implement data transformation logic (Task 3) - DONE: using calculateNodePositions
+  // TODO: Implement SVG-based visualization rendering (Task 4.3 - visual connections)
   // TODO: Implement interactive elements (Task 6)
   // TODO: Implement responsive layout (Task 7)
   // TODO: Implement visualization controls (Task 8)
@@ -176,11 +242,57 @@ export function IndexVisualization({
   const isLoading = false;
   const error = null;
   
-  // Placeholder data for center index element (Task 4.1)
+  // Placeholder shard data for demonstration (Task 4.2)
   // This will be replaced with real data from useIndexShards hook in Task 2.1
+  const placeholderShards: ShardInfo[] = [
+    {
+      index: indexName,
+      shard: 0,
+      primary: true,
+      state: 'STARTED',
+      node: 'node-1',
+      docs: 1000,
+      store: 5000000,
+    },
+    {
+      index: indexName,
+      shard: 1,
+      primary: true,
+      state: 'STARTED',
+      node: 'node-2',
+      docs: 2000,
+      store: 10000000,
+    },
+    {
+      index: indexName,
+      shard: 0,
+      primary: false,
+      state: 'STARTED',
+      node: 'node-3',
+      docs: 1000,
+      store: 5000000,
+    },
+    {
+      index: indexName,
+      shard: 1,
+      primary: false,
+      state: 'STARTED',
+      node: 'node-4',
+      docs: 2000,
+      store: 10000000,
+    },
+  ];
+  
+  // Calculate node positions using the positioning logic (Task 4.2)
+  const { primaryNodes, replicaNodes } = calculateNodePositions(
+    placeholderShards,
+    DEFAULT_POSITIONING_CONFIG
+  );
+  
+  // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
-  const placeholderPrimaryShards = 5;
-  const placeholderReplicaShards = 1;
+  const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
+  const placeholderReplicaShards = placeholderShards.filter(s => !s.primary).length;
   
   if (isLoading) {
     return (
@@ -220,17 +332,40 @@ export function IndexVisualization({
             </Badge>
           </Group>
           
-          {/* Visualization container */}
-          <Box h={400} style={{ position: 'relative' }}>
-            <Center h="100%">
-              {/* Center index element (Task 4.1) */}
+          {/* Visualization container with absolute positioning */}
+          <Box
+            h={DEFAULT_POSITIONING_CONFIG.containerHeight}
+            style={{
+              position: 'relative',
+              width: DEFAULT_POSITIONING_CONFIG.containerWidth,
+              margin: '0 auto',
+            }}
+          >
+            {/* Primary nodes (left side) - Requirements: 1.2, 2.3 */}
+            {primaryNodes.map((node) => (
+              <NodeCard key={`primary-${node.nodeId}`} node={node} onClick={onNodeClick} />
+            ))}
+            
+            {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
+            <Box
+              style={{
+                position: 'absolute',
+                left: DEFAULT_POSITIONING_CONFIG.containerWidth / 2 - DEFAULT_POSITIONING_CONFIG.centerWidth / 2,
+                top: DEFAULT_POSITIONING_CONFIG.containerHeight / 2 - 80,
+              }}
+            >
               <CenterIndexElement
                 indexName={indexName}
                 health={placeholderHealth}
                 primaryShards={placeholderPrimaryShards}
                 replicaShards={placeholderReplicaShards}
               />
-            </Center>
+            </Box>
+            
+            {/* Replica nodes (right side) - Requirements: 1.3, 2.4 */}
+            {replicaNodes.map((node) => (
+              <NodeCard key={`replica-${node.nodeId}`} node={node} onClick={onNodeClick} />
+            ))}
           </Box>
         </Stack>
       </Card>
