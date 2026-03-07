@@ -170,7 +170,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Test that "By Label" option is enabled when nodes have labels
     - Use fast-check to generate node arrays with and without labels
 
-- [ ] 9. Final integration and testing
+- [x] 9. Final integration and testing
   - [x] 9.1 Verify all node types are displayed
     - Test with clusters containing master, data, ingest, ml, coordinating nodes
     - Verify no nodes are filtered based on roles
@@ -192,14 +192,14 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Test that bookmarked URLs restore grouping
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
   
-  - [-] 9.4 Run all tests and verify build
+  - [x] 9.4 Run all tests and verify build
     - Run `npm test` to verify all unit and property tests pass
     - Run `npm run build` to verify TypeScript compilation succeeds
     - Run `npm run lint` to verify code quality
     - Fix any errors or warnings
     - _Requirements: All_
 
-- [ ] 10. Final checkpoint - Complete verification
+- [x] 10. Final checkpoint - Complete verification
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

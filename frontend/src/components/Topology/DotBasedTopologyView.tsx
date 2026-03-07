@@ -91,7 +91,9 @@ export function DotBasedTopologyView({
     if (groupBy) {
       return { attribute: groupBy, value: groupValue };
     }
-    return parseGroupingFromUrl(urlSearchParams);
+    // Use the searchParams prop if provided, otherwise use URL search params
+    const params = searchParams || urlSearchParams;
+    return parseGroupingFromUrl(params);
   });
 
   // Update URL when grouping changes
@@ -120,7 +122,9 @@ export function DotBasedTopologyView({
   // Sync with URL changes (browser back/forward)
   useEffect(() => {
     if (!groupBy) {
-      const parsedConfig = parseGroupingFromUrl(urlSearchParams);
+      // Use the searchParams prop if provided, otherwise use URL search params
+      const params = searchParams || urlSearchParams;
+      const parsedConfig = parseGroupingFromUrl(params);
       if (
         parsedConfig.attribute !== groupingConfig.attribute ||
         parsedConfig.value !== groupingConfig.value
@@ -128,7 +132,7 @@ export function DotBasedTopologyView({
         setGroupingConfig(parsedConfig);
       }
     }
-  }, [urlSearchParams, groupBy, groupingConfig]);
+  }, [searchParams, urlSearchParams, groupBy, groupingConfig]);
 
   // Calculate node groups based on grouping configuration
   // Memoized to avoid unnecessary recalculations
