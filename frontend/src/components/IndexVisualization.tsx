@@ -143,12 +143,6 @@ interface CenterIndexElementProps {
    * Total number of replica shards
    */
   replicaShards: number;
-  
-  /**
-   * Responsive font sizes for scaling
-   * Requirements: 8.4
-   */
-  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -178,12 +172,6 @@ interface NodeCardProps {
     diskTotal?: number;
     cpuPercent?: number;
   };
-  
-  /**
-   * Responsive font sizes for scaling
-   * Requirements: 8.4
-   */
-  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -238,12 +226,6 @@ interface ShardIndicatorProps {
    * Shard information to display
    */
   shard: ShardInfo;
-  
-  /**
-   * Responsive font sizes for scaling
-   * Requirements: 8.4
-   */
-  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -280,9 +262,9 @@ interface ShardIndicatorProps {
  * @param props - Component props
  * @returns Shard indicator element with tooltip
  */
-function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
+function ShardIndicator({ shard }: ShardIndicatorProps) {
   const borderColor = getShardBorderColor(shard.state);
-  const cellSize = 32; // Smaller than ShardCell for compact display in node cards
+  const cellSize = 24; // Smaller size for compact display
   
   /**
    * Tooltip content with shard details
@@ -291,8 +273,8 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
    * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: fontSizes.tooltipContent }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: fontSizes.tooltipHeader }}>
+    <div style={{ fontSize: '12px' }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>
         Shard {shard.shard}
       </div>
       
@@ -356,9 +338,9 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: fontSizes.shardIndicator, // Requirements: 8.4 - Responsive font size
+          fontSize: '10px',
           fontWeight: 600,
-          color: 'var(--mantine-color-gray-9)',
+          color: 'var(--mantine-color-gray-3)',
           userSelect: 'none',
           position: 'relative',
         }}
@@ -376,8 +358,8 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
               position: 'absolute',
               top: '2px',
               right: '2px',
-              width: '5px',
-              height: '5px',
+              width: '4px',
+              height: '4px',
               borderRadius: '50%',
               backgroundColor: 'var(--mantine-color-blue-6)',
             }}
@@ -391,10 +373,10 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
           <Box
             style={{
               position: 'absolute',
-              bottom: '2px',
+              bottom: '1px',
               right: '2px',
-              fontSize: '10px',
-              lineHeight: '10px',
+              fontSize: '8px',
+              lineHeight: '8px',
               color: 'var(--mantine-color-orange-6)',
             }}
             aria-hidden="true"
@@ -410,10 +392,10 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
           <Box
             style={{
               position: 'absolute',
-              bottom: '2px',
+              bottom: '1px',
               right: '2px',
-              fontSize: '10px',
-              lineHeight: '10px',
+              fontSize: '8px',
+              lineHeight: '8px',
               color: 'var(--mantine-color-yellow-6)',
             }}
             aria-hidden="true"
@@ -431,7 +413,7 @@ function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
  * ConnectionLines Component
  * 
  * Renders SVG lines connecting the center index element to each node card.
- * Uses curved paths for a more polished APM-style appearance.
+ * Uses angled paths with rounded corners for a cleaner appearance.
  * Primary nodes (left) use blue lines, replica nodes (right) use green lines.
  * 
  * Requirements: 1.4
@@ -449,8 +431,8 @@ function ConnectionLines({
   nodeHeight,
 }: ConnectionLinesProps) {
   /**
-   * Generate a curved SVG path from center to a node
-   * Uses quadratic bezier curve for smooth connection
+   * Generate an angled path with rounded corners from center to a node
+   * Creates a path with horizontal and vertical segments connected by smooth arcs
    * 
    * @param nodeX - X coordinate of the node
    * @param nodeY - Y coordinate of the node
@@ -465,12 +447,79 @@ function ConnectionLines({
     const endX = isLeft ? nodeX + nodeWidth : nodeX;
     const endY = nodeY + nodeHeight / 2;
     
-    // Calculate control point for bezier curve (midpoint with horizontal offset)
-    const controlX = (startX + endX) / 2;
-    const controlY = (startY + endY) / 2;
+    // Calculate midpoint for the corner
+    const midX = (startX + endX) / 2;
     
-    // Create quadratic bezier curve path
-    return `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+    // Corner radius for smooth rounded corners
+    const cornerRadius = 12;
+    
+    // Determine if we need to go up or down
+    const goingDown = endY > startY;
+    
+    // Calculate the corner points
+    // We'll create a path that goes: horizontal -> corner -> vertical -> corner -> horizontal
+    const horizontalLength = Math.abs(midX - startX);
+    const verticalLength = Math.abs(endY - startY);
+    
+    // Only add corners if there's enough space
+    const useCorners = horizontalLength > cornerRadius * 2 && verticalLength > cornerRadius * 2;
+    
+    if (!useCorners) {
+      // Fallback to simple straight line if not enough space for corners
+      return `M ${startX} ${startY} L ${endX} ${endY}`;
+    }
+    
+    // Create path with rounded corners
+    // Start -> horizontal to first corner -> arc -> vertical -> arc -> horizontal to end
+    if (isLeft) {
+      // Going left
+      const corner1X = midX + cornerRadius;
+      const corner2X = midX - cornerRadius;
+      
+      if (goingDown) {
+        return `
+          M ${startX} ${startY}
+          L ${corner1X} ${startY}
+          Q ${midX} ${startY} ${midX} ${startY + cornerRadius}
+          L ${midX} ${endY - cornerRadius}
+          Q ${midX} ${endY} ${corner2X} ${endY}
+          L ${endX} ${endY}
+        `;
+      } else {
+        return `
+          M ${startX} ${startY}
+          L ${corner1X} ${startY}
+          Q ${midX} ${startY} ${midX} ${startY - cornerRadius}
+          L ${midX} ${endY + cornerRadius}
+          Q ${midX} ${endY} ${corner2X} ${endY}
+          L ${endX} ${endY}
+        `;
+      }
+    } else {
+      // Going right
+      const corner1X = midX - cornerRadius;
+      const corner2X = midX + cornerRadius;
+      
+      if (goingDown) {
+        return `
+          M ${startX} ${startY}
+          L ${corner1X} ${startY}
+          Q ${midX} ${startY} ${midX} ${startY + cornerRadius}
+          L ${midX} ${endY - cornerRadius}
+          Q ${midX} ${endY} ${corner2X} ${endY}
+          L ${endX} ${endY}
+        `;
+      } else {
+        return `
+          M ${startX} ${startY}
+          L ${corner1X} ${startY}
+          Q ${midX} ${startY} ${midX} ${startY - cornerRadius}
+          L ${midX} ${endY + cornerRadius}
+          Q ${midX} ${endY} ${corner2X} ${endY}
+          L ${endX} ${endY}
+        `;
+      }
+    }
   };
   
   return (
@@ -493,7 +542,7 @@ function ConnectionLines({
           stroke="#228be6"
           strokeWidth={2}
           fill="none"
-          opacity={0.6}
+          opacity={0.5}
         />
       ))}
       
@@ -505,7 +554,7 @@ function ConnectionLines({
           stroke="#40c057"
           strokeWidth={2}
           fill="none"
-          opacity={0.6}
+          opacity={0.5}
         />
       ))}
     </svg>
@@ -515,16 +564,17 @@ function ConnectionLines({
 /**
  * NodeCard Component
  * 
- * Renders a node card with name, shard count, and individual shard indicators.
- * Used for both primary and replica nodes in the visualization.
- * Displays a tooltip on hover with detailed node information.
+ * Renders a compact node card styled like topology view dot cards.
+ * Shows node name with a colored indicator dot and shard count badge.
+ * Displays individual shard indicators in a compact grid.
+ * Shows detailed tooltip on hover.
  * 
  * Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 6.1, 6.2
  * 
  * @param props - Component props
  * @returns Node card element
  */
-function NodeCard({ node, onClick, nodeMetrics, fontSizes }: NodeCardProps) {
+function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
   /**
    * Format bytes to human-readable size
    * 
@@ -556,8 +606,8 @@ function NodeCard({ node, onClick, nodeMetrics, fontSizes }: NodeCardProps) {
    * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: fontSizes.tooltipContent }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: fontSizes.tooltipHeader }}>
+    <div style={{ fontSize: '12px' }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>
         {node.nodeName}
       </div>
       
@@ -613,46 +663,100 @@ function NodeCard({ node, onClick, nodeMetrics, fontSizes }: NodeCardProps) {
       multiline
       w={300}
     >
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        withBorder
+      <Box
         style={{
           position: 'absolute',
           left: node.x,
           top: node.y,
-          width: 180,
+          width: 140,
+          padding: '8px',
+          backgroundColor: 'var(--mantine-color-dark-6)',
+          border: '1px solid var(--mantine-color-dark-4)',
+          borderRadius: '6px',
           cursor: onClick ? 'pointer' : 'default',
           zIndex: 1,
+          transition: 'all 0.2s ease',
         }}
         onClick={() => onClick?.(node.nodeId)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--mantine-color-blue-5)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'var(--mantine-color-dark-4)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
       >
-        <Stack gap="xs">
-          <Text size="sm" fw={600} truncate style={{ fontSize: fontSizes.nodeTitle }}>
-            {node.nodeName}
-          </Text>
-          <Group justify="space-between">
-            <Text size="xs" c="dimmed" style={{ fontSize: fontSizes.nodeLabel }}>
-              Shards:
+        <Stack gap={6}>
+          {/* Node name with indicator dot */}
+          <Group gap={6} wrap="nowrap">
+            <Box
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--mantine-color-green-5)',
+                flexShrink: 0,
+              }}
+            />
+            <Text 
+              size="xs" 
+              fw={500} 
+              truncate 
+              style={{ 
+                fontSize: '11px',
+                flex: 1,
+                color: 'var(--mantine-color-gray-3)',
+              }}
+            >
+              {node.nodeName}
             </Text>
-            <Badge size="sm" variant="light">
-              {node.shardCount}
+          </Group>
+          
+          {/* Shard count badge */}
+          <Group justify="center">
+            <Badge 
+              size="xs" 
+              variant="light" 
+              color="blue"
+              style={{ fontSize: '10px' }}
+            >
+              {node.shardCount} shard{node.shardCount !== 1 ? 's' : ''}
             </Badge>
           </Group>
           
-          {/* Individual shard indicators - Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2 */}
-          <Group gap={4} wrap="wrap">
-            {node.shards.map((shard) => (
+          {/* Individual shard indicators in compact grid */}
+          <Box
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, 24px)',
+              gap: '3px',
+              justifyContent: 'center',
+            }}
+          >
+            {node.shards.slice(0, 8).map((shard) => (
               <ShardIndicator 
                 key={`${shard.index}-${shard.shard}-${shard.primary}`} 
                 shard={shard}
-                fontSizes={fontSizes}
               />
             ))}
-          </Group>
+          </Box>
+          
+          {/* Show indicator if more shards exist */}
+          {node.shards.length > 8 && (
+            <Text 
+              size="xs" 
+              c="dimmed" 
+              ta="center"
+              style={{ fontSize: '9px' }}
+            >
+              +{node.shards.length - 8} more
+            </Text>
+          )}
         </Stack>
-      </Card>
+      </Box>
     </Tooltip>
   );
 }
@@ -674,22 +778,23 @@ function CenterIndexElement({
   health,
   primaryShards,
   replicaShards,
-  fontSizes,
 }: CenterIndexElementProps) {
   return (
     <Card
       shadow="md"
-      padding="lg"
+      padding="md"
       radius="md"
       withBorder
       style={{
-        minWidth: 250,
-        maxWidth: 300,
+        minWidth: 200,
+        maxWidth: 240,
+        backgroundColor: 'var(--mantine-color-dark-7)',
+        borderColor: 'var(--mantine-color-dark-4)',
       }}
     >
       <Stack gap="sm">
         {/* Index name header - Requirements: 8.4 - Responsive font size */}
-        <Text size="lg" fw={700} ta="center" style={{ fontSize: fontSizes.centerTitle }}>
+        <Text size="md" fw={700} ta="center" style={{ fontSize: '14px', color: 'var(--mantine-color-gray-2)' }}>
           {indexName}
         </Text>
         
@@ -698,30 +803,30 @@ function CenterIndexElement({
           <Badge
             color={getHealthColor(health)}
             variant="filled"
-            size="lg"
+            size="md"
           >
             {health.toUpperCase()}
           </Badge>
         </Group>
         
         {/* Shard counts - Requirements: 8.4 - Responsive font size */}
-        <Stack gap="xs">
+        <Stack gap={4}>
           <Group justify="space-between">
-            <Text size="sm" c="dimmed" style={{ fontSize: fontSizes.centerLabel }}>
-              Primary Shards:
+            <Text size="xs" c="dimmed" style={{ fontSize: '11px' }}>
+              Primary:
             </Text>
-            <Text size="sm" fw={600} style={{ fontSize: fontSizes.centerLabel }}>
+            <Badge size="sm" variant="light" color="blue">
               {primaryShards}
-            </Text>
+            </Badge>
           </Group>
           
           <Group justify="space-between">
-            <Text size="sm" c="dimmed" style={{ fontSize: fontSizes.centerLabel }}>
-              Replica Shards:
+            <Text size="xs" c="dimmed" style={{ fontSize: '11px' }}>
+              Replica:
             </Text>
-            <Text size="sm" fw={600} style={{ fontSize: fontSizes.centerLabel }}>
+            <Badge size="sm" variant="light" color="green">
               {replicaShards}
-            </Text>
+            </Badge>
           </Group>
         </Stack>
       </Stack>
@@ -1089,48 +1194,50 @@ export function IndexVisualization({
     maxShards: number;
   }
   
-  const groupNodesByShardCount = (nodes: NodePosition[], side: 'primary' | 'replica'): NodeGroup[] => {
-    // Define shard count ranges
-    const ranges = [
-      { min: 1, max: 5, label: '1-5 shards' },
-      { min: 6, max: 10, label: '6-10 shards' },
-      { min: 11, max: 20, label: '11-20 shards' },
-      { min: 21, max: Infinity, label: '21+ shards' },
-    ];
-    
-    // Group nodes into ranges
-    const groups: NodeGroup[] = [];
-    
-    for (const range of ranges) {
-      const nodesInRange = nodes.filter(
-        (node) => node.shardCount >= range.min && node.shardCount <= range.max
-      );
+  const groupNodesByShardCount = useMemo(() => {
+    return (nodes: NodePosition[], side: 'primary' | 'replica'): NodeGroup[] => {
+      // Define shard count ranges
+      const ranges = [
+        { min: 1, max: 5, label: '1-5 shards' },
+        { min: 6, max: 10, label: '6-10 shards' },
+        { min: 11, max: 20, label: '11-20 shards' },
+        { min: 21, max: Infinity, label: '21+ shards' },
+      ];
       
-      if (nodesInRange.length > 0) {
-        groups.push({
-          key: `${side}-${range.min}-${range.max}`,
-          label: range.label,
-          range: range.label,
-          nodes: nodesInRange,
-          minShards: range.min,
-          maxShards: range.max,
-        });
+      // Group nodes into ranges
+      const groups: NodeGroup[] = [];
+      
+      for (const range of ranges) {
+        const nodesInRange = nodes.filter(
+          (node) => node.shardCount >= range.min && node.shardCount <= range.max
+        );
+        
+        if (nodesInRange.length > 0) {
+          groups.push({
+            key: `${side}-${range.min}-${range.max}`,
+            label: range.label,
+            range: range.label,
+            nodes: nodesInRange,
+            minShards: range.min,
+            maxShards: range.max,
+          });
+        }
       }
-    }
-    
-    return groups;
-  };
+      
+      return groups;
+    };
+  }, []);
   
   // Group nodes if needed - Requirements: 5.3
   const primaryGroups = useMemo(() => {
     if (!needsGrouping) return null;
     return groupNodesByShardCount(filteredPrimaryNodes, 'primary');
-  }, [needsGrouping, filteredPrimaryNodes]);
+  }, [needsGrouping, filteredPrimaryNodes, groupNodesByShardCount]);
   
   const replicaGroups = useMemo(() => {
     if (!needsGrouping) return null;
     return groupNodesByShardCount(filteredReplicaNodes, 'replica');
-  }, [needsGrouping, filteredReplicaNodes]);
+  }, [needsGrouping, filteredReplicaNodes, groupNodesByShardCount]);
   
   // Get nodes to display based on grouping and expansion state
   // Requirements: 5.3 - Only show nodes from expanded groups
@@ -1193,7 +1300,7 @@ export function IndexVisualization({
     return positioningConfig.containerHeight / 2;
   }, [isMobile, positioningConfig]);
   
-  const nodeWidth = 180; // Must match NodeCard width
+  const nodeWidth = 140; // Must match NodeCard width (updated to smaller size)
   const nodeHeight = positioningConfig.nodeHeight;
   
   if (isLoading) {
@@ -1464,7 +1571,6 @@ export function IndexVisualization({
                                         <ShardIndicator
                                           key={`${shard.index}-${shard.shard}-${shard.primary}`}
                                           shard={shard}
-                                          fontSizes={fontSizes}
                                         />
                                       ))}
                                     </Group>
@@ -1540,7 +1646,6 @@ export function IndexVisualization({
                                         <ShardIndicator
                                           key={`${shard.index}-${shard.shard}-${shard.primary}`}
                                           shard={shard}
-                                          fontSizes={fontSizes}
                                         />
                                       ))}
                                     </Group>
@@ -1569,7 +1674,6 @@ export function IndexVisualization({
                         <ShardIndicator
                           key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
                           shard={shard}
-                          fontSizes={fontSizes}
                         />
                       ))}
                     </Group>
@@ -1625,7 +1729,6 @@ export function IndexVisualization({
                         key={`primary-${node.nodeId}`} 
                         node={node} 
                         onClick={onNodeClick}
-                        fontSizes={fontSizes}
                       />
                     ))}
                     
@@ -1645,7 +1748,6 @@ export function IndexVisualization({
                         health={placeholderHealth}
                         primaryShards={placeholderPrimaryShards}
                         replicaShards={placeholderReplicaShards}
-                        fontSizes={fontSizes}
                       />
                     </Box>
                     
@@ -1656,7 +1758,6 @@ export function IndexVisualization({
                         key={`replica-${node.nodeId}`} 
                         node={node} 
                         onClick={onNodeClick}
-                        fontSizes={fontSizes}
                       />
                     ))}
                   </Box>
@@ -1696,7 +1797,6 @@ export function IndexVisualization({
                       key={`primary-${node.nodeId}`} 
                       node={node} 
                       onClick={onNodeClick}
-                      fontSizes={fontSizes}
                     />
                   ))}
                   
@@ -1716,7 +1816,6 @@ export function IndexVisualization({
                       health={placeholderHealth}
                       primaryShards={placeholderPrimaryShards}
                       replicaShards={placeholderReplicaShards}
-                      fontSizes={fontSizes}
                     />
                   </Box>
                   
@@ -1727,7 +1826,6 @@ export function IndexVisualization({
                       key={`replica-${node.nodeId}`} 
                       node={node} 
                       onClick={onNodeClick}
-                      fontSizes={fontSizes}
                     />
                   ))}
                 </Box>
@@ -1746,7 +1844,6 @@ export function IndexVisualization({
                         <ShardIndicator
                           key={`unassigned-${shard.index}-${shard.shard}-${shard.primary}`}
                           shard={shard}
-                          fontSizes={fontSizes}
                         />
                       ))}
                     </Group>

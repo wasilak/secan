@@ -221,13 +221,13 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 7.4**
 
 - [ ] 12. Implement error handling and edge cases
-  - [-] 12.1 Handle API errors in frontend
+  - [x] 12.1 Handle API errors in frontend
     - Display Mantine Alert when shard data fetch fails
     - Provide retry button for failed requests
     - Handle empty shard arrays gracefully
     - _Requirements: 9.3_
   
-  - [~] 12.2 Handle edge cases in visualization
+  - [x] 12.2 Handle edge cases in visualization
     - Display only left side when index has no replicas
     - Display node on both sides when it has both primary and replica shards
     - Display unassigned shards in separate section at bottom
@@ -243,7 +243,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Test initializing shard display
     - _Requirements: 1.5, 2.5, 3.5, 6.4, 6.5_
 
-- [~] 13. Final checkpoint - Complete feature verification
+- [x] 13. Final checkpoint - Complete feature verification
   - Ensure frontend builds with `npm run build` and passes `npm test`
   - Manually test complete flow: open index details modal → visualization tab is first and active
   - Test with real Elasticsearch cluster (various index configurations)

@@ -377,12 +377,10 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
   const handleTabChange = (value: string | null) => {
     if (value) {
       const params = new URLSearchParams(searchParams);
-      // Use indexTab for modal mode, tab for standalone mode
-      if (searchParams.has('index')) {
-        params.set('indexTab', value);
-      } else {
-        params.set('tab', value);
-      }
+      // Always use indexTab for consistency
+      params.set('indexTab', value);
+      // Remove old 'tab' param if it exists
+      params.delete('tab');
       setSearchParams(params);
     }
   };
