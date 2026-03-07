@@ -134,14 +134,14 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
   // Get index name from URL params (for modal mode) or route params (for standalone mode)
   const indexName = searchParams.get('index') || params.indexName;
 
-  // Get active tab from URL or default to 'settings'
-  const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'settings';
+  // Get active tab from URL or default to 'visualization'
+  const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'visualization';
 
   // Ensure tab is set in URL when modal opens
   useEffect(() => {
     if (searchParams.has('index') && !searchParams.has('indexTab')) {
       const params = new URLSearchParams(searchParams);
-      params.set('indexTab', 'settings');
+      params.set('indexTab', 'visualization');
       setSearchParams(params, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -447,6 +447,9 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
       <Stack gap="md" style={{ flex: 1, overflow: 'auto' }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tabs.List>
+            <Tabs.Tab value="visualization" leftSection={<IconMap size={16} />}>
+              Visualization
+            </Tabs.Tab>
             <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
               Settings
             </Tabs.Tab>
@@ -457,6 +460,13 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
               Stats
             </Tabs.Tab>
           </Tabs.List>
+
+          <Tabs.Panel value="visualization" pt="md">
+            {/* Visualization panel will be added in Task 10.2 */}
+            <Card shadow="sm" padding="lg">
+              <Text>Visualization panel coming soon...</Text>
+            </Card>
+          </Tabs.Panel>
 
           <Tabs.Panel value="settings" pt="md">
             <Card shadow="sm" padding="lg">
