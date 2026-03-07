@@ -79,7 +79,7 @@
     - Verify correct metric names are used in Prometheus queries
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [-] 3.5 Verify preservation tests still pass
+  - [x] 3.5 Verify preservation tests still pass
     - **Property 2: Preservation** - Non-Prometheus Sources and Non-Metric Data Preserved
     - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
     - Run preservation property tests from step 2
@@ -90,7 +90,7 @@
     - Confirm error handling works gracefully
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [~] 4. Checkpoint - Ensure all tests pass
+- [-] 4. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise
   - Verify nodes list view displays Prometheus metrics correctly
   - Verify cluster overview page displays aggregated Prometheus metrics correctly
