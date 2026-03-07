@@ -47,7 +47,7 @@
     - _Preservation: Non-Prometheus metrics sources continue to work (3.1), non-metric data displays correctly (3.2, 3.3), cluster switching works (3.4), error handling preserved (3.5)_
     - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5_
 
-  - [-] 3.2 Update nodes list view to display Prometheus metrics
+  - [x] 3.2 Update nodes list view to display Prometheus metrics
     - Integrate metrics fetching with nodes list component
     - Display CPU usage, load averages, and memory statistics from Prometheus
     - Handle cases where metrics are unavailable or incomplete
@@ -57,7 +57,7 @@
     - _Preservation: Non-metric information displays correctly (3.2)_
     - _Requirements: 1.1, 2.1, 3.2_
 
-  - [~] 3.3 Update cluster overview page to aggregate and display Prometheus metrics
+  - [x] 3.3 Update cluster overview page to aggregate and display Prometheus metrics
     - Integrate metrics fetching with cluster overview component
     - Aggregate node metrics across all nodes in the cluster
     - Display aggregated CPU, load, and memory statistics
@@ -67,7 +67,7 @@
     - _Preservation: Non-metric information displays correctly (3.3)_
     - _Requirements: 1.2, 2.2, 3.3_
 
-  - [~] 3.4 Verify bug condition exploration test now passes
+  - [x] 3.4 Verify bug condition exploration test now passes
     - **Property 1: Expected Behavior** - Prometheus Metrics Integration Works
     - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
     - The test from task 1 encodes the expected behavior
@@ -79,7 +79,7 @@
     - Verify correct metric names are used in Prometheus queries
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
-  - [~] 3.5 Verify preservation tests still pass
+  - [-] 3.5 Verify preservation tests still pass
     - **Property 2: Preservation** - Non-Prometheus Sources and Non-Metric Data Preserved
     - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
     - Run preservation property tests from step 2
