@@ -81,12 +81,12 @@ export function buildNodeModalUrl(
  * Build an index modal URL
  *
  * Opens an index details modal within a cluster section context.
- * The modal can have subsections (general, advanced, mappings) specified via ?section param.
+ * The modal can have subsections (visualization, settings, mappings, stats) specified via ?indexTab param.
  * The background section is preserved via a query parameter.
  *
  * @param clusterId - The ID of the cluster
  * @param indexName - The name of the index to display
- * @param indexSection - The index modal section (general/advanced/mappings) via query param
+ * @param indexSection - The index modal section (visualization/settings/mappings/stats) via query param
  * @param backgroundSection - The background section to display behind the modal (defaults to 'indices')
  * @returns The URL path for the index modal
  *
@@ -95,10 +95,10 @@ export function buildNodeModalUrl(
  * // Returns: /cluster/my-cluster/indices/my-index
  *
  * buildIndexModalUrl('my-cluster', 'my-index', 'mappings')
- * // Returns: /cluster/my-cluster/indices/my-index?section=mappings
+ * // Returns: /cluster/my-cluster/indices/my-index?indexTab=mappings
  *
  * buildIndexModalUrl('my-cluster', 'my-index', 'mappings', 'topology')
- * // Returns: /cluster/my-cluster/indices/my-index?section=mappings&bg=topology
+ * // Returns: /cluster/my-cluster/indices/my-index?indexTab=mappings&bg=topology
  */
 export function buildIndexModalUrl(
   clusterId: string,
@@ -110,7 +110,7 @@ export function buildIndexModalUrl(
   const params: string[] = [];
   
   if (indexSection) {
-    params.push(`section=${encodeURIComponent(indexSection)}`);
+    params.push(`indexTab=${encodeURIComponent(indexSection)}`);
   }
   if (backgroundSection && backgroundSection !== 'indices') {
     params.push(`bg=${encodeURIComponent(backgroundSection)}`);
@@ -377,7 +377,7 @@ export function parseClusterPath(pathname: string): {
  * Display index details with optional tab selection
  * ```typescript
  * const url = buildIndexModalUrl('my-cluster', 'my-index', 'mappings');
- * // Result: /cluster/my-cluster/indices/my-index?section=mappings
+ * // Result: /cluster/my-cluster/indices/my-index?indexTab=mappings
  * ```
  * 
  * ### Shard Modal

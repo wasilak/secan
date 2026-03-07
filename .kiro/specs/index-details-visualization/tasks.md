@@ -178,27 +178,27 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Maintain visual clarity with scroll indicators
     - _Requirements: 5.1, 5.2_
   
-  - [-] 9.2 Implement node grouping for very large clusters
+  - [x] 9.2 Implement node grouping for very large clusters
     - Group nodes by shard count when more than 20 nodes
     - Display grouped nodes with Mantine Collapse for expand/collapse
     - _Requirements: 5.3_
 
 - [ ] 10. Add visualization tab to Index Details Modal
-  - [~] 10.1 Update IndexEdit component to add Visualization tab
+  - [x] 10.1 Update IndexEdit component to add Visualization tab
     - Add new Tabs.Tab with value="visualization" and icon (IconMap or IconTopology)
     - Position as FIRST tab (before Settings, Mappings, Stats)
     - Set as DEFAULT active tab when modal opens
     - Update tab change handler to support "visualization" value
     - _Requirements: 7.1, 7.2_
   
-  - [~] 10.2 Update IndexEdit to render IndexVisualization component
+  - [x] 10.2 Update IndexEdit to render IndexVisualization component
     - Add Tabs.Panel for "visualization" tab
     - Render IndexVisualization component with clusterId and indexName props
     - Pass openNodeModal handler from ClusterView context
     - Display loading state while fetching shard data
     - _Requirements: 7.2, 7.5_
   
-  - [~] 10.3 Update default tab logic in ClusterView
+  - [-] 10.3 Update default tab logic in ClusterView
     - Modify openIndexModal to default to "visualization" tab instead of "general"
     - Update URL parameter handling to set "indexTab=visualization" by default
     - Ensure backward compatibility with direct tab navigation

@@ -317,7 +317,7 @@ export function ClusterView() {
 
   // Handle opening index modal - use path-based navigation
   const openIndexModal = (indexName: string, tab?: string) => {
-    navigateToIndex(indexName, tab || 'general');
+    navigateToIndex(indexName, tab || 'visualization');
   };
 
   // Handle closing index modal - navigate back to section
