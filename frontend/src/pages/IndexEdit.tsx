@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { IndexVisualization } from '../components/IndexVisualization';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -462,10 +463,11 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
           </Tabs.List>
 
           <Tabs.Panel value="visualization" pt="md">
-            {/* Visualization panel will be added in Task 10.2 */}
-            <Card shadow="sm" padding="lg">
-              <Text>Visualization panel coming soon...</Text>
-            </Card>
+            <IndexVisualization
+              clusterId={clusterId}
+              indexName={indexName}
+              onNodeClick={undefined}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="settings" pt="md">
