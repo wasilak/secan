@@ -198,7 +198,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Display loading state while fetching shard data
     - _Requirements: 7.2, 7.5_
   
-  - [-] 10.3 Update default tab logic in ClusterView
+  - [x] 10.3 Update default tab logic in ClusterView
     - Modify openIndexModal to default to "visualization" tab instead of "general"
     - Update URL parameter handling to set "indexTab=visualization" by default
     - Ensure backward compatibility with direct tab navigation
@@ -211,7 +211,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - _Requirements: 7.1, 7.2, 7.3_
 
 - [ ] 11. Implement automatic refresh
-  - [~] 11.1 Configure TanStack Query refetch interval
+  - [-] 11.1 Configure TanStack Query refetch interval
     - Set refetchInterval to 30000ms in useIndexShards hook
     - Display subtle refresh indicator when data is being updated
     - _Requirements: 7.4_

@@ -16,7 +16,7 @@ import {
   Collapse,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
-import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg, IconChevronDown, IconChevronUp, IconRefresh } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { toPng } from 'html-to-image';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
@@ -29,6 +29,7 @@ import {
 import { formatBytes } from '../utils/formatters';
 import type { HealthStatus, ShardInfo } from '../types/api';
 import { useMemo, useState } from 'react';
+import { useIndexShards } from '../hooks/useIndexShards';
 
 /**
  * Responsive font size configuration
@@ -719,10 +720,10 @@ export interface IndexVisualizationProps {
  * Requirements: 1.1, 1.2, 1.3, 1.4, 7.1, 7.2
  */
 export function IndexVisualization({
-  clusterId: _clusterId,
+  clusterId,
   indexName,
   onNodeClick,
-  refreshInterval: _refreshInterval = 30000,
+  refreshInterval = 30000,
 }: IndexVisualizationProps) {
   // TODO: Implement data fetching with useIndexShards hook (Task 2.1)
   // TODO: Implement data transformation logic (Task 3) - DONE: using calculateNodePositions
@@ -912,51 +913,20 @@ export function IndexVisualization({
     return calculateResponsiveFontSizes(viewportWidth);
   }, [viewportWidth]);
   
-  // Placeholder loading state
-  const isLoading = false;
-  const error = null;
+  // Fetch shard data using useIndexShards hook - Requirements: 7.4, 9.1
+  // The hook is configured with refetchInterval of 30000ms (30 seconds)
+  const { data: shards, isLoading, error, isFetching } = useIndexShards(
+    clusterId,
+    indexName,
+    refreshInterval,
+    true
+  );
   
-  // Placeholder shard data for demonstration (Task 4.2)
-  // This will be replaced with real data from useIndexShards hook in Task 2.1
+  // Use real shard data or fallback to empty array
   // Memoize to prevent unnecessary recalculations
-  const placeholderShards: ShardInfo[] = useMemo(() => [
-    {
-      index: indexName,
-      shard: 0,
-      primary: true,
-      state: 'STARTED',
-      node: 'node-1',
-      docs: 1000,
-      store: 5000000,
-    },
-    {
-      index: indexName,
-      shard: 1,
-      primary: true,
-      state: 'STARTED',
-      node: 'node-2',
-      docs: 2000,
-      store: 10000000,
-    },
-    {
-      index: indexName,
-      shard: 0,
-      primary: false,
-      state: 'STARTED',
-      node: 'node-3',
-      docs: 1000,
-      store: 5000000,
-    },
-    {
-      index: indexName,
-      shard: 1,
-      primary: false,
-      state: 'STARTED',
-      node: 'node-4',
-      docs: 2000,
-      store: 10000000,
-    },
-  ], [indexName]);
+  const shardData: ShardInfo[] = useMemo(() => {
+    return shards || [];
+  }, [shards]);
   
   // Calculate responsive positioning configuration - Requirements: 8.1, 8.5
   // Memoize configuration to avoid unnecessary recalculations
@@ -981,8 +951,8 @@ export function IndexVisualization({
   // Calculate node positions using responsive configuration - Requirements: 8.1, 8.5
   // Recalculates when viewport size changes via useMediaQuery
   const { primaryNodes, replicaNodes } = useMemo(() => {
-    return calculateNodePositions(placeholderShards, positioningConfig);
-  }, [placeholderShards, positioningConfig]);
+    return calculateNodePositions(shardData, positioningConfig);
+  }, [shardData, positioningConfig]);
   
   // Filter nodes based on search query - Requirements: 5.4
   // Case-insensitive search on node name
@@ -1137,8 +1107,8 @@ export function IndexVisualization({
   
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
-  const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
-  const placeholderReplicaShards = placeholderShards.filter(s => !s.primary).length;
+  const placeholderPrimaryShards = shardData.filter(s => s.primary).length;
+  const placeholderReplicaShards = shardData.filter(s => !s.primary).length;
   
   // Calculate center index position for connection lines - Requirements: 8.1, 8.5
   // Adjust based on layout mode (horizontal vs vertical)
@@ -1181,7 +1151,7 @@ export function IndexVisualization({
         title="Failed to Load Visualization"
         color="red"
       >
-        <Text size="sm">{error}</Text>
+        <Text size="sm">{error instanceof Error ? error.message : 'An error occurred while loading shard data'}</Text>
       </Alert>
     );
   }
@@ -1191,9 +1161,28 @@ export function IndexVisualization({
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="md">
           <Group justify="space-between">
-            <Text size="lg" fw={600}>
-              Index Visualization
-            </Text>
+            <Group gap="xs">
+              <Text size="lg" fw={600}>
+                Index Visualization
+              </Text>
+              
+              {/* Refresh indicator - Requirements: 7.4 */}
+              {/* Display subtle indicator when data is being refetched */}
+              {isFetching && (
+                <Tooltip label="Refreshing data..." position="right" withArrow>
+                  <Badge
+                    color="blue"
+                    variant="light"
+                    size="sm"
+                    leftSection={
+                      <Loader size={10} color="blue" />
+                    }
+                  >
+                    Updating
+                  </Badge>
+                </Tooltip>
+              )}
+            </Group>
             <Group gap="xs">
               <Badge color="blue" variant="light">
                 {isMobile ? 'Vertical Layout' : 'APM-Style Layout'}
