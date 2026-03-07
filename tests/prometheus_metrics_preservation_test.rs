@@ -83,7 +83,7 @@ mod preservation_tests {
         // They are NOT affected by metrics source configuration
         let nodes_info_fields = vec!["name", "ip", "roles", "version"];
 
-        let _nodes_stats_fields = vec!["jvm", "os", "fs"];
+        let _nodes_stats_fields = ["jvm", "os", "fs"];
 
         // Verify that non-metric fields are independent of metrics source
         for field in &non_metric_fields {
@@ -142,7 +142,7 @@ mod preservation_tests {
             "unassigned_shards",
         ];
 
-        let _cluster_stats_fields = vec!["indices", "nodes"];
+        let _cluster_stats_fields = ["indices", "nodes"];
 
         // Verify that cluster overview fields are independent of metrics source
         for field in &cluster_overview_fields {
@@ -392,12 +392,12 @@ mod preservation_tests {
             // Property: Any Prometheus error (4xx or 5xx) should be handled gracefully
 
             // Verify that error code is in valid range
-            prop_assert!(error_code >= 400 && error_code < 600,
+            prop_assert!((400..600).contains(&error_code),
                 "Error code should be in 4xx or 5xx range");
 
             // Expected behavior: System should handle error gracefully
-            let is_client_error = error_code >= 400 && error_code < 500;
-            let is_server_error = error_code >= 500 && error_code < 600;
+            let is_client_error = (400..500).contains(&error_code);
+            let is_server_error = (500..600).contains(&error_code);
 
             prop_assert!(is_client_error || is_server_error,
                 "Error code {} should be either client error (4xx) or server error (5xx)",
@@ -440,7 +440,7 @@ mod integration_preservation_tests {
         // 7. Fetch nodes stats from /_nodes/stats
         // 8. Transform and return metrics
 
-        let expected_steps = vec![
+        let expected_steps = [
             "check_metrics_source",
             "create_internal_metrics_service",
             "fetch_cluster_health",

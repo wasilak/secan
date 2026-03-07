@@ -26,7 +26,6 @@ use proptest::prelude::*;
 ///
 /// The test is scoped to concrete failing cases where Prometheus is configured
 /// as the metrics source with elasticsearch_exporter metrics.
-
 #[cfg(test)]
 mod prometheus_metrics_bug_condition_tests {
     use super::*;
@@ -85,7 +84,7 @@ mod prometheus_metrics_bug_condition_tests {
     #[test]
     fn test_node_detail_queries_all_metrics() {
         // Node detail view (src/routes/metrics.rs:560-575) correctly queries:
-        let node_detail_queries = vec![
+        let node_detail_queries = [
             "elasticsearch_os_mem_used_bytes",
             "elasticsearch_os_cpu_percent",
             "elasticsearch_os_load1",
@@ -148,10 +147,10 @@ mod prometheus_metrics_bug_condition_tests {
         }
     }
 
-    /// Property-Based Test: Verify that for any node, load average metrics should be queryable
-    ///
-    /// This property test generates various node names and verifies that the system
-    /// should query load average metrics for each node when Prometheus is configured.
+    // Property-Based Test: Verify that for any node, load average metrics should be queryable
+    //
+    // This property test generates various node names and verifies that the system
+    // should query load average metrics for each node when Prometheus is configured.
     proptest! {
         #[test]
         fn prop_all_nodes_should_have_load_average_queries(
@@ -178,10 +177,10 @@ mod prometheus_metrics_bug_condition_tests {
         }
     }
 
-    /// Property-Based Test: Verify metric queries are consistent across different cluster labels
-    ///
-    /// This property verifies that regardless of cluster labels, the system should
-    /// query the same set of metrics (CPU, memory, load averages).
+    // Property-Based Test: Verify metric queries are consistent across different cluster labels
+    //
+    // This property verifies that regardless of cluster labels, the system should
+    // query the same set of metrics (CPU, memory, load averages).
     proptest! {
         #[test]
         fn prop_metrics_consistent_across_clusters(
@@ -226,7 +225,6 @@ mod prometheus_metrics_bug_condition_tests {
 /// Current (buggy): Load averages are NOT fetched for nodes list
 #[cfg(test)]
 mod integration_simulation_tests {
-    use super::*;
 
     #[test]
     fn test_nodes_list_prometheus_metrics_flow() {

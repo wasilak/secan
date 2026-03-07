@@ -30,6 +30,7 @@ pub fn transform_cluster_stats(
     stats: &Value,
     health: &Value,
     es_version: Option<String>,
+    prometheus_metrics: Option<&std::collections::HashMap<String, serde_json::Value>>,
 ) -> Result<ClusterStatsResponse, anyhow::Error> {
     // Extract memory and disk totals from nodes stats
     let memory_used = stats["nodes"]["jvm"]["mem"]["heap_used_in_bytes"].as_u64();
@@ -90,6 +91,40 @@ pub fn transform_cluster_stats(
         None
     };
 
+    // Calculate average load averages across all nodes from Prometheus metrics
+    let (load_average_1m, load_average_5m, load_average_15m) =
+        if let Some(prom_metrics) = prometheus_metrics {
+            let mut total_load1 = 0.0;
+            let mut total_load5 = 0.0;
+            let mut total_load15 = 0.0;
+            let mut node_count = 0;
+
+            for metrics in prom_metrics.values() {
+                if let Some(load1) = metrics.get("load1").and_then(|v| v.as_f64()) {
+                    total_load1 += load1;
+                    node_count += 1;
+                }
+                if let Some(load5) = metrics.get("load5").and_then(|v| v.as_f64()) {
+                    total_load5 += load5;
+                }
+                if let Some(load15) = metrics.get("load15").and_then(|v| v.as_f64()) {
+                    total_load15 += load15;
+                }
+            }
+
+            if node_count > 0 {
+                (
+                    Some(total_load1 / node_count as f64),
+                    Some(total_load5 / node_count as f64),
+                    Some(total_load15 / node_count as f64),
+                )
+            } else {
+                (None, None, None)
+            }
+        } else {
+            (None, None, None)
+        };
+
     Ok(ClusterStatsResponse {
         health: health["status"].as_str().unwrap_or("red").to_string(),
         cluster_name: stats["cluster_name"]
@@ -111,6 +146,9 @@ pub fn transform_cluster_stats(
         disk_used,
         disk_total,
         cpu_percent,
+        load_average_1m,
+        load_average_5m,
+        load_average_15m,
         es_version,
     })
 }
@@ -466,6 +504,12 @@ pub struct ClusterStatsResponse {
     pub disk_total: Option<u64>,
     #[serde(rename = "cpuPercent", skip_serializing_if = "Option::is_none")]
     pub cpu_percent: Option<u32>,
+    #[serde(rename = "loadAverage1m", skip_serializing_if = "Option::is_none")]
+    pub load_average_1m: Option<f64>,
+    #[serde(rename = "loadAverage5m", skip_serializing_if = "Option::is_none")]
+    pub load_average_5m: Option<f64>,
+    #[serde(rename = "loadAverage15m", skip_serializing_if = "Option::is_none")]
+    pub load_average_15m: Option<f64>,
     #[serde(rename = "esVersion", skip_serializing_if = "Option::is_none")]
     pub es_version: Option<String>,
 }
@@ -599,7 +643,7 @@ mod tests {
             "unassigned_shards": 0
         });
 
-        let result = transform_cluster_stats(&stats, &health, None).unwrap();
+        let result = transform_cluster_stats(&stats, &health, None, None).unwrap();
 
         assert_eq!(result.health, "green");
         assert_eq!(result.cluster_name, "test-cluster");
