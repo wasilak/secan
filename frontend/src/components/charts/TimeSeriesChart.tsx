@@ -208,11 +208,11 @@ export function TimeSeriesChart({
                   color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
                 }}
                 labelStyle={{ color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)' }}
-                formatter={(value: number, name: string | undefined) => {
+                formatter={(value: number | undefined, name: string | undefined) => {
                   if (valueFormatter && name) {
-                    return [valueFormatter(value, name), name];
+                    return [valueFormatter(value ?? 0, name), name];
                   }
-                  return [value, name || ''];
+                  return [value ?? 0, name || ''];
                 }}
               />
               {showLegend && <Legend />}

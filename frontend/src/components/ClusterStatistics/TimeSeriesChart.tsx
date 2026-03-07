@@ -149,7 +149,7 @@ export function TimeSeriesChart({
                   color: 'var(--mantine-color-gray-0)',
                 }}
                 labelStyle={{ color: 'var(--mantine-color-gray-0)' }}
-                formatter={valueFormatter || ((_value: number) => _value)}
+                formatter={valueFormatter || ((_value: number | undefined) => _value ?? 0)}
               />
               <Area
                 type="monotone"
