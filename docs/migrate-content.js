@@ -93,6 +93,41 @@ function convertCardGridComponents(content) {
 }
 
 /**
+ * Convert Starlight asset paths to Docusaurus static asset paths
+ * - Converts relative asset paths (../../assets/) to /img/ paths
+ * - Updates all image references in markdown
+ * 
+ * @param {string} content - Markdown content with asset references
+ * @returns {string} Content with converted asset paths
+ */
+function convertAssetPaths(content) {
+  let converted = content;
+  
+  // Convert markdown image syntax: ![alt](../../assets/image.png)
+  // Pattern: ![text](relative/path/to/assets/filename.ext)
+  converted = converted.replace(
+    /!\[([^\]]*)\]\((?:\.\.\/)*assets\/([^)]+)\)/g,
+    '![$1](/img/$2)'
+  );
+  
+  // Convert Starlight hero image frontmatter format
+  // Pattern: file: ../../assets/sproutling.png
+  // This is used in Starlight's hero component
+  converted = converted.replace(
+    /file:\s+(?:\.\.\/)*assets\/([^\s\n]+)/g,
+    'file: /img/$1'
+  );
+  
+  // Convert HTML img tags: <img src="../../assets/image.png" />
+  converted = converted.replace(
+    /<img\s+([^>]*)src=["'](?:\.\.\/)*assets\/([^"']+)["']([^>]*)>/g,
+    '<img $1src="/img/$2"$3>'
+  );
+  
+  return converted;
+}
+
+/**
  * Convert Starlight links to Docusaurus format
  * - Removes /secan/ prefix from internal links
  * - Removes trailing slashes from links
@@ -185,6 +220,9 @@ function convertComponents(content) {
   
   // Convert links to Docusaurus format
   converted = convertLinks(converted);
+  
+  // Convert asset paths to Docusaurus static asset paths
+  converted = convertAssetPaths(converted);
   
   // Escape curly braces to prevent MDX parsing issues
   converted = escapeCurlyBraces(converted);
@@ -329,6 +367,7 @@ module.exports = {
   convertCardGridComponents,
   removeStarlightImports,
   convertLinks,
+  convertAssetPaths,
   escapeCurlyBraces,
   convertComponents,
   getAllMarkdownFiles,
