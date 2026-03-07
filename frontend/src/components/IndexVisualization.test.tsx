@@ -112,7 +112,7 @@ describe('IndexVisualization', () => {
       );
 
       // Verify primary shards label and count are displayed
-      const primaryText = screen.getByText('Primary Shards:');
+      const primaryText = screen.getByText('Primary:');
       expect(primaryText).toBeInTheDocument();
       const parent = primaryText.closest('.mantine-Stack-root');
       expect(parent).toBeInTheDocument();
@@ -128,9 +128,9 @@ describe('IndexVisualization', () => {
       );
 
       // Verify replica shards label and count are displayed
-      expect(screen.getByText('Replica Shards:')).toBeInTheDocument();
-      // Placeholder has 2 replica shards, look for the text "2" near "Replica Shards:"
-      const replicaText = screen.getByText('Replica Shards:');
+      expect(screen.getByText('Replica:')).toBeInTheDocument();
+      // Placeholder has 2 replica shards, look for the text "2" near "Replica:"
+      const replicaText = screen.getByText('Replica:');
       const parent = replicaText.closest('.mantine-Stack-root');
       expect(parent).toBeInTheDocument();
       expect(parent?.textContent).toContain('2');

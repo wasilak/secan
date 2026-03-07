@@ -257,8 +257,8 @@ describe('IndexVisualization - Responsive Font Sizes', () => {
       
       // Verify text content is present and readable
       expect(screen.getByText('test-index')).toBeInTheDocument();
-      expect(screen.getByText('Primary Shards:')).toBeInTheDocument();
-      expect(screen.getByText('Replica Shards:')).toBeInTheDocument();
+      expect(screen.getByText('Primary:')).toBeInTheDocument();
+      expect(screen.getByText('Replica:')).toBeInTheDocument();
     });
 
     it('should not exceed maximum font sizes for readability', () => {
@@ -292,8 +292,8 @@ describe('IndexVisualization - Responsive Font Sizes', () => {
       
       // Verify all key text elements are present
       expect(screen.getByText('test-index')).toBeInTheDocument();
-      expect(screen.getByText('Primary Shards:')).toBeInTheDocument();
-      expect(screen.getByText('Replica Shards:')).toBeInTheDocument();
+      expect(screen.getByText('Primary:')).toBeInTheDocument();
+      expect(screen.getByText('Replica:')).toBeInTheDocument();
       expect(screen.getByText('Index Visualization')).toBeInTheDocument();
     });
 
