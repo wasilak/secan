@@ -134,7 +134,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 16: Layout adapts to viewport width**
     - **Validates: Requirements 8.1, 8.5**
   
-  - [-] 7.3 Implement responsive font sizes
+  - [x] 7.3 Implement responsive font sizes
     - Scale font sizes based on zoom level
     - Ensure readability at different viewport sizes
     - _Requirements: 8.4_
@@ -144,13 +144,13 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 8.4**
 
 - [ ] 8. Implement visualization controls
-  - [~] 8.1 Implement zoom controls
+  - [x] 8.1 Implement zoom controls
     - Add zoom in, zoom out, and reset zoom buttons using Mantine ActionIcon
     - Update SVG transform scale on zoom changes
     - Maintain zoom level state
     - _Requirements: 5.5_
   
-  - [~] 8.2 Implement node search/filter
+  - [-] 8.2 Implement node search/filter
     - Add Mantine TextInput for search
     - Filter displayed nodes based on search query
     - Update visualization to show only matching nodes

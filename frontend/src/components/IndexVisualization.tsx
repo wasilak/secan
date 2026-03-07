@@ -10,9 +10,10 @@ import {
   Center,
   Tooltip,
   ActionIcon,
+  TextInput,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
-import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset } from '@tabler/icons-react';
+import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX } from '@tabler/icons-react';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
   calculateNodePositions,
@@ -730,6 +731,9 @@ export function IndexVisualization({
   // Min: 0.5 (50%), Max: 2.0 (200%)
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   
+  // Search/filter state management - Requirements: 5.4
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
   // Zoom control handlers - Requirements: 5.5
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 0.2, 2.0));
@@ -741,6 +745,15 @@ export function IndexVisualization({
   
   const handleZoomReset = () => {
     setZoomLevel(1.0);
+  };
+  
+  // Search control handlers - Requirements: 5.4
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.currentTarget.value);
+  };
+  
+  const handleSearchClear = () => {
+    setSearchQuery('');
   };
   
   // Responsive breakpoint detection - Requirements: 8.1, 8.2, 8.5
@@ -828,6 +841,33 @@ export function IndexVisualization({
     return calculateNodePositions(placeholderShards, positioningConfig);
   }, [placeholderShards, positioningConfig]);
   
+  // Filter nodes based on search query - Requirements: 5.4
+  // Case-insensitive search on node name
+  const filteredPrimaryNodes = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return primaryNodes;
+    }
+    const query = searchQuery.toLowerCase();
+    return primaryNodes.filter(node => 
+      node.nodeName.toLowerCase().includes(query)
+    );
+  }, [primaryNodes, searchQuery]);
+  
+  const filteredReplicaNodes = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return replicaNodes;
+    }
+    const query = searchQuery.toLowerCase();
+    return replicaNodes.filter(node => 
+      node.nodeName.toLowerCase().includes(query)
+    );
+  }, [replicaNodes, searchQuery]);
+  
+  // Calculate total and filtered node counts - Requirements: 5.4
+  const totalNodeCount = primaryNodes.length + replicaNodes.length;
+  const filteredNodeCount = filteredPrimaryNodes.length + filteredReplicaNodes.length;
+  const isFiltered = searchQuery.trim().length > 0;
+  
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
   const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
@@ -892,6 +932,13 @@ export function IndexVisualization({
                 {isMobile ? 'Vertical Layout' : 'APM-Style Layout'}
               </Badge>
               
+              {/* Node count badge - Requirements: 5.4 */}
+              {isFiltered && (
+                <Badge color="gray" variant="light">
+                  {filteredNodeCount} of {totalNodeCount} nodes
+                </Badge>
+              )}
+              
               {/* Zoom controls - Requirements: 5.5 */}
               <Group gap={4}>
                 <Tooltip label="Zoom In" position="bottom" withArrow>
@@ -940,6 +987,28 @@ export function IndexVisualization({
             </Group>
           </Group>
           
+          {/* Search/filter input - Requirements: 5.4 */}
+          <TextInput
+            placeholder="Search nodes..."
+            value={searchQuery}
+            onChange={handleSearchChange}
+            leftSection={<IconSearch size={16} />}
+            rightSection={
+              searchQuery && (
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  onClick={handleSearchClear}
+                  aria-label="Clear search"
+                >
+                  <IconX size={14} />
+                </ActionIcon>
+              )
+            }
+            style={{ maxWidth: 300 }}
+          />
+          
           {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
           {/* Container adapts to viewport width and recalculates on resize */}
           <Box
@@ -959,8 +1028,8 @@ export function IndexVisualization({
           >
             {/* Connection lines - Requirements: 1.4 */}
             <ConnectionLines
-              primaryNodes={primaryNodes}
-              replicaNodes={replicaNodes}
+              primaryNodes={filteredPrimaryNodes}
+              replicaNodes={filteredReplicaNodes}
               centerX={centerX}
               centerY={centerY}
               centerWidth={positioningConfig.centerWidth}
@@ -969,7 +1038,7 @@ export function IndexVisualization({
             />
             
             {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
-            {primaryNodes.map((node) => (
+            {filteredPrimaryNodes.map((node) => (
               <NodeCard 
                 key={`primary-${node.nodeId}`} 
                 node={node} 
@@ -999,7 +1068,7 @@ export function IndexVisualization({
             </Box>
             
             {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-            {replicaNodes.map((node) => (
+            {filteredReplicaNodes.map((node) => (
               <NodeCard 
                 key={`replica-${node.nodeId}`} 
                 node={node} 
