@@ -9,10 +9,12 @@ import {
   parseGroupingFromUrl,
   calculateNodeGroups,
   hasCustomLabels,
+  getGroupLabel,
   type GroupingAttribute,
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
 import { GroupingControl } from './GroupingControl';
+import { GroupRenderer } from './GroupRenderer';
 
 /**
  * Format bytes to human-readable format
@@ -130,8 +132,6 @@ export function DotBasedTopologyView({
   // Calculate node groups based on grouping configuration
   // Memoized to avoid unnecessary recalculations
   // Recalculates when nodes or grouping config changes
-  // Note: Will be used in task 6.4 for rendering groups
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const nodeGroups = useMemo(() => {
     return calculateNodeGroups(nodes, groupingConfig);
   }, [nodes, groupingConfig]);
@@ -303,6 +303,128 @@ export function DotBasedTopologyView({
     );
   }
 
+  // Helper function to render a single node card
+  const renderNodeCard = (node: NodeInfo, nodeShards: ShardInfo[]) => {
+    const isValidDestination = relocationMode && validDestinationNodes?.some(
+      (id) => id === node?.id || id === node?.name
+    );
+
+    return (
+      <Grid.Col span={{ base: 12, sm: 6, lg: 4, xl: 3 }} key={node.name}>
+        <Paper
+          shadow="xs"
+          p="md"
+          withBorder
+          style={{
+            borderColor: isValidDestination
+              ? 'var(--mantine-color-violet-6)'
+              : undefined,
+            borderStyle: isValidDestination
+              ? 'dashed'
+              : undefined,
+            borderWidth: isValidDestination
+              ? '2px'
+              : undefined,
+            cursor: isValidDestination
+              ? 'pointer'
+              : 'default',
+          }}
+          onClick={() => {
+            if (isValidDestination && onDestinationClick) {
+              onDestinationClick(node.id);
+            }
+          }}
+        >
+          {/* Upper Part: Node Information */}
+          <Group gap="xs" wrap="nowrap" mb="xs">
+            <Text fw={600} size="sm" style={{ flex: 1 }} truncate>
+              {node.name}
+            </Text>
+            {node?.isMaster && (
+              <Badge size="xs" variant="filled" color="blue">
+                Master
+              </Badge>
+            )}
+            {node && <RoleIcons roles={node.roles || []} size={14} />}
+          </Group>
+
+          {/* Node Stats */}
+          <Group gap="xs" mb="xs" wrap="nowrap">
+            {node?.heapUsed && (
+              <Text size="xs" c="dimmed">
+                Heap: {(node.heapUsed / 1024 / 1024 / 1024).toFixed(1)}GB
+              </Text>
+            )}
+            {node?.diskUsed && (
+              <Text size="xs" c="dimmed">
+                Disk: {formatBytes(node.diskUsed)}
+              </Text>
+            )}
+          </Group>
+
+          <Divider mb="xs" />
+
+          {/* Loading State */}
+          {loadingNodes.has(node.id) && (
+            <Box py="md">
+              <Skeleton height={20} radius="sm" mb="xs" />
+              <Skeleton height={20} radius="sm" mb="xs" />
+              <Skeleton height={20} radius="sm" />
+            </Box>
+          )}
+
+          {/* Shards Grid */}
+          {!loadingNodes.has(node.id) && nodeShards.length > 0 && (
+            <Flex gap={3} wrap="wrap">
+              {nodeShards.map((shard, idx) => {
+                const indexColor = getIndexHealthColor(shard.index);
+                const isPrimary = shard.primary;
+
+                return (
+                  <Tooltip
+                    key={`${shard.index}-${shard.shard}-${shard.node}-${idx}`}
+                    label={`${shard.index} - Shard ${shard.shard}${isPrimary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`}
+                    withArrow
+                  >
+                    <Box
+                      style={{
+                        width: 14,
+                        height: 14,
+                        backgroundColor: indexColor,
+                        borderRadius: 2,
+                        cursor: onShardClick ? 'pointer' : 'default',
+                        opacity: isPrimary ? 1 : 0.5,
+                        boxShadow: isPrimary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
+                      }}
+                      onClick={(e) => {
+                        if (onShardClick) {
+                          e.stopPropagation();
+                          onShardClick(shard, e);
+                        }
+                      }}
+                    />
+                  </Tooltip>
+                );
+              })}
+            </Flex>
+          )}
+
+          {/* Shard Count Badge */}
+          <Group gap="xs" mt="xs" wrap="nowrap">
+            <Badge size="xs" variant="light">
+              {loadingNodes.has(node.id) ? '...' : nodeShards.length} shards
+            </Badge>
+            {nodeShards.filter(s => s.primary).length > 0 && (
+              <Badge size="xs" variant="light">
+                {nodeShards.filter(s => s.primary).length} primary
+              </Badge>
+            )}
+          </Group>
+        </Paper>
+      </Grid.Col>
+    );
+  };
+
   return (
     <div>
       {/* Grouping Control */}
@@ -314,131 +436,48 @@ export function DotBasedTopologyView({
         />
       </Box>
 
-      {/* Nodes Grid */}
-      <Grid gutter="md">
-        {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
-          const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
-          if (!node) return null;
-          const isValidDestination = relocationMode && validDestinationNodes?.some(
-            (id) => id === node?.id || id === node?.name
-          );
+      {/* Nodes Grid - with or without grouping */}
+      {groupingConfig.attribute === 'none' ? (
+        // No grouping - render nodes directly (backward compatible)
+        <Grid gutter="md">
+          {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
+            const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
+            if (!node) return null;
+            return renderNodeCard(node, nodeShards);
+          })}
+        </Grid>
+      ) : (
+        // With grouping - render one GroupRenderer per group
+        <>
+          {Array.from(nodeGroups.entries()).map(([groupKey, groupNodes]) => {
+            // Filter to only nodes that have shards (are in filteredShardsByNode)
+            const nodesWithShards = groupNodes.filter(node => 
+              filteredShardsByNode[node.name] || filteredShardsByNode[node.id]
+            );
 
-          return (
-            <Grid.Col span={{ base: 12, sm: 6, lg: 4, xl: 3 }} key={nodeName}>
-              <Paper
-                shadow="xs"
-                p="md"
-                withBorder
-                style={{
-                  borderColor: isValidDestination
-                    ? 'var(--mantine-color-violet-6)'
-                    : undefined,
-                  borderStyle: isValidDestination
-                    ? 'dashed'
-                    : undefined,
-                  borderWidth: isValidDestination
-                    ? '2px'
-                    : undefined,
-                  cursor: isValidDestination
-                    ? 'pointer'
-                    : 'default',
-                }}
-                onClick={() => {
-                  if (isValidDestination && onDestinationClick) {
-                    onDestinationClick(node.id);
-                  }
-                }}
+            // Skip empty groups
+            if (nodesWithShards.length === 0) {
+              return null;
+            }
+
+            return (
+              <GroupRenderer
+                key={groupKey}
+                groupKey={groupKey}
+                groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
+                nodes={nodesWithShards}
               >
-                {/* Upper Part: Node Information */}
-                <Group gap="xs" wrap="nowrap" mb="xs">
-                  <Text fw={600} size="sm" style={{ flex: 1 }} truncate>
-                    {nodeName}
-                  </Text>
-                  {node?.isMaster && (
-                    <Badge size="xs" variant="filled" color="blue">
-                      Master
-                    </Badge>
-                  )}
-                  {node && <RoleIcons roles={node.roles || []} size={14} />}
-                </Group>
-
-                {/* Node Stats */}
-                <Group gap="xs" mb="xs" wrap="nowrap">
-                  {node?.heapUsed && (
-                    <Text size="xs" c="dimmed">
-                      Heap: {(node.heapUsed / 1024 / 1024 / 1024).toFixed(1)}GB
-                    </Text>
-                  )}
-                  {node?.diskUsed && (
-                    <Text size="xs" c="dimmed">
-                      Disk: {formatBytes(node.diskUsed)}
-                    </Text>
-                  )}
-                </Group>
-
-                <Divider mb="xs" />
-
-                {/* Loading State */}
-                {loadingNodes.has(node.id) && (
-                  <Box py="md">
-                    <Skeleton height={20} radius="sm" mb="xs" />
-                    <Skeleton height={20} radius="sm" mb="xs" />
-                    <Skeleton height={20} radius="sm" />
-                  </Box>
-                )}
-
-                {/* Shards Grid */}
-                {!loadingNodes.has(node.id) && nodeShards.length > 0 && (
-                  <Flex gap={3} wrap="wrap">
-                    {nodeShards.map((shard, idx) => {
-                      const indexColor = getIndexHealthColor(shard.index);
-                      const isPrimary = shard.primary;
-
-                      return (
-                        <Tooltip
-                          key={`${shard.index}-${shard.shard}-${shard.node}-${idx}`}
-                          label={`${shard.index} - Shard ${shard.shard}${isPrimary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`}
-                          withArrow
-                        >
-                          <Box
-                            style={{
-                              width: 14,
-                              height: 14,
-                              backgroundColor: indexColor,
-                              borderRadius: 2,
-                              cursor: onShardClick ? 'pointer' : 'default',
-                              opacity: isPrimary ? 1 : 0.5,
-                              boxShadow: isPrimary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
-                            }}
-                            onClick={(e) => {
-                              if (onShardClick) {
-                                e.stopPropagation();
-                                onShardClick(shard, e);
-                              }
-                            }}
-                          />
-                        </Tooltip>
-                      );
-                    })}
-                  </Flex>
-                )}
-
-                {/* Shard Count Badge */}
-                <Group gap="xs" mt="xs" wrap="nowrap">
-                  <Badge size="xs" variant="light">
-                    {loadingNodes.has(node.id) ? '...' : nodeShards.length} shards
-                  </Badge>
-                  {nodeShards.filter(s => s.primary).length > 0 && (
-                    <Badge size="xs" variant="light">
-                      {nodeShards.filter(s => s.primary).length} primary
-                    </Badge>
-                  )}
-                </Group>
-              </Paper>
-            </Grid.Col>
-          );
-        })}
-      </Grid>
+                <Grid gutter="md">
+                  {nodesWithShards.map(node => {
+                    const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+                    return renderNodeCard(node, nodeShards);
+                  })}
+                </Grid>
+              </GroupRenderer>
+            );
+          })}
+        </>
+      )}
 
       {/* Unassigned Shards */}
       {unassignedShards.length > 0 && (
