@@ -1,5 +1,4 @@
 import { Grid, Stack, Group, useMantineColorScheme, Card, Text } from '@mantine/core';
-import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import type { DataPoint } from '../../hooks/useSparklineData';
 import type { NodeInfo } from '../../types/api';
 import { TimeSeriesChart, DistributionChart, NodeRolesChart } from './index';

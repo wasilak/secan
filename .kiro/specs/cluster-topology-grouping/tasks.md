@@ -185,14 +185,14 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Test switching between grouping options
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.3_
   
-  - [-] 9.3 Verify URL state management
+  - [x] 9.3 Verify URL state management
     - Test that selecting grouping updates URL
     - Test that navigating to URL with grouping applies it
     - Test that browser back/forward works correctly
     - Test that bookmarked URLs restore grouping
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
   
-  - [~] 9.4 Run all tests and verify build
+  - [-] 9.4 Run all tests and verify build
     - Run `npm test` to verify all unit and property tests pass
     - Run `npm run build` to verify TypeScript compilation succeeds
     - Run `npm run lint` to verify code quality

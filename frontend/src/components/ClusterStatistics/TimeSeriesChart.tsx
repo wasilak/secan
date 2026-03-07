@@ -8,7 +8,6 @@ import {
   YAxis,
   XAxis,
   CartesianGrid,
-  Legend,
 } from 'recharts';
 import { IconCopy, IconCheck } from '@tabler/icons-react';
 import type { DataPoint } from '../../hooks/useSparklineData';
@@ -79,7 +78,7 @@ function QueryCopyButton({ value }: { value: string }) {
 export function TimeSeriesChart({
   title,
   data,
-  dataKey,
+  dataKey: _dataKey,
   color,
   gradientId,
   unit,
@@ -150,7 +149,7 @@ export function TimeSeriesChart({
                   color: 'var(--mantine-color-gray-0)',
                 }}
                 labelStyle={{ color: 'var(--mantine-color-gray-0)' }}
-                formatter={valueFormatter || ((value: any) => value)}
+                formatter={valueFormatter || ((_value: number) => _value)}
               />
               <Area
                 type="monotone"

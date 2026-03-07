@@ -115,7 +115,7 @@ export function TimeSeriesChart({
   const hasData = series.length > 0 && series[0].data.length > 0;
   
   const combinedData = hasData ? series[0].data.map((point, index) => {
-    const entry: Record<string, any> = {
+    const entry: Record<string, number | string> = {
       time: formatTime(point.timestamp),
       timestamp: point.timestamp,
     };
@@ -208,9 +208,9 @@ export function TimeSeriesChart({
                   color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
                 }}
                 labelStyle={{ color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)' }}
-                formatter={(value: any, name: string | undefined) => {
+                formatter={(value: number, name: string | undefined) => {
                   if (valueFormatter && name) {
-                    return [valueFormatter(value as number, name), name];
+                    return [valueFormatter(value, name), name];
                   }
                   return [value, name || ''];
                 }}
