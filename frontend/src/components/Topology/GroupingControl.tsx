@@ -84,7 +84,9 @@ export function GroupingControl({
         }
       }}
       size="sm"
-      w={220}
+      w="auto"
+      miw={220}
+      maw={400}
       styles={{
         input: {
           fontSize: '0.875rem',

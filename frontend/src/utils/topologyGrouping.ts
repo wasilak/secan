@@ -195,7 +195,7 @@ export function calculateNodeGroups(
       break;
       
     case 'label':
-      // Group by label: config.value is the label NAME (e.g., "zone", "production")
+      // Group by label: config.value is the label NAME (e.g., "zone", "shard_indexing_pressure_enabled")
       // Extract all VALUES for that label name and create groups
       if (config.value) {
         const labelName = config.value;
@@ -209,15 +209,20 @@ export function calculateNodeGroups(
             groups.get('undefined')!.push(node);
           } else {
             // Find tags that match the label name
-            // Two patterns:
-            // 1. "labelName-value" (e.g., "zone-a" matches label "zone")
-            // 2. "labelName" exact match (e.g., "production" matches label "production")
+            // Three patterns:
+            // 1. "labelName:value" (e.g., "shard_indexing_pressure_enabled:true" matches label "shard_indexing_pressure_enabled")
+            // 2. "labelName-value" (e.g., "zone-a" matches label "zone")
+            // 3. "labelName" exact match (e.g., "production" matches label "production")
             const matchingTags = node.tags.filter(tag => {
               // Check for exact match first
               if (tag === labelName) {
                 return true;
               }
-              // Check for prefix match with hyphen
+              // Check for colon separator (key:value pattern)
+              if (tag.startsWith(`${labelName}:`)) {
+                return true;
+              }
+              // Check for hyphen separator (key-value pattern)
               return tag.startsWith(`${labelName}-`);
             });
             
@@ -229,11 +234,24 @@ export function calculateNodeGroups(
               groups.get('undefined')!.push(node);
             } else {
               // Add node to each matching label value group
+              // Extract just the value part for the group key
               for (const tag of matchingTags) {
-                if (!groups.has(tag)) {
-                  groups.set(tag, []);
+                let groupKey = tag;
+                
+                // Extract value from "labelName:value" pattern
+                if (tag.startsWith(`${labelName}:`)) {
+                  groupKey = tag.substring(labelName.length + 1);
                 }
-                groups.get(tag)!.push(node);
+                // Extract value from "labelName-value" pattern
+                else if (tag.startsWith(`${labelName}-`)) {
+                  groupKey = tag.substring(labelName.length + 1);
+                }
+                // Otherwise use the full tag (exact match case)
+                
+                if (!groups.has(groupKey)) {
+                  groups.set(groupKey, []);
+                }
+                groups.get(groupKey)!.push(node);
               }
             }
           }

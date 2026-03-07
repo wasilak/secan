@@ -131,6 +131,7 @@ export function DotBasedTopologyView({
     
     // Extract unique label names from all node tags
     // Tags can follow patterns:
+    // - "labelName:value" (e.g., "shard_indexing_pressure_enabled:true") -> extract "shard_indexing_pressure_enabled"
     // - "labelName-value" (e.g., "zone-a", "rack-1") -> extract "zone", "rack"
     // - "labelName" (e.g., "production", "staging") -> use as-is
     const labelNames = new Set<string>();
@@ -138,16 +139,24 @@ export function DotBasedTopologyView({
     nodes.forEach(node => {
       if (node.tags && node.tags.length > 0) {
         node.tags.forEach(tag => {
-          // Extract label name by splitting on first hyphen
+          // Check for colon separator first (key:value pattern)
+          const colonIndex = tag.indexOf(':');
+          if (colonIndex > 0) {
+            const labelName = tag.substring(0, colonIndex);
+            labelNames.add(labelName);
+            return;
+          }
+          
+          // Check for hyphen separator (key-value pattern)
           const hyphenIndex = tag.indexOf('-');
           if (hyphenIndex > 0) {
-            // Has hyphen: extract prefix as label name
             const labelName = tag.substring(0, hyphenIndex);
             labelNames.add(labelName);
-          } else {
-            // No hyphen: use entire tag as label name
-            labelNames.add(tag);
+            return;
           }
+          
+          // No separator: use entire tag as label name
+          labelNames.add(tag);
         });
       }
     });
