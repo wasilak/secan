@@ -177,7 +177,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Verify existing node visualization is unchanged
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
   
-  - [-] 9.2 Verify grouping functionality
+  - [x] 9.2 Verify grouping functionality
     - Test grouping by role with various node configurations
     - Test grouping by type with various node configurations
     - Test grouping by label with custom labels
@@ -185,7 +185,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Test switching between grouping options
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.3_
   
-  - [~] 9.3 Verify URL state management
+  - [-] 9.3 Verify URL state management
     - Test that selecting grouping updates URL
     - Test that navigating to URL with grouping applies it
     - Test that browser back/forward works correctly
