@@ -133,6 +133,22 @@ const config = {
         darkTheme: require('prism-react-renderer').themes.dracula,
         additionalLanguages: ['rust', 'toml', 'yaml', 'json', 'bash'],
       },
+      mermaid: {
+        theme: {
+          light: 'default',
+          dark: 'dark',
+        },
+        options: {
+          themeVariables: {
+            primaryColor: '#2e8555',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#29784c',
+            lineColor: '#29784c',
+            secondaryColor: '#33925d',
+            tertiaryColor: '#3cad6e',
+          },
+        },
+      },
     }),
 
   themes: ['@docusaurus/theme-mermaid'],
