@@ -58,13 +58,13 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Display total primary and replica shard counts
     - _Requirements: 1.1, 4.4, 4.5_
   
-  - [-] 4.2 Implement node positioning logic
+  - [x] 4.2 Implement node positioning logic
     - Calculate positions for primary nodes on left side
     - Calculate positions for replica nodes on right side
     - Handle vertical spacing for multiple nodes
     - _Requirements: 1.2, 1.3, 2.3, 2.4_
   
-  - [~] 4.3 Implement visual connections
+  - [-] 4.3 Implement visual connections
     - Draw SVG lines connecting center index to each node
     - Use appropriate line styling (color, width, curve)
     - _Requirements: 1.4_

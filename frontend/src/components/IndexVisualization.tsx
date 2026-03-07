@@ -63,6 +63,133 @@ interface NodeCardProps {
 }
 
 /**
+ * Props for the ConnectionLines component
+ * 
+ * Requirements: 1.4
+ */
+interface ConnectionLinesProps {
+  /**
+   * Array of primary node positions
+   */
+  primaryNodes: NodePosition[];
+  
+  /**
+   * Array of replica node positions
+   */
+  replicaNodes: NodePosition[];
+  
+  /**
+   * X coordinate of the center index element
+   */
+  centerX: number;
+  
+  /**
+   * Y coordinate of the center index element (center point)
+   */
+  centerY: number;
+  
+  /**
+   * Width of the center index element
+   */
+  centerWidth: number;
+  
+  /**
+   * Width of node cards
+   */
+  nodeWidth: number;
+  
+  /**
+   * Height of node cards
+   */
+  nodeHeight: number;
+}
+
+/**
+ * ConnectionLines Component
+ * 
+ * Renders SVG lines connecting the center index element to each node card.
+ * Uses curved paths for a more polished APM-style appearance.
+ * Primary nodes (left) use blue lines, replica nodes (right) use green lines.
+ * 
+ * Requirements: 1.4
+ * 
+ * @param props - Component props
+ * @returns SVG element with connection lines
+ */
+function ConnectionLines({
+  primaryNodes,
+  replicaNodes,
+  centerX,
+  centerY,
+  centerWidth,
+  nodeWidth,
+  nodeHeight,
+}: ConnectionLinesProps) {
+  /**
+   * Generate a curved SVG path from center to a node
+   * Uses quadratic bezier curve for smooth connection
+   * 
+   * @param nodeX - X coordinate of the node
+   * @param nodeY - Y coordinate of the node
+   * @param isLeft - Whether the node is on the left side (primary)
+   * @returns SVG path string
+   */
+  const generatePath = (nodeX: number, nodeY: number, isLeft: boolean): string => {
+    // Calculate connection points
+    const startX = isLeft ? centerX : centerX + centerWidth;
+    const startY = centerY;
+    
+    const endX = isLeft ? nodeX + nodeWidth : nodeX;
+    const endY = nodeY + nodeHeight / 2;
+    
+    // Calculate control point for bezier curve (midpoint with horizontal offset)
+    const controlX = (startX + endX) / 2;
+    const controlY = (startY + endY) / 2;
+    
+    // Create quadratic bezier curve path
+    return `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+  };
+  
+  return (
+    <svg
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}
+    >
+      {/* Primary node connections (blue) */}
+      {primaryNodes.map((node) => (
+        <path
+          key={`connection-primary-${node.nodeId}`}
+          d={generatePath(node.x, node.y, true)}
+          stroke="#228be6"
+          strokeWidth={2}
+          fill="none"
+          opacity={0.6}
+        />
+      ))}
+      
+      {/* Replica node connections (green) */}
+      {replicaNodes.map((node) => (
+        <path
+          key={`connection-replica-${node.nodeId}`}
+          d={generatePath(node.x, node.y, false)}
+          stroke="#40c057"
+          strokeWidth={2}
+          fill="none"
+          opacity={0.6}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
  * NodeCard Component
  * 
  * Renders a node card with name and shard count at the specified position.
@@ -86,6 +213,7 @@ function NodeCard({ node, onClick }: NodeCardProps) {
         top: node.y,
         width: 180,
         cursor: onClick ? 'pointer' : 'default',
+        zIndex: 1,
       }}
       onClick={() => onClick?.(node.nodeId)}
     >
@@ -294,6 +422,12 @@ export function IndexVisualization({
   const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
   const placeholderReplicaShards = placeholderShards.filter(s => !s.primary).length;
   
+  // Calculate center index position for connection lines
+  const centerX = DEFAULT_POSITIONING_CONFIG.containerWidth / 2 - DEFAULT_POSITIONING_CONFIG.centerWidth / 2;
+  const centerY = DEFAULT_POSITIONING_CONFIG.containerHeight / 2;
+  const nodeWidth = 180; // Must match NodeCard width
+  const nodeHeight = DEFAULT_POSITIONING_CONFIG.nodeHeight;
+  
   if (isLoading) {
     return (
       <Center h={400}>
@@ -341,6 +475,17 @@ export function IndexVisualization({
               margin: '0 auto',
             }}
           >
+            {/* Connection lines - Requirements: 1.4 */}
+            <ConnectionLines
+              primaryNodes={primaryNodes}
+              replicaNodes={replicaNodes}
+              centerX={centerX}
+              centerY={centerY}
+              centerWidth={DEFAULT_POSITIONING_CONFIG.centerWidth}
+              nodeWidth={nodeWidth}
+              nodeHeight={nodeHeight}
+            />
+            
             {/* Primary nodes (left side) - Requirements: 1.2, 2.3 */}
             {primaryNodes.map((node) => (
               <NodeCard key={`primary-${node.nodeId}`} node={node} onClick={onNodeClick} />
@@ -350,8 +495,9 @@ export function IndexVisualization({
             <Box
               style={{
                 position: 'absolute',
-                left: DEFAULT_POSITIONING_CONFIG.containerWidth / 2 - DEFAULT_POSITIONING_CONFIG.centerWidth / 2,
-                top: DEFAULT_POSITIONING_CONFIG.containerHeight / 2 - 80,
+                left: centerX,
+                top: centerY - 80,
+                zIndex: 2,
               }}
             >
               <CenterIndexElement
