@@ -64,7 +64,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - Handle vertical spacing for multiple nodes
     - _Requirements: 1.2, 1.3, 2.3, 2.4_
   
-  - [-] 4.3 Implement visual connections
+  - [x] 4.3 Implement visual connections
     - Draw SVG lines connecting center index to each node
     - Use appropriate line styling (color, width, curve)
     - _Requirements: 1.4_
@@ -75,13 +75,13 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 1.2, 1.3, 2.3, 2.4**
 
 - [ ] 5. Implement node cards with shard indicators
-  - [~] 5.1 Render node card with name and shard count
+  - [x] 5.1 Render node card with name and shard count
     - Display node name
     - Display total shard count for the node
     - Apply Mantine Card and Badge components for consistency
     - _Requirements: 2.1, 2.2_
   
-  - [~] 5.2 Render shard indicators with health colors
+  - [x] 5.2 Render shard indicators with health colors
     - Display individual shard indicators (reuse pattern from `ShardCell` component)
     - Apply color coding based on shard state (reuse existing `getShardStateColor` utility)
     - Display shard numbers for primary shards
@@ -93,7 +93,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
 
 - [ ] 6. Implement interactive elements
-  - [~] 6.1 Implement node hover tooltips
+  - [x] 6.1 Implement node hover tooltips
     - Add hover event handlers to node cards
     - Display Mantine Tooltip with node details (name, ID, shard count, heap, disk, CPU)
     - Reuse existing node data from `NodeInfo` type
@@ -103,7 +103,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 7: Node hover displays tooltip**
     - **Validates: Requirements 4.1**
   
-  - [~] 6.3 Implement shard hover tooltips
+  - [-] 6.3 Implement shard hover tooltips
     - Add hover event handlers to shard indicators
     - Display Mantine Tooltip with shard details (index, shard number, state, docs, size)
     - Reuse existing `formatBytes` utility for size formatting

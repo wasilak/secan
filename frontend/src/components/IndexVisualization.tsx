@@ -17,6 +17,7 @@ import {
   DEFAULT_POSITIONING_CONFIG,
   type NodePosition,
 } from '../utils/nodePositioning';
+import { formatBytes } from '../utils/formatters';
 import type { HealthStatus, ShardInfo } from '../types/api';
 
 /**
@@ -135,6 +136,7 @@ interface ShardIndicatorProps {
  * Renders an individual shard indicator with color coding based on shard state.
  * Displays shard number for primary shards, and shard + replica number for replicas.
  * Reuses the pattern from ShardCell component with transparent background and colored border.
+ * Shows detailed shard information on hover via tooltip.
  * 
  * Color coding (Requirements 3.1, 3.2, 3.3, 3.4, 3.5):
  * - STARTED: Green border (healthy)
@@ -146,55 +148,107 @@ interface ShardIndicatorProps {
  * - Primary shards: Show shard number only (e.g., "0", "1", "2")
  * - Replica shards: Show shard number (e.g., "0", "1", "2")
  * 
+ * Tooltip content (Requirement 4.2):
+ * - Index name
+ * - Shard number
+ * - Shard type (primary/replica)
+ * - State
+ * - Document count
+ * - Size (formatted using formatBytes)
+ * 
  * @param props - Component props
- * @returns Shard indicator element
+ * @returns Shard indicator element with tooltip
  */
 function ShardIndicator({ shard }: ShardIndicatorProps) {
   const borderColor = getShardBorderColor(shard.state);
   const cellSize = 32; // Smaller than ShardCell for compact display in node cards
   
-  return (
-    <Box
-      style={{
-        width: `${cellSize}px`,
-        height: `${cellSize}px`,
-        minWidth: `${cellSize}px`,
-        minHeight: `${cellSize}px`,
-        border: `2px solid ${borderColor}`,
-        backgroundColor: 'transparent',
-        borderRadius: '4px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '12px',
-        fontWeight: 600,
-        color: 'var(--mantine-color-gray-9)',
-        userSelect: 'none',
-        position: 'relative',
-      }}
-      // Accessibility
-      role="gridcell"
-      aria-label={`Shard ${shard.shard} of index ${shard.index}, ${shard.primary ? 'primary' : 'replica'}, state ${shard.state}`}
-    >
-      {/* Shard number - Requirements: 6.1, 6.2 */}
-      {shard.shard}
+  /**
+   * Tooltip content with shard details
+   * Requirements: 4.2 - Display index, shard number, state, docs, size
+   */
+  const tooltipContent = (
+    <div style={{ fontSize: 'var(--mantine-font-size-xs)' }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: 'var(--mantine-font-size-sm)' }}>
+        Shard {shard.shard}
+      </div>
       
-      {/* Primary indicator (small dot in corner) - Requirements: 6.1 */}
-      {shard.primary && (
-        <Box
-          style={{
-            position: 'absolute',
-            top: '2px',
-            right: '2px',
-            width: '5px',
-            height: '5px',
-            borderRadius: '50%',
-            backgroundColor: 'var(--mantine-color-blue-6)',
-          }}
-          aria-hidden="true"
-        />
-      )}
-    </Box>
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Index:</strong> {shard.index}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Type:</strong> {shard.primary ? 'Primary' : 'Replica'}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>State:</strong> {shard.state}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Documents:</strong> {shard.docs.toLocaleString()}
+      </div>
+      
+      <div style={{ marginBottom: '4px' }}>
+        <strong>Size:</strong> {formatBytes(shard.store)}
+      </div>
+    </div>
+  );
+  
+  return (
+    <Tooltip
+      label={tooltipContent}
+      position="top"
+      withArrow
+      arrowSize={6}
+      offset={8}
+      openDelay={200}
+      transitionProps={{ duration: 150 }}
+      multiline
+      w={250}
+    >
+      <Box
+        style={{
+          width: `${cellSize}px`,
+          height: `${cellSize}px`,
+          minWidth: `${cellSize}px`,
+          minHeight: `${cellSize}px`,
+          border: `2px solid ${borderColor}`,
+          backgroundColor: 'transparent',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          fontWeight: 600,
+          color: 'var(--mantine-color-gray-9)',
+          userSelect: 'none',
+          position: 'relative',
+        }}
+        // Accessibility
+        role="gridcell"
+        aria-label={`Shard ${shard.shard} of index ${shard.index}, ${shard.primary ? 'primary' : 'replica'}, state ${shard.state}`}
+      >
+        {/* Shard number - Requirements: 6.1, 6.2 */}
+        {shard.shard}
+        
+        {/* Primary indicator (small dot in corner) - Requirements: 6.1 */}
+        {shard.primary && (
+          <Box
+            style={{
+              position: 'absolute',
+              top: '2px',
+              right: '2px',
+              width: '5px',
+              height: '5px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--mantine-color-blue-6)',
+            }}
+            aria-hidden="true"
+          />
+        )}
+      </Box>
+    </Tooltip>
   );
 }
 
