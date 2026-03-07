@@ -13,9 +13,10 @@ import {
   TextInput,
   Menu,
   ScrollArea,
+  Collapse,
 } from '@mantine/core';
 import { useMediaQuery, useViewportSize } from '@mantine/hooks';
-import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg } from '@tabler/icons-react';
+import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { toPng } from 'html-to-image';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
@@ -1014,6 +1015,126 @@ export function IndexVisualization({
   // Enable ScrollArea when more than 10 nodes total
   const needsScrolling = totalNodeCount > 10;
   
+  // Determine if node grouping is needed - Requirements: 5.3
+  // Group nodes by shard count when more than 20 nodes total
+  const needsGrouping = totalNodeCount > 20;
+  
+  // State for managing group expansion - Requirements: 5.3
+  // Track which groups are expanded (by group key)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  
+  /**
+   * Toggle group expansion state
+   * Requirements: 5.3 - Allow users to expand/collapse groups
+   * 
+   * @param groupKey - Unique identifier for the group
+   */
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
+  
+  /**
+   * Group nodes by shard count ranges
+   * Requirements: 5.3 - Group nodes by shard count when more than 20 nodes
+   * 
+   * Creates groups with ranges: 1-5 shards, 6-10 shards, 11-20 shards, 21+ shards
+   * 
+   * @param nodes - Array of node positions to group
+   * @param side - 'primary' or 'replica' to create unique group keys
+   * @returns Array of node groups with metadata
+   */
+  interface NodeGroup {
+    key: string;
+    label: string;
+    range: string;
+    nodes: NodePosition[];
+    minShards: number;
+    maxShards: number;
+  }
+  
+  const groupNodesByShardCount = (nodes: NodePosition[], side: 'primary' | 'replica'): NodeGroup[] => {
+    // Define shard count ranges
+    const ranges = [
+      { min: 1, max: 5, label: '1-5 shards' },
+      { min: 6, max: 10, label: '6-10 shards' },
+      { min: 11, max: 20, label: '11-20 shards' },
+      { min: 21, max: Infinity, label: '21+ shards' },
+    ];
+    
+    // Group nodes into ranges
+    const groups: NodeGroup[] = [];
+    
+    for (const range of ranges) {
+      const nodesInRange = nodes.filter(
+        (node) => node.shardCount >= range.min && node.shardCount <= range.max
+      );
+      
+      if (nodesInRange.length > 0) {
+        groups.push({
+          key: `${side}-${range.min}-${range.max}`,
+          label: range.label,
+          range: range.label,
+          nodes: nodesInRange,
+          minShards: range.min,
+          maxShards: range.max,
+        });
+      }
+    }
+    
+    return groups;
+  };
+  
+  // Group nodes if needed - Requirements: 5.3
+  const primaryGroups = useMemo(() => {
+    if (!needsGrouping) return null;
+    return groupNodesByShardCount(filteredPrimaryNodes, 'primary');
+  }, [needsGrouping, filteredPrimaryNodes]);
+  
+  const replicaGroups = useMemo(() => {
+    if (!needsGrouping) return null;
+    return groupNodesByShardCount(filteredReplicaNodes, 'replica');
+  }, [needsGrouping, filteredReplicaNodes]);
+  
+  // Get nodes to display based on grouping and expansion state
+  // Requirements: 5.3 - Only show nodes from expanded groups
+  const visiblePrimaryNodes = useMemo(() => {
+    if (!needsGrouping || !primaryGroups) {
+      return filteredPrimaryNodes;
+    }
+    
+    // Only show nodes from expanded groups
+    const visible: NodePosition[] = [];
+    for (const group of primaryGroups) {
+      if (expandedGroups.has(group.key)) {
+        visible.push(...group.nodes);
+      }
+    }
+    return visible;
+  }, [needsGrouping, primaryGroups, filteredPrimaryNodes, expandedGroups]);
+  
+  const visibleReplicaNodes = useMemo(() => {
+    if (!needsGrouping || !replicaGroups) {
+      return filteredReplicaNodes;
+    }
+    
+    // Only show nodes from expanded groups
+    const visible: NodePosition[] = [];
+    for (const group of replicaGroups) {
+      if (expandedGroups.has(group.key)) {
+        visible.push(...group.nodes);
+      }
+    }
+    return visible;
+  }, [needsGrouping, replicaGroups, filteredReplicaNodes, expandedGroups]);
+  
   // Calculate shard counts for center element
   const placeholderHealth: HealthStatus = 'green';
   const placeholderPrimaryShards = placeholderShards.filter(s => s.primary).length;
@@ -1190,154 +1311,315 @@ export function IndexVisualization({
             style={{ maxWidth: 300 }}
           />
           
-          {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
-          {/* Container adapts to viewport width and recalculates on resize */}
-          {/* Wrap in ScrollArea when more than 10 nodes - Requirements: 5.1, 5.2 */}
-          {needsScrolling ? (
-            <ScrollArea
-              h={600}
-              scrollbarSize={12}
-              scrollHideDelay={500}
-              style={{
-                width: '100%',
-              }}
-            >
-              <Box
-                id="visualization-container"
-                h={positioningConfig.containerHeight}
-                style={{
-                  position: 'relative',
-                  width: positioningConfig.containerWidth,
-                  margin: '0 auto',
-                  // Smooth transition when switching between layouts
-                  transition: 'width 0.3s ease, height 0.3s ease',
-                  // Apply zoom transform - Requirements: 5.5
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
-                  // Smooth zoom transition
-                  transitionProperty: 'width, height, transform',
-                }}
-              >
-                {/* Connection lines - Requirements: 1.4 */}
-                <ConnectionLines
-                  primaryNodes={filteredPrimaryNodes}
-                  replicaNodes={filteredReplicaNodes}
-                  centerX={centerX}
-                  centerY={centerY}
-                  centerWidth={positioningConfig.centerWidth}
-                  nodeWidth={nodeWidth}
-                  nodeHeight={nodeHeight}
-                />
-                
-                {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
-                {filteredPrimaryNodes.map((node) => (
-                  <NodeCard 
-                    key={`primary-${node.nodeId}`} 
-                    node={node} 
-                    onClick={onNodeClick}
-                    fontSizes={fontSizes}
-                  />
-                ))}
-                
-                {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
-                <Box
+          {/* Node grouping UI - Requirements: 5.3 */}
+          {needsGrouping && (primaryGroups || replicaGroups) ? (
+            <Stack gap="md">
+              {/* Primary node groups */}
+              {primaryGroups && primaryGroups.length > 0 && (
+                <Box>
+                  <Text size="sm" fw={600} mb="xs" c="blue">
+                    Primary Shard Nodes ({filteredPrimaryNodes.length})
+                  </Text>
+                  <Stack gap="xs">
+                    {primaryGroups.map((group) => (
+                      <Card key={group.key} padding="sm" withBorder>
+                        <Group
+                          justify="space-between"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => toggleGroup(group.key)}
+                        >
+                          <Group gap="xs">
+                            <ActionIcon
+                              variant="subtle"
+                              size="sm"
+                              aria-label={expandedGroups.has(group.key) ? 'Collapse group' : 'Expand group'}
+                            >
+                              {expandedGroups.has(group.key) ? (
+                                <IconChevronUp size={16} />
+                              ) : (
+                                <IconChevronDown size={16} />
+                              )}
+                            </ActionIcon>
+                            <Text size="sm" fw={500}>
+                              {group.label}
+                            </Text>
+                          </Group>
+                          <Badge size="sm" variant="light" color="blue">
+                            {group.nodes.length} {group.nodes.length === 1 ? 'node' : 'nodes'}
+                          </Badge>
+                        </Group>
+                        
+                        <Collapse in={expandedGroups.has(group.key)}>
+                          <Box mt="sm">
+                            <ScrollArea h={400} scrollbarSize={8}>
+                              <Stack gap="xs">
+                                {group.nodes.map((node) => (
+                                  <Card
+                                    key={node.nodeId}
+                                    padding="sm"
+                                    withBorder
+                                    style={{ cursor: onNodeClick ? 'pointer' : 'default' }}
+                                    onClick={() => onNodeClick?.(node.nodeId)}
+                                  >
+                                    <Group justify="space-between">
+                                      <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+                                        {node.nodeName}
+                                      </Text>
+                                      <Badge size="sm" variant="light">
+                                        {node.shardCount} {node.shardCount === 1 ? 'shard' : 'shards'}
+                                      </Badge>
+                                    </Group>
+                                    <Group gap={4} wrap="wrap" mt="xs">
+                                      {node.shards.map((shard) => (
+                                        <ShardIndicator
+                                          key={`${shard.index}-${shard.shard}-${shard.primary}`}
+                                          shard={shard}
+                                          fontSizes={fontSizes}
+                                        />
+                                      ))}
+                                    </Group>
+                                  </Card>
+                                ))}
+                              </Stack>
+                            </ScrollArea>
+                          </Box>
+                        </Collapse>
+                      </Card>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+              
+              {/* Replica node groups */}
+              {replicaGroups && replicaGroups.length > 0 && (
+                <Box>
+                  <Text size="sm" fw={600} mb="xs" c="green">
+                    Replica Shard Nodes ({filteredReplicaNodes.length})
+                  </Text>
+                  <Stack gap="xs">
+                    {replicaGroups.map((group) => (
+                      <Card key={group.key} padding="sm" withBorder>
+                        <Group
+                          justify="space-between"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => toggleGroup(group.key)}
+                        >
+                          <Group gap="xs">
+                            <ActionIcon
+                              variant="subtle"
+                              size="sm"
+                              aria-label={expandedGroups.has(group.key) ? 'Collapse group' : 'Expand group'}
+                            >
+                              {expandedGroups.has(group.key) ? (
+                                <IconChevronUp size={16} />
+                              ) : (
+                                <IconChevronDown size={16} />
+                              )}
+                            </ActionIcon>
+                            <Text size="sm" fw={500}>
+                              {group.label}
+                            </Text>
+                          </Group>
+                          <Badge size="sm" variant="light" color="green">
+                            {group.nodes.length} {group.nodes.length === 1 ? 'node' : 'nodes'}
+                          </Badge>
+                        </Group>
+                        
+                        <Collapse in={expandedGroups.has(group.key)}>
+                          <Box mt="sm">
+                            <ScrollArea h={400} scrollbarSize={8}>
+                              <Stack gap="xs">
+                                {group.nodes.map((node) => (
+                                  <Card
+                                    key={node.nodeId}
+                                    padding="sm"
+                                    withBorder
+                                    style={{ cursor: onNodeClick ? 'pointer' : 'default' }}
+                                    onClick={() => onNodeClick?.(node.nodeId)}
+                                  >
+                                    <Group justify="space-between">
+                                      <Text size="sm" fw={500} truncate style={{ flex: 1 }}>
+                                        {node.nodeName}
+                                      </Text>
+                                      <Badge size="sm" variant="light">
+                                        {node.shardCount} {node.shardCount === 1 ? 'shard' : 'shards'}
+                                      </Badge>
+                                    </Group>
+                                    <Group gap={4} wrap="wrap" mt="xs">
+                                      {node.shards.map((shard) => (
+                                        <ShardIndicator
+                                          key={`${shard.index}-${shard.shard}-${shard.primary}`}
+                                          shard={shard}
+                                          fontSizes={fontSizes}
+                                        />
+                                      ))}
+                                    </Group>
+                                  </Card>
+                                ))}
+                              </Stack>
+                            </ScrollArea>
+                          </Box>
+                        </Collapse>
+                      </Card>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          ) : (
+            <>
+              {/* Visualization container with absolute positioning - Requirements: 8.1, 8.5 */}
+              {/* Container adapts to viewport width and recalculates on resize */}
+              {/* Wrap in ScrollArea when more than 10 nodes - Requirements: 5.1, 5.2 */}
+              {needsScrolling ? (
+                <ScrollArea
+                  h={600}
+                  scrollbarSize={12}
+                  scrollHideDelay={500}
                   style={{
-                    position: 'absolute',
-                    left: centerX,
-                    top: isMobile ? centerY : centerY - 80,
-                    zIndex: 2,
-                    // Smooth transition when switching between layouts
-                    transition: 'left 0.3s ease, top 0.3s ease',
+                    width: '100%',
                   }}
                 >
-                  <CenterIndexElement
-                    indexName={indexName}
-                    health={placeholderHealth}
-                    primaryShards={placeholderPrimaryShards}
-                    replicaShards={placeholderReplicaShards}
-                    fontSizes={fontSizes}
+                  <Box
+                    id="visualization-container"
+                    h={positioningConfig.containerHeight}
+                    style={{
+                      position: 'relative',
+                      width: positioningConfig.containerWidth,
+                      margin: '0 auto',
+                      // Smooth transition when switching between layouts
+                      transition: 'width 0.3s ease, height 0.3s ease',
+                      // Apply zoom transform - Requirements: 5.5
+                      transform: `scale(${zoomLevel})`,
+                      transformOrigin: 'center center',
+                      // Smooth zoom transition
+                      transitionProperty: 'width, height, transform',
+                    }}
+                  >
+                    {/* Connection lines - Requirements: 1.4 */}
+                    {/* Only render connections for visible nodes - Requirements: 5.3 */}
+                    <ConnectionLines
+                      primaryNodes={visiblePrimaryNodes}
+                      replicaNodes={visibleReplicaNodes}
+                      centerX={centerX}
+                      centerY={centerY}
+                      centerWidth={positioningConfig.centerWidth}
+                      nodeWidth={nodeWidth}
+                      nodeHeight={nodeHeight}
+                    />
+                    
+                    {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
+                    {visiblePrimaryNodes.map((node) => (
+                      <NodeCard 
+                        key={`primary-${node.nodeId}`} 
+                        node={node} 
+                        onClick={onNodeClick}
+                        fontSizes={fontSizes}
+                      />
+                    ))}
+                    
+                    {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        left: centerX,
+                        top: isMobile ? centerY : centerY - 80,
+                        zIndex: 2,
+                        // Smooth transition when switching between layouts
+                        transition: 'left 0.3s ease, top 0.3s ease',
+                      }}
+                    >
+                      <CenterIndexElement
+                        indexName={indexName}
+                        health={placeholderHealth}
+                        primaryShards={placeholderPrimaryShards}
+                        replicaShards={placeholderReplicaShards}
+                        fontSizes={fontSizes}
+                      />
+                    </Box>
+                    
+                    {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
+                    {visibleReplicaNodes.map((node) => (
+                      <NodeCard 
+                        key={`replica-${node.nodeId}`} 
+                        node={node} 
+                        onClick={onNodeClick}
+                        fontSizes={fontSizes}
+                      />
+                    ))}
+                  </Box>
+                </ScrollArea>
+              ) : (
+                <Box
+                  id="visualization-container"
+                  h={positioningConfig.containerHeight}
+                  style={{
+                    position: 'relative',
+                    width: positioningConfig.containerWidth,
+                    margin: '0 auto',
+                    // Smooth transition when switching between layouts
+                    transition: 'width 0.3s ease, height 0.3s ease',
+                    // Apply zoom transform - Requirements: 5.5
+                    transform: `scale(${zoomLevel})`,
+                    transformOrigin: 'center center',
+                    // Smooth zoom transition
+                    transitionProperty: 'width, height, transform',
+                  }}
+                >
+                  {/* Connection lines - Requirements: 1.4 */}
+                  {/* Only render connections for visible nodes - Requirements: 5.3 */}
+                  <ConnectionLines
+                    primaryNodes={visiblePrimaryNodes}
+                    replicaNodes={visibleReplicaNodes}
+                    centerX={centerX}
+                    centerY={centerY}
+                    centerWidth={positioningConfig.centerWidth}
+                    nodeWidth={nodeWidth}
+                    nodeHeight={nodeHeight}
                   />
+                  
+                  {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
+                  {visiblePrimaryNodes.map((node) => (
+                    <NodeCard 
+                      key={`primary-${node.nodeId}`} 
+                      node={node} 
+                      onClick={onNodeClick}
+                      fontSizes={fontSizes}
+                    />
+                  ))}
+                  
+                  {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      left: centerX,
+                      top: isMobile ? centerY : centerY - 80,
+                      zIndex: 2,
+                      // Smooth transition when switching between layouts
+                      transition: 'left 0.3s ease, top 0.3s ease',
+                    }}
+                  >
+                    <CenterIndexElement
+                      indexName={indexName}
+                      health={placeholderHealth}
+                      primaryShards={placeholderPrimaryShards}
+                      replicaShards={placeholderReplicaShards}
+                      fontSizes={fontSizes}
+                    />
+                  </Box>
+                  
+                  {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
+                  {visibleReplicaNodes.map((node) => (
+                    <NodeCard 
+                      key={`replica-${node.nodeId}`} 
+                      node={node} 
+                      onClick={onNodeClick}
+                      fontSizes={fontSizes}
+                    />
+                  ))}
                 </Box>
-                
-                {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-                {filteredReplicaNodes.map((node) => (
-                  <NodeCard 
-                    key={`replica-${node.nodeId}`} 
-                    node={node} 
-                    onClick={onNodeClick}
-                    fontSizes={fontSizes}
-                  />
-                ))}
-              </Box>
-            </ScrollArea>
-          ) : (
-            <Box
-              id="visualization-container"
-              h={positioningConfig.containerHeight}
-              style={{
-                position: 'relative',
-                width: positioningConfig.containerWidth,
-                margin: '0 auto',
-                // Smooth transition when switching between layouts
-                transition: 'width 0.3s ease, height 0.3s ease',
-                // Apply zoom transform - Requirements: 5.5
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center center',
-                // Smooth zoom transition
-                transitionProperty: 'width, height, transform',
-              }}
-            >
-              {/* Connection lines - Requirements: 1.4 */}
-              <ConnectionLines
-                primaryNodes={filteredPrimaryNodes}
-                replicaNodes={filteredReplicaNodes}
-                centerX={centerX}
-                centerY={centerY}
-                centerWidth={positioningConfig.centerWidth}
-                nodeWidth={nodeWidth}
-                nodeHeight={nodeHeight}
-              />
-              
-              {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
-              {filteredPrimaryNodes.map((node) => (
-                <NodeCard 
-                  key={`primary-${node.nodeId}`} 
-                  node={node} 
-                  onClick={onNodeClick}
-                  fontSizes={fontSizes}
-                />
-              ))}
-              
-              {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
-              <Box
-                style={{
-                  position: 'absolute',
-                  left: centerX,
-                  top: isMobile ? centerY : centerY - 80,
-                  zIndex: 2,
-                  // Smooth transition when switching between layouts
-                  transition: 'left 0.3s ease, top 0.3s ease',
-                }}
-              >
-                <CenterIndexElement
-                  indexName={indexName}
-                  health={placeholderHealth}
-                  primaryShards={placeholderPrimaryShards}
-                  replicaShards={placeholderReplicaShards}
-                  fontSizes={fontSizes}
-                />
-              </Box>
-              
-              {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
-              {filteredReplicaNodes.map((node) => (
-                <NodeCard 
-                  key={`replica-${node.nodeId}`} 
-                  node={node} 
-                  onClick={onNodeClick}
-                  fontSizes={fontSizes}
-                />
-              ))}
-            </Box>
+              )}
+            </>
           )}
         </Stack>
       </Card>

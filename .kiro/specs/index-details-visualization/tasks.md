@@ -173,12 +173,12 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 10.4**
 
 - [ ] 9. Handle large-scale deployments
-  - [-] 9.1 Implement scrolling for many nodes
+  - [x] 9.1 Implement scrolling for many nodes
     - Add Mantine ScrollArea when more than 10 nodes
     - Maintain visual clarity with scroll indicators
     - _Requirements: 5.1, 5.2_
   
-  - [~] 9.2 Implement node grouping for very large clusters
+  - [-] 9.2 Implement node grouping for very large clusters
     - Group nodes by shard count when more than 20 nodes
     - Display grouped nodes with Mantine Collapse for expand/collapse
     - _Requirements: 5.3_
