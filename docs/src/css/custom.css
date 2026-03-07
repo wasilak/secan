@@ -47,6 +47,33 @@
   /* Dark mode Mermaid colors - uses dark theme */
 }
 
+/* Admonition styling (notes, warnings, tips) */
+.admonition {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.admonition-note {
+  border-left: 4px solid var(--ifm-color-primary);
+}
+
+.admonition-tip {
+  border-left: 4px solid var(--ifm-color-success);
+}
+
+.admonition-warning {
+  border-left: 4px solid var(--ifm-color-warning);
+}
+
+.admonition-danger {
+  border-left: 4px solid var(--ifm-color-danger);
+}
+
+.admonition-info {
+  border-left: 4px solid var(--ifm-color-info);
+}
+
 /* Custom card grid for landing page */
 .card-grid {
   display: grid;
