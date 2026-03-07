@@ -15,6 +15,7 @@ import {
 } from '../../utils/topologyGrouping';
 import { GroupingControl } from './GroupingControl';
 import { GroupRenderer } from './GroupRenderer';
+import { GroupingErrorBoundary } from './GroupingErrorBoundary';
 
 /**
  * Format bytes to human-readable format
@@ -427,13 +428,15 @@ export function DotBasedTopologyView({
 
   return (
     <div>
-      {/* Grouping Control */}
+      {/* Grouping Control - wrapped in error boundary */}
       <Box mb="md">
-        <GroupingControl
-          currentGrouping={groupingConfig.attribute}
-          availableLabels={availableLabels}
-          onGroupingChange={handleGroupingChange}
-        />
+        <GroupingErrorBoundary>
+          <GroupingControl
+            currentGrouping={groupingConfig.attribute}
+            availableLabels={availableLabels}
+            onGroupingChange={handleGroupingChange}
+          />
+        </GroupingErrorBoundary>
       </Box>
 
       {/* Nodes Grid - with or without grouping */}
@@ -448,35 +451,49 @@ export function DotBasedTopologyView({
         </Grid>
       ) : (
         // With grouping - render one GroupRenderer per group
-        <>
-          {Array.from(nodeGroups.entries()).map(([groupKey, groupNodes]) => {
-            // Filter to only nodes that have shards (are in filteredShardsByNode)
-            const nodesWithShards = groupNodes.filter(node => 
-              filteredShardsByNode[node.name] || filteredShardsByNode[node.id]
-            );
+        // Filter out empty groups before rendering
+        <GroupingErrorBoundary
+          fallback={
+            <Grid gutter="md">
+              {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
+                const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
+                if (!node) return null;
+                return renderNodeCard(node, nodeShards);
+              })}
+            </Grid>
+          }
+        >
+          {Array.from(nodeGroups.entries())
+            .map(([groupKey, groupNodes]) => {
+              // Filter to only nodes that have shards (are in filteredShardsByNode)
+              const nodesWithShards = groupNodes.filter(node => 
+                filteredShardsByNode[node.name] || filteredShardsByNode[node.id]
+              );
 
-            // Skip empty groups
-            if (nodesWithShards.length === 0) {
-              return null;
-            }
+              // Skip empty groups - filter out before rendering
+              if (nodesWithShards.length === 0) {
+                return null;
+              }
 
-            return (
-              <GroupRenderer
-                key={groupKey}
-                groupKey={groupKey}
-                groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
-                nodes={nodesWithShards}
-              >
-                <Grid gutter="md">
-                  {nodesWithShards.map(node => {
-                    const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
-                    return renderNodeCard(node, nodeShards);
-                  })}
-                </Grid>
-              </GroupRenderer>
-            );
-          })}
-        </>
+              return (
+                <GroupRenderer
+                  key={groupKey}
+                  groupKey={groupKey}
+                  groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
+                  nodes={nodesWithShards}
+                >
+                  <Grid gutter="md">
+                    {nodesWithShards.map(node => {
+                      const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+                      return renderNodeCard(node, nodeShards);
+                    })}
+                  </Grid>
+                </GroupRenderer>
+              );
+            })
+            .filter(Boolean) /* Remove null entries from empty groups */
+          }
+        </GroupingErrorBoundary>
       )}
 
       {/* Unassigned Shards */}

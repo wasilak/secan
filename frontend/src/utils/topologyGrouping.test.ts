@@ -2,7 +2,7 @@
  * Unit tests for topology grouping utilities
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { NodeInfo } from '../types/api';
 import {
   parseGroupingFromUrl,
@@ -76,6 +76,41 @@ describe('parseGroupingFromUrl', () => {
     const params = new URLSearchParams('?groupBy=role&groupValue=zone-a');
     const result = parseGroupingFromUrl(params);
     expect(result).toEqual({ attribute: 'role', value: 'zone-a' });
+  });
+
+  it('should log warning for invalid groupBy parameter', () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    const params = new URLSearchParams('?groupBy=invalid');
+    parseGroupingFromUrl(params);
+    
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Invalid groupBy parameter: invalid. Defaulting to no grouping.'
+    );
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should not log warning for valid parameters', () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    const params = new URLSearchParams('?groupBy=role');
+    parseGroupingFromUrl(params);
+    
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    
+    consoleWarnSpy.mockRestore();
+  });
+
+  it('should not log warning for no parameters', () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    const params = new URLSearchParams('');
+    parseGroupingFromUrl(params);
+    
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    
+    consoleWarnSpy.mockRestore();
   });
 });
 
@@ -277,6 +312,35 @@ describe('calculateNodeGroups', () => {
 
       expect(groups.size).toBe(2);
       expect(groups.get('zone-a')).toHaveLength(1);
+      expect(groups.get('undefined')).toHaveLength(2);
+    });
+  });
+
+  describe('empty groups', () => {
+    it('should not create empty groups', () => {
+      const nodes = [
+        createMockNode({ id: 'node-1', roles: ['master'] }),
+        createMockNode({ id: 'node-2', roles: ['master'] }),
+      ];
+      const config: GroupingConfig = { attribute: 'role' };
+      const groups = calculateNodeGroups(nodes, config);
+
+      // Should only have 'master' group, no empty groups
+      expect(groups.size).toBe(1);
+      expect(groups.has('master')).toBe(true);
+      expect(groups.get('master')).toHaveLength(2);
+    });
+
+    it('should handle all nodes in undefined group', () => {
+      const nodes = [
+        createMockNode({ id: 'node-1', roles: [] }),
+        createMockNode({ id: 'node-2', roles: undefined }),
+      ];
+      const config: GroupingConfig = { attribute: 'role' };
+      const groups = calculateNodeGroups(nodes, config);
+
+      expect(groups.size).toBe(1);
+      expect(groups.has('undefined')).toBe(true);
       expect(groups.get('undefined')).toHaveLength(2);
     });
   });

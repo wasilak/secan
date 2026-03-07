@@ -148,7 +148,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Performance optimization and error handling
-  - [-] 8.1 Add performance optimizations
+  - [x] 8.1 Add performance optimizations
     - Verify `useMemo` is used for group calculation
     - Add debouncing to grouping changes if needed
     - Test performance with 100 nodes
@@ -156,7 +156,7 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Ensure grouping updates within 500ms for 100 nodes
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
   
-  - [~] 8.2 Implement error handling
+  - [-] 8.2 Implement error handling
     - Add console warning for invalid grouping parameters
     - Handle missing node attributes gracefully (create "undefined" group)
     - Filter out empty groups before rendering
