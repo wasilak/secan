@@ -10,7 +10,7 @@ import {
   Center,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
-import { getHealthColor } from '../utils/colors';
+import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
   calculateNodePositions,
   DEFAULT_POSITIONING_CONFIG,
@@ -105,6 +105,87 @@ interface ConnectionLinesProps {
 }
 
 /**
+ * Props for the ShardIndicator component
+ * 
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2
+ */
+interface ShardIndicatorProps {
+  /**
+   * Shard information to display
+   */
+  shard: ShardInfo;
+}
+
+/**
+ * ShardIndicator Component
+ * 
+ * Renders an individual shard indicator with color coding based on shard state.
+ * Displays shard number for primary shards, and shard + replica number for replicas.
+ * Reuses the pattern from ShardCell component with transparent background and colored border.
+ * 
+ * Color coding (Requirements 3.1, 3.2, 3.3, 3.4, 3.5):
+ * - STARTED: Green border (healthy)
+ * - INITIALIZING: Yellow border (transitional)
+ * - RELOCATING: Orange border (transitional)
+ * - UNASSIGNED: Red border (critical)
+ * 
+ * Display format (Requirements 6.1, 6.2):
+ * - Primary shards: Show shard number only (e.g., "0", "1", "2")
+ * - Replica shards: Show shard number (e.g., "0", "1", "2")
+ * 
+ * @param props - Component props
+ * @returns Shard indicator element
+ */
+function ShardIndicator({ shard }: ShardIndicatorProps) {
+  const borderColor = getShardBorderColor(shard.state);
+  const cellSize = 32; // Smaller than ShardCell for compact display in node cards
+  
+  return (
+    <Box
+      style={{
+        width: `${cellSize}px`,
+        height: `${cellSize}px`,
+        minWidth: `${cellSize}px`,
+        minHeight: `${cellSize}px`,
+        border: `2px solid ${borderColor}`,
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '12px',
+        fontWeight: 600,
+        color: 'var(--mantine-color-gray-9)',
+        userSelect: 'none',
+        position: 'relative',
+      }}
+      // Accessibility
+      role="gridcell"
+      aria-label={`Shard ${shard.shard} of index ${shard.index}, ${shard.primary ? 'primary' : 'replica'}, state ${shard.state}`}
+    >
+      {/* Shard number - Requirements: 6.1, 6.2 */}
+      {shard.shard}
+      
+      {/* Primary indicator (small dot in corner) - Requirements: 6.1 */}
+      {shard.primary && (
+        <Box
+          style={{
+            position: 'absolute',
+            top: '2px',
+            right: '2px',
+            width: '5px',
+            height: '5px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--mantine-color-blue-6)',
+          }}
+          aria-hidden="true"
+        />
+      )}
+    </Box>
+  );
+}
+
+/**
  * ConnectionLines Component
  * 
  * Renders SVG lines connecting the center index element to each node card.
@@ -192,10 +273,10 @@ function ConnectionLines({
 /**
  * NodeCard Component
  * 
- * Renders a node card with name and shard count at the specified position.
+ * Renders a node card with name, shard count, and individual shard indicators.
  * Used for both primary and replica nodes in the visualization.
  * 
- * Requirements: 2.1, 2.2
+ * Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2
  * 
  * @param props - Component props
  * @returns Node card element
@@ -228,6 +309,13 @@ function NodeCard({ node, onClick }: NodeCardProps) {
           <Badge size="sm" variant="light">
             {node.shardCount}
           </Badge>
+        </Group>
+        
+        {/* Individual shard indicators - Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2 */}
+        <Group gap={4} wrap="wrap">
+          {node.shards.map((shard) => (
+            <ShardIndicator key={`${shard.index}-${shard.shard}-${shard.primary}`} shard={shard} />
+          ))}
         </Group>
       </Stack>
     </Card>
