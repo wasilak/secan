@@ -171,13 +171,13 @@ This implementation adds visual grouping capabilities to the existing cluster to
     - Use fast-check to generate node arrays with and without labels
 
 - [ ] 9. Final integration and testing
-  - [-] 9.1 Verify all node types are displayed
+  - [x] 9.1 Verify all node types are displayed
     - Test with clusters containing master, data, ingest, ml, coordinating nodes
     - Verify no nodes are filtered based on roles
     - Verify existing node visualization is unchanged
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
   
-  - [~] 9.2 Verify grouping functionality
+  - [-] 9.2 Verify grouping functionality
     - Test grouping by role with various node configurations
     - Test grouping by type with various node configurations
     - Test grouping by label with custom labels
