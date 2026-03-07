@@ -124,7 +124,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Validates: Requirements 4.3**
 
 - [ ] 7. Implement responsive layout
-  - [-] 7.1 Implement viewport width adaptation
+  - [x] 7.1 Implement viewport width adaptation
     - Calculate layout based on available viewport width
     - Stack nodes vertically when viewport width < 768px (reuse responsive patterns from ShardGrid)
     - Recalculate layout on window resize using `useMediaQuery` hook
@@ -134,7 +134,7 @@ This implementation plan adds an APM-style visualization tab to the existing Ind
     - **Property 16: Layout adapts to viewport width**
     - **Validates: Requirements 8.1, 8.5**
   
-  - [~] 7.3 Implement responsive font sizes
+  - [-] 7.3 Implement responsive font sizes
     - Scale font sizes based on zoom level
     - Ensure readability at different viewport sizes
     - _Requirements: 8.4_

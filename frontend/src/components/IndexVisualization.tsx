@@ -10,7 +10,7 @@ import {
   Center,
   Tooltip,
 } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery, useViewportSize } from '@mantine/hooks';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getHealthColor, getShardBorderColor } from '../utils/colors';
 import {
@@ -22,6 +22,93 @@ import {
 import { formatBytes } from '../utils/formatters';
 import type { HealthStatus, ShardInfo } from '../types/api';
 import { useMemo } from 'react';
+
+/**
+ * Responsive font size configuration
+ * 
+ * Requirements: 8.4 - Scale font sizes based on zoom level and viewport size
+ * 
+ * Calculates font sizes that scale proportionally with viewport width
+ * to maintain readability at different screen sizes.
+ */
+interface ResponsiveFontSizes {
+  /** Font size for shard indicators (numbers inside shard boxes) */
+  shardIndicator: string;
+  /** Font size for node card titles (node names) */
+  nodeTitle: string;
+  /** Font size for node card labels (e.g., "Shards:") */
+  nodeLabel: string;
+  /** Font size for center index title */
+  centerTitle: string;
+  /** Font size for center index labels */
+  centerLabel: string;
+  /** Font size for tooltip content */
+  tooltipContent: string;
+  /** Font size for tooltip headers */
+  tooltipHeader: string;
+}
+
+/**
+ * Calculate responsive font sizes based on viewport width
+ * 
+ * Requirements: 8.4 - Ensure readability at different viewport sizes
+ * 
+ * Uses a scaling factor based on viewport width to adjust font sizes:
+ * - Mobile (< 768px): Smaller base sizes with moderate scaling
+ * - Tablet (768px - 1024px): Medium base sizes with proportional scaling
+ * - Desktop (> 1024px): Standard base sizes
+ * 
+ * @param viewportWidth - Current viewport width in pixels
+ * @returns Object containing responsive font sizes
+ */
+function calculateResponsiveFontSizes(viewportWidth: number): ResponsiveFontSizes {
+  // Define breakpoints
+  const MOBILE_BREAKPOINT = 768;
+  const TABLET_BREAKPOINT = 1024;
+  const DESKTOP_BREAKPOINT = 1440;
+  
+  // Calculate scaling factor based on viewport width
+  // Requirements: 8.4 - Scale font sizes based on viewport size
+  let scaleFactor: number;
+  
+  if (viewportWidth < MOBILE_BREAKPOINT) {
+    // Mobile: scale from 0.85 to 1.0 as width increases from 320px to 768px
+    scaleFactor = 0.85 + ((viewportWidth - 320) / (MOBILE_BREAKPOINT - 320)) * 0.15;
+  } else if (viewportWidth < TABLET_BREAKPOINT) {
+    // Tablet: scale from 1.0 to 1.1 as width increases from 768px to 1024px
+    scaleFactor = 1.0 + ((viewportWidth - MOBILE_BREAKPOINT) / (TABLET_BREAKPOINT - MOBILE_BREAKPOINT)) * 0.1;
+  } else if (viewportWidth < DESKTOP_BREAKPOINT) {
+    // Desktop: scale from 1.1 to 1.2 as width increases from 1024px to 1440px
+    scaleFactor = 1.1 + ((viewportWidth - TABLET_BREAKPOINT) / (DESKTOP_BREAKPOINT - TABLET_BREAKPOINT)) * 0.1;
+  } else {
+    // Large desktop: cap at 1.2x
+    scaleFactor = 1.2;
+  }
+  
+  // Clamp scale factor to reasonable bounds
+  scaleFactor = Math.max(0.85, Math.min(1.2, scaleFactor));
+  
+  // Base font sizes (in pixels)
+  const BASE_SHARD_INDICATOR = 12;
+  const BASE_NODE_TITLE = 14;
+  const BASE_NODE_LABEL = 12;
+  const BASE_CENTER_TITLE = 18;
+  const BASE_CENTER_LABEL = 14;
+  const BASE_TOOLTIP_CONTENT = 12;
+  const BASE_TOOLTIP_HEADER = 14;
+  
+  // Apply scaling factor to all font sizes
+  // Requirements: 8.4 - Font sizes scale proportionally
+  return {
+    shardIndicator: `${Math.round(BASE_SHARD_INDICATOR * scaleFactor)}px`,
+    nodeTitle: `${Math.round(BASE_NODE_TITLE * scaleFactor)}px`,
+    nodeLabel: `${Math.round(BASE_NODE_LABEL * scaleFactor)}px`,
+    centerTitle: `${Math.round(BASE_CENTER_TITLE * scaleFactor)}px`,
+    centerLabel: `${Math.round(BASE_CENTER_LABEL * scaleFactor)}px`,
+    tooltipContent: `${Math.round(BASE_TOOLTIP_CONTENT * scaleFactor)}px`,
+    tooltipHeader: `${Math.round(BASE_TOOLTIP_HEADER * scaleFactor)}px`,
+  };
+}
 
 /**
  * Props for the CenterIndexElement component
@@ -48,6 +135,12 @@ interface CenterIndexElementProps {
    * Total number of replica shards
    */
   replicaShards: number;
+  
+  /**
+   * Responsive font sizes for scaling
+   * Requirements: 8.4
+   */
+  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -77,6 +170,12 @@ interface NodeCardProps {
     diskTotal?: number;
     cpuPercent?: number;
   };
+  
+  /**
+   * Responsive font sizes for scaling
+   * Requirements: 8.4
+   */
+  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -131,6 +230,12 @@ interface ShardIndicatorProps {
    * Shard information to display
    */
   shard: ShardInfo;
+  
+  /**
+   * Responsive font sizes for scaling
+   * Requirements: 8.4
+   */
+  fontSizes: ResponsiveFontSizes;
 }
 
 /**
@@ -162,17 +267,18 @@ interface ShardIndicatorProps {
  * @param props - Component props
  * @returns Shard indicator element with tooltip
  */
-function ShardIndicator({ shard }: ShardIndicatorProps) {
+function ShardIndicator({ shard, fontSizes }: ShardIndicatorProps) {
   const borderColor = getShardBorderColor(shard.state);
   const cellSize = 32; // Smaller than ShardCell for compact display in node cards
   
   /**
    * Tooltip content with shard details
    * Requirements: 4.2 - Display index, shard number, state, docs, size
+   * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: 'var(--mantine-font-size-xs)' }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: 'var(--mantine-font-size-sm)' }}>
+    <div style={{ fontSize: fontSizes.tooltipContent }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: fontSizes.tooltipHeader }}>
         Shard {shard.shard}
       </div>
       
@@ -222,7 +328,7 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '12px',
+          fontSize: fontSizes.shardIndicator, // Requirements: 8.4 - Responsive font size
           fontWeight: 600,
           color: 'var(--mantine-color-gray-9)',
           userSelect: 'none',
@@ -352,7 +458,7 @@ function ConnectionLines({
  * @param props - Component props
  * @returns Node card element
  */
-function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
+function NodeCard({ node, onClick, nodeMetrics, fontSizes }: NodeCardProps) {
   /**
    * Format bytes to human-readable size
    * 
@@ -381,10 +487,11 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
   /**
    * Tooltip content with node details
    * Requirements: 4.1 - Display node name, ID, shard count, heap, disk, CPU
+   * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: 'var(--mantine-font-size-xs)' }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: 'var(--mantine-font-size-sm)' }}>
+    <div style={{ fontSize: fontSizes.tooltipContent }}>
+      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: fontSizes.tooltipHeader }}>
         {node.nodeName}
       </div>
       
@@ -456,11 +563,11 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
         onClick={() => onClick?.(node.nodeId)}
       >
         <Stack gap="xs">
-          <Text size="sm" fw={600} truncate>
+          <Text size="sm" fw={600} truncate style={{ fontSize: fontSizes.nodeTitle }}>
             {node.nodeName}
           </Text>
           <Group justify="space-between">
-            <Text size="xs" c="dimmed">
+            <Text size="xs" c="dimmed" style={{ fontSize: fontSizes.nodeLabel }}>
               Shards:
             </Text>
             <Badge size="sm" variant="light">
@@ -471,7 +578,11 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
           {/* Individual shard indicators - Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.1, 6.2 */}
           <Group gap={4} wrap="wrap">
             {node.shards.map((shard) => (
-              <ShardIndicator key={`${shard.index}-${shard.shard}-${shard.primary}`} shard={shard} />
+              <ShardIndicator 
+                key={`${shard.index}-${shard.shard}-${shard.primary}`} 
+                shard={shard}
+                fontSizes={fontSizes}
+              />
             ))}
           </Group>
         </Stack>
@@ -497,6 +608,7 @@ function CenterIndexElement({
   health,
   primaryShards,
   replicaShards,
+  fontSizes,
 }: CenterIndexElementProps) {
   return (
     <Card
@@ -510,8 +622,8 @@ function CenterIndexElement({
       }}
     >
       <Stack gap="sm">
-        {/* Index name header */}
-        <Text size="lg" fw={700} ta="center">
+        {/* Index name header - Requirements: 8.4 - Responsive font size */}
+        <Text size="lg" fw={700} ta="center" style={{ fontSize: fontSizes.centerTitle }}>
           {indexName}
         </Text>
         
@@ -526,22 +638,22 @@ function CenterIndexElement({
           </Badge>
         </Group>
         
-        {/* Shard counts */}
+        {/* Shard counts - Requirements: 8.4 - Responsive font size */}
         <Stack gap="xs">
           <Group justify="space-between">
-            <Text size="sm" c="dimmed">
+            <Text size="sm" c="dimmed" style={{ fontSize: fontSizes.centerLabel }}>
               Primary Shards:
             </Text>
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={600} style={{ fontSize: fontSizes.centerLabel }}>
               {primaryShards}
             </Text>
           </Group>
           
           <Group justify="space-between">
-            <Text size="sm" c="dimmed">
+            <Text size="sm" c="dimmed" style={{ fontSize: fontSizes.centerLabel }}>
               Replica Shards:
             </Text>
-            <Text size="sm" fw={600}>
+            <Text size="sm" fw={600} style={{ fontSize: fontSizes.centerLabel }}>
               {replicaShards}
             </Text>
           </Group>
@@ -616,13 +728,23 @@ export function IndexVisualization({
   // Reuse responsive pattern from ShardGrid component
   const isMobile = useMediaQuery('(max-width: 768px)');
   
+  // Get viewport size for responsive font size calculation - Requirements: 8.4
+  const { width: viewportWidth } = useViewportSize();
+  
+  // Calculate responsive font sizes based on viewport width - Requirements: 8.4
+  // Recalculates when viewport width changes
+  const fontSizes = useMemo(() => {
+    return calculateResponsiveFontSizes(viewportWidth);
+  }, [viewportWidth]);
+  
   // Placeholder loading state
   const isLoading = false;
   const error = null;
   
   // Placeholder shard data for demonstration (Task 4.2)
   // This will be replaced with real data from useIndexShards hook in Task 2.1
-  const placeholderShards: ShardInfo[] = [
+  // Memoize to prevent unnecessary recalculations
+  const placeholderShards: ShardInfo[] = useMemo(() => [
     {
       index: indexName,
       shard: 0,
@@ -659,7 +781,7 @@ export function IndexVisualization({
       docs: 2000,
       store: 10000000,
     },
-  ];
+  ], [indexName]);
   
   // Calculate responsive positioning configuration - Requirements: 8.1, 8.5
   // Memoize configuration to avoid unnecessary recalculations
@@ -776,7 +898,12 @@ export function IndexVisualization({
             
             {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
             {primaryNodes.map((node) => (
-              <NodeCard key={`primary-${node.nodeId}`} node={node} onClick={onNodeClick} />
+              <NodeCard 
+                key={`primary-${node.nodeId}`} 
+                node={node} 
+                onClick={onNodeClick}
+                fontSizes={fontSizes}
+              />
             ))}
             
             {/* Center index element - Requirements: 1.1, 4.4, 4.5 */}
@@ -795,12 +922,18 @@ export function IndexVisualization({
                 health={placeholderHealth}
                 primaryShards={placeholderPrimaryShards}
                 replicaShards={placeholderReplicaShards}
+                fontSizes={fontSizes}
               />
             </Box>
             
             {/* Replica nodes (right side on desktop, stacked on mobile) - Requirements: 1.3, 2.4, 8.2 */}
             {replicaNodes.map((node) => (
-              <NodeCard key={`replica-${node.nodeId}`} node={node} onClick={onNodeClick} />
+              <NodeCard 
+                key={`replica-${node.nodeId}`} 
+                node={node} 
+                onClick={onNodeClick}
+                fontSizes={fontSizes}
+              />
             ))}
           </Box>
         </Stack>
