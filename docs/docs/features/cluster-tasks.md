@@ -135,6 +135,6 @@ POST /_tasks/_cancel?actions=*delete_by_query
 
 ## Related Features
 
-- [REST Console](/features/rest-console) - Execute custom task API calls
-- [Cluster Details](/features/cluster-details) - View node information
-- [Dashboard & Overview](/features/dashboard) - Monitor cluster health
+- [REST Console](../features/rest-console) - Execute custom task API calls
+- [Cluster Details](../features/cluster-details) - View node information
+- [Dashboard & Overview](../features/dashboard) - Monitor cluster health

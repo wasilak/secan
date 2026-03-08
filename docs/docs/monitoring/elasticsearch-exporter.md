@@ -803,9 +803,9 @@ curl http://localhost:9090/-/healthy
 
 ### Related Cerebro Documentation
 
-- [Prometheus Metrics Integration](/features/prometheus-metrics) - Cerebro's Prometheus integration overview
-- [Configuration Guide](/configuration/clusters) - Cluster configuration reference
-- [Getting Started](/getting-started/installation) - Initial Cerebro setup
+- [Prometheus Metrics Integration](../features/prometheus-metrics) - Cerebro's Prometheus integration overview
+- [Configuration Guide](../configuration/clusters) - Cluster configuration reference
+- [Getting Started](../getting-started/installation) - Initial Cerebro setup
 
 ---
 

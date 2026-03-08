@@ -59,6 +59,6 @@ Move shards based on query patterns or resource usage to optimize performance.
 
 ## Related Features
 
-- [Cluster Details](/features/cluster-details) - View cluster and node status
-- [Index Management](/features/index-management) - Manage indices
-- [REST Console](/features/rest-console) - Execute shard allocation APIs directly
+- [Cluster Details](../features/cluster-details) - View cluster and node status
+- [Index Management](../features/index-management) - Manage indices
+- [REST Console](../features/rest-console) - Execute shard allocation APIs directly

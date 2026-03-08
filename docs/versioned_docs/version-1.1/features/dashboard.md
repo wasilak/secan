@@ -52,7 +52,7 @@ The dashboard automatically refreshes at configurable intervals to keep statisti
 
 ### Cluster Selection
 
-Click on any cluster in the table to navigate to the [Cluster Details](/features/cluster-details) page where you can explore nodes, indices, and perform management operations.
+Click on any cluster in the table to navigate to the [Cluster Details](../features/cluster-details) page where you can explore nodes, indices, and perform management operations.
 
 ### Prometheus Metrics Integration
 
@@ -79,4 +79,4 @@ The dashboard integrates with Prometheus to provide historical metrics and trend
 
 ## What's Next
 
-Once you've identified a cluster to manage, proceed to [Cluster Details](/features/cluster-details) to explore nodes, indices, and other cluster-specific features.
+Once you've identified a cluster to manage, proceed to [Cluster Details](../features/cluster-details) to explore nodes, indices, and other cluster-specific features.

@@ -48,11 +48,6 @@
         "configuration/clusters",
         "configuration/logging"
       ]
-    },
-    {
-      "type": "link",
-      "label": "API Reference",
-      "href": "/secan/api/"
     }
   ]
 }

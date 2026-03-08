@@ -63,6 +63,6 @@ When available in the UI, these features may be organized under tabs in the clus
 
 ## Related Features
 
-- [REST Console](/features/rest-console) - Execute custom API calls for advanced management
-- [Index Management](/features/index-management) - Manage individual indices
-- [Cluster Details](/features/cluster-details) - View cluster status and nodes
+- [REST Console](../features/rest-console) - Execute custom API calls for advanced management
+- [Index Management](../features/index-management) - Manage individual indices
+- [Cluster Details](../features/cluster-details) - View cluster status and nodes

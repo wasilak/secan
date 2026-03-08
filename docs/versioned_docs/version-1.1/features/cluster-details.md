@@ -126,7 +126,7 @@ The Tasks tab provides real-time monitoring of cluster operations:
 - **Cancel Tasks**: Stop individual or multiple tasks
 - **Bulk Operations**: Select and manage multiple tasks
 
-See [Cluster Tasks Management](/features/cluster-tasks) for detailed information.
+See [Cluster Tasks Management](./cluster-tasks) for detailed information.
 
 ## Topology Tab
 
@@ -153,7 +153,7 @@ Secan preserves your filter settings when navigating between views:
 
 ## What's Next
 
-- Learn about [Index Management](/features/index-management) for detailed index operations
-- Explore [Shard Management](/features/shard-management) for shard allocation
-- Check out [REST Console](/features/rest-console) to execute queries
-- Monitor [Cluster Tasks](/features/cluster-tasks) for operation management
+- Learn about [Index Management](./index-management) for detailed index operations
+- Explore [Shard Management](./shard-management) for shard allocation
+- Check out [REST Console](./rest-console) to execute queries
+- Monitor [Cluster Tasks](./cluster-tasks) for operation management

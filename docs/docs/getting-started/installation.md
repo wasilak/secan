@@ -151,6 +151,6 @@ The compiled binary will be at `target/release/secan` (or `secan.exe` on Windows
 
 ## Next Steps
 
-1. Read the [Configuration guide](/configuration/authentication) to set up authentication and clusters
-2. Learn about [Features](/features/dashboard) and what you can do with Secan
-3. Check out [Cluster Details](/features/cluster-details) to understand the interface
+1. Read the [Configuration guide](../configuration/authentication) to set up authentication and clusters
+2. Learn about [Features](../features/dashboard) and what you can do with Secan
+3. Check out [Cluster Details](../features/cluster-details) to understand the interface

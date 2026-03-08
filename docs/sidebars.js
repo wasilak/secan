@@ -64,11 +64,6 @@ const sidebars = {
         'configuration/logging',
       ],
     },
-    {
-      type: 'link',
-      label: 'API Reference',
-      href: '/secan/api/',
-    },
   ],
 };
 

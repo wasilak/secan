@@ -79,6 +79,6 @@ The console automatically uses the authentication configured for your cluster. I
 
 ## Related Features
 
-- [Cluster Details](/features/cluster-details) - View cluster overview
-- [Index Management](/features/index-management) - Manage indices with UI
-- [Shard Management](/features/shard-management) - Manage shard allocation
+- [Cluster Details](../features/cluster-details) - View cluster overview
+- [Index Management](../features/index-management) - Manage indices with UI
+- [Shard Management](../features/shard-management) - Manage shard allocation

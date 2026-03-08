@@ -51,4 +51,4 @@ Secan builds upon the foundation of [Cerebro](https://github.com/lmenezes/cerebr
 
 ## Next Steps
 
-Ready to get started? Check out the [Installation guide](/getting-started/installation) to download and run Secan.
+Ready to get started? Check out the [Installation guide](../getting-started/installation) to download and run Secan.

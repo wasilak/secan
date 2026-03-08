@@ -131,15 +131,6 @@ const config = {
               },
             ],
           },
-          {
-            title: 'More',
-            items: [
-              {
-                label: 'API Reference',
-                href: '/secan/api/',
-              },
-            ],
-          },
         ],
         copyright: `Copyright © ${new Date().getFullYear()} Secan. Built with Docusaurus.`,
       },

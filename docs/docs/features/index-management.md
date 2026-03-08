@@ -72,6 +72,6 @@ View index metrics:
 
 ## Related Features
 
-- [Cluster Details](/features/cluster-details) - View all indices in a cluster
-- [Shard Management](/features/shard-management) - Manage shard allocation
-- [REST Console](/features/rest-console) - Execute custom Elasticsearch queries
+- [Cluster Details](../features/cluster-details) - View all indices in a cluster
+- [Shard Management](../features/shard-management) - Manage shard allocation
+- [REST Console](../features/rest-console) - Execute custom Elasticsearch queries
