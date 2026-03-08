@@ -14,6 +14,7 @@ import {
   Menu,
   ScrollArea,
   Collapse,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg, IconChevronDown, IconChevronUp, IconRefresh } from '@tabler/icons-react';
@@ -177,6 +178,8 @@ interface ShardIndicatorProps {
  * @returns Shard indicator element with tooltip
  */
 function ShardIndicator({ shard }: ShardIndicatorProps) {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
   const borderColor = getShardBorderColor(shard.state);
   const cellSize = 24; // Smaller size for compact display
   
@@ -254,7 +257,7 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
           justifyContent: 'center',
           fontSize: '10px',
           fontWeight: 600,
-          color: 'var(--mantine-color-gray-3)',
+          color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-7)',
           userSelect: 'none',
           position: 'relative',
         }}
@@ -489,6 +492,9 @@ function ConnectionLines({
  * @returns Node card element
  */
 function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   /**
    * Format bytes to human-readable size
    * 
@@ -584,8 +590,8 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
           top: node.y,
           width: 140,
           padding: '8px',
-          backgroundColor: 'var(--mantine-color-dark-6)',
-          border: '1px solid var(--mantine-color-dark-4)',
+          backgroundColor: isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-0)',
+          border: `1px solid ${isDark ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)'}`,
           borderRadius: '6px',
           cursor: onClick ? 'pointer' : 'default',
           zIndex: 1,
@@ -598,7 +604,7 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
           e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'var(--mantine-color-dark-4)';
+          e.currentTarget.style.borderColor = isDark ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)';
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = 'none';
         }}
@@ -622,7 +628,7 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
               style={{ 
                 fontSize: '11px',
                 flex: 1,
-                color: 'var(--mantine-color-gray-3)',
+                color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-7)',
               }}
             >
               {node.nodeName}
@@ -693,6 +699,9 @@ function CenterIndexElement({
   primaryShards,
   replicaShards,
 }: CenterIndexElementProps) {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   return (
     <Card
       shadow="md"
@@ -702,8 +711,8 @@ function CenterIndexElement({
       style={{
         minWidth: 200,
         maxWidth: 240,
-        backgroundColor: 'var(--mantine-color-dark-7)',
-        borderColor: 'var(--mantine-color-dark-4)',
+        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-0)',
+        borderColor: isDark ? 'var(--mantine-color-dark-4)' : 'var(--mantine-color-gray-3)',
       }}
     >
       <Stack gap="sm">
