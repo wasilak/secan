@@ -40,6 +40,14 @@ const config = {
           // Remove this to remove the "edit this page" links.
           editUrl:
             'https://github.com/wasilak/secan/tree/main/docs/',
+          // Versioning configuration
+          lastVersion: 'current',
+          versions: {
+            current: {
+              label: 'Latest',
+              path: '/',
+            },
+          },
         },
         blog: false,
         theme: {
