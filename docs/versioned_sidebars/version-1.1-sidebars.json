@@ -1,0 +1,58 @@
+{
+  "docs": [
+    {
+      "type": "category",
+      "label": "Getting Started",
+      "collapsed": false,
+      "items": [
+        "getting-started/about",
+        "getting-started/installation",
+        "getting-started/architecture"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Features",
+      "collapsed": false,
+      "items": [
+        "features/dashboard",
+        "features/cluster-details",
+        "features/index-management",
+        "features/shard-management",
+        "features/rest-console",
+        "features/additional"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Monitoring",
+      "collapsed": false,
+      "items": [
+        "monitoring/elasticsearch-exporter"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Authentication & Authorization",
+      "collapsed": false,
+      "items": [
+        "authentication/index"
+      ]
+    },
+    {
+      "type": "category",
+      "label": "Configuration",
+      "collapsed": false,
+      "items": [
+        "configuration/authentication",
+        "configuration/clusters",
+        "configuration/logging"
+      ]
+    },
+    {
+      "type": "link",
+      "label": "API Reference",
+      "href": "/secan/api/"
+    }
+  ]
+}

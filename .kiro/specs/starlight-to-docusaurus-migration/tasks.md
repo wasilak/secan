@@ -111,13 +111,13 @@ The implementation will be done incrementally, with each phase building on the p
     - Create or copy favicon to docs/static/img/favicon.ico
     - _Requirements: 5.8, 14.2, 14.6_
   
-  - [-] 4.2 Copy additional assets if they exist
+  - [x] 4.2 Copy additional assets if they exist
     - Check for social card image and copy if exists
     - Copy any other images from Starlight to docs/static/img/
     - _Requirements: 14.7_
 
 - [ ] 5. Landing page implementation
-  - [~] 5.1 Create landing page component
+  - [x] 5.1 Create landing page component
     - Create docs/src/pages/index.tsx
     - Implement HomepageHeader component with logo and hero section
     - Add tagline display
@@ -125,14 +125,14 @@ The implementation will be done incrementally, with each phase building on the p
     - Add "View Features" CTA button linking to /features/dashboard
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
   
-  - [~] 5.2 Implement feature cards section
+  - [x] 5.2 Implement feature cards section
     - Create HomepageFeatures component
     - Define feature cards array with 6 key features
     - Create FeatureCard component for individual cards
     - Display cards in responsive grid layout
     - _Requirements: 5.5, 5.6_
   
-  - [~] 5.3 Create landing page styles
+  - [x] 5.3 Create landing page styles
     - Create docs/src/pages/index.module.css
     - Style hero banner section
     - Style logo display
@@ -142,7 +142,7 @@ The implementation will be done incrementally, with each phase building on the p
     - _Requirements: 5.7, 18.1, 18.2_
 
 - [ ] 6. Custom styling implementation
-  - [~] 6.1 Create custom CSS file
+  - [x] 6.1 Create custom CSS file
     - Create docs/src/css/custom.css
     - Define CSS variables for primary brand colors
     - Define light mode color variables
@@ -151,27 +151,27 @@ The implementation will be done incrementally, with each phase building on the p
     - Configure admonition styling
     - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6, 15.8_
   
-  - [~] 6.2 Implement Mermaid diagram theming
+  - [x] 6.2 Implement Mermaid diagram theming
     - Add Mermaid-specific CSS for light mode
     - Add Mermaid-specific CSS for dark mode
     - Ensure colors match Secan branding
     - _Requirements: 3.3, 3.4, 15.7_
   
-  - [~] 6.3 Add custom component styles
+  - [x] 6.3 Add custom component styles
     - Style card grid layout for landing page
     - Add mobile-responsive styles
     - Ensure touch targets are appropriately sized
     - _Requirements: 18.3, 18.4, 18.5, 18.6, 18.7_
 
 - [ ] 7. Versioning setup
-  - [~] 7.1 Configure versioning in docusaurus.config.js
+  - [x] 7.1 Configure versioning in docusaurus.config.js
     - Enable versioning in preset-classic docs configuration
     - Configure version labels (1.2.x Next, 1.1.x)
     - Set lastVersion to current
     - Configure version paths
     - _Requirements: 6.1, 6.2, 6.3, 6.6, 6.7_
   
-  - [~] 7.2 Create version 1.1 snapshot
+  - [x] 7.2 Create version 1.1 snapshot
     - Run: npm run docusaurus docs:version 1.1
     - Verify versioned_docs/version-1.1/ is created
     - Verify versioned_sidebars/version-1.1-sidebars.json is created
@@ -179,7 +179,7 @@ The implementation will be done incrementally, with each phase building on the p
     - _Requirements: 6.4, 6.5_
 
 - [ ] 8. Build integration and CI/CD
-  - [~] 8.1 Update Justfile recipes
+  - [x] 8.1 Update Justfile recipes
     - Update docs-dev recipe to run: cd docs && npm run start (which includes --base-url /secan/)
     - Update docs-build recipe to run: cd docs && npm run build
     - Update docs-preview recipe to run: cd docs && npm run serve (which includes --base-url /secan/)
@@ -187,7 +187,7 @@ The implementation will be done incrementally, with each phase building on the p
     - Verify local dev server serves at http://localhost:3000/secan/
     - _Requirements: 7.11, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7_
   
-  - [~] 8.2 Create GitHub Actions workflow
+  - [x] 8.2 Create GitHub Actions workflow
     - Create .github/workflows/docs.yml
     - Configure triggers: push to main (docs changes), PRs, manual dispatch
     - Add build job: setup Node.js, install deps, build Rust API docs, build Docusaurus
@@ -220,7 +220,7 @@ The implementation will be done incrementally, with each phase building on the p
     - **Validates: Requirements 1.7**
     - Test that code blocks maintain language and content
   
-  - [~] 9.5 Manual testing checklist
+  - [x] 9.5 Manual testing checklist
     - Verify all markdown files migrated
     - Test landing page displays correctly at http://localhost:3000/secan/
     - Test logo appears in navbar and landing page
@@ -242,7 +242,7 @@ The implementation will be done incrementally, with each phase building on the p
   - Ensure all tests pass, verify build succeeds locally, test GitHub Actions workflow, ask the user if questions arise.
 
 - [ ] 11. Documentation and cleanup
-  - [~] 11.1 Create docs/README.md
+  - [x] 11.1 Create docs/README.md
     - Document how to run development server
     - Document how to build documentation
     - Document how to add new pages
@@ -250,33 +250,33 @@ The implementation will be done incrementally, with each phase building on the p
     - Document how to deploy
     - _Requirements: 20.1-20.8_
   
-  - [~] 11.2 Create docs/MIGRATION.md
+  - [x] 11.2 Create docs/MIGRATION.md
     - Document what changed from Starlight to Docusaurus
     - Document how to update content
     - Document how to add new features
     - Create troubleshooting guide for common issues
     - _Requirements: 20.1-20.8_
   
-  - [~] 11.3 Update root README.md
+  - [x] 11.3 Update root README.md
     - Update documentation links to point to new Docusaurus site
     - Update build instructions
     - Update contribution guidelines
     - _Requirements: 20.1-20.8_
   
-  - [~] 11.4 Update .gitignore
+  - [x] 11.4 Update .gitignore
     - Add docs/.docusaurus/ to .gitignore
     - Add docs/build/ to .gitignore
     - Keep docs/dist/ for legacy reference
     - _Requirements: 20.5, 20.6, 20.7, 20.8_
   
-  - [~] 11.5 Remove Starlight files after successful verification
+  - [x] 11.5 Remove Starlight files after successful verification
     - Remove docs/astro.config.mjs
     - Remove docs/.astro/ directory
     - Remove docs/src/content.config.ts
     - Remove Starlight content structure (docs/src/content/docs/)
     - _Requirements: 20.1, 20.2, 20.3, 20.4_
   
-  - [~] 11.6 Clean up package.json dependencies
+  - [x] 11.6 Clean up package.json dependencies
     - Remove astro dependency
     - Remove @astrojs/starlight dependency
     - Remove starlight-versions dependency
