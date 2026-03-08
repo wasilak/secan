@@ -234,7 +234,7 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
   return (
     <Tooltip
       label={tooltipContent}
-      position="top"
+      position="bottom"
       withArrow
       arrowSize={6}
       offset={8}
