@@ -190,45 +190,45 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
    * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: '12px' }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>
+    <Stack gap={4}>
+      <Text size="sm" fw={600}>
         Shard {shard.shard}
-      </div>
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Index:</strong> {shard.index}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Index:</Text> {shard.index}
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Type:</strong> {shard.primary ? 'Primary' : 'Replica'}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Type:</Text> {shard.primary ? 'Primary' : 'Replica'}
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>State:</strong> {shard.state}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>State:</Text> {shard.state}
+      </Text>
       
       {/* Show relocating target node - Requirements: 6.4 */}
       {shard.state === 'RELOCATING' && shard.relocatingNode && (
-        <div style={{ marginBottom: '4px' }}>
-          <strong>Relocating to:</strong> {shard.relocatingNode}
-        </div>
+        <Text size="xs">
+          <Text component="span" fw={600}>Relocating to:</Text> {shard.relocatingNode}
+        </Text>
       )}
       
       {/* Show current node if assigned */}
       {shard.node && (
-        <div style={{ marginBottom: '4px' }}>
-          <strong>Node:</strong> {shard.node}
-        </div>
+        <Text size="xs">
+          <Text component="span" fw={600}>Node:</Text> {shard.node}
+        </Text>
       )}
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Documents:</strong> {shard.docs.toLocaleString()}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Documents:</Text> {shard.docs.toLocaleString()}
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Size:</strong> {formatBytes(shard.store)}
-      </div>
-    </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Size:</Text> {formatBytes(shard.store)}
+      </Text>
+    </Stack>
   );
   
   return (
@@ -526,49 +526,49 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
    * Requirements: 8.4 - Use responsive font sizes in tooltips
    */
   const tooltipContent = (
-    <div style={{ fontSize: '12px' }}>
-      <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '14px' }}>
+    <Stack gap={4}>
+      <Text size="sm" fw={600}>
         {node.nodeName}
-      </div>
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Node ID:</strong> {node.nodeId}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Node ID:</Text> {node.nodeId}
+      </Text>
       
-      <div style={{ marginBottom: '4px' }}>
-        <strong>Shard Count:</strong> {node.shardCount}
-      </div>
+      <Text size="xs">
+        <Text component="span" fw={600}>Shard Count:</Text> {node.shardCount}
+      </Text>
       
       {nodeMetrics && (
         <>
           {nodeMetrics.heapUsed !== undefined && nodeMetrics.heapMax !== undefined && (
-            <div style={{ marginBottom: '4px' }}>
-              <strong>Heap:</strong> {formatBytes(nodeMetrics.heapUsed)} / {formatBytes(nodeMetrics.heapMax)}
+            <Text size="xs">
+              <Text component="span" fw={600}>Heap:</Text> {formatBytes(nodeMetrics.heapUsed)} / {formatBytes(nodeMetrics.heapMax)}
               {' '}({formatPercent((nodeMetrics.heapUsed / nodeMetrics.heapMax) * 100)})
-            </div>
+            </Text>
           )}
           
           {nodeMetrics.diskUsed !== undefined && nodeMetrics.diskTotal !== undefined && (
-            <div style={{ marginBottom: '4px' }}>
-              <strong>Disk:</strong> {formatBytes(nodeMetrics.diskUsed)} / {formatBytes(nodeMetrics.diskTotal)}
+            <Text size="xs">
+              <Text component="span" fw={600}>Disk:</Text> {formatBytes(nodeMetrics.diskUsed)} / {formatBytes(nodeMetrics.diskTotal)}
               {' '}({formatPercent((nodeMetrics.diskUsed / nodeMetrics.diskTotal) * 100)})
-            </div>
+            </Text>
           )}
           
           {nodeMetrics.cpuPercent !== undefined && (
-            <div style={{ marginBottom: '4px' }}>
-              <strong>CPU:</strong> {formatPercent(nodeMetrics.cpuPercent)}
-            </div>
+            <Text size="xs">
+              <Text component="span" fw={600}>CPU:</Text> {formatPercent(nodeMetrics.cpuPercent)}
+            </Text>
           )}
         </>
       )}
       
       {!nodeMetrics && (
-        <div style={{ marginTop: '8px', fontStyle: 'italic', color: 'var(--mantine-color-dimmed)' }}>
+        <Text size="xs" fs="italic" c="dimmed" mt="xs">
           Detailed metrics will be available when connected to real cluster data
-        </div>
+        </Text>
       )}
-    </div>
+    </Stack>
   );
   
   return (
