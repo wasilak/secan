@@ -1195,6 +1195,7 @@ export function ClusterView() {
                 indices={allIndicesArray || []}
                 searchParams={searchParams}
                 onShardClick={handleTopologyShardClick}
+                onNodeClick={openNodeModal}
                 relocationMode={relocationMode}
                 validDestinationNodes={validDestinationNodes}
                 onDestinationClick={handleTopologyDestinationClick}

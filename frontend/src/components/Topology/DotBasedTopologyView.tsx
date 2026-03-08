@@ -34,6 +34,7 @@ interface DotBasedTopologyViewProps {
   indices: IndexInfo[];
   searchParams: URLSearchParams;
   onShardClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
+  onNodeClick?: (nodeId: string) => void;
   relocationMode?: boolean;
   validDestinationNodes?: string[];
   onDestinationClick?: (nodeId: string) => void;
@@ -69,6 +70,7 @@ export function DotBasedTopologyView({
   indices,
   searchParams,
   onShardClick,
+  onNodeClick,
   relocationMode,
   validDestinationNodes,
   onDestinationClick,
@@ -308,6 +310,9 @@ export function DotBasedTopologyView({
     const isValidDestination = relocationMode && validDestinationNodes?.some(
       (id) => id === node?.id || id === node?.name
     );
+    
+    // Node card is clickable if onNodeClick is provided OR if it's a valid destination
+    const isClickable = !!onNodeClick || isValidDestination;
 
     return (
       <Grid.Col span={{ base: 12, sm: 6, lg: 4, xl: 3 }} key={node.name}>
@@ -325,13 +330,28 @@ export function DotBasedTopologyView({
             borderWidth: isValidDestination
               ? '2px'
               : undefined,
-            cursor: isValidDestination
+            cursor: isClickable
               ? 'pointer'
               : 'default',
+            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
           }}
           onClick={() => {
             if (isValidDestination && onDestinationClick) {
               onDestinationClick(node.id);
+            } else if (onNodeClick) {
+              onNodeClick(node.id);
+            }
+          }}
+          onMouseEnter={(e) => {
+            if (isClickable) {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (isClickable) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '';
             }
           }}
         >
