@@ -708,7 +708,15 @@ function CenterIndexElement({
     >
       <Stack gap="sm">
         {/* Index name header - Requirements: 8.4 - Responsive font size */}
-        <Text size="md" fw={700} ta="center" style={{ fontSize: '14px', color: 'var(--mantine-color-gray-2)' }}>
+        <Text 
+          size="md" 
+          fw={700} 
+          ta="center" 
+          style={{ 
+            fontSize: '14px', 
+            color: isDark ? 'var(--mantine-color-gray-1)' : 'var(--mantine-color-gray-9)',
+          }}
+        >
           {indexName}
         </Text>
         
