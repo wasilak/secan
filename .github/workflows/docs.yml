@@ -33,7 +33,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
+      - name: Build frontend (required for Rust docs)
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Install docs dependencies
         run: |
           cd docs
           npm ci
