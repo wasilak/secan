@@ -12,6 +12,7 @@ import {
   Loader,
   Box,
   Badge,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -128,6 +129,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
   const params = useParams<{ id?: string; indexName?: string }>();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { colorScheme } = useMantineColorScheme();
 
   // Get cluster ID from route params (works in both modal and standalone mode)
   const clusterId = params.id;
@@ -522,7 +524,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                       defaultLanguage="json"
                       value={settings}
                       onChange={handleSettingsChange}
-                      theme="vs-dark"
+                      theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                       options={{
                         minimap: { enabled: false },
                         fontSize: 14,
@@ -582,7 +584,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                         defaultLanguage="json"
                         value={mappings}
                         onChange={handleMappingsChange}
-                        theme="vs-dark"
+                        theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                         options={{
                           minimap: { enabled: false },
                           fontSize: 14,
@@ -639,7 +641,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                           height="500px"
                           defaultLanguage="json"
                           value={JSON.stringify(statsData, null, 2)}
-                          theme="vs-dark"
+                          theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
                           options={{
                             readOnly: true,
                             minimap: { enabled: false },
