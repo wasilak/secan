@@ -198,7 +198,7 @@ docs-dev:
 [group('docs')]
 docs-build:
     # Build Docusaurus documentation for production
-    cd docs && npm run build
+    cd docs && NODE_OPTIONS="--no-deprecation" npm run build
 
 [group('docs')]
 docs-preview:
