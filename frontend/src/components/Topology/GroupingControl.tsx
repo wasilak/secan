@@ -53,12 +53,10 @@ export function GroupingControl({
     { value: 'none', label: 'None' },
     { value: 'role', label: 'By Role' },
     { value: 'type', label: 'By Type' },
-    // Add "By Label (All)" option if labels are available
-    ...(availableLabels.length > 0 ? [{ value: 'label', label: 'By Label (All)' }] : []),
-    // Add individual label value options
+    // Add individual label value options (no "By Label (All)" option)
     ...availableLabels.map(labelValue => ({
       value: `label:${labelValue}`,
-      label: `By Label: ${labelValue}`,
+      label: labelValue,
       disabled: false,
     })),
   ];
