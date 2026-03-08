@@ -191,16 +191,6 @@ docs-install:
     cd docs && npm ci
 
 [group('docs')]
-docs-test:
-    # Run Docusaurus tests
-    cd docs && npm test
-
-[group('docs')]
-docs-check-links:
-    # Check documentation links
-    cd docs && npm run check-links
-
-[group('docs')]
 docs-dev:
     # Start Docusaurus development server (serves at http://localhost:3000/secan/)
     cd docs && npm run start

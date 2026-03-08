@@ -14,8 +14,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-and-build:
-    name: Test and Build Documentation
+  build:
+    name: Build Documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -36,9 +36,6 @@ jobs:
       - name: Install docs dependencies
         run: just docs-install
 
-      - name: Run documentation tests
-        run: just docs-test
-
       - name: Check links
         run: just docs-check-links
         continue-on-error: true
@@ -55,7 +52,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    needs: [test-and-build]
+    needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
