@@ -34,13 +34,13 @@ jobs:
           just-version: 1.46.0
 
       - name: Install docs dependencies
-        run: cd docs && npm ci
+        run: just docs-install
 
       - name: Run documentation tests
-        run: cd docs && npm test
+        run: just docs-test
 
       - name: Check links
-        run: cd docs && npm run check-links
+        run: just docs-check-links
         continue-on-error: true
 
       - name: Build Docusaurus
