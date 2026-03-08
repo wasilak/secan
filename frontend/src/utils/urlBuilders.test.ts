@@ -80,10 +80,10 @@ describe('URL Builders', () => {
 
     it('should build valid index modal URLs with section', () => {
       expect(buildIndexModalUrl('my-cluster', 'my-index', 'general')).toBe(
-        '/cluster/my-cluster/indices/my-index?section=general'
+        '/cluster/my-cluster/indices/my-index?indexTab=general'
       );
       expect(buildIndexModalUrl('my-cluster', 'my-index', 'mappings')).toBe(
-        '/cluster/my-cluster/indices/my-index?section=mappings'
+        '/cluster/my-cluster/indices/my-index?indexTab=mappings'
       );
     });
 
@@ -98,13 +98,13 @@ describe('URL Builders', () => {
 
     it('should encode section parameters', () => {
       expect(buildIndexModalUrl('my-cluster', 'my-index', 'custom section')).toContain(
-        'section=custom%20section'
+        'indexTab=custom%20section'
       );
     });
 
     it('should include background section as query parameter', () => {
       expect(buildIndexModalUrl('my-cluster', 'my-index', 'general', 'topology')).toBe(
-        '/cluster/my-cluster/indices/my-index?section=general&bg=topology'
+        '/cluster/my-cluster/indices/my-index?indexTab=general&bg=topology'
       );
       expect(buildIndexModalUrl('my-cluster', 'my-index', undefined, 'statistics')).toBe(
         '/cluster/my-cluster/indices/my-index?bg=statistics'
@@ -113,7 +113,7 @@ describe('URL Builders', () => {
 
     it('should not include bg parameter when section matches modal type', () => {
       const url = buildIndexModalUrl('my-cluster', 'my-index', 'general', 'indices');
-      expect(url).toBe('/cluster/my-cluster/indices/my-index?section=general');
+      expect(url).toBe('/cluster/my-cluster/indices/my-index?indexTab=general');
     });
   });
 
