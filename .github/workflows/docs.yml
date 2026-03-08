@@ -14,8 +14,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Documentation
+  test-and-build:
+    name: Test and Build Documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -25,11 +25,24 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: docs/package-lock.json
 
       - name: Install docs dependencies
         run: |
           cd docs
           npm ci
+
+      - name: Run documentation tests
+        run: |
+          cd docs
+          npm test
+
+      - name: Check links
+        run: |
+          cd docs
+          npm run check-links
+        continue-on-error: true
 
       - name: Build Docusaurus
         run: |
@@ -45,7 +58,7 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
-    needs: [build]
+    needs: [test-and-build]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
