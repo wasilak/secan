@@ -28,6 +28,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: docs/package-lock.json
 
+      - name: Setup Just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.46.0
+
       - name: Install docs dependencies
         run: |
           cd docs
