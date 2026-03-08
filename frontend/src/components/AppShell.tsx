@@ -89,29 +89,29 @@ function ClusterDropdownItem({
     <Menu.Item onClick={onSelect}>
       <Group gap="xs" justify="space-between" style={{ width: '100%' }}>
         <Group gap="xs" wrap="nowrap">
-          {isActive && (
-            <div
-              style={{
-                width: '4px',
-                height: '16px',
-                backgroundColor: 'var(--mantine-color-orange-6)',
-                borderRadius: '2px',
-                flexShrink: 0,
-              }}
-            />
-          )}
+          <div
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: healthColor,
+              flexShrink: 0,
+            }}
+            aria-label={`Health: ${stats?.health || 'unknown'}`}
+          />
           <Text size="sm">{cluster.name}</Text>
         </Group>
-        <div
-          style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: healthColor,
-            flexShrink: 0,
-          }}
-          aria-label={`Health: ${stats?.health || 'unknown'}`}
-        />
+        {isActive && (
+          <div
+            style={{
+              width: '4px',
+              height: '16px',
+              backgroundColor: 'var(--mantine-color-orange-6)',
+              borderRadius: '2px',
+              flexShrink: 0,
+            }}
+          />
+        )}
       </Group>
     </Menu.Item>
   );
@@ -152,9 +152,6 @@ function ClusterDropdown({
           style={{ fontSize: 'var(--mantine-font-size-sm)', fontWeight: 500 }}
         >
           <Group gap={6} wrap="nowrap">
-            <Text size="sm" fw={500} c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-              {currentClusterName}
-            </Text>
             {currentClusterStats?.health && (
               <div
                 style={{
@@ -167,6 +164,9 @@ function ClusterDropdown({
                 aria-label={`Health: ${currentClusterStats.health}`}
               />
             )}
+            <Text size="sm" fw={500} c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              {currentClusterName}
+            </Text>
           </Group>
         </Button>
       </Menu.Target>
