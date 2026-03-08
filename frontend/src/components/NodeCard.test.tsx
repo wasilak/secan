@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi } from 'vitest';
 
 // Import the NodeCard component from IndexVisualization
@@ -18,8 +19,20 @@ import { IndexVisualization } from './IndexVisualization';
  * - Apply Mantine Card and Badge components for consistency
  */
 describe('NodeCard Component', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
   const renderWithMantine = (component: React.ReactElement) => {
-    return render(<MantineProvider>{component}</MantineProvider>);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MantineProvider>{component}</MantineProvider>
+      </QueryClientProvider>
+    );
   };
 
   describe('Node Name Display (Requirement 2.1)', () => {

@@ -123,45 +123,25 @@ export function DotBasedTopologyView({
   }, [nodes, groupingConfig]);
 
   // Check if nodes have custom labels for GroupingControl
-  // Extract unique label NAMES (not individual values)
+  // Extract unique label values from all node tags
   const availableLabels = useMemo(() => {
     if (!hasCustomLabels(nodes)) {
       return [];
     }
     
-    // Extract unique label names from all node tags
-    // Tags can follow patterns:
-    // - "labelName:value" (e.g., "shard_indexing_pressure_enabled:true") -> extract "shard_indexing_pressure_enabled"
-    // - "labelName-value" (e.g., "zone-a", "rack-1") -> extract "zone", "rack"
-    // - "labelName" (e.g., "production", "staging") -> use as-is
-    const labelNames = new Set<string>();
+    // Extract unique tag values from all nodes
+    // Tags are used as-is for grouping (e.g., "zone-a", "rack-1", "production")
+    const labelValues = new Set<string>();
     
     nodes.forEach(node => {
       if (node.tags && node.tags.length > 0) {
         node.tags.forEach(tag => {
-          // Check for colon separator first (key:value pattern)
-          const colonIndex = tag.indexOf(':');
-          if (colonIndex > 0) {
-            const labelName = tag.substring(0, colonIndex);
-            labelNames.add(labelName);
-            return;
-          }
-          
-          // Check for hyphen separator (key-value pattern)
-          const hyphenIndex = tag.indexOf('-');
-          if (hyphenIndex > 0) {
-            const labelName = tag.substring(0, hyphenIndex);
-            labelNames.add(labelName);
-            return;
-          }
-          
-          // No separator: use entire tag as label name
-          labelNames.add(tag);
+          labelValues.add(tag);
         });
       }
     });
     
-    return Array.from(labelNames).sort();
+    return Array.from(labelValues).sort();
   }, [nodes]);
 
   // Handler for grouping changes
