@@ -54,6 +54,11 @@ const config = {
               label: '1.2.x (Latest)',
               path: '/',
             },
+            '1.1': {
+              label: '1.1',
+              path: '1.1',
+              banner: 'none',
+            },
           },
         },
         blog: false,
