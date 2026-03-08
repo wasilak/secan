@@ -31,23 +31,23 @@ jobs:
       - name: Install docs dependencies
         run: |
           cd docs
-          npm ci
+          just install
 
       - name: Run documentation tests
         run: |
           cd docs
-          npm test
+          just test
 
       - name: Check links
         run: |
           cd docs
-          npm run check-links
+          just check-links
         continue-on-error: true
 
       - name: Build Docusaurus
         run: |
           cd docs
-          npm run build
+          just build
 
       - name: Upload documentation artifact
         uses: actions/upload-artifact@v4
