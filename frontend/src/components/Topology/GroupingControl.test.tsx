@@ -16,7 +16,10 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="none"
-          availableLabels={['zone-a', 'zone-b']}
+          availableLabels={[
+            { name: 'zone', tag: 'zone-a' },
+            { name: 'zone', tag: 'zone-b' }
+          ]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
@@ -33,7 +36,7 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="none"
-          availableLabels={['zone-a']}
+          availableLabels={[{ name: 'zone', tag: 'zone-a' }]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
@@ -50,7 +53,7 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="role"
-          availableLabels={['zone-a']}
+          availableLabels={[{ name: 'zone', tag: 'zone-a' }]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
@@ -67,7 +70,7 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="type"
-          availableLabels={['zone-a']}
+          availableLabels={[{ name: 'zone', tag: 'zone-a' }]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
@@ -84,13 +87,15 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="label"
-          availableLabels={['zone-a']}
+          availableLabels={[{ name: 'zone', tag: 'zone-a' }]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
     );
     
-    const input = screen.getByDisplayValue('By Label (All)');
+    // With the new implementation, when grouping by label without a specific value,
+    // it should show "zone" (the label name) since there's no "By Label (All)" option
+    const input = screen.getByDisplayValue('zone');
     expect(input).toBeInTheDocument();
   });
 
@@ -102,13 +107,17 @@ describe('GroupingControl', () => {
         <GroupingControl
           currentGrouping="label"
           currentGroupingValue="zone-a"
-          availableLabels={['zone-a', 'zone-b']}
+          availableLabels={[
+            { name: 'zone', tag: 'zone-a' },
+            { name: 'zone', tag: 'zone-b' }
+          ]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
     );
     
-    const input = screen.getByDisplayValue('By Label: zone-a');
+    // The select should show just the label name "zone", not "By Label: zone-a"
+    const input = screen.getByDisplayValue('zone');
     expect(input).toBeInTheDocument();
   });
 
@@ -119,7 +128,7 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="none"
-          availableLabels={['zone-a']}
+          availableLabels={[{ name: 'zone', tag: 'zone-a' }]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>
@@ -154,7 +163,10 @@ describe('GroupingControl', () => {
       <TestWrapper>
         <GroupingControl
           currentGrouping="none"
-          availableLabels={['zone-a', 'zone-b']}
+          availableLabels={[
+            { name: 'zone', tag: 'zone-a' },
+            { name: 'zone', tag: 'zone-b' }
+          ]}
           onGroupingChange={mockOnChange}
         />
       </TestWrapper>

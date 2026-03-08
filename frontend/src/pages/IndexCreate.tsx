@@ -9,7 +9,6 @@ import {
   Group,
   Tabs,
   Alert,
-  Box,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useNavigate, useParams } from 'react-router-dom';

@@ -305,7 +305,8 @@ describe('DotBasedTopologyView - URL State Management', () => {
 
       await waitFor(() => {
         const value = getGroupingSelectValue();
-        expect(value).toBe('By Label: zone-a');
+        // The select now shows just the label name, not "By Label: zone-a"
+        expect(value).toBe('zone');
       });
 
       // Verify specific label grouping is applied
@@ -342,9 +343,12 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       // Nodes with shards should be displayed
+      // Use getAllByText since nodes can appear in multiple groups
       await waitFor(() => {
-        expect(screen.getByText('node-1')).toBeInTheDocument();
-        expect(screen.getByText('node-2')).toBeInTheDocument();
+        const node1Elements = screen.getAllByText('node-1');
+        expect(node1Elements.length).toBeGreaterThan(0);
+        const node2Elements = screen.getAllByText('node-2');
+        expect(node2Elements.length).toBeGreaterThan(0);
         // node-3 has no shards so it won't be displayed in the topology view
       });
     });
@@ -357,8 +361,10 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       // Verify node details are still visible
+      // Use getAllByText since nodes can appear in multiple groups
       await waitFor(() => {
-        expect(screen.getByText('node-1')).toBeInTheDocument();
+        const node1Elements = screen.getAllByText('node-1');
+        expect(node1Elements.length).toBeGreaterThan(0);
         // Verify shard count badge exists
         const shardBadges = screen.getAllByText(/shards/i);
         expect(shardBadges.length).toBeGreaterThan(0);

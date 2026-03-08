@@ -12,7 +12,6 @@ import {
   Loader,
   Box,
   Badge,
-  useMantineColorScheme,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { IndexVisualization } from '../components/IndexVisualization';
@@ -128,7 +127,6 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
   const params = useParams<{ id?: string; indexName?: string }>();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { colorScheme } = useMantineColorScheme();
 
   // Get cluster ID from route params (works in both modal and standalone mode)
   const clusterId = params.id;
