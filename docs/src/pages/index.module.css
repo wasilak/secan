@@ -10,21 +10,11 @@
 }
 
 .heroLogo {
-  height: 240px;
+  height: 400px;
   width: auto;
-  max-width: 240px;
+  max-width: 400px;
   margin-bottom: 2rem;
   object-fit: contain;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
 }
 
 .buttons {
@@ -47,9 +37,9 @@
   }
 
   .heroLogo {
-    height: 180px;
+    height: 300px;
     width: auto;
-    max-width: 180px;
+    max-width: 300px;
     margin-bottom: 1.5rem;
   }
 
