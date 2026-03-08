@@ -267,3 +267,25 @@ The AI integration will support multiple AI providers through a unified interfac
 7. THE System SHALL provide a settings panel for configuring AI preferences
 8. THE System SHALL apply user preferences consistently across all AI interactions
 
+### Requirement 14: Custom Knowledge Management UI
+
+**User Story:** As a system administrator, I want to view and manage custom knowledge base documentation, so that I can verify what documentation is loaded and reload it without restarting the application.
+
+#### Acceptance Criteria
+
+1. THE System SHALL provide an admin page for viewing loaded custom knowledge base documentation
+2. THE admin page SHALL display a list of all loaded custom documentation files
+3. THE admin page SHALL group custom documentation by source: general custom docs and cluster-specific docs
+4. FOR each cluster with custom documentation, THE admin page SHALL display the cluster ID and list of documentation files
+5. FOR each documentation file, THE admin page SHALL display: filename, title (from frontmatter), category, and load status
+6. THE System SHALL provide a REST API endpoint to retrieve knowledge base status
+7. THE System SHALL provide a REST API endpoint to reload custom documentation from the filesystem
+8. WHEN a user clicks the reload button, THE System SHALL reload all custom documentation from the configured path
+9. THE System SHALL reload custom documentation without requiring application restart
+10. WHEN reloading custom documentation, THE System SHALL preserve built-in embedded documentation
+11. THE System SHALL display success/error status for each documentation file load attempt
+12. WHEN a documentation file fails to load, THE System SHALL display the error message (e.g., invalid frontmatter, file not found)
+13. THE admin page SHALL display the configured custom knowledge path
+14. THE admin page SHALL display a count of loaded documentation files by source (built-in, custom general, cluster-specific)
+15. THE System SHALL log all custom documentation reload operations with timestamp and result
+

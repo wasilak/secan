@@ -886,35 +886,121 @@ PUT /my-index/_settings
     - **Validates: Requirements 13.8**
     - Test that preferences apply consistently across all AI interactions
 
-- [ ] 18. End-to-End Integration Testing
-  - [ ]* 18.1 Test complete AI flow with OpenAI-compatible provider
+- [ ] 18. Frontend: Knowledge Management UI
+  - [ ] 18.1 Add knowledge management API methods to AI client
+    - Add `getKnowledgeStatus()` method to AiClient class
+    - Add `reloadKnowledge()` method to AiClient class
+    - Define TypeScript interfaces: KnowledgeStatusResponse, DocumentInfo, KnowledgeReloadResponse, LoadError
+    - _Requirements: 14.6, 14.7_
+  
+  - [ ] 18.2 Create KnowledgeManagementPage component
+    - Create `frontend/src/components/KnowledgeManagementPage.tsx` file
+    - Implement component state: status, loading, reloading, reloadResult, error
+    - Implement loadStatus function to fetch knowledge base status
+    - Implement handleReload function to trigger documentation reload
+    - _Requirements: 14.1, 14.2_
+  
+  - [ ] 18.3 Implement status display section
+    - Display configured custom knowledge path
+    - Display total document count
+    - Display counts by source: built-in, custom general, cluster-specific
+    - Use Mantine Card and Badge components for styling
+    - _Requirements: 14.2, 14.3, 14.13, 14.14_
+  
+  - [ ] 18.4 Implement cluster-specific documentation display
+    - Use Mantine Accordion to group docs by cluster ID
+    - Display table of documents for each cluster
+    - Show filename, title, category, and load status for each document
+    - Use color-coded badges for load status (success/error)
+    - _Requirements: 14.4, 14.5_
+  
+  - [ ] 18.5 Implement reload functionality
+    - Add reload button with loading state
+    - Display reload results with success/error counts
+    - Show list of errors if any files failed to load
+    - Refresh status display after successful reload
+    - _Requirements: 14.8, 14.9, 14.11, 14.12_
+  
+  - [ ] 18.6 Add route for knowledge management page
+    - Add route to React Router configuration
+    - Add navigation link in admin/settings menu
+    - Ensure page is accessible to administrators
+    - _Requirements: 14.1_
+  
+  - [ ]* 18.7 Write unit tests for KnowledgeManagementPage
+    - Test status loading displays correctly
+    - Test reload button triggers reload
+    - Test error display when API calls fail
+    - Test cluster-specific docs display in accordion
+    - _Requirements: 14.1, 14.2, 14.8_
+
+- [ ] 19. Backend: Knowledge Management Implementation
+  - [ ] 19.1 Implement get_status() method in Knowledge Base
+    - Count documents by source (built-in, custom general, cluster-specific)
+    - Group cluster-specific docs by cluster ID
+    - Create DocumentInfo structs with filename, title, category, source, load_status
+    - Return KnowledgeStatusResponse
+    - _Requirements: 14.6, 14.13, 14.14_
+  
+  - [ ] 19.2 Implement reload_custom_docs() method in Knowledge Base
+    - Remove existing custom docs from index (retain built-in)
+    - Reload custom docs from filesystem with error tracking
+    - Use load_custom_docs_with_errors helper method
+    - Collect errors for files that fail to load
+    - Return KnowledgeReloadResponse with success status and error list
+    - _Requirements: 14.7, 14.8, 14.9, 14.10, 14.11, 14.12_
+  
+  - [ ] 19.3 Implement load_custom_docs_with_errors helper
+    - Walk custom knowledge directory
+    - Track errors for each file that fails to load
+    - Parse documents and add to index
+    - Handle both general docs and cluster-specific folders
+    - _Requirements: 14.12_
+  
+  - [ ] 19.4 Implement load_cluster_docs_with_errors helper
+    - Walk cluster-specific directory
+    - Track errors for each file that fails to load
+    - Parse documents with cluster_id set
+    - Add to index with CustomClusterSpecific source
+    - _Requirements: 14.12_
+  
+  - [ ]* 19.5 Write unit tests for knowledge management methods
+    - Test get_status() returns correct counts
+    - Test get_status() groups cluster docs correctly
+    - Test reload_custom_docs() removes old custom docs
+    - Test reload_custom_docs() loads new docs
+    - Test error tracking for invalid files
+    - _Requirements: 14.6, 14.7, 14.12, 14.15_
+
+- [ ] 20. End-to-End Integration Testing
+  - [ ]* 20.1 Test complete AI flow with OpenAI-compatible provider
     - Configure with OpenAI-compatible endpoint
     - Test dashboard view AI summary
     - Test indices view AI questions
     - Verify streaming responses work
     - Verify error handling works
 
-  - [ ]* 18.2 Test complete AI flow with Anthropic provider
+  - [ ]* 20.2 Test complete AI flow with Anthropic provider
     - Configure with Anthropic API
     - Test dashboard view AI summary
     - Test shards view AI questions
     - Verify streaming responses work
     - Verify error handling works
   
-  - [ ]* 18.3 Test AI disabled scenario
+  - [ ]* 20.3 Test AI disabled scenario
     - Disable AI in configuration
     - Verify AI UI elements are hidden
     - Verify core cluster management still works
     - Verify no errors in console
   
-  - [ ]* 18.4 Test error scenarios
+  - [ ]* 20.4 Test error scenarios
     - Test with invalid API key
     - Test with unreachable endpoint
     - Test with rate limiting
     - Verify error messages display provider details
     - Verify copy error button works
   
-  - [ ]* 18.5 Test context awareness
+  - [ ]* 20.5 Test context awareness
     - Apply filters in indices view
     - Verify AI context includes filters
     - Apply grouping in indices view
@@ -922,7 +1008,7 @@ PUT /my-index/_settings
     - Navigate between views
     - Verify context changes appropriately
   
-  - [ ]* 18.6 Test conversation history
+  - [ ]* 20.6 Test conversation history
     - Ask multiple questions in Global Assistant
     - Verify history persists
     - Clear history
@@ -930,40 +1016,55 @@ PUT /my-index/_settings
     - Ask questions in different view assistants
     - Verify histories are separate
   
-  - [ ]* 18.7 Test user preferences
+  - [ ]* 20.7 Test user preferences
     - Change verbosity to concise
     - Verify AI responses are more concise
     - Change format to plain_text
     - Verify AI responses use plain text
     - Reload page
     - Verify preferences persist
+  
+  - [ ]* 20.8 Test knowledge management UI
+    - Navigate to knowledge management page
+    - Verify status displays correctly
+    - Verify document counts are accurate
+    - Verify cluster-specific docs display in accordion
+    - Click reload button
+    - Verify reload completes and status updates
+    - Test with invalid custom knowledge path
+    - Verify errors display correctly
 
-- [ ] 19. Documentation and Configuration Examples
-  - [ ] 19.1 Create configuration documentation
+- [ ] 21. Documentation and Configuration Examples
+  - [ ] 21.1 Create configuration documentation
     - Document AI configuration options in README or docs
     - Provide example configurations for OpenAI and Anthropic
     - Document environment variable overrides
     - Include troubleshooting guide
+    - Document custom knowledge base configuration and directory structure
 
-  - [ ] 19.2 Create example configuration files
+  - [ ] 21.2 Create example configuration files
     - Create config.yaml.example with AI section
     - Create docker-compose.yml example with AI environment variables
     - Create Kubernetes ConfigMap and Secret examples
+    - Include custom_knowledge_path configuration example
   
-  - [ ] 19.3 Document API endpoints
+  - [ ] 21.3 Document API endpoints
     - Document POST /api/ai/chat endpoint with request/response examples
     - Document POST /api/ai/summary endpoint
     - Document GET /api/ai/status endpoint
+    - Document GET /api/ai/knowledge/status endpoint
+    - Document POST /api/ai/knowledge/reload endpoint
     - Include SSE stream format documentation
   
-  - [ ] 19.4 Create user guide
+  - [ ] 21.4 Create user guide
     - Document how to use Global Assistant
     - Document how to use View Assistant
     - Document Magic Wand functionality
     - Include screenshots or examples
     - Document user preferences
+    - Document custom knowledge base setup and management
 
-- [ ] 20. Final Checkpoint - Feature Complete
+- [ ] 22. Final Checkpoint - Feature Complete
   - Ensure all backend tests pass (unit and property-based)
   - Ensure all frontend tests pass (unit and property-based)
   - Verify backend builds without errors or warnings
@@ -977,6 +1078,9 @@ PUT /my-index/_settings
   - Verify user preferences persist and apply consistently
   - Verify conversation histories work correctly
   - Verify streaming responses display smoothly
+  - Verify custom knowledge base loading and prioritization works
+  - Verify knowledge management UI displays status correctly
+  - Verify knowledge reload functionality works
   - Review all requirements are satisfied
   - Ask the user if questions arise
 

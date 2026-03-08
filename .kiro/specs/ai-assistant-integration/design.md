@@ -116,6 +116,8 @@ This design document specifies the technical architecture for integrating AI cap
 - `/api/ai/summary` - POST endpoint for generating view summaries
 - `/api/ai/status` - GET endpoint for checking AI feature availability
 - `/api/ai/stats` - GET endpoint for AI usage statistics
+- `/api/ai/knowledge/status` - GET endpoint for retrieving knowledge base status
+- `/api/ai/knowledge/reload` - POST endpoint for reloading custom documentation
 
 **Context Builder** (`backend/src/ai/context.rs`)
 - Identifies current view type from request parameters
@@ -638,7 +640,7 @@ impl Base {
         // Load embedded documentation
         for file in EmbeddedDocs::iter() {
             let content = EmbeddedDocs::get(&file)
-                .ok_or_else(|| anyhow::anyhow!("Failed to load {}", file))?;
+                .ok_or_else(|| antml:anyhow!("Failed to load {}", file))?;
             
             let mut doc = Self::parse_document(&file, &content.data)?;
             doc.source = DocumentSource::BuiltIn;
@@ -654,6 +656,203 @@ impl Base {
             index,
             custom_knowledge_path,
         })
+    }
+    
+    /// Get knowledge base status for admin UI
+    pub fn get_status(&self) -> KnowledgeStatusResponse {
+        let mut cluster_specific_docs: HashMap<String, Vec<DocumentInfo>> = HashMap::new();
+        let mut built_in_count = 0;
+        let mut custom_general_count = 0;
+        
+        for doc in &self.index {
+            match &doc.source {
+                DocumentSource::BuiltIn => {
+                    built_in_count += 1;
+                }
+                DocumentSource::CustomGeneral => {
+                    custom_general_count += 1;
+                }
+                DocumentSource::CustomClusterSpecific => {
+                    if let Some(ref cluster_id) = doc.cluster_id {
+                        cluster_specific_docs
+                            .entry(cluster_id.clone())
+                            .or_insert_with(Vec::new)
+                            .push(DocumentInfo {
+                                filename: doc.id.clone(),
+                                title: doc.title.clone(),
+                                category: format!("{:?}", doc.category),
+                                source: "cluster-specific".to_string(),
+                                load_status: "success".to_string(),
+                            });
+                    }
+                }
+            }
+        }
+        
+        KnowledgeStatusResponse {
+            configured_path: self.custom_knowledge_path.as_ref().map(|p| p.display().to_string()),
+            built_in_count,
+            custom_general_count,
+            cluster_specific_docs,
+            total_count: self.index.len(),
+        }
+    }
+    
+    /// Reload custom documentation from filesystem
+    pub async fn reload_custom_docs(&mut self) -> Result<KnowledgeReloadResponse> {
+        let Some(ref path) = self.custom_knowledge_path else {
+            return Ok(KnowledgeReloadResponse {
+                success: true,
+                reloaded_count: 0,
+                errors: vec![],
+            });
+        };
+        
+        // Remove existing custom docs from index
+        self.index.retain(|doc| matches!(doc.source, DocumentSource::BuiltIn));
+        
+        let mut errors = Vec::new();
+        let initial_count = self.index.len();
+        
+        // Reload custom docs
+        if let Err(e) = Self::load_custom_docs_with_errors(&mut self.index, path, &mut errors) {
+            errors.push(LoadError {
+                file: path.display().to_string(),
+                error: e.to_string(),
+            });
+        }
+        
+        let reloaded_count = self.index.len() - initial_count;
+        
+        Ok(KnowledgeReloadResponse {
+            success: errors.is_empty(),
+            reloaded_count,
+            errors,
+        })
+    }
+    
+    /// Load custom docs with error tracking
+    fn load_custom_docs_with_errors(
+        index: &mut Vec<Document>,
+        base_path: &Path,
+        errors: &mut Vec<LoadError>,
+    ) -> Result<()> {
+        if !base_path.exists() {
+            return Err(anyhow::anyhow!("Path does not exist"));
+        }
+        
+        for entry in std::fs::read_dir(base_path)? {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    errors.push(LoadError {
+                        file: "unknown".to_string(),
+                        error: e.to_string(),
+                    });
+                    continue;
+                }
+            };
+            
+            let path = entry.path();
+            
+            if path.is_dir() {
+                let folder_name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                
+                if let Err(e) = Self::load_cluster_docs_with_errors(index, &path, folder_name, errors) {
+                    errors.push(LoadError {
+                        file: path.display().to_string(),
+                        error: e.to_string(),
+                    });
+                }
+            } else if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+                match std::fs::read(&path) {
+                    Ok(content) => {
+                        let filename = path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown");
+                        
+                        match Self::parse_document(filename, &content) {
+                            Ok(mut doc) => {
+                                doc.source = DocumentSource::CustomGeneral;
+                                doc.cluster_id = None;
+                                index.push(doc);
+                            }
+                            Err(e) => {
+                                errors.push(LoadError {
+                                    file: path.display().to_string(),
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        errors.push(LoadError {
+                            file: path.display().to_string(),
+                            error: e.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Load cluster-specific docs with error tracking
+    fn load_cluster_docs_with_errors(
+        index: &mut Vec<Document>,
+        cluster_path: &Path,
+        cluster_id: &str,
+        errors: &mut Vec<LoadError>,
+    ) -> Result<()> {
+        for entry in std::fs::read_dir(cluster_path)? {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    errors.push(LoadError {
+                        file: cluster_path.display().to_string(),
+                        error: e.to_string(),
+                    });
+                    continue;
+                }
+            };
+            
+            let path = entry.path();
+            
+            if path.is_file() && path.extension().map_or(false, |e| e == "md") {
+                match std::fs::read(&path) {
+                    Ok(content) => {
+                        let filename = path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown");
+                        
+                        match Self::parse_document(filename, &content) {
+                            Ok(mut doc) => {
+                                doc.source = DocumentSource::CustomClusterSpecific;
+                                doc.cluster_id = Some(cluster_id.to_string());
+                                index.push(doc);
+                            }
+                            Err(e) => {
+                                errors.push(LoadError {
+                                    file: path.display().to_string(),
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        errors.push(LoadError {
+                            file: path.display().to_string(),
+                            error: e.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(())
     }
     
     /// Load custom documentation from filesystem
@@ -1092,6 +1291,77 @@ pub async fn status(
     })
 }
 
+/// Response types for knowledge management endpoints
+#[derive(Debug, Serialize)]
+pub struct KnowledgeStatusResponse {
+    /// Configured custom knowledge path (if any)
+    pub configured_path: Option<String>,
+    /// Number of built-in embedded documents
+    pub built_in_count: usize,
+    /// Number of general custom documents
+    pub custom_general_count: usize,
+    /// Cluster-specific documentation grouped by cluster ID
+    pub cluster_specific_docs: HashMap<String, Vec<DocumentInfo>>,
+    /// Total number of loaded documents
+    pub total_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DocumentInfo {
+    /// Filename
+    pub filename: String,
+    /// Document title from frontmatter
+    pub title: String,
+    /// Document category
+    pub category: String,
+    /// Document source (built-in, custom-general, custom-cluster-specific)
+    pub source: String,
+    /// Load status (success or error message)
+    pub load_status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct KnowledgeReloadResponse {
+    /// Whether reload was successful
+    pub success: bool,
+    /// Number of documents reloaded
+    pub reloaded_count: usize,
+    /// List of errors encountered during reload
+    pub errors: Vec<LoadError>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoadError {
+    /// File path that failed to load
+    pub file: String,
+    /// Error message
+    pub error: String,
+}
+
+/// GET /api/ai/knowledge/status - Get knowledge base status
+pub async fn knowledge_status(
+    State(state): State<AiState>,
+) -> Json<KnowledgeStatusResponse> {
+    let status = state.context_builder.knowledge_base.get_status();
+    Json(status)
+}
+
+/// POST /api/ai/knowledge/reload - Reload custom documentation
+pub async fn knowledge_reload(
+    State(state): State<AiState>,
+) -> Result<Json<KnowledgeReloadResponse>, (StatusCode, Json<ErrorResponse>)> {
+    match state.context_builder.knowledge_base.reload_custom_docs().await {
+        Ok(result) => Ok(Json(result)),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "Failed to reload custom documentation".to_string(),
+                details: Some(e.to_string()),
+            }),
+        )),
+    }
+}
+
 /// Sanitize user input to prevent prompt injection
 fn sanitize_input(input: &str) -> String {
     // Remove potential prompt injection patterns
@@ -1109,6 +1379,8 @@ pub fn routes() -> axum::Router<AiState> {
         .route("/chat", axum::routing::post(chat_stream))
         .route("/summary", axum::routing::post(generate_summary))
         .route("/status", axum::routing::get(status))
+        .route("/knowledge/status", axum::routing::get(knowledge_status))
+        .route("/knowledge/reload", axum::routing::post(knowledge_reload))
 }
 ```
 
@@ -1796,6 +2068,315 @@ export function updateAiPreferences(preferences: Partial<UserPreferences>): void
   
   // Dispatch event to notify other components
   window.dispatchEvent(new CustomEvent('ai-preferences-updated', { detail: updated }));
+}
+```
+
+#### Knowledge Management Components
+
+**AI Client Extensions for Knowledge Management**
+
+```typescript
+// frontend/src/api/ai-client.ts (additions)
+
+export interface KnowledgeStatusResponse {
+  configuredPath: string | null;
+  builtInCount: number;
+  customGeneralCount: number;
+  clusterSpecificDocs: Record<string, DocumentInfo[]>;
+  totalCount: number;
+}
+
+export interface DocumentInfo {
+  filename: string;
+  title: string;
+  category: string;
+  source: string;
+  loadStatus: string;
+}
+
+export interface KnowledgeReloadResponse {
+  success: boolean;
+  reloadedCount: number;
+  errors: LoadError[];
+}
+
+export interface LoadError {
+  file: string;
+  error: string;
+}
+
+export class AiClient {
+  // ... existing methods ...
+  
+  /**
+   * Get knowledge base status
+   */
+  async getKnowledgeStatus(): Promise<KnowledgeStatusResponse> {
+    const response = await fetch(`${this.baseUrl}/knowledge/status`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to get knowledge base status');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Reload custom documentation
+   */
+  async reloadKnowledge(): Promise<KnowledgeReloadResponse> {
+    const response = await fetch(`${this.baseUrl}/knowledge/reload`, {
+      method: 'POST',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to reload knowledge base');
+    }
+    
+    return response.json();
+  }
+}
+```
+
+**Knowledge Management Admin Page**
+
+```typescript
+// frontend/src/components/KnowledgeManagementPage.tsx
+
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Title,
+  Text,
+  Button,
+  Stack,
+  Group,
+  Card,
+  Badge,
+  Accordion,
+  Alert,
+  Loader,
+  Table,
+} from '@mantine/core';
+import { IconRefresh, IconAlertCircle, IconCheck, IconX } from '@tabler/icons-react';
+import { AiClient, KnowledgeStatusResponse, KnowledgeReloadResponse } from '../api/ai-client';
+
+export function KnowledgeManagementPage(): JSX.Element {
+  const [status, setStatus] = useState<KnowledgeStatusResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reloading, setReloading] = useState(false);
+  const [reloadResult, setReloadResult] = useState<KnowledgeReloadResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  const aiClient = new AiClient();
+  
+  const loadStatus = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const data = await aiClient.getKnowledgeStatus();
+      setStatus(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load status');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleReload = async () => {
+    setReloading(true);
+    setError(null);
+    setReloadResult(null);
+    
+    try {
+      const result = await aiClient.reloadKnowledge();
+      setReloadResult(result);
+      
+      // Refresh status after reload
+      await loadStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reload');
+    } finally {
+      setReloading(false);
+    }
+  };
+  
+  useEffect(() => {
+    loadStatus();
+  }, []);
+  
+  if (loading) {
+    return (
+      <Container size="lg" py="xl">
+        <Stack align="center" spacing="md">
+          <Loader size="lg" />
+          <Text>Loading knowledge base status...</Text>
+        </Stack>
+      </Container>
+    );
+  }
+  
+  if (error && !status) {
+    return (
+      <Container size="lg" py="xl">
+        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+          {error}
+        </Alert>
+      </Container>
+    );
+  }
+  
+  return (
+    <Container size="lg" py="xl">
+      <Stack spacing="lg">
+        <Group position="apart">
+          <div>
+            <Title order={2}>AI Knowledge Base Management</Title>
+            <Text size="sm" color="dimmed">
+              View and manage custom documentation for the AI assistant
+            </Text>
+          </div>
+          
+          <Button
+            leftIcon={<IconRefresh size={16} />}
+            onClick={handleReload}
+            loading={reloading}
+            disabled={!status?.configuredPath}
+          >
+            Reload Documentation
+          </Button>
+        </Group>
+        
+        {error && (
+          <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+            {error}
+          </Alert>
+        )}
+        
+        {reloadResult && (
+          <Alert
+            icon={reloadResult.success ? <IconCheck size={16} /> : <IconX size={16} />}
+            title={reloadResult.success ? 'Reload Successful' : 'Reload Completed with Errors'}
+            color={reloadResult.success ? 'green' : 'yellow'}
+          >
+            <Text>Reloaded {reloadResult.reloadedCount} documents</Text>
+            {reloadResult.errors.length > 0 && (
+              <Stack spacing="xs" mt="sm">
+                <Text weight={500}>Errors:</Text>
+                {reloadResult.errors.map((err, idx) => (
+                  <Text key={idx} size="sm" color="red">
+                    {err.file}: {err.error}
+                  </Text>
+                ))}
+              </Stack>
+            )}
+          </Alert>
+        )}
+        
+        {status && (
+          <>
+            <Card shadow="sm" padding="lg">
+              <Stack spacing="md">
+                <Group position="apart">
+                  <Text weight={500}>Configuration</Text>
+                </Group>
+                
+                <Group spacing="xl">
+                  <div>
+                    <Text size="sm" color="dimmed">Custom Knowledge Path</Text>
+                    <Text>{status.configuredPath || 'Not configured'}</Text>
+                  </div>
+                  
+                  <div>
+                    <Text size="sm" color="dimmed">Total Documents</Text>
+                    <Text weight={500} size="lg">{status.totalCount}</Text>
+                  </div>
+                </Group>
+              </Stack>
+            </Card>
+            
+            <Card shadow="sm" padding="lg">
+              <Stack spacing="md">
+                <Group position="apart">
+                  <Text weight={500}>Documentation Sources</Text>
+                </Group>
+                
+                <Group spacing="xl">
+                  <div>
+                    <Text size="sm" color="dimmed">Built-in Docs</Text>
+                    <Badge size="lg" variant="filled">{status.builtInCount}</Badge>
+                  </div>
+                  
+                  <div>
+                    <Text size="sm" color="dimmed">Custom General Docs</Text>
+                    <Badge size="lg" variant="filled" color="blue">{status.customGeneralCount}</Badge>
+                  </div>
+                  
+                  <div>
+                    <Text size="sm" color="dimmed">Cluster-Specific Docs</Text>
+                    <Badge size="lg" variant="filled" color="green">
+                      {Object.keys(status.clusterSpecificDocs).length} clusters
+                    </Badge>
+                  </div>
+                </Group>
+              </Stack>
+            </Card>
+            
+            {Object.keys(status.clusterSpecificDocs).length > 0 && (
+              <Card shadow="sm" padding="lg">
+                <Stack spacing="md">
+                  <Text weight={500}>Cluster-Specific Documentation</Text>
+                  
+                  <Accordion>
+                    {Object.entries(status.clusterSpecificDocs).map(([clusterId, docs]) => (
+                      <Accordion.Item key={clusterId} value={clusterId}>
+                        <Accordion.Control>
+                          <Group>
+                            <Text weight={500}>{clusterId}</Text>
+                            <Badge>{docs.length} documents</Badge>
+                          </Group>
+                        </Accordion.Control>
+                        <Accordion.Panel>
+                          <Table>
+                            <thead>
+                              <tr>
+                                <th>Filename</th>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {docs.map((doc, idx) => (
+                                <tr key={idx}>
+                                  <td><Text size="sm" family="monospace">{doc.filename}</Text></td>
+                                  <td><Text size="sm">{doc.title}</Text></td>
+                                  <td><Badge size="sm" variant="outline">{doc.category}</Badge></td>
+                                  <td>
+                                    {doc.loadStatus === 'success' ? (
+                                      <Badge size="sm" color="green">Success</Badge>
+                                    ) : (
+                                      <Badge size="sm" color="red">{doc.loadStatus}</Badge>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </Accordion.Panel>
+                      </Accordion.Item>
+                    ))}
+                  </Accordion>
+                </Stack>
+              </Card>
+            )}
+          </>
+        )}
+      </Stack>
+    </Container>
+  );
 }
 ```
 
