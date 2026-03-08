@@ -272,7 +272,7 @@ pub async fn get_cluster_metrics(
     // Build time series data by combining all metric arrays
     let mut data_points = Vec::new();
 
-    tracing::info!(
+    tracing::debug!(
         "Transforming metrics: node_count={:?} disk={:?} jvm={:?}",
         backend_metrics.node_count,
         backend_metrics.disk_used_bytes.as_ref().map(|s| s.len()),
