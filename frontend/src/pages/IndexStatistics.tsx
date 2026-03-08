@@ -18,34 +18,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
-
-/**
- * Format milliseconds to human-readable format
- */
-function formatTime(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
-  if (ms < 3600000) return `${(ms / 60000).toFixed(2)}m`;
-  return `${(ms / 3600000).toFixed(2)}h`;
-}
-
-/**
- * Format number with thousands separator
- */
-function formatNumber(num: number): string {
-  return num.toLocaleString();
-}
+import { formatBytes, formatTime, formatNumberWithCommas } from '../utils/formatters';
 
 /**
  * StatCard component for displaying a single statistic
@@ -190,14 +163,14 @@ export function IndexStatistics() {
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <StatCard
                 title="Document Count"
-                value={formatNumber(currentStats.docs.count)}
+                value={formatNumberWithCommas(currentStats.docs.count)}
                 description="Total documents in index"
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <StatCard
                 title="Deleted Documents"
-                value={formatNumber(currentStats.docs.deleted)}
+                value={formatNumberWithCommas(currentStats.docs.deleted)}
                 description="Documents marked for deletion"
               />
             </Grid.Col>
@@ -211,7 +184,7 @@ export function IndexStatistics() {
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
               <StatCard
                 title="Segments"
-                value={formatNumber(currentStats.segments.count)}
+                value={formatNumberWithCommas(currentStats.segments.count)}
                 description={`Memory: ${formatBytes(currentStats.segments.memoryInBytes)}`}
               />
             </Grid.Col>
@@ -233,7 +206,7 @@ export function IndexStatistics() {
             <Table.Tbody>
               <Table.Tr>
                 <Table.Td>Total Index Operations</Table.Td>
-                <Table.Td>{formatNumber(currentStats.indexing.indexTotal)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.indexing.indexTotal)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Index Time</Table.Td>
@@ -241,15 +214,15 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Indexing Operations</Table.Td>
-                <Table.Td>{formatNumber(currentStats.indexing.indexCurrent)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.indexing.indexCurrent)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Failed Index Operations</Table.Td>
-                <Table.Td>{formatNumber(currentStats.indexing.indexFailed)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.indexing.indexFailed)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Delete Operations</Table.Td>
-                <Table.Td>{formatNumber(currentStats.indexing.deleteTotal)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.indexing.deleteTotal)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Delete Time</Table.Td>
@@ -257,7 +230,7 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Delete Operations</Table.Td>
-                <Table.Td>{formatNumber(currentStats.indexing.deleteCurrent)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.indexing.deleteCurrent)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Throttle Time</Table.Td>
@@ -282,7 +255,7 @@ export function IndexStatistics() {
             <Table.Tbody>
               <Table.Tr>
                 <Table.Td>Total Queries</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.queryTotal)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.queryTotal)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Query Time</Table.Td>
@@ -300,11 +273,11 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Queries</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.queryCurrent)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.queryCurrent)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Fetches</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.fetchTotal)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.fetchTotal)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Fetch Time</Table.Td>
@@ -312,11 +285,11 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Fetches</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.fetchCurrent)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.fetchCurrent)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Scrolls</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.scrollTotal)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.scrollTotal)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Scroll Time</Table.Td>
@@ -324,7 +297,7 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Scrolls</Table.Td>
-                <Table.Td>{formatNumber(currentStats.search.scrollCurrent)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.search.scrollCurrent)}</Table.Td>
               </Table.Tr>
             </Table.Tbody>
           </Table>
@@ -345,11 +318,11 @@ export function IndexStatistics() {
             <Table.Tbody>
               <Table.Tr>
                 <Table.Td>Current Merges</Table.Td>
-                <Table.Td>{formatNumber(currentStats.merges.current)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.merges.current)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Merge Docs</Table.Td>
-                <Table.Td>{formatNumber(currentStats.merges.currentDocs)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.merges.currentDocs)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Current Merge Size</Table.Td>
@@ -357,7 +330,7 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Merges</Table.Td>
-                <Table.Td>{formatNumber(currentStats.merges.total)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.merges.total)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Merge Time</Table.Td>
@@ -365,7 +338,7 @@ export function IndexStatistics() {
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Merged Docs</Table.Td>
-                <Table.Td>{formatNumber(currentStats.merges.totalDocs)}</Table.Td>
+                <Table.Td>{formatNumberWithCommas(currentStats.merges.totalDocs)}</Table.Td>
               </Table.Tr>
               <Table.Tr>
                 <Table.Td>Total Merged Size</Table.Td>
@@ -391,7 +364,7 @@ export function IndexStatistics() {
                 <Table.Tbody>
                   <Table.Tr>
                     <Table.Td>Total Refreshes</Table.Td>
-                    <Table.Td>{formatNumber(currentStats.refresh.total)}</Table.Td>
+                    <Table.Td>{formatNumberWithCommas(currentStats.refresh.total)}</Table.Td>
                   </Table.Tr>
                   <Table.Tr>
                     <Table.Td>Total Refresh Time</Table.Td>
@@ -420,7 +393,7 @@ export function IndexStatistics() {
                 <Table.Tbody>
                   <Table.Tr>
                     <Table.Td>Total Flushes</Table.Td>
-                    <Table.Td>{formatNumber(currentStats.flush.total)}</Table.Td>
+                    <Table.Td>{formatNumberWithCommas(currentStats.flush.total)}</Table.Td>
                   </Table.Tr>
                   <Table.Tr>
                     <Table.Td>Total Flush Time</Table.Td>

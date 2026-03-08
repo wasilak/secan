@@ -27,37 +27,9 @@ import { useWatermarks } from '../hooks/useWatermarks';
 import { NodeCharts } from './NodeCharts';
 import { getRoleIcon } from './RoleIcons';
 import { useSparklineData } from '../hooks/useSparklineData';
-import { formatRate } from '../utils/formatters';
+import { formatRate, formatBytesOptional, formatPercent, formatNumber } from '../utils/formatters';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number | undefined): string {
-  if (bytes === undefined || bytes === null || isNaN(bytes)) return 'N/A';
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
-
-/**
- * Format percentage
- */
-function formatPercent(value: number | undefined): string {
-  if (value === undefined || value === null || isNaN(value)) return 'N/A';
-  return `${Math.round(value)}`;
-}
-
-/**
- * Safe number formatter - returns N/A for invalid values
- */
-function formatNumber(value: number | undefined, decimals: number = 0): string {
-  if (value === undefined || value === null || isNaN(value)) return 'N/A';
-  return value.toFixed(decimals);
-}
 
 /**
  * Props for NodeDetailContent component
@@ -332,7 +304,7 @@ export function NodeDetailContent({
                     radius="xs"
                   />
                   <Text size="xs" c="dimmed">
-                    {formatBytes(nodeStats.heapUsed)} / {formatBytes(nodeStats.heapMax)} (
+                    {formatBytesOptional(nodeStats.heapUsed)} / {formatBytesOptional(nodeStats.heapMax)} (
                     {formatPercent(nodeStats.heapPercent)}%)
                   </Text>
                 </>
@@ -360,7 +332,7 @@ export function NodeDetailContent({
                     radius="xs"
                   />
                   <Text size="xs" c="dimmed">
-                    {formatBytes(nodeStats.diskUsed)} / {formatBytes(nodeStats.diskTotal)} (
+                    {formatBytesOptional(nodeStats.diskUsed)} / {formatBytesOptional(nodeStats.diskTotal)} (
                     {formatPercent(nodeStats.diskPercent)}%)
                   </Text>
                 </>
@@ -636,7 +608,7 @@ export function NodeDetailContent({
                           Total
                         </Text>
                         <Text size="lg" fw={700}>
-                          {formatBytes(nodeStats.fs.total)}
+                          {formatBytesOptional(nodeStats.fs.total)}
                         </Text>
                       </Stack>
                     </Grid.Col>
@@ -646,7 +618,7 @@ export function NodeDetailContent({
                           Available
                         </Text>
                         <Text size="lg" fw={700}>
-                          {formatBytes(nodeStats.fs.available)}
+                          {formatBytesOptional(nodeStats.fs.available)}
                         </Text>
                       </Stack>
                     </Grid.Col>
@@ -656,7 +628,7 @@ export function NodeDetailContent({
                           Used
                         </Text>
                         <Text size="lg" fw={700}>
-                          {formatBytes(nodeStats.fs.used)}
+                          {formatBytesOptional(nodeStats.fs.used)}
                         </Text>
                       </Stack>
                     </Grid.Col>

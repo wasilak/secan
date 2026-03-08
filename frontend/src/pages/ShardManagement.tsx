@@ -39,6 +39,7 @@ import {
 import { apiClient } from '../api/client';
 import { getPaginatedItems } from '../types/api';
 import { useWatermarks } from '../hooks/useWatermarks';
+import { formatBytes } from '../utils/formatters';
 import type { ShardInfo, NodeInfo } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ShardGridSkeleton } from '../components/LoadingSkeleton';
@@ -895,15 +896,6 @@ export function ShardManagement() {
 }
 
 /**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
 
 /**
  * RelocateShardModal component for relocating shards

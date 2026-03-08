@@ -95,28 +95,9 @@ import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmMod
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
-import { formatLoadAverage, getLoadColor, formatUptimeDetailed } from '../utils/formatters';
+import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
 import { useState, useEffect, useCallback } from 'react';
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
-
-/**
- * Format percentage
- */
-function formatPercent(used: number, total: number): number {
-  if (total === 0) return 0;
-  return Math.round((used / total) * 100);
-}
 
 /**
  * Get background color for index health in shard allocation grid
@@ -1044,7 +1025,7 @@ export function ClusterView() {
                   {stats?.diskUsed && stats?.diskTotal && (
                     <div style={{ marginTop: 4 }}>
                       <Text size="xs" c="dimmed">
-                        {formatPercent(stats.diskUsed, stats.diskTotal)}% used
+                        {formatPercentRatio(stats.diskUsed, stats.diskTotal)}% used
                       </Text>
                     </div>
                   )}
@@ -1085,14 +1066,14 @@ export function ClusterView() {
                         Memory Usage
                       </Text>
                       <Progress
-                        value={formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}
-                        color={getColor(formatPercent(stats.memoryUsed || 0, stats.memoryTotal))}
+                        value={formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}
+                        color={getColor(formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal))}
                         size="sm"
                         radius="xs"
                       />
                       <Text size="xs" c="dimmed">
                         {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
-                        {formatPercent(stats.memoryUsed || 0, stats.memoryTotal)}%)
+                        {formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}%)
                       </Text>
                     </Stack>
                   </Card>
@@ -1107,14 +1088,14 @@ export function ClusterView() {
                         Disk Usage
                       </Text>
                       <Progress
-                        value={formatPercent(stats.diskUsed || 0, stats.diskTotal)}
-                        color={getColor(formatPercent(stats.diskUsed || 0, stats.diskTotal))}
+                        value={formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}
+                        color={getColor(formatPercentRatio(stats.diskUsed || 0, stats.diskTotal))}
                         size="sm"
                         radius="xs"
                       />
                       <Text size="xs" c="dimmed">
                         {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
-                        {formatPercent(stats.diskUsed || 0, stats.diskTotal)}%)
+                        {formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}%)
                       </Text>
                     </Stack>
                   </Card>
@@ -1939,8 +1920,8 @@ function NodesList({
                   <Table.Td>
                     <Stack gap={4}>
                       <Progress
-                        value={formatPercent(node.heapUsed, node.heapMax)}
-                        color={getColor(formatPercent(node.heapUsed, node.heapMax))}
+                        value={formatPercentRatio(node.heapUsed, node.heapMax)}
+                        color={getColor(formatPercentRatio(node.heapUsed, node.heapMax))}
                         size="sm"
                         radius="xs"
                       />
@@ -1952,8 +1933,8 @@ function NodesList({
                   <Table.Td>
                     <Stack gap={4}>
                       <Progress
-                        value={formatPercent(node.diskUsed, node.diskTotal)}
-                        color={getColor(formatPercent(node.diskUsed, node.diskTotal))}
+                        value={formatPercentRatio(node.diskUsed, node.diskTotal)}
+                        color={getColor(formatPercentRatio(node.diskUsed, node.diskTotal))}
                         size="sm"
                         radius="xs"
                       />

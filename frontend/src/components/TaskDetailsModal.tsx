@@ -5,6 +5,7 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
+import { formatTimestamp } from '../utils/formatters';
 
 /**
  * Task details modal component
@@ -38,10 +39,6 @@ function formatUptime(millis: number): string {
     return `${minutes}m`;
   }
   return `${seconds}s`;
-}
-
-function formatTimestamp(millis: number): string {
-  return new Date(millis).toLocaleString();
 }
 
 export function TaskDetailsModal({

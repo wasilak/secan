@@ -165,3 +165,128 @@ export function formatBytes(bytes: number): string {
 
   return `${(bytes / Math.pow(k, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
 }
+
+/**
+ * Format bytes to human-readable size (with undefined handling)
+ *
+ * Examples:
+ * - 1024 -> "1.00 KB"
+ * - undefined -> "N/A"
+ *
+ * @param bytes - Size in bytes (can be undefined)
+ * @returns Formatted size string or "N/A"
+ */
+export function formatBytesOptional(bytes: number | undefined): string {
+  if (bytes === undefined || bytes === null || isNaN(bytes)) return 'N/A';
+  return formatBytes(bytes);
+}
+
+/**
+ * Format percentage value
+ *
+ * Examples:
+ * - 75.6 -> "76"
+ * - undefined -> "N/A"
+ *
+ * @param value - Percentage value
+ * @returns Formatted percentage string (without % symbol)
+ */
+export function formatPercent(value: number | undefined): string {
+  if (value === undefined || value === null || isNaN(value)) return 'N/A';
+  return `${Math.round(value)}`;
+}
+
+/**
+ * Format percentage from used/total ratio
+ *
+ * Examples:
+ * - (50, 100) -> 50
+ * - (0, 0) -> 0
+ *
+ * @param used - Used amount
+ * @param total - Total amount
+ * @returns Percentage as number
+ */
+export function formatPercentRatio(used: number, total: number): number {
+  if (total === 0) return 0;
+  return Math.round((used / total) * 100);
+}
+
+/**
+ * Format number with optional decimals
+ *
+ * Examples:
+ * - (123.456, 2) -> "123.46"
+ * - (undefined, 0) -> "N/A"
+ *
+ * @param value - Number to format
+ * @param decimals - Number of decimal places (default: 0)
+ * @returns Formatted number string or "N/A"
+ */
+export function formatNumber(value: number | undefined, decimals: number = 0): string {
+  if (value === undefined || value === null || isNaN(value)) return 'N/A';
+  return value.toFixed(decimals);
+}
+
+/**
+ * Format number with thousands separator
+ *
+ * Examples:
+ * - 1000 -> "1,000"
+ * - 1234567 -> "1,234,567"
+ *
+ * @param num - Number to format
+ * @returns Formatted number with commas
+ */
+export function formatNumberWithCommas(num: number): string {
+  return num.toLocaleString();
+}
+
+/**
+ * Format milliseconds to human-readable time
+ *
+ * Examples:
+ * - 500 -> "500ms"
+ * - 5000 -> "5.00s"
+ * - 300000 -> "5.00m"
+ * - 7200000 -> "2.00h"
+ *
+ * @param ms - Time in milliseconds
+ * @returns Formatted time string
+ */
+export function formatTime(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+  if (ms < 3600000) return `${(ms / 60000).toFixed(2)}m`;
+  return `${(ms / 3600000).toFixed(2)}h`;
+}
+
+/**
+ * Format timestamp to locale string
+ *
+ * Examples:
+ * - 1609459200000 -> "1/1/2021, 12:00:00 AM" (locale-dependent)
+ *
+ * @param millis - Timestamp in milliseconds
+ * @returns Formatted date and time string
+ */
+export function formatTimestamp(millis: number): string {
+  return new Date(millis).toLocaleString();
+}
+
+/**
+ * Format timestamp for charts (time only)
+ *
+ * Examples:
+ * - 1609459200000 -> "12:00 AM"
+ *
+ * @param timestamp - Timestamp in milliseconds
+ * @returns Formatted time string (HH:MM)
+ */
+export function formatChartTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

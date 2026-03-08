@@ -21,6 +21,7 @@ import {
   Legend,
 } from 'recharts';
 import { IconCopy, IconCheck } from '@tabler/icons-react';
+import { formatChartTime } from '../../utils/formatters';
 import type { DataPoint } from '../../hooks/useSparklineData';
 
 export interface TimeSeriesData {
@@ -40,19 +41,6 @@ export interface TimeSeriesChartProps {
   tickFormatter?: (value: number) => string;
   showLegend?: boolean;
   showDots?: boolean;
-}
-
-/**
- * Format timestamp to HH:MM:SS
- */
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
 }
 
 /**
@@ -116,7 +104,7 @@ export function TimeSeriesChart({
   
   const combinedData = hasData ? series[0].data.map((point, index) => {
     const entry: Record<string, number | string> = {
-      time: formatTime(point.timestamp),
+      time: formatChartTime(point.timestamp),
       timestamp: point.timestamp,
     };
     

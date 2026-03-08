@@ -3,6 +3,7 @@ import type { DataPoint } from '../../hooks/useSparklineData';
 import type { NodeInfo } from '../../types/api';
 import { TimeSeriesChart, DistributionChart, NodeRolesChart } from './index';
 import HiddenIndicesToggle from './HiddenIndicesToggle';
+import { formatBytes } from '../../utils/formatters';
 
 interface ClusterStatisticsProps {
   // Time series data with timestamps
@@ -50,22 +51,6 @@ interface ClusterStatisticsProps {
     primaries?: number;
     replicas?: number;
   }>;
-}
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes === 0) {
-    return '0 B';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  const k = 1024;
-  const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
-  const unitIndex = Math.min(i, units.length - 1);
-
-  return `${(bytes / Math.pow(k, unitIndex)).toFixed(2)} ${units[unitIndex]}`;
 }
 
 /**

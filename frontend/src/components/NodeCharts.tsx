@@ -1,5 +1,6 @@
 import { Grid, Stack, Text, Card, Code, useMantineColorScheme } from '@mantine/core';
 import { TimeSeriesChart } from './ClusterStatistics/TimeSeriesChart';
+import { formatChartTime } from '../utils/formatters';
 import {
   AreaChart,
   Area,
@@ -31,19 +32,6 @@ interface NodeChartsProps {
 }
 
 /**
- * Format timestamp to HH:MM:SS
- */
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-}
-
-/**
  * Load Average chart with 3 series (1min, 5min, 15min)
  */
 function LoadAverageChart({
@@ -67,7 +55,7 @@ function LoadAverageChart({
   
   // Combine all 3 series into single dataset
   const combinedData = loadHistory.map((point) => ({
-    time: formatTime(point.timestamp),
+    time: formatChartTime(point.timestamp),
     load1: point.value,
     load5: load5History?.find((p) => p.timestamp === point.timestamp)?.value || point.value,
     load15: load15History?.find((p) => p.timestamp === point.timestamp)?.value || point.value,

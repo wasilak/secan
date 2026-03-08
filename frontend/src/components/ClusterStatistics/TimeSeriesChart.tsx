@@ -10,6 +10,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { IconCopy, IconCheck } from '@tabler/icons-react';
+import { formatChartTime } from '../../utils/formatters';
 import type { DataPoint } from '../../hooks/useSparklineData';
 
 interface TimeSeriesChartProps {
@@ -23,19 +24,6 @@ interface TimeSeriesChartProps {
   tickFormatter?: (value: number) => string;
   query?: string;
   height?: number;
-}
-
-/**
- * Format timestamp to HH:MM:SS
- */
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
 }
 
 /**
@@ -110,7 +98,7 @@ export function TimeSeriesChart({
           <ResponsiveContainer width="100%" height={height}>
             <AreaChart
               data={data.map((p) => ({
-                time: formatTime(p.timestamp),
+                time: formatChartTime(p.timestamp),
                 value: p.value,
               }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 0 }}

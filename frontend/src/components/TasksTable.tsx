@@ -2,6 +2,7 @@ import React from 'react';
 import type { ReactElement } from 'react';
 import { Table, Text, Tooltip, Group, Badge, Checkbox } from '@mantine/core';
 import { TaskInfo } from '../types/api';
+import { formatTimestamp } from '../utils/formatters';
 
 /**
  * Format milliseconds to readable uptime string
@@ -22,13 +23,6 @@ function formatUptime(millis: number): string {
     return `${minutes}m`;
   }
   return `${seconds}s`;
-}
-
-/**
- * Format timestamp to readable date
- */
-function formatTimestamp(millis: number): string {
-  return new Date(millis).toLocaleString();
 }
 
 /**

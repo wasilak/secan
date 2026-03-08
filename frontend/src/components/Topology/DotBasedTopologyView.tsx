@@ -4,6 +4,7 @@ import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
+import { formatBytes } from '../../utils/formatters';
 import {
   parseGroupingFromUrl,
   calculateNodeGroups,
@@ -16,17 +17,6 @@ import {
 import { GroupingControl } from './GroupingControl';
 import { GroupRenderer } from './GroupRenderer';
 import { GroupingErrorBoundary } from './GroupingErrorBoundary';
-
-/**
- * Format bytes to human-readable format
- */
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
 
 interface DotBasedTopologyViewProps {
   nodes: NodeInfo[];
