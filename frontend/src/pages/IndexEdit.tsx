@@ -14,7 +14,6 @@ import {
   Badge,
   useMantineColorScheme,
 } from '@mantine/core';
-import { CopyButton } from '../components/CopyButton';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { IndexVisualization } from '../components/IndexVisualization';
 import { useParams, useSearchParams } from 'react-router-dom';
@@ -28,9 +27,9 @@ import {
   IconChartBar,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
 import { parseError } from '../lib/errorHandling';
+import { CodeEditor } from '../components/CodeEditor';
 
 /**
  * Validate JSON string
@@ -508,33 +507,13 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                   <Text size="xs" c="dimmed" mb="sm">
                     Edit the dynamic settings below
                   </Text>
-                  <Group justify="flex-end" mb="xs">
-                    <CopyButton value={settings} tooltip="Copy settings" size="sm" />
-                  </Group>
-                  <Box
-                    style={{
-                      border: '1px solid var(--mantine-color-gray-4)',
-                      borderRadius: 'var(--mantine-radius-sm)',
-                      width: '100%',
-                      maxWidth: '100%',
-                    }}
-                  >
-                    <Editor
-                      height="500px"
-                      defaultLanguage="json"
-                      value={settings}
-                      onChange={handleSettingsChange}
-                      theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        lineNumbers: 'on',
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        wordWrap: 'on',
-                      }}
-                    />
-                  </Box>
+                  <CodeEditor
+                    value={settings}
+                    onChange={handleSettingsChange}
+                    language="json"
+                    height="500px"
+                    showCopyButton
+                  />
                   {settingsError && (
                     <Text size="sm" c="red" mt="xs">
                       {settingsError}
@@ -568,33 +547,13 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                     <Text size="xs" c="dimmed" mb="sm">
                       Add new fields to the mappings below
                     </Text>
-                    <Group justify="flex-end" mb="xs">
-                      <CopyButton value={mappings} tooltip="Copy mappings" size="sm" />
-                    </Group>
-                    <Box
-                      style={{
-                        border: '1px solid var(--mantine-color-gray-4)',
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        width: '100%',
-                        maxWidth: '100%',
-                      }}
-                    >
-                      <Editor
-                        height="500px"
-                        defaultLanguage="json"
-                        value={mappings}
-                        onChange={handleMappingsChange}
-                        theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 14,
-                          lineNumbers: 'on',
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                          wordWrap: 'on',
-                        }}
-                      />
-                    </Box>
+                    <CodeEditor
+                      value={mappings}
+                      onChange={handleMappingsChange}
+                      language="json"
+                      height="500px"
+                      showCopyButton
+                    />
                     {mappingsError && (
                       <Text size="sm" c="red" mt="xs">
                         {mappingsError}
@@ -625,35 +584,13 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
                       {statsError}
                     </Alert>
                   ) : statsData ? (
-                    <Box>
-                      <Group justify="flex-end" mb="xs">
-                        <CopyButton value={JSON.stringify(statsData, null, 2)} tooltip="Copy JSON" size="sm" />
-                      </Group>
-                      <Box
-                        style={{
-                          border: '1px solid var(--mantine-color-gray-4)',
-                          borderRadius: 'var(--mantine-radius-sm)',
-                          width: '100%',
-                          maxWidth: '100%',
-                        }}
-                      >
-                        <Editor
-                          height="500px"
-                          defaultLanguage="json"
-                          value={JSON.stringify(statsData, null, 2)}
-                          theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                          options={{
-                            readOnly: true,
-                            minimap: { enabled: false },
-                            fontSize: 14,
-                            lineNumbers: 'on',
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            wordWrap: 'on',
-                          }}
-                        />
-                      </Box>
-                    </Box>
+                    <CodeEditor
+                      value={JSON.stringify(statsData, null, 2)}
+                      language="json"
+                      height="500px"
+                      readOnly
+                      showCopyButton
+                    />
                   ) : null}
                 </div>
               </Stack>

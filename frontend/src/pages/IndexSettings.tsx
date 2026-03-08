@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Title, Text, Card, Button, Stack, Group, Alert, Skeleton, Box } from '@mantine/core';
+import { Title, Text, Card, Button, Stack, Group, Alert, Skeleton } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import Editor from '@monaco-editor/react';
+import { CodeEditor } from '../components/CodeEditor';
 import { apiClient } from '../api/client';
-import { useTheme } from '../hooks/useTheme';
 import { parseError } from '../lib/errorHandling';
 
 /**
@@ -42,7 +41,6 @@ function validateJSON(json: string): string | null {
 export function IndexSettings() {
   const { id: clusterId, indexName } = useParams<{ id: string; indexName: string }>();
   const queryClient = useQueryClient();
-  const { resolvedTheme } = useTheme();
 
   const [settings, setSettings] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -281,27 +279,12 @@ export function IndexSettings() {
               <Text size="xs" c="dimmed" mb="sm">
                 Edit the settings below and click "Update Settings" to apply changes
               </Text>
-              <Box
-                style={{
-                  border: '1px solid var(--mantine-color-gray-4)',
-                  borderRadius: 'var(--mantine-radius-sm)',
-                }}
-              >
-                <Editor
-                  height="500px"
-                  defaultLanguage="json"
-                  value={settings}
-                  onChange={handleSettingsChange}
-                  theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                  }}
-                />
-              </Box>
+              <CodeEditor
+                language="json"
+                value={settings}
+                onChange={handleSettingsChange}
+                height="500px"
+              />
               {settingsError && (
                 <Text size="sm" c="red" mt="xs">
                   {settingsError}

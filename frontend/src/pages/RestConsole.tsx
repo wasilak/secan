@@ -31,7 +31,7 @@ import {
   IconCopy,
   IconCheck,
 } from '@tabler/icons-react';
-import Editor from '@monaco-editor/react';
+import { CodeEditor } from '../components/CodeEditor';
 import { apiClient } from '../api/client';
 import { useConsoleHistory } from '../hooks/useConsoleHistory';
 import { RequestHistoryItem } from '../types/preferences';
@@ -574,19 +574,11 @@ export function RestConsole() {
                 Format: METHOD endpoint (e.g., GET _cluster/health)
               </Text>
 
-              <Editor
-                height="200px"
-                defaultLanguage="plaintext"
+              <CodeEditor
+                language="plaintext"
                 value={request}
                 onChange={(value) => setRequest(value || '')}
-                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  wordWrap: 'on',
-                }}
+                height="200px"
               />
             </Paper>
 
@@ -639,18 +631,12 @@ export function RestConsole() {
                 )}
               </Group>
 
-              <Editor
-                height="400px"
-                defaultLanguage="json"
+              <CodeEditor
                 language={responseLanguage}
                 value={response}
-                theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
+                height="400px"
+                readOnly
                 options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
                   wordWrap: 'off',
                   scrollbar: {
                     horizontal: 'auto',

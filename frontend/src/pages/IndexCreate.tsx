@@ -16,9 +16,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import Editor from '@monaco-editor/react';
 import { apiClient } from '../api/client';
-import { useTheme } from '../hooks/useTheme';
+import { CodeEditor } from '../components/CodeEditor';
 
 /**
  * Validate index name format
@@ -96,7 +95,6 @@ export function IndexCreate() {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { resolvedTheme } = useTheme();
 
   const [indexName, setIndexName] = useState('');
   const [settings, setSettings] = useState(
@@ -268,27 +266,12 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Configure index settings such as number of shards and replicas
                 </Text>
-                <Box
-                  style={{
-                    border: '1px solid var(--mantine-color-gray-4)',
-                    borderRadius: 'var(--mantine-radius-sm)',
-                  }}
-                >
-                  <Editor
-                    height="300px"
-                    defaultLanguage="json"
-                    value={settings}
-                    onChange={handleSettingsChange}
-                    theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                    }}
-                  />
-                </Box>
+                <CodeEditor
+                  value={settings}
+                  onChange={handleSettingsChange}
+                  language="json"
+                  height="300px"
+                />
                 {settingsError && (
                   <Text size="sm" c="red" mt="xs">
                     {settingsError}
@@ -318,27 +301,12 @@ export function IndexCreate() {
                 <Text size="xs" c="dimmed" mb="sm">
                   Define field types and properties for your documents
                 </Text>
-                <Box
-                  style={{
-                    border: '1px solid var(--mantine-color-gray-4)',
-                    borderRadius: 'var(--mantine-radius-sm)',
-                  }}
-                >
-                  <Editor
-                    height="300px"
-                    defaultLanguage="json"
-                    value={mappings}
-                    onChange={handleMappingsChange}
-                    theme={resolvedTheme === 'dark' ? 'vs-dark' : 'light'}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                    }}
-                  />
-                </Box>
+                <CodeEditor
+                  value={mappings}
+                  onChange={handleMappingsChange}
+                  language="json"
+                  height="300px"
+                />
                 {mappingsError && (
                   <Text size="sm" c="red" mt="xs">
                     {mappingsError}

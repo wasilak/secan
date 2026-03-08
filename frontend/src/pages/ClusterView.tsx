@@ -27,7 +27,7 @@ import {
   Tabs,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
-import Editor from '@monaco-editor/react';
+import { CodeEditor } from '../components/CodeEditor';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { defaultSection, isValidClusterSection } from '../routes/clusterRoutes';
 import {
@@ -3357,37 +3357,13 @@ function ShardDetailsModal({
             </Stack>
           ) : (
             <Box>
-              <Group justify="flex-end" mb="xs">
-                <CopyButton
-                  value={JSON.stringify(detailedStats || shard, null, 2)}
-                  tooltip="Copy JSON"
-                  size="sm"
-                />
-              </Group>
-              <Box
-                style={{
-                  border: '1px solid var(--mantine-color-gray-4)',
-                  borderRadius: 'var(--mantine-radius-sm)',
-                  width: '100%',
-                  maxWidth: '100%',
-                }}
-              >
-                <Editor
-                  height="600px"
-                  defaultLanguage="json"
-                  value={JSON.stringify(detailedStats || shard, null, 2)}
-                  theme={colorScheme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    wordWrap: 'on',
-                  }}
-                />
-              </Box>
+              <CodeEditor
+                value={JSON.stringify(detailedStats || shard, null, 2)}
+                language="json"
+                height="600px"
+                readOnly
+                showCopyButton
+              />
             </Box>
           )}
         </Modal.Body>
