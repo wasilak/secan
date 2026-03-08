@@ -257,7 +257,7 @@ export function calculateNodeGroups(
  * 
  * @example
  * getGroupLabel('master', 'role');
- * // Returns: 'Master Nodes'
+ * // Returns: 'master'
  * 
  * @example
  * getGroupLabel('undefined', 'label');
@@ -281,22 +281,6 @@ export function getGroupLabel(groupKey: string, attribute: GroupingAttribute): s
     return 'All Nodes';
   }
   
-  // Format labels based on attribute type
-  if (attribute === 'role') {
-    // Capitalize first letter and add "Nodes" suffix
-    return groupKey.charAt(0).toUpperCase() + groupKey.slice(1) + ' Nodes';
-  }
-  
-  if (attribute === 'type') {
-    // Capitalize first letter and add "Type" suffix
-    return groupKey.charAt(0).toUpperCase() + groupKey.slice(1) + ' Type';
-  }
-  
-  if (attribute === 'label') {
-    // Capitalize first letter and add "Label:" prefix
-    return 'Label: ' + groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
-  }
-  
-  // Default: return as-is
+  // Use group key as-is for all types (no prefixes or suffixes)
   return groupKey;
 }
