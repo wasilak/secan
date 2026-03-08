@@ -34,25 +34,17 @@ jobs:
           just-version: 1.46.0
 
       - name: Install docs dependencies
-        run: |
-          cd docs
-          just install
+        run: cd docs && npm ci
 
       - name: Run documentation tests
-        run: |
-          cd docs
-          just test
+        run: cd docs && npm test
 
       - name: Check links
-        run: |
-          cd docs
-          just check-links
+        run: cd docs && npm run check-links
         continue-on-error: true
 
       - name: Build Docusaurus
-        run: |
-          cd docs
-          just build
+        run: just docs-build
 
       - name: Upload documentation artifact
         uses: actions/upload-artifact@v4
