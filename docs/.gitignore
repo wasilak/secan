@@ -1,7 +1,6 @@
 # build output
-dist/
-# generated types
-.astro/
+build/
+.docusaurus/
 
 # generated API documentation
 public/api/
