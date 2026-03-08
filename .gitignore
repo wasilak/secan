@@ -49,6 +49,8 @@ secan-config/
 backend/target/
 Cargo.lock
 package-lock.json
+# Exception: docs needs package-lock.json for CI
+!docs/package-lock.json
 
 # Frontend
 node_modules
