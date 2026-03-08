@@ -659,7 +659,8 @@ impl Base {
     }
     
     /// Get knowledge base status for admin UI
-    pub fn get_status(&self) -> KnowledgeStatusResponse {
+    /// Filters cluster-specific docs based on accessible_clusters if provided
+    pub fn get_status(&self, accessible_clusters: Option<&[String]>) -> KnowledgeStatusResponse {
         let mut cluster_specific_docs: HashMap<String, Vec<DocumentInfo>> = HashMap::new();
         let mut built_in_count = 0;
         let mut custom_general_count = 0;
@@ -674,6 +675,13 @@ impl Base {
                 }
                 DocumentSource::CustomClusterSpecific => {
                     if let Some(ref cluster_id) = doc.cluster_id {
+                        // Filter by accessible clusters if provided
+                        if let Some(accessible) = accessible_clusters {
+                            if !accessible.contains(cluster_id) {
+                                continue; // Skip clusters user doesn't have access to
+                            }
+                        }
+                        
                         cluster_specific_docs
                             .entry(cluster_id.clone())
                             .or_insert_with(Vec::new)
@@ -699,7 +707,8 @@ impl Base {
     }
     
     /// Reload custom documentation from filesystem
-    pub async fn reload_custom_docs(&mut self) -> Result<KnowledgeReloadResponse> {
+    /// Only reloads docs for accessible_clusters if provided
+    pub async fn reload_custom_docs(&mut self, accessible_clusters: Option<&[String]>) -> Result<KnowledgeReloadResponse> {
         let Some(ref path) = self.custom_knowledge_path else {
             return Ok(KnowledgeReloadResponse {
                 success: true,
@@ -709,13 +718,32 @@ impl Base {
         };
         
         // Remove existing custom docs from index
-        self.index.retain(|doc| matches!(doc.source, DocumentSource::BuiltIn));
+        // If accessible_clusters is provided, only remove docs for those clusters
+        if let Some(accessible) = accessible_clusters {
+            self.index.retain(|doc| {
+                match &doc.source {
+                    DocumentSource::BuiltIn => true, // Keep built-in
+                    DocumentSource::CustomGeneral => false, // Remove general custom docs
+                    DocumentSource::CustomClusterSpecific => {
+                        // Keep cluster-specific docs for clusters user doesn't have access to
+                        if let Some(ref cluster_id) = doc.cluster_id {
+                            !accessible.contains(cluster_id)
+                        } else {
+                            false
+                        }
+                    }
+                }
+            });
+        } else {
+            // Remove all custom docs if no filter provided
+            self.index.retain(|doc| matches!(doc.source, DocumentSource::BuiltIn));
+        }
         
         let mut errors = Vec::new();
         let initial_count = self.index.len();
         
-        // Reload custom docs
-        if let Err(e) = Self::load_custom_docs_with_errors(&mut self.index, path, &mut errors) {
+        // Reload custom docs with access control
+        if let Err(e) = Self::load_custom_docs_with_errors(&mut self.index, path, &mut errors, accessible_clusters) {
             errors.push(LoadError {
                 file: path.display().to_string(),
                 error: e.to_string(),
@@ -731,11 +759,12 @@ impl Base {
         })
     }
     
-    /// Load custom docs with error tracking
+    /// Load custom docs with error tracking and access control
     fn load_custom_docs_with_errors(
         index: &mut Vec<Document>,
         base_path: &Path,
         errors: &mut Vec<LoadError>,
+        accessible_clusters: Option<&[String]>,
     ) -> Result<()> {
         if !base_path.exists() {
             return Err(anyhow::anyhow!("Path does not exist"));
@@ -759,6 +788,13 @@ impl Base {
                 let folder_name = path.file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("");
+                
+                // Check if user has access to this cluster
+                if let Some(accessible) = accessible_clusters {
+                    if !accessible.contains(&folder_name.to_string()) {
+                        continue; // Skip clusters user doesn't have access to
+                    }
+                }
                 
                 if let Err(e) = Self::load_cluster_docs_with_errors(index, &path, folder_name, errors) {
                     errors.push(LoadError {
@@ -1131,6 +1167,19 @@ pub struct AiState {
     provider: Arc<Box<dyn provider::Provider>>,
     context_builder: Arc<context::Builder>,
     enabled: bool,
+    cluster_config: Arc<ClusterConfig>, // Reference to cluster configuration
+}
+
+impl AiState {
+    /// Get list of cluster IDs the user has access to based on config.yaml
+    /// This integrates with the existing RBAC system from the cluster configuration
+    fn get_user_accessible_clusters(&self, user: &AuthUser) -> Vec<String> {
+        self.cluster_config
+            .get_accessible_clusters(user)
+            .into_iter()
+            .map(|cluster| cluster.id.clone())
+            .collect()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1341,16 +1390,26 @@ pub struct LoadError {
 /// GET /api/ai/knowledge/status - Get knowledge base status
 pub async fn knowledge_status(
     State(state): State<AiState>,
+    user: AuthUser, // Extract authenticated user from session
 ) -> Json<KnowledgeStatusResponse> {
-    let status = state.context_builder.knowledge_base.get_status();
+    // Get user's accessible cluster IDs from config
+    let accessible_clusters = state.get_user_accessible_clusters(&user);
+    
+    let status = state.context_builder.knowledge_base
+        .get_status(Some(&accessible_clusters));
     Json(status)
 }
 
 /// POST /api/ai/knowledge/reload - Reload custom documentation
 pub async fn knowledge_reload(
     State(state): State<AiState>,
+    user: AuthUser, // Extract authenticated user from session
 ) -> Result<Json<KnowledgeReloadResponse>, (StatusCode, Json<ErrorResponse>)> {
-    match state.context_builder.knowledge_base.reload_custom_docs().await {
+    // Get user's accessible cluster IDs from config
+    let accessible_clusters = state.get_user_accessible_clusters(&user);
+    
+    match state.context_builder.knowledge_base
+        .reload_custom_docs(Some(&accessible_clusters)).await {
         Ok(result) => Ok(Json(result)),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,

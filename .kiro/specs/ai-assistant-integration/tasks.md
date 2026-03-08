@@ -935,42 +935,52 @@ PUT /my-index/_settings
     - _Requirements: 14.1, 14.2, 14.8_
 
 - [ ] 19. Backend: Knowledge Management Implementation
-  - [ ] 19.1 Implement get_status() method in Knowledge Base
+  - [ ] 19.1 Add cluster access control to AiState
+    - Add `cluster_config: Arc<ClusterConfig>` field to AiState
+    - Implement `get_user_accessible_clusters()` helper method
+    - Integrate with existing RBAC system from cluster configuration
+    - _Requirements: 14.16, 14.17_
+  
+  - [ ] 19.2 Implement get_status() method with access control
+    - Update method signature to accept `accessible_clusters: Option<&[String]>`
     - Count documents by source (built-in, custom general, cluster-specific)
-    - Group cluster-specific docs by cluster ID
+    - Filter cluster-specific docs by accessible clusters
+    - Group cluster-specific docs by cluster ID (only accessible clusters)
     - Create DocumentInfo structs with filename, title, category, source, load_status
     - Return KnowledgeStatusResponse
-    - _Requirements: 14.6, 14.13, 14.14_
+    - _Requirements: 14.6, 14.13, 14.14, 14.16, 14.17_
   
-  - [ ] 19.2 Implement reload_custom_docs() method in Knowledge Base
-    - Remove existing custom docs from index (retain built-in)
-    - Reload custom docs from filesystem with error tracking
-    - Use load_custom_docs_with_errors helper method
+  - [ ] 19.3 Implement reload_custom_docs() method with access control
+    - Update method signature to accept `accessible_clusters: Option<&[String]>`
+    - Remove existing custom docs from index (retain built-in and inaccessible cluster docs)
+    - Reload custom docs from filesystem with error tracking and access filtering
+    - Use load_custom_docs_with_errors helper method with access control
     - Collect errors for files that fail to load
     - Return KnowledgeReloadResponse with success status and error list
-    - _Requirements: 14.7, 14.8, 14.9, 14.10, 14.11, 14.12_
+    - _Requirements: 14.7, 14.8, 14.9, 14.10, 14.11, 14.12, 14.18, 14.19_
   
-  - [ ] 19.3 Implement load_custom_docs_with_errors helper
+  - [ ] 19.4 Update load_custom_docs_with_errors with access control
+    - Add `accessible_clusters: Option<&[String]>` parameter
     - Walk custom knowledge directory
+    - Skip cluster folders user doesn't have access to
     - Track errors for each file that fails to load
     - Parse documents and add to index
     - Handle both general docs and cluster-specific folders
-    - _Requirements: 14.12_
+    - _Requirements: 14.12, 14.18, 14.19_
   
-  - [ ] 19.4 Implement load_cluster_docs_with_errors helper
-    - Walk cluster-specific directory
-    - Track errors for each file that fails to load
-    - Parse documents with cluster_id set
-    - Add to index with CustomClusterSpecific source
-    - _Requirements: 14.12_
+  - [ ] 19.5 Update knowledge_status and knowledge_reload route handlers
+    - Extract authenticated user from session (AuthUser)
+    - Call get_user_accessible_clusters() to get user's cluster access
+    - Pass accessible clusters to get_status() and reload_custom_docs()
+    - _Requirements: 14.16, 14.17, 14.18, 14.19_
   
-  - [ ]* 19.5 Write unit tests for knowledge management methods
-    - Test get_status() returns correct counts
-    - Test get_status() groups cluster docs correctly
-    - Test reload_custom_docs() removes old custom docs
-    - Test reload_custom_docs() loads new docs
-    - Test error tracking for invalid files
-    - _Requirements: 14.6, 14.7, 14.12, 14.15_
+  - [ ]* 19.6 Write unit tests for access control
+    - Test get_status() filters clusters correctly
+    - Test get_status() shows only accessible clusters
+    - Test reload_custom_docs() only reloads accessible cluster docs
+    - Test reload_custom_docs() preserves inaccessible cluster docs
+    - Test load_custom_docs_with_errors skips inaccessible clusters
+    - _Requirements: 14.16, 14.17, 14.18, 14.19_
 
 - [ ] 20. End-to-End Integration Testing
   - [ ]* 20.1 Test complete AI flow with OpenAI-compatible provider

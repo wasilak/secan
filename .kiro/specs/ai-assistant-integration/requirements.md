@@ -288,4 +288,8 @@ The AI integration will support multiple AI providers through a unified interfac
 13. THE admin page SHALL display the configured custom knowledge path
 14. THE admin page SHALL display a count of loaded documentation files by source (built-in, custom general, cluster-specific)
 15. THE System SHALL log all custom documentation reload operations with timestamp and result
+16. THE admin page SHALL display ONLY cluster-specific documentation for clusters the current user has access to based on config.yaml
+17. THE System SHALL filter cluster-specific documentation based on the user's cluster access permissions
+18. WHEN a user clicks the global reload button, THE System SHALL reload documentation ONLY for clusters the user has access to
+19. THE System SHALL NOT display or reload documentation for clusters the user does not have permission to access
 
