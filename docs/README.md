@@ -146,21 +146,103 @@ Docusaurus supports versioning to maintain documentation for multiple releases.
 
 ### Current Version Structure
 
-- **Current (1.2.x Next)**: Unversioned docs in `docs/` - for upcoming release
-- **1.1.x**: Versioned docs in `versioned_docs/version-1.1/` - current stable release
+- **Current (1.2.x Latest)**: Unversioned docs in `docs/` - for upcoming release
+- **1.1**: Versioned docs in `versioned_docs/version-1.1/` - previous stable release
 
-### Creating a New Version
+### Creating a New Version (e.g., Bumping to 1.3.x)
 
-When releasing a new version of Secan (e.g., 1.2.0):
+When you're ready to release a new version of Secan (e.g., releasing 1.2.0 and starting work on 1.3.x):
+
+**Step 1: Create the version snapshot**
 
 ```bash
+cd docs
 npm run docusaurus docs:version 1.2
 ```
 
 This command:
-1. Creates `versioned_docs/version-1.2/` with a snapshot of current docs
+1. Creates `versioned_docs/version-1.2/` with a snapshot of current docs from `docs/`
 2. Creates `versioned_sidebars/version-1.2-sidebars.json` with sidebar configuration
 3. Updates `versions.json` to include the new version
+
+**Step 2: Update version labels in config**
+
+Edit `docusaurus.config.js` to update the version labels:
+
+```javascript
+docs: {
+  lastVersion: 'current',
+  versions: {
+    current: {
+      label: '1.3.x (Latest)',  // Update to next version
+      path: '/',
+    },
+    '1.2': {                     // Add the newly created version
+      label: '1.2',
+      path: '1.2',
+      banner: 'none',
+    },
+    '1.1': {
+      label: '1.1',
+      path: '1.1',
+      banner: 'none',
+    },
+  },
+}
+```
+
+**Step 3: Verify the changes**
+
+```bash
+# Start dev server
+npm run start
+
+# Check that:
+# 1. Version dropdown shows "1.3.x (Latest)", "1.2", and "1.1"
+# 2. Current docs (/) show "1.3.x (Latest)" in version selector
+# 3. Clicking "1.2" shows the snapshot you just created
+# 4. All links work correctly in all versions
+```
+
+**Step 4: Commit the changes**
+
+```bash
+git add versioned_docs/ versioned_sidebars/ versions.json docusaurus.config.js
+git commit -m "docs: create version 1.2 and bump current to 1.3.x"
+git push
+```
+
+### Complete Example: Bumping from 1.2.x to 1.3.x
+
+Here's the complete process when releasing version 1.2.0:
+
+```bash
+# 1. Create version snapshot
+cd docs
+npm run docusaurus docs:version 1.2
+
+# 2. Edit docusaurus.config.js
+# Change:
+#   current: { label: '1.2.x (Latest)', ... }
+# To:
+#   current: { label: '1.3.x (Latest)', ... }
+# Add:
+#   '1.2': { label: '1.2', path: '1.2', banner: 'none' }
+
+# 3. Test locally
+npm run start
+# Visit http://localhost:3000/secan/
+# Test version selector
+# Verify all versions work
+
+# 4. Build to verify no errors
+npm run build
+
+# 5. Commit
+git add versioned_docs/ versioned_sidebars/ versions.json docusaurus.config.js
+git commit -m "docs: create version 1.2 and bump current to 1.3.x"
+git push
+```
 
 ### Version Configuration
 
@@ -171,16 +253,18 @@ docs: {
   lastVersion: 'current',
   versions: {
     current: {
-      label: '1.3.x (Next)',  // Update for next version
-      path: '/',
+      label: '1.3.x (Latest)',  // Always shows (Latest) for current
+      path: '/',                 // Current version at root path
     },
     '1.2': {
-      label: '1.2.x',
-      path: '1.2',
+      label: '1.2',              // Released version number
+      path: '1.2',               // Path: /docs/1.2/
+      banner: 'none',            // No banner for recent versions
     },
     '1.1': {
-      label: '1.1.x',
+      label: '1.1',
       path: '1.1',
+      banner: 'none',
     },
   },
 }
@@ -197,10 +281,17 @@ npm run docusaurus docs:version:list
 - Current development: Edit files in `docs/`
 - Released versions: Edit files in `versioned_docs/version-X.X/`
 
+**Important**: Versioned docs are snapshots. Changes to `docs/` do NOT affect versioned docs. To update a released version, edit the files in `versioned_docs/version-X.X/` directly.
+
 **Removing old versions:**
-1. Delete the version directory: `versioned_docs/version-X.X/`
-2. Delete the sidebar file: `versioned_sidebars/version-X.X-sidebars.json`
+
+When a version becomes too old to maintain:
+
+1. Delete the version directory: `rm -rf versioned_docs/version-X.X/`
+2. Delete the sidebar file: `rm versioned_sidebars/version-X.X-sidebars.json`
 3. Remove the version from `versions.json`
+4. Remove the version from `docusaurus.config.js` versions object
+5. Commit the changes
 
 ## Deployment
 
