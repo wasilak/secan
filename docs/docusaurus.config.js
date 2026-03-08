@@ -163,6 +163,24 @@ const config = {
     }),
 
   themes: ['@docusaurus/theme-mermaid'],
+
+  // Custom webpack config to suppress vscode-languageserver-types warning
+  plugins: [
+    function (context, options) {
+      return {
+        name: 'custom-webpack-config',
+        configureWebpack(config, isServer) {
+          return {
+            ignoreWarnings: [
+              {
+                module: /vscode-languageserver-types/,
+              },
+            ],
+          };
+        },
+      };
+    },
+  ],
 };
 
 module.exports = config;
