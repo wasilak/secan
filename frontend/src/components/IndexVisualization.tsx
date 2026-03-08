@@ -15,7 +15,7 @@ import {
   ScrollArea,
   Collapse,
 } from '@mantine/core';
-import { useMediaQuery, useViewportSize } from '@mantine/hooks';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconAlertCircle, IconZoomIn, IconZoomOut, IconZoomReset, IconSearch, IconX, IconDownload, IconFileTypePng, IconFileTypeSvg, IconChevronDown, IconChevronUp, IconRefresh } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { toPng } from 'html-to-image';
@@ -31,92 +31,6 @@ import type { HealthStatus, ShardInfo } from '../types/api';
 import { useMemo, useState } from 'react';
 import { useIndexShards } from '../hooks/useIndexShards';
 
-/**
- * Responsive font size configuration
- * 
- * Requirements: 8.4 - Scale font sizes based on zoom level and viewport size
- * 
- * Calculates font sizes that scale proportionally with viewport width
- * to maintain readability at different screen sizes.
- */
-interface ResponsiveFontSizes {
-  /** Font size for shard indicators (numbers inside shard boxes) */
-  shardIndicator: string;
-  /** Font size for node card titles (node names) */
-  nodeTitle: string;
-  /** Font size for node card labels (e.g., "Shards:") */
-  nodeLabel: string;
-  /** Font size for center index title */
-  centerTitle: string;
-  /** Font size for center index labels */
-  centerLabel: string;
-  /** Font size for tooltip content */
-  tooltipContent: string;
-  /** Font size for tooltip headers */
-  tooltipHeader: string;
-}
-
-/**
- * Calculate responsive font sizes based on viewport width
- * 
- * Requirements: 8.4 - Ensure readability at different viewport sizes
- * 
- * Uses a scaling factor based on viewport width to adjust font sizes:
- * - Mobile (< 768px): Smaller base sizes with moderate scaling
- * - Tablet (768px - 1024px): Medium base sizes with proportional scaling
- * - Desktop (> 1024px): Standard base sizes
- * 
- * @param viewportWidth - Current viewport width in pixels
- * @returns Object containing responsive font sizes
- */
-function calculateResponsiveFontSizes(viewportWidth: number): ResponsiveFontSizes {
-  // Define breakpoints
-  const MOBILE_BREAKPOINT = 768;
-  const TABLET_BREAKPOINT = 1024;
-  const DESKTOP_BREAKPOINT = 1440;
-  
-  // Calculate scaling factor based on viewport width
-  // Requirements: 8.4 - Scale font sizes based on viewport size
-  let scaleFactor: number;
-  
-  if (viewportWidth < MOBILE_BREAKPOINT) {
-    // Mobile: scale from 0.85 to 1.0 as width increases from 320px to 768px
-    scaleFactor = 0.85 + ((viewportWidth - 320) / (MOBILE_BREAKPOINT - 320)) * 0.15;
-  } else if (viewportWidth < TABLET_BREAKPOINT) {
-    // Tablet: scale from 1.0 to 1.1 as width increases from 768px to 1024px
-    scaleFactor = 1.0 + ((viewportWidth - MOBILE_BREAKPOINT) / (TABLET_BREAKPOINT - MOBILE_BREAKPOINT)) * 0.1;
-  } else if (viewportWidth < DESKTOP_BREAKPOINT) {
-    // Desktop: scale from 1.1 to 1.2 as width increases from 1024px to 1440px
-    scaleFactor = 1.1 + ((viewportWidth - TABLET_BREAKPOINT) / (DESKTOP_BREAKPOINT - TABLET_BREAKPOINT)) * 0.1;
-  } else {
-    // Large desktop: cap at 1.2x
-    scaleFactor = 1.2;
-  }
-  
-  // Clamp scale factor to reasonable bounds
-  scaleFactor = Math.max(0.85, Math.min(1.2, scaleFactor));
-  
-  // Base font sizes (in pixels)
-  const BASE_SHARD_INDICATOR = 12;
-  const BASE_NODE_TITLE = 14;
-  const BASE_NODE_LABEL = 12;
-  const BASE_CENTER_TITLE = 18;
-  const BASE_CENTER_LABEL = 14;
-  const BASE_TOOLTIP_CONTENT = 12;
-  const BASE_TOOLTIP_HEADER = 14;
-  
-  // Apply scaling factor to all font sizes
-  // Requirements: 8.4 - Font sizes scale proportionally
-  return {
-    shardIndicator: `${Math.round(BASE_SHARD_INDICATOR * scaleFactor)}px`,
-    nodeTitle: `${Math.round(BASE_NODE_TITLE * scaleFactor)}px`,
-    nodeLabel: `${Math.round(BASE_NODE_LABEL * scaleFactor)}px`,
-    centerTitle: `${Math.round(BASE_CENTER_TITLE * scaleFactor)}px`,
-    centerLabel: `${Math.round(BASE_CENTER_LABEL * scaleFactor)}px`,
-    tooltipContent: `${Math.round(BASE_TOOLTIP_CONTENT * scaleFactor)}px`,
-    tooltipHeader: `${Math.round(BASE_TOOLTIP_HEADER * scaleFactor)}px`,
-  };
-}
 
 /**
  * Props for the CenterIndexElement component
@@ -1066,15 +980,6 @@ export function IndexVisualization({
   // Responsive breakpoint detection - Requirements: 8.1, 8.2, 8.5
   // Reuse responsive pattern from ShardGrid component
   const isMobile = useMediaQuery('(max-width: 768px)');
-  
-  // Get viewport size for responsive font size calculation - Requirements: 8.4
-  const { width: viewportWidth } = useViewportSize();
-  
-  // Calculate responsive font sizes based on viewport width - Requirements: 8.4
-  // Recalculates when viewport width changes
-  const fontSizes = useMemo(() => {
-    return calculateResponsiveFontSizes(viewportWidth);
-  }, [viewportWidth]);
   
   // Fetch shard data using useIndexShards hook - Requirements: 7.4, 9.1, 9.3
   // The hook is configured with refetchInterval of 30000ms (30 seconds)
