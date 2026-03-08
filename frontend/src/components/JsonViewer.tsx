@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ReactElement } from 'react';
-import { Box, Button, Group, Stack, CopyButton, Tooltip, Alert } from '@mantine/core';
+import { Box, Button, Group, Stack, CopyButton, Tooltip, Alert, useMantineColorScheme } from '@mantine/core';
 import { IconCopy, IconCheck, IconAlertCircle } from '@tabler/icons-react';
 import Editor from '@monaco-editor/react';
 
@@ -47,6 +47,9 @@ export function JsonViewer({
   error,
   isLoading,
 }: JsonViewerProps): ReactElement {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+  
   const jsonString = React.useMemo(() => {
     try {
       return JSON.stringify(data, null, 2);
@@ -110,7 +113,7 @@ export function JsonViewer({
             foldingStrategy: 'indentation',
           }}
           loading={isLoading ? 'Loading...' : undefined}
-          theme="vs-light"
+          theme={isDark ? 'vs-dark' : 'light'}
         />
       </Box>
     </Stack>

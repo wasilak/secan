@@ -348,6 +348,28 @@ pub async fn get_task_details(
             if !obj.contains_key("action") {
                 obj.insert("action".to_string(), Value::String("unknown".to_string()));
             }
+
+            // Add start_time_in_millis if missing (default to current time)
+            if !obj.contains_key("start_time_in_millis") {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as i64;
+                obj.insert(
+                    "start_time_in_millis".to_string(),
+                    Value::Number(now.into()),
+                );
+            }
+
+            // Add cancellable field if missing (default to false)
+            if !obj.contains_key("cancellable") {
+                obj.insert("cancellable".to_string(), Value::Bool(false));
+            }
+
+            // Add cancelled field if missing (default to false)
+            if !obj.contains_key("cancelled") {
+                obj.insert("cancelled".to_string(), Value::Bool(false));
+            }
         }
     }
 
