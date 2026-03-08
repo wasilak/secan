@@ -20,10 +20,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   IconAlertCircle,
   IconArrowLeft,
-  IconBrandElastic,
-  IconCoffee,
-  IconClock,
-  IconCpu,
   IconActivity,
   IconExternalLink,
 } from '@tabler/icons-react';
@@ -36,6 +32,7 @@ import { getRoleIcon } from '../components/RoleIcons';
 import { useSparklineData } from '../hooks/useSparklineData';
 import { formatRate, formatBytesOptional, formatPercent, formatNumber } from '../utils/formatters';
 import { NodeDetailSkeleton } from '../components/LoadingSkeleton';
+import { StatsCard } from '../components/charts/StatsCard';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
 
@@ -188,77 +185,39 @@ export function NodeDetail() {
       {/* Node Information Cards */}
       <Grid mb="md">
         <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="blue">
-                  <IconBrandElastic size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  ES Version
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.version || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
+          <StatsCard
+            title="ES Version"
+            value={nodeStats.version || 'N/A'}
+            color="blue"
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="grape">
-                  <IconCoffee size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  JVM Version
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.jvmVersion || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
+          <StatsCard
+            title="JVM Version"
+            value={nodeStats.jvmVersion || 'N/A'}
+            color="grape"
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="teal">
-                  <IconClock size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  Uptime
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.uptime || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
+          <StatsCard
+            title="Uptime"
+            value={nodeStats.uptime || 'N/A'}
+            color="teal"
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="green">
-                  <IconCpu size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  CPU Usage
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent)
-                  ? `${formatNumber(nodeStats.cpuPercent, 1)}%`
-                  : 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
+          <StatsCard
+            title="CPU Usage"
+            value={
+              nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent)
+                ? `${formatNumber(nodeStats.cpuPercent, 1)}%`
+                : 'N/A'
+            }
+            color="green"
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
@@ -399,40 +358,25 @@ export function NodeDetail() {
               <>
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Total Shards
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {nodeStats.shards.total}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Total Shards"
+                      value={nodeStats.shards.total}
+                      color="gray"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Primary Shards
-                        </Text>
-                        <Text size="xl" fw={700} c="blue">
-                          {nodeStats.shards.primary}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Primary Shards"
+                      value={nodeStats.shards.primary}
+                      color="blue"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Replica Shards
-                        </Text>
-                        <Text size="xl" fw={700} c="gray">
-                          {nodeStats.shards.replica}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Replica Shards"
+                      value={nodeStats.shards.replica}
+                      color="gray"
+                    />
                   </Grid.Col>
                 </Grid>
 
@@ -474,69 +418,38 @@ export function NodeDetail() {
                 </Title>
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Documents Indexed
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.indexing.indexTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Rate:{' '}
-                          {formatRate(
-                            nodeStats.indexing.indexTotal,
-                            nodeStats.indexing.indexTimeInMillis
-                          )}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Documents Indexed"
+                      value={nodeStats.indexing.indexTotal.toLocaleString()}
+                      subtitle={`Rate: ${formatRate(
+                        nodeStats.indexing.indexTotal,
+                        nodeStats.indexing.indexTimeInMillis
+                      )}`}
+                      color="blue"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Indexing Time
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Current: {nodeStats.indexing.indexCurrent}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Indexing Time"
+                      value={`${(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s`}
+                      subtitle={`Current: ${nodeStats.indexing.indexCurrent}`}
+                      color="cyan"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Index Failures
-                        </Text>
-                        <Text
-                          size="lg"
-                          fw={700}
-                          c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}
-                        >
-                          {nodeStats.indexing.indexFailed.toLocaleString()}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Index Failures"
+                      value={nodeStats.indexing.indexFailed.toLocaleString()}
+                      color={nodeStats.indexing.indexFailed > 0 ? 'red' : 'gray'}
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Documents Deleted
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.indexing.deleteTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Time: {(nodeStats.indexing.deleteTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Documents Deleted"
+                      value={nodeStats.indexing.deleteTotal.toLocaleString()}
+                      subtitle={`Time: ${(nodeStats.indexing.deleteTimeInMillis / 1000).toFixed(2)}s`}
+                      color="orange"
+                    />
                   </Grid.Col>
                 </Grid>
               </div>
@@ -550,53 +463,31 @@ export function NodeDetail() {
                 </Title>
                 <Grid>
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Query Count
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.search.queryTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Rate:{' '}
-                          {formatRate(
-                            nodeStats.search.queryTotal,
-                            nodeStats.search.queryTimeInMillis
-                          )}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Query Count"
+                      value={nodeStats.search.queryTotal.toLocaleString()}
+                      subtitle={`Rate: ${formatRate(
+                        nodeStats.search.queryTotal,
+                        nodeStats.search.queryTimeInMillis
+                      )}`}
+                      color="violet"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Query Time
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Current: {nodeStats.search.queryCurrent}
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Query Time"
+                      value={`${(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s`}
+                      subtitle={`Current: ${nodeStats.search.queryCurrent}`}
+                      color="indigo"
+                    />
                   </Grid.Col>
                   <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Fetch Count
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.search.fetchTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Time: {(nodeStats.search.fetchTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                      </Stack>
-                    </Card>
+                    <StatsCard
+                      title="Fetch Count"
+                      value={nodeStats.search.fetchTotal.toLocaleString()}
+                      subtitle={`Time: ${(nodeStats.search.fetchTimeInMillis / 1000).toFixed(2)}s`}
+                      color="grape"
+                    />
                   </Grid.Col>
                 </Grid>
               </div>
@@ -608,39 +499,30 @@ export function NodeDetail() {
                 <Title order={4} mb="sm">
                   File System
                 </Title>
-                <Card withBorder>
-                  <Grid>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Total
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.total)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Available
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.available)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Used
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.used)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <StatsCard
+                      title="Total"
+                      value={formatBytesOptional(nodeStats.fs.total)}
+                      color="teal"
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <StatsCard
+                      title="Available"
+                      value={formatBytesOptional(nodeStats.fs.available)}
+                      color="green"
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <StatsCard
+                      title="Used"
+                      value={formatBytesOptional(nodeStats.fs.used)}
+                      color="orange"
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                    <Card shadow="sm" padding="lg" h="100%">
                       <Stack gap="xs">
                         <Text size="sm" c="dimmed">
                           Path
@@ -652,9 +534,9 @@ export function NodeDetail() {
                           Type: {nodeStats.fs.type}
                         </Text>
                       </Stack>
-                    </Grid.Col>
-                  </Grid>
-                </Card>
+                    </Card>
+                  </Grid.Col>
+                </Grid>
               </div>
             )}
           </Stack>

@@ -8,7 +8,6 @@ import {
   Group,
   Alert,
   Grid,
-  Paper,
   Table,
   Select,
 } from '@mantine/core';
@@ -19,33 +18,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { formatBytes, formatTime, formatNumberWithCommas } from '../utils/formatters';
-
-/**
- * StatCard component for displaying a single statistic
- */
-interface StatCardProps {
-  title: string;
-  value: string | number;
-  description?: string;
-}
-
-function StatCard({ title, value, description }: StatCardProps) {
-  return (
-    <Paper p="md" withBorder>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-        {title}
-      </Text>
-      <Text size="xl" fw={700} mt="xs">
-        {value}
-      </Text>
-      {description && (
-        <Text size="xs" c="dimmed" mt="xs">
-          {description}
-        </Text>
-      )}
-    </Paper>
-  );
-}
+import { StatsCard } from '../components/charts/StatsCard';
 
 /**
  * IndexStatistics component displays detailed index statistics
@@ -161,31 +134,31 @@ export function IndexStatistics() {
           </Title>
           <Grid>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <StatCard
+              <StatsCard
                 title="Document Count"
                 value={formatNumberWithCommas(currentStats.docs.count)}
-                description="Total documents in index"
+                subtitle="Total documents in index"
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <StatCard
+              <StatsCard
                 title="Deleted Documents"
                 value={formatNumberWithCommas(currentStats.docs.deleted)}
-                description="Documents marked for deletion"
+                subtitle="Documents marked for deletion"
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <StatCard
+              <StatsCard
                 title="Storage Size"
                 value={formatBytes(currentStats.store.sizeInBytes)}
-                description="Total disk space used"
+                subtitle="Total disk space used"
               />
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <StatCard
+              <StatsCard
                 title="Segments"
                 value={formatNumberWithCommas(currentStats.segments.count)}
-                description={`Memory: ${formatBytes(currentStats.segments.memoryInBytes)}`}
+                subtitle={`Memory: ${formatBytes(currentStats.segments.memoryInBytes)}`}
               />
             </Grid.Col>
           </Grid>
