@@ -104,6 +104,36 @@ export function buildGroupingUrl(baseUrl: string, config: GroupingConfig): strin
 }
 
 /**
+ * Extract label name and value from a tag
+ * 
+ * Supports three tag patterns:
+ * - "key:value" (e.g., "shard_indexing_pressure_enabled:true") → returns { name: "shard_indexing_pressure_enabled", value: "true" }
+ * - "key-value" (e.g., "zone-a") → returns { name: "zone", value: "a" }
+ * - Standalone (e.g., "production") → returns { name: "production", value: "production" }
+ * 
+ * @param tag - Tag string to parse
+ * @returns Object with name and value
+ */
+export function extractLabelFromTag(tag: string): { name: string; value: string } {
+  // Pattern 1: key:value
+  if (tag.includes(':')) {
+    const [name, ...valueParts] = tag.split(':');
+    return { name, value: valueParts.join(':') };
+  }
+  
+  // Pattern 2: key-value (only if there's exactly one dash and both parts exist)
+  const dashIndex = tag.indexOf('-');
+  if (dashIndex > 0 && dashIndex < tag.length - 1) {
+    const name = tag.substring(0, dashIndex);
+    const value = tag.substring(dashIndex + 1);
+    return { name, value };
+  }
+  
+  // Pattern 3: Standalone tag
+  return { name: tag, value: tag };
+}
+
+/**
  * Check if nodes have custom labels
  * 
  * Determines if any node in the array has custom labels (tags).
@@ -162,17 +192,23 @@ export function calculateNodeGroups(
   
   switch (config.attribute) {
     case 'role':
-      // Group by FIRST role only (no duplication)
+      // Group by ALL roles (nodes appear in multiple groups)
       for (const node of nodes) {
-        let groupKey = 'undefined';
         if (node.roles && node.roles.length > 0) {
-          groupKey = node.roles[0];
+          // Add node to ALL role groups it belongs to
+          for (const role of node.roles) {
+            if (!groups.has(role)) {
+              groups.set(role, []);
+            }
+            groups.get(role)!.push(node);
+          }
+        } else {
+          // Node with no roles goes to 'undefined' group
+          if (!groups.has('undefined')) {
+            groups.set('undefined', []);
+          }
+          groups.get('undefined')!.push(node);
         }
-        
-        if (!groups.has(groupKey)) {
-          groups.set(groupKey, []);
-        }
-        groups.get(groupKey)!.push(node);
       }
       break;
       
@@ -206,14 +242,15 @@ export function calculateNodeGroups(
       break;
       
     case 'label':
-      // Group by FIRST label (or specific label value if provided)
+      // Group by label value (extracted from tags)
       if (config.value) {
-        // Specific label value filtering
+        // Specific label value filtering - config.value is the full tag
         for (const node of nodes) {
+          const { value } = extractLabelFromTag(config.value);
           let groupKey = 'other';
           
           if (node.tags && node.tags.includes(config.value)) {
-            groupKey = config.value;
+            groupKey = value; // Use extracted value as group key
           }
           
           if (!groups.has(groupKey)) {
@@ -222,12 +259,13 @@ export function calculateNodeGroups(
           groups.get(groupKey)!.push(node);
         }
       } else {
-        // Group by first label
+        // Group by first label value
         for (const node of nodes) {
           let groupKey = 'undefined';
           
           if (node.tags && node.tags.length > 0) {
-            groupKey = node.tags[0];
+            const { value } = extractLabelFromTag(node.tags[0]);
+            groupKey = value;
           }
           
           if (!groups.has(groupKey)) {

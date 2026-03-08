@@ -9,10 +9,10 @@ import type { GroupingAttribute } from '../../utils/topologyGrouping';
 export interface GroupingControlProps {
   /** Currently active grouping attribute */
   currentGrouping: GroupingAttribute;
-  /** Currently active grouping value (for label-specific grouping) */
+  /** Currently active grouping value (for label-specific grouping) - this is the full tag */
   currentGroupingValue?: string;
-  /** Array of custom label values available in the cluster (e.g., ["zone-a", "rack-1"]) */
-  availableLabels: string[];
+  /** Array of label objects with name and tag */
+  availableLabels: Array<{ name: string; tag: string }>;
   /** Callback invoked when grouping selection changes */
   onGroupingChange: (attribute: GroupingAttribute, value?: string) => void;
 }
@@ -53,16 +53,16 @@ export function GroupingControl({
     { value: 'none', label: 'None' },
     { value: 'role', label: 'By Role' },
     { value: 'type', label: 'By Type' },
-    // Add individual label value options (no "By Label (All)" option)
-    ...availableLabels.map(labelValue => ({
-      value: `label:${labelValue}`,
-      label: labelValue,
+    // Add individual label name options (no "By Label (All)" option)
+    ...availableLabels.map(({ name, tag }) => ({
+      value: `label:${tag}`, // Use full tag as value
+      label: name, // Display just the label name
       disabled: false,
     })),
   ];
 
   // Determine current value for the select
-  // If grouping by label with a specific label value, use "label:labelValue" format
+  // If grouping by label with a specific label tag, use "label:tag" format
   // Otherwise use the attribute directly
   const selectValue = currentGrouping === 'label' && currentGroupingValue
     ? `label:${currentGroupingValue}`
@@ -77,8 +77,8 @@ export function GroupingControl({
         if (value) {
           // Handle label-specific grouping
           if (value.startsWith('label:')) {
-            const labelValue = value.substring(6); // Remove 'label:' prefix
-            onGroupingChange('label' as GroupingAttribute, labelValue);
+            const labelTag = value.substring(6); // Remove 'label:' prefix to get full tag
+            onGroupingChange('label' as GroupingAttribute, labelTag);
           } else {
             onGroupingChange(value as GroupingAttribute);
           }

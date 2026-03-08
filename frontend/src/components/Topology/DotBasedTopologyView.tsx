@@ -9,6 +9,7 @@ import {
   calculateNodeGroups,
   hasCustomLabels,
   getGroupLabel,
+  extractLabelFromTag,
   type GroupingAttribute,
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
@@ -123,25 +124,31 @@ export function DotBasedTopologyView({
   }, [nodes, groupingConfig]);
 
   // Check if nodes have custom labels for GroupingControl
-  // Extract unique label values from all node tags
+  // Extract unique label names from all node tags
   const availableLabels = useMemo(() => {
     if (!hasCustomLabels(nodes)) {
       return [];
     }
     
-    // Extract unique tag values from all nodes
-    // Tags are used as-is for grouping (e.g., "zone-a", "rack-1", "production")
-    const labelValues = new Set<string>();
+    // Extract unique label names from all nodes
+    // Group tags by label name to show one option per label
+    const labelMap = new Map<string, string>(); // name -> first full tag
     
     nodes.forEach(node => {
       if (node.tags && node.tags.length > 0) {
         node.tags.forEach(tag => {
-          labelValues.add(tag);
+          const { name } = extractLabelFromTag(tag);
+          if (!labelMap.has(name)) {
+            labelMap.set(name, tag); // Store first occurrence of this label name
+          }
         });
       }
     });
     
-    return Array.from(labelValues).sort();
+    // Return array of { name, tag } objects sorted by name
+    return Array.from(labelMap.entries())
+      .map(([name, tag]) => ({ name, tag }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [nodes]);
 
   // Handler for grouping changes
