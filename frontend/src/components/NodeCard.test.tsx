@@ -2,7 +2,25 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock the useIndexShards hook
+vi.mock('../hooks/useIndexShards', () => ({
+  useIndexShards: vi.fn(() => ({
+    data: [
+      // Primary shards on node-1 and node-2
+      { index: 'test-index', shard: 0, primary: true, state: 'STARTED', node: 'node-1', docs: 1000, storeSize: 1024000 },
+      { index: 'test-index', shard: 1, primary: true, state: 'STARTED', node: 'node-2', docs: 2000, storeSize: 2048000 },
+      // Replica shards on node-3 and node-4
+      { index: 'test-index', shard: 0, primary: false, state: 'STARTED', node: 'node-3', docs: 1000, storeSize: 1024000 },
+      { index: 'test-index', shard: 1, primary: false, state: 'STARTED', node: 'node-4', docs: 2000, storeSize: 2048000 },
+    ],
+    isLoading: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  })),
+}));
 
 // Import the NodeCard component from IndexVisualization
 // Since NodeCard is not exported, we'll test it through IndexVisualization
