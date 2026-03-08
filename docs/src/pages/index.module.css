@@ -10,9 +10,11 @@
 }
 
 .heroLogo {
-  height: 200px;
-  width: 200px;
+  height: 240px;
+  width: auto;
+  max-width: 240px;
   margin-bottom: 2rem;
+  object-fit: contain;
   animation: float 3s ease-in-out infinite;
 }
 
@@ -45,8 +47,9 @@
   }
 
   .heroLogo {
-    height: 150px;
-    width: 150px;
+    height: 180px;
+    width: auto;
+    max-width: 180px;
     margin-bottom: 1.5rem;
   }
 
