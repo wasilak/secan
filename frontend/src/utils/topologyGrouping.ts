@@ -162,30 +162,41 @@ export function calculateNodeGroups(
   
   switch (config.attribute) {
     case 'role':
-      // Group by role: nodes appear in ALL groups for each role they have (duplication allowed)
+      // Group by FIRST role only (no duplication)
       for (const node of nodes) {
-        if (!node.roles || node.roles.length === 0) {
-          if (!groups.has('undefined')) {
-            groups.set('undefined', []);
-          }
-          groups.get('undefined')!.push(node);
-        } else {
-          // Add node to EVERY role group it belongs to
-          for (const role of node.roles) {
-            if (!groups.has(role)) {
-              groups.set(role, []);
-            }
-            groups.get(role)!.push(node);
-          }
+        let groupKey = 'undefined';
+        if (node.roles && node.roles.length > 0) {
+          groupKey = node.roles[0];
         }
+        
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        groups.get(groupKey)!.push(node);
       }
       break;
       
     case 'type':
-      // Group by type: ONLY TWO groups - "master" (nodes with master role) and "other" (all other nodes)
+      // Group by type with priority: master > data > ingest > ml > coordinating
       for (const node of nodes) {
-        const isMaster = node.roles && node.roles.includes('master');
-        const groupKey = isMaster ? 'master' : 'other';
+        let groupKey = 'undefined';
+        
+        if (node.roles && node.roles.length > 0) {
+          // Priority order for type classification
+          if (node.roles.includes('master')) {
+            groupKey = 'master';
+          } else if (node.roles.includes('data')) {
+            groupKey = 'data';
+          } else if (node.roles.includes('ingest')) {
+            groupKey = 'ingest';
+          } else if (node.roles.includes('ml')) {
+            groupKey = 'ml';
+          } else if (node.roles.includes('coordinating')) {
+            groupKey = 'coordinating';
+          } else {
+            groupKey = node.roles[0]; // Use first role if none of the above
+          }
+        }
         
         if (!groups.has(groupKey)) {
           groups.set(groupKey, []);
@@ -195,70 +206,35 @@ export function calculateNodeGroups(
       break;
       
     case 'label':
-      // Group by label: config.value is the label NAME (e.g., "zone", "shard_indexing_pressure_enabled")
-      // Extract all VALUES for that label name and create groups
+      // Group by FIRST label (or specific label value if provided)
       if (config.value) {
-        const labelName = config.value;
-        
+        // Specific label value filtering
         for (const node of nodes) {
-          if (!node.tags || node.tags.length === 0) {
-            // Node has no tags at all
-            if (!groups.has('undefined')) {
-              groups.set('undefined', []);
-            }
-            groups.get('undefined')!.push(node);
-          } else {
-            // Find tags that match the label name
-            // Three patterns:
-            // 1. "labelName:value" (e.g., "shard_indexing_pressure_enabled:true" matches label "shard_indexing_pressure_enabled")
-            // 2. "labelName-value" (e.g., "zone-a" matches label "zone")
-            // 3. "labelName" exact match (e.g., "production" matches label "production")
-            const matchingTags = node.tags.filter(tag => {
-              // Check for exact match first
-              if (tag === labelName) {
-                return true;
-              }
-              // Check for colon separator (key:value pattern)
-              if (tag.startsWith(`${labelName}:`)) {
-                return true;
-              }
-              // Check for hyphen separator (key-value pattern)
-              return tag.startsWith(`${labelName}-`);
-            });
-            
-            if (matchingTags.length === 0) {
-              // Node has tags but none match this label
-              if (!groups.has('undefined')) {
-                groups.set('undefined', []);
-              }
-              groups.get('undefined')!.push(node);
-            } else {
-              // Add node to each matching label value group
-              // Extract just the value part for the group key
-              for (const tag of matchingTags) {
-                let groupKey = tag;
-                
-                // Extract value from "labelName:value" pattern
-                if (tag.startsWith(`${labelName}:`)) {
-                  groupKey = tag.substring(labelName.length + 1);
-                }
-                // Extract value from "labelName-value" pattern
-                else if (tag.startsWith(`${labelName}-`)) {
-                  groupKey = tag.substring(labelName.length + 1);
-                }
-                // Otherwise use the full tag (exact match case)
-                
-                if (!groups.has(groupKey)) {
-                  groups.set(groupKey, []);
-                }
-                groups.get(groupKey)!.push(node);
-              }
-            }
+          let groupKey = 'other';
+          
+          if (node.tags && node.tags.includes(config.value)) {
+            groupKey = config.value;
           }
+          
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, []);
+          }
+          groups.get(groupKey)!.push(node);
         }
       } else {
-        // No specific label selected - shouldn't happen with new UI, but fallback to no grouping
-        groups.set('all', nodes);
+        // Group by first label
+        for (const node of nodes) {
+          let groupKey = 'undefined';
+          
+          if (node.tags && node.tags.length > 0) {
+            groupKey = node.tags[0];
+          }
+          
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, []);
+          }
+          groups.get(groupKey)!.push(node);
+        }
       }
       break;
       
@@ -281,7 +257,7 @@ export function calculateNodeGroups(
  * 
  * @example
  * getGroupLabel('master', 'role');
- * // Returns: 'master'
+ * // Returns: 'Master Nodes'
  * 
  * @example
  * getGroupLabel('undefined', 'label');
@@ -305,6 +281,22 @@ export function getGroupLabel(groupKey: string, attribute: GroupingAttribute): s
     return 'All Nodes';
   }
   
-  // Use group key as-is for all types
+  // Format labels based on attribute type
+  if (attribute === 'role') {
+    // Capitalize first letter and add "Nodes" suffix
+    return groupKey.charAt(0).toUpperCase() + groupKey.slice(1) + ' Nodes';
+  }
+  
+  if (attribute === 'type') {
+    // Capitalize first letter and add "Type" suffix
+    return groupKey.charAt(0).toUpperCase() + groupKey.slice(1) + ' Type';
+  }
+  
+  if (attribute === 'label') {
+    // Capitalize first letter and add "Label:" prefix
+    return 'Label: ' + groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
+  }
+  
+  // Default: return as-is
   return groupKey;
 }
