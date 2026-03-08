@@ -2,9 +2,9 @@
   "name": "secan-docs",
   "version": "1.0.0",
   "scripts": {
-    "start": "docusaurus start --base-url /secan/",
+    "start": "docusaurus start",
     "build": "docusaurus build",
-    "serve": "docusaurus serve --base-url /secan/",
+    "serve": "docusaurus serve",
     "clear": "docusaurus clear",
     "check-links": "markdown-link-check src/content/docs/**/*.md --config .markdown-link-check.json",
     "test": "vitest run",
