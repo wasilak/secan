@@ -610,30 +610,21 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
         }}
       >
         <Stack gap={6}>
-          {/* Node name with indicator dot */}
-          <Group gap={6} wrap="nowrap">
-            <Box
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--mantine-color-green-5)',
-                flexShrink: 0,
-              }}
-            />
-            <Text 
-              size="xs" 
-              fw={500} 
-              truncate 
-              style={{ 
-                fontSize: '11px',
-                flex: 1,
-                color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-7)',
-              }}
-            >
-              {node.nodeName}
-            </Text>
-          </Group>
+          {/* Node name - centered and readable */}
+          <Text 
+            size="xs" 
+            fw={600} 
+            ta="center"
+            style={{ 
+              fontSize: '11px',
+              color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-7)',
+              lineHeight: '1.3',
+              wordBreak: 'break-word',
+              hyphens: 'auto',
+            }}
+          >
+            {node.nodeName}
+          </Text>
           
           {/* Shard count badge */}
           <Group justify="center">
