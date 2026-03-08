@@ -131,8 +131,17 @@ export function useClusterNavigation() {
 
       const section = currentSection() || 'indices';
       const url = buildIndexModalUrl(clusterId, indexName, indexSection, section);
-      // Preserve existing search params (filters, pagination, etc.) when navigating to modal
-      navigate(url + location.search);
+      
+      // Preserve existing search params EXCEPT indexTab and index params
+      // (we want to use the new indexSection parameter, not old values)
+      const currentParams = new URLSearchParams(location.search);
+      currentParams.delete('indexTab');
+      currentParams.delete('index');
+      
+      const preservedParams = currentParams.toString();
+      const finalUrl = preservedParams ? `${url}&${preservedParams}` : url;
+      
+      navigate(finalUrl);
     },
     [clusterId, navigate, currentSection, location.search]
   );
