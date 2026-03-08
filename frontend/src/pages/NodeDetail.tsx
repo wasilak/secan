@@ -8,7 +8,6 @@ import {
   Grid,
   Alert,
   Table,
-  Progress,
   ScrollArea,
   Button,
   ThemeIcon,
@@ -33,6 +32,7 @@ import { useSparklineData } from '../hooks/useSparklineData';
 import { formatRate, formatBytesOptional, formatPercent, formatNumber } from '../utils/formatters';
 import { NodeDetailSkeleton } from '../components/LoadingSkeleton';
 import { StatsCard } from '../components/charts/StatsCard';
+import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
 
@@ -274,57 +274,45 @@ export function NodeDetail() {
       <Grid mb="md">
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Heap Memory Usage
-              </Text>
-              {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
-                <>
-                  <Progress
-                    value={nodeStats.heapPercent}
-                    color={getColor(nodeStats.heapPercent)}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytesOptional(nodeStats.heapUsed)} / {formatBytesOptional(nodeStats.heapMax)} (
-                    {formatPercent(nodeStats.heapPercent)}%)
-                  </Text>
-                </>
-              ) : (
+            {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
+              <ProgressWithLabel
+                label="Heap Memory Usage"
+                value={nodeStats.heapPercent}
+                color={getColor(nodeStats.heapPercent)}
+                description={`${formatBytesOptional(nodeStats.heapUsed)} / ${formatBytesOptional(nodeStats.heapMax)} (${formatPercent(nodeStats.heapPercent)}%)`}
+              />
+            ) : (
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Heap Memory Usage
+                </Text>
                 <Text size="xs" c="dimmed">
                   N/A
                 </Text>
-              )}
-            </Stack>
+              </Stack>
+            )}
           </Card>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Disk Usage
-              </Text>
-              {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
-                <>
-                  <Progress
-                    value={nodeStats.diskPercent}
-                    color={getColor(nodeStats.diskPercent)}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytesOptional(nodeStats.diskUsed)} / {formatBytesOptional(nodeStats.diskTotal)} (
-                    {formatPercent(nodeStats.diskPercent)}%)
-                  </Text>
-                </>
-              ) : (
+            {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
+              <ProgressWithLabel
+                label="Disk Usage"
+                value={nodeStats.diskPercent}
+                color={getColor(nodeStats.diskPercent)}
+                description={`${formatBytesOptional(nodeStats.diskUsed)} / ${formatBytesOptional(nodeStats.diskTotal)} (${formatPercent(nodeStats.diskPercent)}%)`}
+              />
+            ) : (
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Disk Usage
+                </Text>
                 <Text size="xs" c="dimmed">
                   N/A
                 </Text>
-              )}
-            </Stack>
+              </Stack>
+            )}
           </Card>
         </Grid.Col>
       </Grid>

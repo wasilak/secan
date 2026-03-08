@@ -92,6 +92,7 @@ import { ShardStateFilterToggle } from '../components/ShardStateFilter';
 import { ShardContextMenu } from '../components/ShardContextMenu';
 import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
+import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
@@ -1040,20 +1041,12 @@ export function ClusterView() {
               {stats?.cpuPercent !== undefined && (
                 <Grid.Col span={{ base: 12, md: 4 }}>
                   <Card shadow="sm" padding="lg">
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        CPU Usage
-                      </Text>
-                      <Progress
-                        value={stats.cpuPercent}
-                        color={getColor(stats.cpuPercent)}
-                        size="sm"
-                        radius="xs"
-                      />
-                      <Text size="xs" c="dimmed">
-                        {stats.cpuPercent.toFixed(1)}%
-                      </Text>
-                    </Stack>
+                    <ProgressWithLabel
+                      label="CPU Usage"
+                      value={stats.cpuPercent}
+                      color={getColor(stats.cpuPercent)}
+                      description={`${stats.cpuPercent.toFixed(1)}%`}
+                    />
                   </Card>
                 </Grid.Col>
               )}
@@ -1061,21 +1054,12 @@ export function ClusterView() {
               {stats?.memoryTotal && (
                 <Grid.Col span={{ base: 12, md: 4 }}>
                   <Card shadow="sm" padding="lg">
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Memory Usage
-                      </Text>
-                      <Progress
-                        value={formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}
-                        color={getColor(formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal))}
-                        size="sm"
-                        radius="xs"
-                      />
-                      <Text size="xs" c="dimmed">
-                        {formatBytes(stats.memoryUsed || 0)} / {formatBytes(stats.memoryTotal)} (
-                        {formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}%)
-                      </Text>
-                    </Stack>
+                    <ProgressWithLabel
+                      label="Memory Usage"
+                      value={formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}
+                      color={getColor(formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal))}
+                      description={`${formatBytes(stats.memoryUsed || 0)} / ${formatBytes(stats.memoryTotal)} (${formatPercentRatio(stats.memoryUsed || 0, stats.memoryTotal)}%)`}
+                    />
                   </Card>
                 </Grid.Col>
               )}
@@ -1083,21 +1067,12 @@ export function ClusterView() {
               {stats?.diskTotal && (
                 <Grid.Col span={{ base: 12, md: 4 }}>
                   <Card shadow="sm" padding="lg">
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">
-                        Disk Usage
-                      </Text>
-                      <Progress
-                        value={formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}
-                        color={getColor(formatPercentRatio(stats.diskUsed || 0, stats.diskTotal))}
-                        size="sm"
-                        radius="xs"
-                      />
-                      <Text size="xs" c="dimmed">
-                        {formatBytes(stats.diskUsed || 0)} / {formatBytes(stats.diskTotal)} (
-                        {formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}%)
-                      </Text>
-                    </Stack>
+                    <ProgressWithLabel
+                      label="Disk Usage"
+                      value={formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}
+                      color={getColor(formatPercentRatio(stats.diskUsed || 0, stats.diskTotal))}
+                      description={`${formatBytes(stats.diskUsed || 0)} / ${formatBytes(stats.diskTotal)} (${formatPercentRatio(stats.diskUsed || 0, stats.diskTotal)}%)`}
+                    />
                   </Card>
                 </Grid.Col>
               )}
