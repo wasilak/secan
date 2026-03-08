@@ -23,9 +23,10 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconAlertCircle, IconPlus, IconTrash, IconFolder } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconFolder } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import type { CreateRepositoryRequest, RepositoryType } from '../types/api';
+import { ErrorAlert } from '../components/ErrorAlert';
 
 /**
  * Repositories component displays and manages snapshot repositories
@@ -77,9 +78,7 @@ export function Repositories() {
   if (!id) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID is required
-        </Alert>
+        <ErrorAlert message="Cluster ID is required" />
       </FullWidthContainer>
     );
   }
@@ -91,9 +90,7 @@ export function Repositories() {
   if (error) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load repositories: {(error as Error).message}
-        </Alert>
+        <ErrorAlert message={`Failed to load repositories: ${(error as Error).message}`} />
       </FullWidthContainer>
     );
   }

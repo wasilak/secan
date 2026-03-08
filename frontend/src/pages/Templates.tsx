@@ -7,7 +7,6 @@ import {
   Stack,
   Button,
   Table,
-  Alert,
   Modal,
   TextInput,
   Textarea,
@@ -22,11 +21,12 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconAlertCircle, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import type { CreateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ListPageSkeleton } from '../components/LoadingSkeleton';
+import { ErrorAlert } from '../components/ErrorAlert';
 
 /**
  * Templates component displays and manages index templates
@@ -79,9 +79,7 @@ export function Templates() {
   if (!id) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID is required
-        </Alert>
+        <ErrorAlert message="Cluster ID is required" />
       </FullWidthContainer>
     );
   }
@@ -93,9 +91,7 @@ export function Templates() {
   if (error) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load templates: {(error as Error).message}
-        </Alert>
+        <ErrorAlert message={`Failed to load templates: ${(error as Error).message}`} />
       </FullWidthContainer>
     );
   }

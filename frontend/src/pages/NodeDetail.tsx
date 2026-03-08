@@ -6,7 +6,6 @@ import {
   Stack,
   Badge,
   Grid,
-  Alert,
   Table,
   ScrollArea,
   Button,
@@ -17,7 +16,6 @@ import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  IconAlertCircle,
   IconArrowLeft,
   IconActivity,
   IconExternalLink,
@@ -33,6 +31,7 @@ import { formatRate, formatBytesOptional, formatPercent, formatNumber } from '..
 import { NodeDetailSkeleton } from '../components/LoadingSkeleton';
 import { StatsCard } from '../components/charts/StatsCard';
 import { ProgressWithLabel } from '../components/ProgressWithLabel';
+import { ErrorAlert } from '../components/ErrorAlert';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
 
@@ -96,9 +95,7 @@ export function NodeDetail() {
   if (!clusterId || !nodeId) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID and Node ID are required
-        </Alert>
+        <ErrorAlert message="Cluster ID and Node ID are required" />
       </FullWidthContainer>
     );
   }
@@ -110,9 +107,7 @@ export function NodeDetail() {
   if (error) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load node statistics: {(error as Error).message}
-        </Alert>
+        <ErrorAlert message={`Failed to load node statistics: ${(error as Error).message}`} />
       </FullWidthContainer>
     );
   }
@@ -120,9 +115,7 @@ export function NodeDetail() {
   if (!nodeStats) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Node statistics not found
-        </Alert>
+        <ErrorAlert message="Node statistics not found" />
       </FullWidthContainer>
     );
   }

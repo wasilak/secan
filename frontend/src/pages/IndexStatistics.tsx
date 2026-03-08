@@ -6,7 +6,6 @@ import {
   Button,
   Stack,
   Group,
-  Alert,
   Grid,
   Table,
   Select,
@@ -15,10 +14,11 @@ import { FullWidthContainer } from '../components/FullWidthContainer';
 import { DetailPageSkeleton } from '../components/LoadingSkeleton';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
+import { IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { formatBytes, formatTime, formatNumberWithCommas } from '../utils/formatters';
 import { StatsCard } from '../components/charts/StatsCard';
+import { ErrorAlert } from '../components/ErrorAlert';
 
 /**
  * IndexStatistics component displays detailed index statistics
@@ -61,9 +61,7 @@ export function IndexStatistics() {
   if (!clusterId || !indexName) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID and index name are required
-        </Alert>
+        <ErrorAlert message="Cluster ID and index name are required" />
       </FullWidthContainer>
     );
   }
@@ -75,9 +73,7 @@ export function IndexStatistics() {
   if (error) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load index statistics: {(error as Error).message}
-        </Alert>
+        <ErrorAlert message={`Failed to load index statistics: ${(error as Error).message}`} />
       </FullWidthContainer>
     );
   }
@@ -85,9 +81,7 @@ export function IndexStatistics() {
   if (!stats) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          No statistics available for this index
-        </Alert>
+        <ErrorAlert message="No statistics available for this index" />
       </FullWidthContainer>
     );
   }

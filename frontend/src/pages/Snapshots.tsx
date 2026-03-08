@@ -41,6 +41,7 @@ import type {
 } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ListPageSkeleton } from '../components/LoadingSkeleton';
+import { ErrorAlert } from '../components/ErrorAlert';
 
 /**
  * Snapshots component displays and manages snapshots in a repository
@@ -113,9 +114,7 @@ export function Snapshots() {
   if (!id || !repository) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID and repository name are required
-        </Alert>
+        <ErrorAlert message="Cluster ID and repository name are required" />
       </FullWidthContainer>
     );
   }
@@ -127,9 +126,7 @@ export function Snapshots() {
   if (error) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load snapshots: {(error as Error).message}
-        </Alert>
+        <ErrorAlert message={`Failed to load snapshots: ${(error as Error).message}`} />
       </FullWidthContainer>
     );
   }
