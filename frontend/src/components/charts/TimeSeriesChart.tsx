@@ -51,7 +51,7 @@ export function TimeSeriesChart({
   yLabel,
   valueFormatter,
   tickFormatter,
-  showLegend = true,
+  showLegend = false,
   showDots = false,
 }: TimeSeriesChartProps) {
   const { colorScheme } = useMantineColorScheme();
