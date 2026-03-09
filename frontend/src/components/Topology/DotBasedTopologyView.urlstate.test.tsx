@@ -137,9 +137,9 @@ describe('DotBasedTopologyView - URL State Management', () => {
         expect(value).toBe('By Role');
       });
 
-      // Verify groups are rendered
+      // Verify groups are rendered with raw values
       await waitFor(() => {
-        expect(screen.getByText('Master Nodes')).toBeInTheDocument();
+        expect(screen.getByText('master')).toBeInTheDocument();
       });
     });
 
@@ -156,7 +156,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Master Type')).toBeInTheDocument();
+        expect(screen.getByText('master')).toBeInTheDocument();
       });
     });
 
@@ -174,8 +174,9 @@ describe('DotBasedTopologyView - URL State Management', () => {
         expect(value).toBe('zone');
       });
 
+      // Group label shows extracted value: "zone-a" → "a"
       await waitFor(() => {
-        expect(screen.getByText('Label: Zone-a')).toBeInTheDocument();
+        expect(screen.getByText('a')).toBeInTheDocument();
       });
     });
 
@@ -192,8 +193,8 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       // Verify no group labels are rendered
-      expect(screen.queryByText('Master Nodes')).not.toBeInTheDocument();
-      expect(screen.queryByText('Data Nodes')).not.toBeInTheDocument();
+      expect(screen.queryByText('master')).not.toBeInTheDocument();
+      expect(screen.queryByText('data')).not.toBeInTheDocument();
     });
 
     it('should handle invalid groupBy parameter gracefully', async () => {
@@ -236,9 +237,9 @@ describe('DotBasedTopologyView - URL State Management', () => {
         expect(value).toBe('By Role');
       });
 
-      // Verify groups are rendered
+      // Verify groups are rendered with raw values
       await waitFor(() => {
-        expect(screen.getByText('Master Nodes')).toBeInTheDocument();
+        expect(screen.getByText('master')).toBeInTheDocument();
       });
     });
 
@@ -256,7 +257,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Master Type')).toBeInTheDocument();
+        expect(screen.getByText('master')).toBeInTheDocument();
       });
     });
 
@@ -275,8 +276,9 @@ describe('DotBasedTopologyView - URL State Management', () => {
         expect(value).toBe('zone');
       });
 
+      // Group label shows extracted value: "zone-a" → "a"
       await waitFor(() => {
-        expect(screen.getByText('Label: Zone-a')).toBeInTheDocument();
+        expect(screen.getByText('a')).toBeInTheDocument();
       });
     });
 
@@ -295,7 +297,7 @@ describe('DotBasedTopologyView - URL State Management', () => {
 
       // Verify grouping is applied despite other parameters
       await waitFor(() => {
-        expect(screen.getByText('Master Nodes')).toBeInTheDocument();
+        expect(screen.getByText('master')).toBeInTheDocument();
       });
     });
 
@@ -313,9 +315,9 @@ describe('DotBasedTopologyView - URL State Management', () => {
         expect(value).toBe('zone');
       });
 
-      // Verify specific label grouping is applied
+      // Verify specific label grouping is applied - shows extracted value "a" from "zone-a"
       await waitFor(() => {
-        expect(screen.getByText('Label: Zone-a')).toBeInTheDocument();
+        expect(screen.getByText('a')).toBeInTheDocument();
       });
     });
 
@@ -333,8 +335,8 @@ describe('DotBasedTopologyView - URL State Management', () => {
       });
 
       // Verify no groups are rendered
-      expect(screen.queryByText('Master Nodes')).not.toBeInTheDocument();
-      expect(screen.queryByText('Data Nodes')).not.toBeInTheDocument();
+      expect(screen.queryByText('master')).not.toBeInTheDocument();
+      expect(screen.queryByText('data')).not.toBeInTheDocument();
     });
   });
 
