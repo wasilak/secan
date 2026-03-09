@@ -1448,12 +1448,6 @@ export function ClusterView() {
       {/* Nodes Section */}
       {activeTab === 'nodes' && (
         <Card shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Text size="lg" fw={700}>Nodes</Text>
-            <Text size="sm" c="dimmed">
-              Showing {nodesArray.length} of {nodesPaginated?.total || 0}
-            </Text>
-          </Group>
           <NodesList
             nodes={nodes}
             loading={nodesLoading}
@@ -1475,12 +1469,6 @@ export function ClusterView() {
       {/* Indices Section */}
       {activeTab === 'indices' && (
         <Card shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Text size="lg" fw={700}>Indices</Text>
-            <Text size="sm" c="dimmed">
-              Showing {indicesArray.length} of {indicesPaginated?.total || 0}
-            </Text>
-          </Group>
           <IndicesList
              indices={indices}
              indicesPaginated={indicesPaginated}
@@ -1505,12 +1493,6 @@ export function ClusterView() {
       {/* Shards Section */}
       {activeTab === 'shards' && (
         <Card shadow="sm" padding="lg">
-          <Group justify="space-between" mb="md">
-            <Text size="lg" fw={700}>Shards</Text>
-            <Text size="sm" c="dimmed">
-              Showing {shards.length} of {shardsPaginated?.total || 0}
-            </Text>
-          </Group>
           <ShardsList
             shards={shards}
             loading={shardsLoading}
