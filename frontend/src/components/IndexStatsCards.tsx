@@ -1,4 +1,5 @@
 import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+import { memo } from 'react';
 
 /**
  * Props for IndexStatsCards component
@@ -18,7 +19,7 @@ interface IndexStatsCardsProps {
  * IndexStatsCards component displays index statistics in compact cards
  * matching the visual style of overview statistics cards.
  */
-export function IndexStatsCards({ stats }: IndexStatsCardsProps) {
+export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexStatsCardsProps) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
       <Card shadow="sm" padding="md">
@@ -88,4 +89,4 @@ export function IndexStatsCards({ stats }: IndexStatsCardsProps) {
       </Card>
     </SimpleGrid>
   );
-}
+});

@@ -815,6 +815,7 @@ export function ClusterView() {
     queryFn: () => apiClient.getIndices(id!, indicesPage, 50, indicesFilters),
     refetchInterval: refreshInterval,
     enabled: !!id && activeTab === 'indices', // Only fetch when in indices tab
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
   // Fetch ALL indices for topology view (unfiltered, unpaginated)
@@ -2127,7 +2128,7 @@ function SortableHeader({ column, label, sortColumn, sortDirection, onSort }: So
   );
 }
 
-function IndicesList({
+const IndicesList = memo(function IndicesList({
   indices,
   indicesPaginated,
   loading,
@@ -2582,62 +2583,52 @@ function IndicesList({
     );
   };
 
-  // Apply all filters to indices
-  const filteredIndices = (indices || []).filter((index) => {
-     // Search filter (searchQuery is debounced URL value from localSearchInput)
-     if (searchQuery && !index.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-       return false;
-     }
-
-    // Health filter
-    if (selectedHealth.length > 0 && !selectedHealth.includes(index.health)) {
-      return false;
-    }
-
-    // Status filter
-    if (selectedStatus.length > 0 && !selectedStatus.includes(index.status)) {
-      return false;
-    }
-
-    // Special indices filter
-    if (!showSpecialIndices && index.name.startsWith('.')) {
-      return false;
-    }
-
-    // Affected filter (only indices with problem shards)
-    if (showOnlyAffected && !hasProblems(index.name)) {
-      return false;
-    }
-
-    return true;
-  });
+  // Server-side filtering is already applied - no client-side filtering needed
+  // Just use the indices directly from the API
+  const filteredIndices = indices || [];
 
   // Sort indices by selected column (client-side sorting only)
-  const sortedIndices = [...filteredIndices].sort((a, b) => {
-    let compareResult: number;
+  const sortedIndices = useMemo(() => {
+    const sorted = [...filteredIndices];
+    
+    sorted.sort((a, b) => {
+      let compareResult: number;
 
-    switch (indicesSortColumn) {
-      case 'name':
-        compareResult = a.name.localeCompare(b.name);
-        break;
-      case 'health':
-        compareResult = a.health.localeCompare(b.health);
-        break;
-      case 'status':
-        compareResult = a.status.localeCompare(b.status);
-        break;
-      case 'documents':
-        compareResult = a.docsCount - b.docsCount;
-        break;
-      case 'size':
-        compareResult = a.storeSize - b.storeSize;
-        break;
-      default:
-        compareResult = a.name.localeCompare(b.name);
-    }
+      switch (indicesSortColumn) {
+        case 'name':
+          compareResult = a.name.localeCompare(b.name);
+          break;
+        case 'health':
+          compareResult = a.health.localeCompare(b.health);
+          break;
+        case 'status':
+          compareResult = a.status.localeCompare(b.status);
+          break;
+        case 'documents':
+          compareResult = a.docsCount - b.docsCount;
+          break;
+        case 'size':
+          compareResult = a.storeSize - b.storeSize;
+          break;
+        default:
+          compareResult = a.name.localeCompare(b.name);
+      }
 
-    return indicesSortDirection === 'asc' ? compareResult : -compareResult;
-  });
+      return indicesSortDirection === 'asc' ? compareResult : -compareResult;
+    });
+    
+    return sorted;
+  }, [filteredIndices, indicesSortColumn, indicesSortDirection]);
+
+  // Memoize stats calculation to prevent unnecessary re-renders
+  const indexStats = useMemo(() => ({
+    totalIndices: sortedIndices?.length || 0,
+    greenIndices: sortedIndices?.filter((idx) => idx.health === 'green').length || 0,
+    yellowIndices: sortedIndices?.filter((idx) => idx.health === 'yellow').length || 0,
+    redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
+    openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
+    closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
+  }), [sortedIndices]);
 
   if (loading) {
     return (
@@ -2930,16 +2921,7 @@ function IndicesList({
       </Group>
 
       {/* Index statistics cards */}
-      <IndexStatsCards
-        stats={{
-          totalIndices: sortedIndices?.length || 0,
-          greenIndices: sortedIndices?.filter((idx) => idx.health === 'green').length || 0,
-          yellowIndices: sortedIndices?.filter((idx) => idx.health === 'yellow').length || 0,
-          redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
-          openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
-          closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
-        }}
-      />
+      <IndexStatsCards stats={indexStats} />
 
       {/* Unassigned shards section - REMOVED, now shown in table column */}
 
@@ -3360,7 +3342,7 @@ function IndicesList({
       />
     </Stack>
   );
-}
+});
 
 /**
  * ShardDetailsModal component displays detailed shard information as JSON
