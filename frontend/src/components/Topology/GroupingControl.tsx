@@ -63,9 +63,14 @@ export function GroupingControl({
 
   // Determine current value for the select
   // If grouping by label with a specific label tag, use "label:tag" format
+  // If grouping by label without a specific value, use the first available label
   // Otherwise use the attribute directly
-  const selectValue = currentGrouping === 'label' && currentGroupingValue
-    ? `label:${currentGroupingValue}`
+  const selectValue = currentGrouping === 'label'
+    ? currentGroupingValue
+      ? `label:${currentGroupingValue}`
+      : availableLabels.length > 0
+        ? `label:${availableLabels[0].tag}`
+        : 'none'
     : currentGrouping;
 
   return (

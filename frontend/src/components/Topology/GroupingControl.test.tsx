@@ -80,7 +80,7 @@ describe('GroupingControl', () => {
     expect(input).toBeInTheDocument();
   });
 
-  it('displays current grouping value as "By Label (All)"', () => {
+  it('displays current grouping value when grouping by label without specific value', () => {
     const mockOnChange = vi.fn();
     
     render(
@@ -93,8 +93,7 @@ describe('GroupingControl', () => {
       </TestWrapper>
     );
     
-    // With the new implementation, when grouping by label without a specific value,
-    // it should show "zone" (the label name) since there's no "By Label (All)" option
+    // When grouping by label without a specific value, it should show the first label name
     const input = screen.getByDisplayValue('zone');
     expect(input).toBeInTheDocument();
   });
