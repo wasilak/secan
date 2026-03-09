@@ -11,7 +11,7 @@ interface ClusterStatisticsProps {
   nodesHistory: DataPoint[];
   cpuHistory?: DataPoint[];
   memoryHistory?: DataPoint[];
-  memoryNonHeapHistory?: DataPoint[];
+  memorySeries?: Array<{ name: string; data: DataPoint[]; labels: Record<string, string> }>;
   indicesHistory: DataPoint[];
   documentsHistory: DataPoint[];
   shardsHistory: DataPoint[];
@@ -63,7 +63,7 @@ export function ClusterStatistics({
   nodesHistory,
   cpuHistory,
   memoryHistory,
-  memoryNonHeapHistory,
+  memorySeries,
   indicesHistory,
   documentsHistory,
   shardsHistory,
@@ -212,36 +212,48 @@ export function ClusterStatistics({
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
-          <MultiSeriesChart
-            title="Memory Usage Over Time"
-            series={[
-              {
-                name: 'Heap',
-                color: 'violet',
-                data: memoryHistory || [],
-              },
-              {
-                name: 'Non-Heap',
-                color: 'grape',
-                data: memoryNonHeapHistory || [],
-              },
-            ]}
-            valueFormatter={(value: number) => {
-              if (!value) return '0 MB';
-              const mb = value / (1024 * 1024);
-              if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
-              return `${mb.toFixed(0)}MB`;
-            }}
-            tickFormatter={(value) => {
-              const mb = value / (1024 * 1024);
-              if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
-              return `${mb.toFixed(0)}MB`;
-            }}
-            query={[
-              prometheusQueries?.jvm_memory_used_bytes_heap || '',
-              prometheusQueries?.jvm_memory_used_bytes_non_heap || '',
-            ].filter(Boolean)}
-          />
+          {memorySeries && memorySeries.length > 0 ? (
+            <MultiSeriesChart
+              title="Memory Usage Over Time"
+              series={memorySeries.map((s, idx) => ({
+                name: s.name,
+                color: ['violet', 'grape', 'indigo', 'blue'][idx % 4] as any,
+                data: s.data,
+              }))}
+              valueFormatter={(value: number) => {
+                if (!value) return '0 MB';
+                const mb = value / (1024 * 1024);
+                if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
+                return `${mb.toFixed(0)}MB`;
+              }}
+              tickFormatter={(value) => {
+                const mb = value / (1024 * 1024);
+                if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
+                return `${mb.toFixed(0)}MB`;
+              }}
+              query={prometheusQueries?.jvm_memory_used_bytes}
+            />
+          ) : (
+            <TimeSeriesChart
+              title="Memory Usage Over Time"
+              data={memoryHistory || []}
+              dataKey="memory"
+              color="var(--mantine-color-violet-6)"
+              gradientId="colorMemory"
+              valueFormatter={(value: number | undefined) => {
+                if (!value) return '0 MB';
+                const mb = value / (1024 * 1024);
+                if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
+                return `${mb.toFixed(0)}MB`;
+              }}
+              tickFormatter={(value) => {
+                const mb = value / (1024 * 1024);
+                if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
+                return `${mb.toFixed(0)}MB`;
+              }}
+              query={prometheusQueries?.jvm_memory_used_bytes}
+            />
+          )}
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>

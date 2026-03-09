@@ -610,6 +610,52 @@ export function ClusterView() {
       }))
       : [];
 
+  // Group raw memory metrics by labels to create separate series
+  // This handles metrics with grouping like sum by (area) (elasticsearch_jvm_memory_used_bytes)
+  const memorySeriesMap = new Map<string, DataPoint[]>();
+  
+  if (activeTab === 'statistics' && metricsHistory?.raw_metrics?.memory) {
+    for (const point of metricsHistory.raw_metrics.memory) {
+      // Create a series key from labels in logfmt format (e.g., "area=heap")
+      const seriesKey = point.labels
+        ? Object.entries(point.labels)
+            .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
+            .map(([k, v]) => `${k}=${v}`)
+            .join(',')
+        : 'default';
+      
+      if (!memorySeriesMap.has(seriesKey)) {
+        memorySeriesMap.set(seriesKey, []);
+      }
+      
+      memorySeriesMap.get(seriesKey)!.push({
+        value: point.value,
+        timestamp: point.timestamp * 1000, // Convert to milliseconds
+      });
+    }
+  }
+  
+  // Convert map to array of series with formatted names
+  const memorySeries = Array.from(memorySeriesMap.entries()).map(([key, data]) => {
+    // Parse logfmt key back to get label values for display name
+    const labels = key.split(',').reduce((acc, pair) => {
+      const [k, v] = pair.split('=');
+      if (k && v) acc[k] = v;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    // Create display name from labels (e.g., "Heap" from area=heap)
+    const displayName = Object.entries(labels)
+      .map(([k, v]) => v.charAt(0).toUpperCase() + v.slice(1)) // Capitalize first letter
+      .join(', ') || 'Memory';
+    
+    return {
+      name: displayName,
+      data,
+      labels,
+    };
+  });
+
   const memoryNonHeapHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
@@ -1332,7 +1378,7 @@ export function ClusterView() {
             nodesHistory={nodesHistory as DataPoint[]}
             cpuHistory={cpuHistory as DataPoint[]}
             memoryHistory={memoryHistory as DataPoint[]}
-            memoryNonHeapHistory={memoryNonHeapHistory as DataPoint[]}
+            memorySeries={memorySeries}
             indicesHistory={indicesHistory as DataPoint[]}
             documentsHistory={documentsHistory as DataPoint[]}
             shardsHistory={shardsHistory as DataPoint[]}

@@ -708,6 +708,22 @@ export interface ClusterMetrics {
 }
 
 /**
+ * Labeled metric point for multi-series support
+ */
+export interface LabeledMetricPoint {
+  timestamp: number;
+  value: number;
+  labels?: Record<string, string>;
+}
+
+/**
+ * Raw metrics with labels for flexible rendering
+ */
+export interface RawMetrics {
+  memory?: LabeledMetricPoint[];
+}
+
+/**
  * Cluster metrics history response from API (for heatmap/sparklines)
  */
 export interface ClusterMetricsHistoryResponse {
@@ -728,6 +744,7 @@ export interface ClusterMetricsHistoryResponse {
     memory_used_bytes?: number;
     memory_non_heap_bytes?: number;
   }>;
+  raw_metrics?: RawMetrics;
   prometheus_queries?: Record<string, string>;
 }
 

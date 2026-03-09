@@ -85,12 +85,9 @@ pub struct ClusterMetrics {
     /// Time range of the metrics
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_range: Option<TimeRange>,
-    /// JVM memory usage in bytes
+    /// JVM memory usage in bytes (may contain multiple series with labels)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jvm_memory_used_bytes: Option<Vec<MetricPoint>>,
-    /// JVM non-heap memory usage in bytes
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub jvm_memory_non_heap_bytes: Option<Vec<MetricPoint>>,
     /// JVM memory max in bytes
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jvm_memory_max_bytes: Option<Vec<MetricPoint>>,
@@ -151,12 +148,28 @@ pub struct MetricPoint {
     pub timestamp: i64,
     /// Metric value
     pub value: f64,
+    /// Metric labels (e.g., {"area": "heap", "node": "node-1"})
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<String, String>>,
 }
 
 impl MetricPoint {
     /// Create a new metric point
     pub fn new(timestamp: i64, value: f64) -> Self {
-        Self { timestamp, value }
+        Self { 
+            timestamp, 
+            value,
+            labels: None,
+        }
+    }
+    
+    /// Create a new metric point with labels
+    pub fn with_labels(timestamp: i64, value: f64, labels: std::collections::HashMap<String, String>) -> Self {
+        Self {
+            timestamp,
+            value,
+            labels: Some(labels),
+        }
     }
 }
 
@@ -434,20 +447,35 @@ impl PrometheusMetricsService {
             Ok(results) => {
                 let mut points = Vec::new();
 
-                for result in results {
-                    if let Some(values) = result.values {
+                for result in &results {
+                    // Extract labels from the series (excluding __name__ which is the metric name)
+                    let labels: std::collections::HashMap<String, String> = result
+                        .metric
+                        .iter()
+                        .filter(|(k, _)| k.as_str() != "__name__")
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect();
+                    
+                    let has_labels = !labels.is_empty();
+                    
+                    if let Some(values) = &result.values {
                         for value in values {
                             if let Ok(parsed_value) = PrometheusClient::parse_value(&value.1) {
-                                points.push(MetricPoint::new(value.0, parsed_value));
+                                if has_labels {
+                                    points.push(MetricPoint::with_labels(value.0, parsed_value, labels.clone()));
+                                } else {
+                                    points.push(MetricPoint::new(value.0, parsed_value));
+                                }
                             }
                         }
                     }
                 }
 
                 debug!(
-                    "Prometheus query {} returned {} data points",
+                    "Prometheus query {} returned {} data points across {} series",
                     query,
-                    points.len()
+                    points.len(),
+                    results.len()
                 );
 
                 Ok(points)
@@ -479,41 +507,21 @@ impl MetricsService for PrometheusMetricsService {
         // Query each metric in parallel
         
         // Memory usage - JVM memory has both node AND area dimensions (heap/non-heap)
-        // We aggregate by area across all nodes to get 2 series
+        // Use sum by (area) to aggregate across nodes while preserving area grouping
+        // This returns multiple series (one per area value) from a single query
         let base_memory_query = self.build_query("elasticsearch_jvm_memory_used_bytes");
+        let memory_query = format!("sum by (area) ({})", base_memory_query);
         
-        // Query heap memory aggregated across all nodes
-        let heap_query = if base_memory_query.contains('{') {
-            format!("sum({})", base_memory_query.replace("}", r#",area="heap"}"#))
-        } else {
-            format!(r#"sum({}{{area="heap"}})"#, base_memory_query)
-        };
+        // Query returns multiple series grouped by area label
+        let memory_points = self.query_metric_range_with_query(&memory_query, &time_range).await?;
         
-        // Query non-heap memory aggregated across all nodes
-        let non_heap_query = if base_memory_query.contains('{') {
-            format!("sum({})", base_memory_query.replace("}", r#",area="non-heap"}"#))
-        } else {
-            format!(r#"sum({}{{area="non-heap"}})"#, base_memory_query)
-        };
+        // Store all series in main field
+        metrics.jvm_memory_used_bytes = Some(memory_points);
         
-        // Fetch both series
-        let heap_points = self.query_metric_range_with_query(&heap_query, &time_range).await?;
-        let non_heap_points = self.query_metric_range_with_query(&non_heap_query, &time_range).await?;
-        
-        // Store heap series in main field (for backward compatibility)
-        metrics.jvm_memory_used_bytes = Some(heap_points);
-        
-        // Store non-heap series in separate field
-        metrics.jvm_memory_non_heap_bytes = Some(non_heap_points);
-        
-        // Store both queries
+        // Store query
         prometheus_queries.insert(
-            "jvm_memory_used_bytes_heap".to_string(),
-            heap_query,
-        );
-        prometheus_queries.insert(
-            "jvm_memory_used_bytes_non_heap".to_string(),
-            non_heap_query,
+            "jvm_memory_used_bytes".to_string(),
+            memory_query,
         );
 
         metrics.jvm_memory_max_bytes = Some(

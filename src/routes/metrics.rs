@@ -86,15 +86,36 @@ pub struct ClusterMetricsPoint {
     pub memory_non_heap_bytes: Option<u64>,
 }
 
+/// Metric point with optional labels for multi-series support
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LabeledMetricPoint {
+    pub timestamp: i64,
+    pub value: f64,
+    /// Labels in logfmt format (e.g., {"area": "heap", "node": "node-1"})
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<String, String>>,
+}
+
 /// Cluster metrics history response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterMetricsHistoryResponse {
     pub cluster_id: String,
     pub time_range: TimeRange,
     pub data: Vec<ClusterMetricsPoint>,
+    /// Raw metric points with labels for multi-series metrics (e.g., memory by area)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_metrics: Option<RawMetrics>,
     /// Prometheus queries used for each metric (metric_name -> full query)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prometheus_queries: Option<std::collections::HashMap<String, String>>,
+}
+
+/// Raw metric data with labels for flexible frontend rendering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawMetrics {
+    /// Memory usage points with labels (e.g., area=heap, area=non-heap)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory: Option<Vec<LabeledMetricPoint>>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrometheusValidationRequest {
@@ -389,17 +410,7 @@ pub async fn get_cluster_metrics(
                             .jvm_memory_used_bytes
                             .as_ref()
                             .and_then(|mem_series| {
-                                mem_series
-                                    .iter()
-                                    .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
-                                    .map(|m| m.value as u64)
-                            });
-
-                    let memory_non_heap_value =
-                        backend_metrics
-                            .jvm_memory_non_heap_bytes
-                            .as_ref()
-                            .and_then(|mem_series| {
+                                // Find first point matching timestamp (any label)
                                 mem_series
                                     .iter()
                                     .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
@@ -430,7 +441,7 @@ pub async fn get_cluster_metrics(
                         disk_total_bytes: None,
                         cpu_percent: cpu_value,
                         memory_used_bytes: memory_value,
-                        memory_non_heap_bytes: memory_non_heap_value,
+                        memory_non_heap_bytes: None, // Deprecated, use raw_metrics instead
                     });
                 }
             }
@@ -440,10 +451,25 @@ pub async fn get_cluster_metrics(
     // Reverse to get chronological order (oldest first)
     data_points.reverse();
 
+    // Convert MetricPoint to LabeledMetricPoint for raw metrics
+    let raw_memory = backend_metrics.jvm_memory_used_bytes.as_ref().map(|points| {
+        points
+            .iter()
+            .map(|p| LabeledMetricPoint {
+                timestamp: p.timestamp,
+                value: p.value,
+                labels: p.labels.clone(),
+            })
+            .collect()
+    });
+
     let response = ClusterMetricsHistoryResponse {
         cluster_id: cluster_id.clone(),
         time_range,
         data: data_points,
+        raw_metrics: Some(RawMetrics {
+            memory: raw_memory,
+        }),
         prometheus_queries: backend_metrics.prometheus_queries,
     };
 
