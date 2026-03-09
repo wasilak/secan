@@ -4720,7 +4720,16 @@ const ShardsList = memo(function ShardsList({
     );
   }
 
-  if (!shards || shards.length === 0) {
+  // Detect if any filters are active
+  const hasActiveFilters =
+    searchQuery ||
+    selectedStates.length < 4 || // Less than all 4 states
+    !showPrimaries ||
+    !showReplicas ||
+    showSpecialIndices;
+
+  // Only show "No shards found" if there are truly no shards AND no filters active
+  if (!shards || (shards.length === 0 && !hasActiveFilters)) {
     return <Text c="dimmed">No shards found</Text>;
   }
 
