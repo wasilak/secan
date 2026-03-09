@@ -714,10 +714,12 @@ impl MetricsService for PrometheusMetricsService {
             }
         }
         
-        // Index count - count unique indices from metrics
+        // Index count - use max() since all nodes report the same total
+        // The metric elasticsearch_indices_get_total returns the total number of indices
+        // and is reported by each node, so we take max to get the actual count
         let index_count_query = format!(
-            "count({})",
-            self.build_query("elasticsearch_indices_stats_count")
+            "max({})",
+            self.build_query("elasticsearch_indices_get_total")
         );
         if let Ok(results) = self.client.query_instant(&index_count_query, None).await {
             if let Some(result) = results.first() {
