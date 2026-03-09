@@ -100,7 +100,7 @@ import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedRe
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 
 /**
  * Get background color for index health in shard allocation grid
@@ -1646,7 +1646,7 @@ function NodesSortableHeader({
   );
 }
 
-function NodesList({
+const NodesList = memo(function NodesList({
   nodes,
   loading,
   error,
@@ -2088,7 +2088,7 @@ function NodesList({
       )}
     </Stack>
   );
-}
+});
 
 /**
  * IndicesList component displays the list of indices with search and filtering
