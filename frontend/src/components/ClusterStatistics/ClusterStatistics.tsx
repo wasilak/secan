@@ -93,9 +93,10 @@ export function ClusterStatistics({
     // For Prometheus: use cpuSeries if available (grouped by labels)
     // For Internal: cpuSeries will be empty, use cpuHistory directly
     if (cpuSeries && cpuSeries.length > 0) {
+      const colors: Array<'red' | 'orange' | 'yellow' | 'pink'> = ['red', 'orange', 'yellow', 'pink'];
       return cpuSeries.map((s, idx) => ({
         name: s.name,
-        color: (['red', 'orange', 'yellow', 'pink'][idx % 4]) as any,
+        color: colors[idx % 4],
         data: s.data,
       }));
     }
@@ -112,9 +113,10 @@ export function ClusterStatistics({
     // For Prometheus: use memorySeries if available (grouped by labels)
     // For Internal: memorySeries will be empty, use memoryHistory directly
     if (memorySeries && memorySeries.length > 0) {
+      const colors: Array<'violet' | 'grape' | 'indigo' | 'blue'> = ['violet', 'grape', 'indigo', 'blue'];
       return memorySeries.map((s, idx) => ({
         name: s.name,
-        color: (['violet', 'grape', 'indigo', 'blue'][idx % 4]) as any,
+        color: colors[idx % 4],
         data: s.data,
       }));
     }

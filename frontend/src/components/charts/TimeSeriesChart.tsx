@@ -155,7 +155,7 @@ export function TimeSeriesChart({
                   color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)',
                 }}
                 labelStyle={{ color: isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)' }}
-                labelFormatter={(label: any, payload: any) => {
+                labelFormatter={(label: string, payload: Array<{ payload: { timestamp?: number } }>) => {
                   if (payload && payload.length > 0 && payload[0].payload.timestamp) {
                     const date = new Date(payload[0].payload.timestamp);
                     return date.toLocaleString('en-US', {

@@ -1850,8 +1850,8 @@ const NodesList = memo(function NodesList({
   };
 
   // Server-side filtering is already applied - no client-side filtering needed
-  // Just use the nodes directly from the API
-  const filteredNodes = nodes || [];
+  // Memoize filtered nodes to prevent dependency issues in other useMemo hooks
+  const filteredNodes = useMemo(() => nodes || [], [nodes]);
   
   // Get all unique roles from nodes for the filter UI
   const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
@@ -2696,10 +2696,11 @@ const IndicesList = memo(function IndicesList({
   };
 
   // Server-side filtering is already applied - no client-side filtering needed
-  // Just use the indices directly from the API
-  const filteredIndices = indices || [];
+  // Memoize filtered indices to prevent dependency issues in other useMemo hooks
+  const filteredIndices = useMemo(() => indices || [], [indices]);
 
   // Sort indices by selected column (client-side sorting only)
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const sortedIndices = useMemo(() => {
     const sorted = [...filteredIndices];
     
@@ -2740,6 +2741,7 @@ const IndicesList = memo(function IndicesList({
     redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
     openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
     closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }), [sortedIndices]);
 
   if (loading) {

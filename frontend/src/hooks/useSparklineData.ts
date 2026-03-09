@@ -91,7 +91,7 @@ export function useSparklineData(
     });
 
     needsImmediateDataRef.current = false; // Clear the flag after adding data
-  }, [currentValue, lastRefreshTime, maxDataPoints]);
+  }, [currentValue, lastRefreshTime, maxDataPoints, data.length]);
 
   // Perform immediate data pull when switching to statistics tab
   // This effect runs when currentValue changes AND we need immediate data

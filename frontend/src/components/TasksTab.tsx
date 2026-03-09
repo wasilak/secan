@@ -42,9 +42,15 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   const [isBulkCancelling, setIsBulkCancelling] = useState(false);
   const { selectedIndices, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
 
-  // Get filters from URL params
-  const selectedTypes = searchParams.get('taskTypes')?.split(',').filter(Boolean) || [];
-  const selectedActions = searchParams.get('taskActions')?.split(',').filter(Boolean) || [];
+  // Get filters from URL params - memoize to prevent dependency issues
+  const selectedTypes = useMemo(() => 
+    searchParams.get('taskTypes')?.split(',').filter(Boolean) || [], 
+    [searchParams]
+  );
+  const selectedActions = useMemo(() => 
+    searchParams.get('taskActions')?.split(',').filter(Boolean) || [], 
+    [searchParams]
+  );
   const sortBy = searchParams.get('taskSortBy') || null;
   const sortOrder = (searchParams.get('taskSortOrder') || 'none') as 'asc' | 'desc' | 'none';
 
@@ -52,7 +58,7 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   const filters = useMemo(() => ({
     types: selectedTypes.length > 0 ? selectedTypes : undefined,
     actions: selectedActions.length > 0 ? selectedActions : undefined,
-  }), [selectedTypes.join(','), selectedActions.join(',')]);
+  }), [selectedTypes, selectedActions]);
 
   // Fetch tasks with auto-refresh and server-side filtering
   const {
@@ -66,7 +72,8 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
-  const tasks = tasksResponse?.tasks || [];
+  // Memoize tasks to prevent dependency issues in other useMemo hooks
+  const tasks = useMemo(() => tasksResponse?.tasks || [], [tasksResponse?.tasks]);
   const uniqueTypes = tasksResponse?.unique_types || [];
   const uniqueActions = tasksResponse?.unique_actions || [];
 
