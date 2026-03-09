@@ -82,6 +82,7 @@ import { ShardTypeBadge } from '../components/ShardTypeBadge';
 import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { IndexStatsCards } from '../components/IndexStatsCards';
+import { NodeStatsCards } from '../components/NodeStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { IconClock } from '@tabler/icons-react';
@@ -1784,6 +1785,8 @@ function NodesList({
 
   return (
     <Stack gap="md">
+      <NodeStatsCards nodes={sortedNodes || []} />
+      
       <Group justify="space-between" align="flex-end">
         <Group style={{ flex: 1 }} wrap="wrap">
           <TextInput
