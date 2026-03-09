@@ -421,16 +421,6 @@ impl PrometheusMetricsService {
         PrometheusClient::build_query(metric_name, self.job_name.as_deref(), self.labels.as_ref())
     }
 
-    /// Query a metric over a time range and extract values
-    async fn query_metric_range(
-        &self,
-        metric_name: &str,
-        time_range: &TimeRange,
-    ) -> Result<Vec<MetricPoint>> {
-        let query = self.build_query(metric_name);
-        self.query_metric_range_with_query(&query, time_range).await
-    }
-
     /// Query a metric over a time range using a pre-built query string
     async fn query_metric_range_with_query(
         &self,
@@ -525,39 +515,51 @@ impl MetricsService for PrometheusMetricsService {
         );
 
         metrics.jvm_memory_max_bytes = Some(
-            self.query_metric_range("elasticsearch_jvm_memory_max_bytes", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_jvm_memory_max_bytes")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "jvm_memory_max_bytes".to_string(),
-            self.build_query("elasticsearch_jvm_memory_max_bytes"),
+            format!("sum({})", self.build_query("elasticsearch_jvm_memory_max_bytes")),
         );
 
         metrics.gc_collection_time_ms = Some(
-            self.query_metric_range("elasticsearch_jvm_gc_collection_time_millis", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_jvm_gc_collection_time_millis")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "gc_collection_time_ms".to_string(),
-            self.build_query("elasticsearch_jvm_gc_collection_time_millis"),
+            format!("sum({})", self.build_query("elasticsearch_jvm_gc_collection_time_millis")),
         );
 
         metrics.index_rate = Some(
-            self.query_metric_range("elasticsearch_indices_indexing_index_total", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_indices_indexing_index_total")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "index_rate".to_string(),
-            self.build_query("elasticsearch_indices_indexing_index_total"),
+            format!("sum({})", self.build_query("elasticsearch_indices_indexing_index_total")),
         );
 
         metrics.query_rate = Some(
-            self.query_metric_range("elasticsearch_indices_search_query_total", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_indices_search_query_total")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "query_rate".to_string(),
-            self.build_query("elasticsearch_indices_search_query_total"),
+            format!("sum({})", self.build_query("elasticsearch_indices_search_query_total")),
         );
 
         // Disk usage - aggregate across all indices
@@ -575,30 +577,39 @@ impl MetricsService for PrometheusMetricsService {
         );
 
         metrics.cpu_usage_percent = Some(
-            self.query_metric_range("elasticsearch_process_cpu_percent", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("avg({})", self.build_query("elasticsearch_process_cpu_percent")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "cpu_usage_percent".to_string(),
-            self.build_query("elasticsearch_process_cpu_percent"),
+            format!("avg({})", self.build_query("elasticsearch_process_cpu_percent")),
         );
 
         metrics.network_bytes_in = Some(
-            self.query_metric_range("elasticsearch_transport_rx_bytes", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_transport_rx_bytes")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "network_bytes_in".to_string(),
-            self.build_query("elasticsearch_transport_rx_bytes"),
+            format!("sum({})", self.build_query("elasticsearch_transport_rx_bytes")),
         );
 
         metrics.network_bytes_out = Some(
-            self.query_metric_range("elasticsearch_transport_tx_bytes", &time_range)
-                .await?,
+            self.query_metric_range_with_query(
+                &format!("sum({})", self.build_query("elasticsearch_transport_tx_bytes")),
+                &time_range
+            )
+            .await?,
         );
         prometheus_queries.insert(
             "network_bytes_out".to_string(),
-            self.build_query("elasticsearch_transport_tx_bytes"),
+            format!("sum({})", self.build_query("elasticsearch_transport_tx_bytes")),
         );
 
         // Add queries for cluster stats
