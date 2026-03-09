@@ -63,14 +63,7 @@ export function useSparklineData(
     }
 
     // On first value, initialize with [0, currentValue] to show trend from baseline
-    // BUT: if currentValue is 0, wait for a non-zero value to avoid starting with [0, 0]
     if (!initializedRef.current) {
-      // Skip initialization if value is 0 - wait for actual data
-      if (currentValue === 0) {
-        console.log('[useSparklineData] Skipping init with 0 value');
-        return;
-      }
-      
       console.log('[useSparklineData] Initializing with value:', currentValue);
       initializedRef.current = true;
       const now = Date.now();
