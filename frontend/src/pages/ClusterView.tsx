@@ -1815,12 +1815,9 @@ function NodesList({
     return <Text c="dimmed">No nodes found</Text>;
   }
 
-  // Memoize stats cards to prevent re-renders when only table data changes
-  const statsCards = useMemo(() => <NodeStatsCards nodes={sortedNodes || []} />, [sortedNodes]);
-
   return (
     <Stack gap="md">
-      {statsCards}
+      <NodeStatsCards nodes={sortedNodes || []} />
       
       <Group justify="space-between" align="center" wrap="wrap">
         <Group gap="md" wrap="wrap" style={{ flex: 1 }}>
