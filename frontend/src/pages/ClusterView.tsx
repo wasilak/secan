@@ -548,10 +548,24 @@ export function ClusterView() {
     documents: metricsHistory.data[0].document_count ?? 0,
     shards: metricsHistory.data[0].shard_count ?? 0,
     unassigned: metricsHistory.data[0].unassigned_shards ?? 0,
+    // Use ?? 0 for all metrics consistently
     cpu: metricsHistory.data[0].cpu_percent ?? 0,
     memory: metricsHistory.data[0].memory_used_bytes ?? 0,
     disk: metricsHistory.data[0].disk_used_bytes ?? 0,
   } : null;
+
+  // Debug: Log internal metrics values
+  useEffect(() => {
+    if (currentInternalMetrics && activeTab === 'statistics') {
+      console.log('Internal metrics values:', {
+        cpu: currentInternalMetrics.cpu,
+        memory: currentInternalMetrics.memory,
+        disk: currentInternalMetrics.disk,
+        nodes: currentInternalMetrics.nodes,
+        indices: currentInternalMetrics.indices,
+      });
+    }
+  }, [currentInternalMetrics, activeTab]);
 
   // Accumulate internal metrics over time (resets when switching tabs)
   const nodesHistoryInternal = useSparklineData(
