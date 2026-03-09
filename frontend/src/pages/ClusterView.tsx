@@ -775,10 +775,11 @@ export function ClusterView() {
   const [shardsPage, setShardsPage] = useState(1);
 
   // Fetch nodes with auto-refresh, pagination, and server-side filtering
-  const nodesFilters = {
+  // Memoize filters to prevent query key from changing unnecessarily
+  const nodesFilters = useMemo(() => ({
     search: searchParams.get('nodesSearch') || '',
     roles: searchParams.get('nodeRoles')?.split(',').filter(Boolean) || [],
-  };
+  }), [searchParams]);
 
   const {
     data: nodesPaginated,
