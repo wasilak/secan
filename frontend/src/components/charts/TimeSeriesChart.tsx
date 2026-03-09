@@ -64,7 +64,15 @@ export function TimeSeriesChart({
   // Combine all series into single dataset
   const hasData = series.length > 0 && series[0].data.length > 0;
   
-  const combinedData = hasData ? series[0].data.map((point, index) => {
+  // Sort first series data chronologically, then use that order for all series
+  const sortedIndices = hasData 
+    ? series[0].data
+        .map((_, index) => index)
+        .sort((a, b) => series[0].data[a].timestamp - series[0].data[b].timestamp)
+    : [];
+  
+  const combinedData = hasData ? sortedIndices.map((index) => {
+    const point = series[0].data[index];
     const entry: Record<string, number | string> = {
       time: formatChartTime(point.timestamp),
       timestamp: point.timestamp,

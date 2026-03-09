@@ -43,6 +43,9 @@ export function TimeSeriesChart({
   const { colorScheme } = useMantineColorScheme();
   const hasData = data && data.length > 0;
   
+  // Sort data chronologically by timestamp
+  const sortedData = hasData ? [...data].sort((a, b) => a.timestamp - b.timestamp) : [];
+  
   // Theme-aware code block colors
   const isDark = colorScheme === 'dark';
   const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
@@ -57,7 +60,7 @@ export function TimeSeriesChart({
         {hasData ? (
           <ResponsiveContainer width="100%" height={height}>
             <AreaChart
-              data={data.map((p) => ({
+              data={sortedData.map((p) => ({
                 time: formatChartTime(p.timestamp),
                 timestamp: p.timestamp,
                 value: p.value,
