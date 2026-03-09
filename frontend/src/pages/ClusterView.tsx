@@ -566,6 +566,13 @@ export function ClusterView() {
     activeTab,
     true
   ) as DataPoint[];
+  
+  // Debug: Log Nodes history length
+  useEffect(() => {
+    if (activeTab === 'statistics') {
+      console.log('[NODES] nodesHistoryInternal length:', nodesHistoryInternal.length, 'value:', currentInternalMetrics?.nodes);
+    }
+  }, [nodesHistoryInternal, currentInternalMetrics?.nodes, activeTab]);
   const indicesHistoryInternal = useSparklineData(
     currentInternalMetrics?.indices,
     50,
@@ -596,6 +603,13 @@ export function ClusterView() {
     activeTab,
     true
   ) as DataPoint[];
+  
+  // Debug: Log CPU history length
+  useEffect(() => {
+    if (activeTab === 'statistics') {
+      console.log('[CPU] cpuHistoryInternal length:', cpuHistoryInternal.length, 'value:', currentInternalMetrics?.cpu);
+    }
+  }, [cpuHistoryInternal, currentInternalMetrics?.cpu, activeTab]);
   const memoryHistoryInternal = useSparklineData(
     currentInternalMetrics?.memory,
     50,
@@ -712,6 +726,8 @@ export function ClusterView() {
           }))
       : []; // No sparkline fallback for disk usage
 
+  // For internal metrics, use accumulated history directly (no cpuSeries/memorySeries)
+  // For Prometheus metrics, use data from metricsHistory
   const cpuHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
@@ -732,11 +748,12 @@ export function ClusterView() {
           }))
       : [];
 
-  // Group raw memory metrics by labels to create separate series
+  // Group raw memory metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like sum by (area) (elasticsearch_jvm_memory_used_bytes)
+  // For internal metrics, raw_metrics is undefined, so these will be empty arrays
   const memorySeriesMap = new Map<string, DataPoint[]>();
   
-  if (activeTab === 'statistics' && metricsHistory?.raw_metrics?.memory) {
+  if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
     for (const point of metricsHistory.raw_metrics.memory) {
       // Create a series key from labels in logfmt format (e.g., "area=heap")
       const seriesKey = point.labels
@@ -778,11 +795,12 @@ export function ClusterView() {
     };
   });
 
-  // Group raw CPU metrics by labels to create separate series
+  // Group raw CPU metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like avg by (node) (elasticsearch_process_cpu_percent)
+  // For internal metrics, raw_metrics is undefined, so these will be empty arrays
   const cpuSeriesMap = new Map<string, DataPoint[]>();
   
-  if (activeTab === 'statistics' && metricsHistory?.raw_metrics?.cpu) {
+  if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
     for (const point of metricsHistory.raw_metrics.cpu) {
       // Create a series key from labels in logfmt format (e.g., "node=node-1")
       const seriesKey = point.labels

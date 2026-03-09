@@ -90,6 +90,8 @@ export function ClusterStatistics({
   }], [nodesHistory]);
 
   const cpuSeriesMemoized = useMemo(() => {
+    // For Prometheus: use cpuSeries if available (grouped by labels)
+    // For Internal: cpuSeries will be empty, use cpuHistory directly
     if (cpuSeries && cpuSeries.length > 0) {
       return cpuSeries.map((s, idx) => ({
         name: s.name,
@@ -97,6 +99,7 @@ export function ClusterStatistics({
         data: s.data,
       }));
     }
+    // Fallback to cpuHistory (used for internal metrics)
     return [{
       name: 'CPU',
       color: 'red' as const,
@@ -106,6 +109,8 @@ export function ClusterStatistics({
   }, [cpuSeries, cpuHistory]);
 
   const memorySeriesMemoized = useMemo(() => {
+    // For Prometheus: use memorySeries if available (grouped by labels)
+    // For Internal: memorySeries will be empty, use memoryHistory directly
     if (memorySeries && memorySeries.length > 0) {
       return memorySeries.map((s, idx) => ({
         name: s.name,
@@ -113,6 +118,7 @@ export function ClusterStatistics({
         data: s.data,
       }));
     }
+    // Fallback to memoryHistory (used for internal metrics)
     return [{
       name: 'Memory',
       color: 'violet' as const,
