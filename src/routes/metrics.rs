@@ -278,15 +278,15 @@ pub async fn get_cluster_metrics(
             .map(|s| s.len())
     );
 
-    // Check if we have Prometheus time series data (JVM or disk)
+    // Check if we have Prometheus time series data (multiple points, not just single snapshot)
     let has_prometheus_data = backend_metrics
         .jvm_memory_used_bytes
         .as_ref()
-        .is_some_and(|s| !s.is_empty())
+        .is_some_and(|s| s.len() > 1)
         || backend_metrics
             .disk_used_bytes
             .as_ref()
-            .is_some_and(|s| !s.is_empty());
+            .is_some_and(|s| s.len() > 1);
 
     // Use node_count as the base time series ONLY for internal metrics (no Prometheus time series)
     if let Some(node_counts) = &backend_metrics.node_count {
