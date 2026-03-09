@@ -279,12 +279,12 @@ pub async fn get_cluster_metrics(
     );
 
     // Determine how to build time series based on metrics_source configuration
-    // Internal metrics: single snapshot, create synthetic history for visualization
+    // Internal metrics: single current snapshot only
     // Prometheus metrics: use real time series data
     match cluster_conn.metrics_source {
         crate::config::MetricsSource::Internal => {
-            // Internal metrics - single snapshot, create synthetic history
-            // Use the single data point values for all historical points
+            // Internal metrics - return single current snapshot
+            // Frontend will accumulate these over time to build live time series
             let now = chrono::Utc::now().timestamp();
             
             // Extract current values from single data points
@@ -304,36 +304,33 @@ pub async fn get_cluster_metrics(
                 .and_then(|v: &Vec<MetricPoint>| v.first())
                 .map(|p| p.value);
             
-            // Create 20 synthetic data points (1 minute intervals) for visualization
-            for i in 0..20 {
-                let ts = now - (i * 60);
-                data_points.push(ClusterMetricsPoint {
-                    timestamp: ts,
-                    date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
-                        .unwrap_or_else(chrono::Utc::now)
-                        .to_rfc3339(),
-                    health: backend_metrics
-                        .health_status
-                        .clone()
-                        .map(|h| match h {
-                            ClusterHealthStatus::Green => "green",
-                            ClusterHealthStatus::Yellow => "yellow",
-                            ClusterHealthStatus::Red => "red",
-                        })
-                        .unwrap_or("green")
-                        .to_string(),
-                    node_count: backend_metrics.node_count.unwrap_or(0),
-                    index_count: backend_metrics.index_count,
-                    document_count: backend_metrics.document_count,
-                    shard_count: backend_metrics.shard_count,
-                    unassigned_shards: backend_metrics.unassigned_shards,
-                    disk_used_bytes: disk_used_value.map(|v| v as u64),
-                    disk_total_bytes: None,
-                    cpu_percent: cpu_value,
-                    memory_used_bytes: memory_value.map(|v| v as u64),
-                    memory_non_heap_bytes: None,
-                });
-            }
+            // Return single data point representing current state
+            data_points.push(ClusterMetricsPoint {
+                timestamp: now,
+                date: chrono::DateTime::<chrono::Utc>::from_timestamp(now, 0)
+                    .unwrap_or_else(chrono::Utc::now)
+                    .to_rfc3339(),
+                health: backend_metrics
+                    .health_status
+                    .clone()
+                    .map(|h| match h {
+                        ClusterHealthStatus::Green => "green",
+                        ClusterHealthStatus::Yellow => "yellow",
+                        ClusterHealthStatus::Red => "red",
+                    })
+                    .unwrap_or("green")
+                    .to_string(),
+                node_count: backend_metrics.node_count.unwrap_or(0),
+                index_count: backend_metrics.index_count,
+                document_count: backend_metrics.document_count,
+                shard_count: backend_metrics.shard_count,
+                unassigned_shards: backend_metrics.unassigned_shards,
+                disk_used_bytes: disk_used_value.map(|v| v as u64),
+                disk_total_bytes: None,
+                cpu_percent: cpu_value,
+                memory_used_bytes: memory_value.map(|v| v as u64),
+                memory_non_heap_bytes: None,
+            });
         }
         crate::config::MetricsSource::Prometheus => {
             // Prometheus metrics - use real time series data

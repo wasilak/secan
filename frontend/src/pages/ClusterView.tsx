@@ -522,7 +522,8 @@ export function ClusterView() {
   
   const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
 
-  // Fetch metrics history from Prometheus when in statistics tab
+  // Fetch metrics history when in statistics tab
+  // Uses global refresh interval to sync with useSparklineData for internal metrics
   const { data: metricsHistory } = useQuery({
     queryKey: ['cluster', id, 'metrics-history', timeRangeMinutes],
     queryFn: async () => {
@@ -532,7 +533,7 @@ export function ClusterView() {
       return apiClient.getClusterMetrics(id, { start, end: now });
     },
     enabled: activeTab === 'statistics' && !!id,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: refreshInterval, // Use global refresh interval
     staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
@@ -540,15 +541,16 @@ export function ClusterView() {
   const isInternalMetrics = metricsHistory?.data && metricsHistory.data.length === 1;
   
   // For internal metrics, extract current values to accumulate over time
+  // Ensure values are numbers (not undefined) for useSparklineData to work
   const currentInternalMetrics = isInternalMetrics && metricsHistory?.data[0] ? {
     nodes: metricsHistory.data[0].node_count,
-    indices: metricsHistory.data[0].index_count,
-    documents: metricsHistory.data[0].document_count,
-    shards: metricsHistory.data[0].shard_count,
-    unassigned: metricsHistory.data[0].unassigned_shards,
-    cpu: metricsHistory.data[0].cpu_percent,
-    memory: metricsHistory.data[0].memory_used_bytes,
-    disk: metricsHistory.data[0].disk_used_bytes,
+    indices: metricsHistory.data[0].index_count ?? 0,
+    documents: metricsHistory.data[0].document_count ?? 0,
+    shards: metricsHistory.data[0].shard_count ?? 0,
+    unassigned: metricsHistory.data[0].unassigned_shards ?? 0,
+    cpu: metricsHistory.data[0].cpu_percent ?? 0,
+    memory: metricsHistory.data[0].memory_used_bytes ?? 0,
+    disk: metricsHistory.data[0].disk_used_bytes ?? 0,
   } : null;
 
   // Accumulate internal metrics over time (resets when switching tabs)
