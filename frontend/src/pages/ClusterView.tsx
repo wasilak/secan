@@ -1811,6 +1811,8 @@ function NodesList({
     );
   }
 
+  // Only show "No nodes found" if there are truly no nodes from the API
+  // If nodes exist but are filtered out, we still show the UI
   if (!nodes || nodes.length === 0) {
     return <Text c="dimmed">No nodes found</Text>;
   }
