@@ -203,7 +203,7 @@ describe('calculateNodeGroups', () => {
   });
 
   describe('role grouping', () => {
-    it('should group nodes by primary role', () => {
+    it('should group nodes by ALL roles (with duplication)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', roles: ['master'] }),
         createMockNode({ id: 'node-2', roles: ['data'] }),
@@ -212,9 +212,10 @@ describe('calculateNodeGroups', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // node-3 appears in BOTH master and data groups (duplication)
       expect(groups.size).toBe(2);
-      expect(groups.get('master')).toHaveLength(2);
-      expect(groups.get('data')).toHaveLength(1);
+      expect(groups.get('master')).toHaveLength(2); // node-1 and node-3
+      expect(groups.get('data')).toHaveLength(2); // node-2 and node-3
     });
 
     it('should handle nodes without roles', () => {
@@ -273,7 +274,7 @@ describe('calculateNodeGroups', () => {
   });
 
   describe('label grouping', () => {
-    it('should group nodes by first label', () => {
+    it('should group nodes by extracted label value', () => {
       const nodes = [
         createMockNode({ id: 'node-1', tags: ['zone-a'] }),
         createMockNode({ id: 'node-2', tags: ['zone-b'] }),
@@ -282,12 +283,13 @@ describe('calculateNodeGroups', () => {
       const config: GroupingConfig = { attribute: 'label' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // Groups by extracted values: "zone-a" → "a", "zone-b" → "b"
       expect(groups.size).toBe(2);
-      expect(groups.get('zone-a')).toHaveLength(2);
-      expect(groups.get('zone-b')).toHaveLength(1);
+      expect(groups.get('a')).toHaveLength(2); // node-1 and node-3
+      expect(groups.get('b')).toHaveLength(1); // node-2
     });
 
-    it('should group by specific label value', () => {
+    it('should group by specific label value (extracted)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', tags: ['zone-a'] }),
         createMockNode({ id: 'node-2', tags: ['zone-b'] }),
@@ -296,9 +298,10 @@ describe('calculateNodeGroups', () => {
       const config: GroupingConfig = { attribute: 'label', value: 'zone-a' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // Groups by extracted value: "zone-a" → "a"
       expect(groups.size).toBe(2);
-      expect(groups.get('zone-a')).toHaveLength(2);
-      expect(groups.get('other')).toHaveLength(1);
+      expect(groups.get('a')).toHaveLength(2); // node-1 and node-3
+      expect(groups.get('other')).toHaveLength(1); // node-2
     });
 
     it('should handle nodes without labels', () => {
@@ -310,9 +313,10 @@ describe('calculateNodeGroups', () => {
       const config: GroupingConfig = { attribute: 'label' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // Groups by extracted value: "zone-a" → "a"
       expect(groups.size).toBe(2);
-      expect(groups.get('zone-a')).toHaveLength(1);
-      expect(groups.get('undefined')).toHaveLength(2);
+      expect(groups.get('a')).toHaveLength(1); // node-1
+      expect(groups.get('undefined')).toHaveLength(2); // node-2 and node-3
     });
   });
 
@@ -372,54 +376,54 @@ describe('getGroupLabel', () => {
   });
 
   describe('role grouping labels', () => {
-    it('should format master role', () => {
-      expect(getGroupLabel('master', 'role')).toBe('Master Nodes');
+    it('should return raw master role', () => {
+      expect(getGroupLabel('master', 'role')).toBe('master');
     });
 
-    it('should format data role', () => {
-      expect(getGroupLabel('data', 'role')).toBe('Data Nodes');
+    it('should return raw data role', () => {
+      expect(getGroupLabel('data', 'role')).toBe('data');
     });
 
-    it('should format ingest role', () => {
-      expect(getGroupLabel('ingest', 'role')).toBe('Ingest Nodes');
+    it('should return raw ingest role', () => {
+      expect(getGroupLabel('ingest', 'role')).toBe('ingest');
     });
   });
 
   describe('type grouping labels', () => {
-    it('should format master type', () => {
-      expect(getGroupLabel('master', 'type')).toBe('Master Type');
+    it('should return raw master type', () => {
+      expect(getGroupLabel('master', 'type')).toBe('master');
     });
 
-    it('should format data type', () => {
-      expect(getGroupLabel('data', 'type')).toBe('Data Type');
+    it('should return raw data type', () => {
+      expect(getGroupLabel('data', 'type')).toBe('data');
     });
 
-    it('should format ml type', () => {
-      expect(getGroupLabel('ml', 'type')).toBe('Ml Type');
+    it('should return raw ml type', () => {
+      expect(getGroupLabel('ml', 'type')).toBe('ml');
     });
   });
 
   describe('label grouping labels', () => {
-    it('should format zone label', () => {
-      expect(getGroupLabel('zone-a', 'label')).toBe('Label: Zone-a');
+    it('should return raw label value', () => {
+      expect(getGroupLabel('a', 'label')).toBe('a');
     });
 
-    it('should format rack label', () => {
-      expect(getGroupLabel('rack-1', 'label')).toBe('Label: Rack-1');
+    it('should return raw label value for numbers', () => {
+      expect(getGroupLabel('1', 'label')).toBe('1');
     });
 
-    it('should format other label', () => {
-      expect(getGroupLabel('other', 'label')).toBe('Label: Other');
+    it('should return "other" as-is', () => {
+      expect(getGroupLabel('other', 'label')).toBe('other');
     });
   });
 
-  describe('capitalization', () => {
-    it('should capitalize first letter', () => {
-      expect(getGroupLabel('coordinating', 'role')).toBe('Coordinating Nodes');
+  describe('raw values', () => {
+    it('should return value as-is', () => {
+      expect(getGroupLabel('coordinating', 'role')).toBe('coordinating');
     });
 
-    it('should preserve rest of string', () => {
-      expect(getGroupLabel('myCustomRole', 'role')).toBe('MyCustomRole Nodes');
+    it('should preserve exact string', () => {
+      expect(getGroupLabel('myCustomRole', 'role')).toBe('myCustomRole');
     });
   });
 });
@@ -580,7 +584,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
   });
 
   describe('Requirement 1.3: Do NOT filter nodes based on roles', () => {
-    it('should not exclude nodes with multiple roles', () => {
+    it('should not exclude nodes with multiple roles (allows duplication)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', roles: ['master', 'data', 'ingest'] }),
         createMockNode({ id: 'node-2', roles: ['data', 'ml'] }),
@@ -589,12 +593,20 @@ describe('Task 9.1: Verify all node types are displayed', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // With duplication: node-1 appears in 3 groups, node-2 in 2 groups = 5 total
       const totalNodes = Array.from(groups.values()).reduce(
         (sum, groupNodes) => sum + groupNodes.length,
         0
       );
 
-      expect(totalNodes).toBe(nodes.length);
+      expect(totalNodes).toBe(5); // node-1 (3 times) + node-2 (2 times)
+      
+      // Verify each node appears in all its role groups
+      expect(groups.get('master')).toContainEqual(expect.objectContaining({ id: 'node-1' }));
+      expect(groups.get('data')).toContainEqual(expect.objectContaining({ id: 'node-1' }));
+      expect(groups.get('data')).toContainEqual(expect.objectContaining({ id: 'node-2' }));
+      expect(groups.get('ingest')).toContainEqual(expect.objectContaining({ id: 'node-1' }));
+      expect(groups.get('ml')).toContainEqual(expect.objectContaining({ id: 'node-2' }));
     });
 
     it('should not exclude nodes with no roles', () => {
@@ -811,7 +823,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
       expect(groups.has('coordinating')).toBe(true);
     });
 
-    it('should handle mixed role configurations', () => {
+    it('should handle mixed role configurations (with duplication)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', roles: ['master', 'data', 'ingest'] }),
         createMockNode({ id: 'node-2', roles: ['data', 'ml'] }),
@@ -823,20 +835,21 @@ describe('Task 9.1: Verify all node types are displayed', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // All nodes should be present
+      // With duplication: node-1 (3), node-2 (2), node-3 (2), node-4 (1), node-5 (1) = 9 total
       const totalNodes = Array.from(groups.values()).reduce(
         (sum, groupNodes) => sum + groupNodes.length,
         0
       );
-      expect(totalNodes).toBe(nodes.length);
+      expect(totalNodes).toBe(9);
 
-      // No nodes should be lost
-      const allNodeIds = Array.from(groups.values())
-        .flat()
-        .map(n => n.id)
-        .sort();
-      const expectedIds = nodes.map(n => n.id).sort();
-      expect(allNodeIds).toEqual(expectedIds);
+      // All unique node IDs should be present (no nodes lost)
+      const uniqueNodeIds = new Set(
+        Array.from(groups.values())
+          .flat()
+          .map(n => n.id)
+      );
+      expect(uniqueNodeIds.size).toBe(nodes.length);
+      expect(Array.from(uniqueNodeIds).sort()).toEqual(nodes.map(n => n.id).sort());
     });
 
     it('should handle nodes with custom labels and various roles', () => {
@@ -869,7 +882,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
   });
 
   describe('Edge cases and backward compatibility', () => {
-    it('should handle single node cluster', () => {
+    it('should handle single node cluster (with duplication)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', roles: ['master', 'data', 'ingest'] }),
       ];
@@ -877,11 +890,12 @@ describe('Task 9.1: Verify all node types are displayed', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // Single node with 3 roles appears 3 times
       const totalNodes = Array.from(groups.values()).reduce(
         (sum, groupNodes) => sum + groupNodes.length,
         0
       );
-      expect(totalNodes).toBe(1);
+      expect(totalNodes).toBe(3);
     });
 
     it('should maintain backward compatibility with no grouping', () => {
@@ -976,16 +990,17 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'label' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Should group by label only, not by roles
-      expect(groups.has('zone-a')).toBe(true);
-      expect(groups.has('zone-b')).toBe(true);
+      // Should group by extracted label values only, not by roles
+      // "zone-a" → "a", "zone-b" → "b"
+      expect(groups.has('a')).toBe(true);
+      expect(groups.has('b')).toBe(true);
       expect(groups.has('master')).toBe(false);
       expect(groups.has('data')).toBe(false);
     });
   });
 
   describe('Requirement 2.2: Grouping by node roles', () => {
-    it('should group master-eligible vs non-master-eligible nodes', () => {
+    it('should group master-eligible vs non-master-eligible nodes (with duplication)', () => {
       const nodes = [
         createMockNode({ id: 'master-1', roles: ['master'] }),
         createMockNode({ id: 'master-2', roles: ['master', 'data'] }),
@@ -996,12 +1011,15 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Master nodes grouped together (by first role)
+      // Master nodes: master-1 and master-2 both appear in master group
       expect(groups.get('master')).toHaveLength(2);
-      expect(groups.get('master')?.map(n => n.id)).toEqual(['master-1', 'master-2']);
+      expect(groups.get('master')?.map(n => n.id).sort()).toEqual(['master-1', 'master-2']);
       
-      // Non-master nodes in separate groups
-      expect(groups.get('data')).toHaveLength(1);
+      // Data group: master-2 and data-1 (master-2 appears in both master and data)
+      expect(groups.get('data')).toHaveLength(2);
+      expect(groups.get('data')?.map(n => n.id).sort()).toEqual(['data-1', 'master-2']);
+      
+      // Ingest group
       expect(groups.get('ingest')).toHaveLength(1);
     });
 
@@ -1025,7 +1043,7 @@ describe('Task 9.2: Verify grouping functionality', () => {
       expect(groups.get('coordinating')).toHaveLength(1);
     });
 
-    it('should handle various role combinations', () => {
+    it('should handle various role combinations (with duplication)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', roles: ['master', 'data', 'ingest'] }),
         createMockNode({ id: 'node-2', roles: ['data', 'ml'] }),
@@ -1036,11 +1054,12 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Each node grouped by its first role
-      expect(groups.get('master')).toHaveLength(1);
-      expect(groups.get('data')).toHaveLength(1);
-      expect(groups.get('ingest')).toHaveLength(1);
-      expect(groups.get('ml')).toHaveLength(1);
+      // With duplication: nodes appear in ALL their role groups
+      expect(groups.get('master')).toHaveLength(1); // node-1
+      expect(groups.get('data')).toHaveLength(2); // node-1, node-2
+      expect(groups.get('ingest')).toHaveLength(2); // node-1, node-3
+      expect(groups.get('ml')).toHaveLength(2); // node-2, node-4
+      expect(groups.get('coordinating')).toHaveLength(1); // node-3
     });
   });
 
@@ -1111,7 +1130,7 @@ describe('Task 9.2: Verify grouping functionality', () => {
   });
 
   describe('Requirement 2.4: Grouping by node labels', () => {
-    it('should group nodes by custom labels', () => {
+    it('should group nodes by extracted label values', () => {
       const nodes = [
         createMockNode({ id: 'node-1', tags: ['zone-a'] }),
         createMockNode({ id: 'node-2', tags: ['zone-b'] }),
@@ -1122,13 +1141,14 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'label' };
       const groups = calculateNodeGroups(nodes, config);
 
+      // Groups by extracted values: "zone-a" → "a", "zone-b" → "b", "zone-c" → "c"
       expect(groups.size).toBe(3);
-      expect(groups.get('zone-a')).toHaveLength(2);
-      expect(groups.get('zone-b')).toHaveLength(1);
-      expect(groups.get('zone-c')).toHaveLength(1);
+      expect(groups.get('a')).toHaveLength(2);
+      expect(groups.get('b')).toHaveLength(1);
+      expect(groups.get('c')).toHaveLength(1);
     });
 
-    it('should group by first label when nodes have multiple labels', () => {
+    it('should group by first label value when nodes have multiple labels', () => {
       const nodes = [
         createMockNode({ id: 'node-1', tags: ['zone-a', 'rack-1'] }),
         createMockNode({ id: 'node-2', tags: ['zone-b', 'rack-2'] }),
@@ -1138,13 +1158,13 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'label' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Grouped by first label only
+      // Grouped by first label value: "zone-a" → "a", "zone-b" → "b"
       expect(groups.size).toBe(2);
-      expect(groups.get('zone-a')).toHaveLength(2);
-      expect(groups.get('zone-b')).toHaveLength(1);
+      expect(groups.get('a')).toHaveLength(2);
+      expect(groups.get('b')).toHaveLength(1);
     });
 
-    it('should support filtering by specific label value', () => {
+    it('should support filtering by specific label value (extracted)', () => {
       const nodes = [
         createMockNode({ id: 'node-1', tags: ['zone-a'] }),
         createMockNode({ id: 'node-2', tags: ['zone-b'] }),
@@ -1155,9 +1175,9 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'label', value: 'zone-a' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Two groups: matching and other
+      // Two groups: extracted value "a" and "other"
       expect(groups.size).toBe(2);
-      expect(groups.get('zone-a')).toHaveLength(2);
+      expect(groups.get('a')).toHaveLength(2);
       expect(groups.get('other')).toHaveLength(2);
     });
 
@@ -1296,9 +1316,10 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const labelConfig: GroupingConfig = { attribute: 'label' };
       const labelGroups = calculateNodeGroups(testNodes, labelConfig);
       
+      // Groups by extracted label values: "zone-a" → "a", "zone-b" → "b"
       expect(labelGroups.size).toBe(3);
-      expect(labelGroups.has('zone-a')).toBe(true);
-      expect(labelGroups.has('zone-b')).toBe(true);
+      expect(labelGroups.has('a')).toBe(true);
+      expect(labelGroups.has('b')).toBe(true);
       expect(labelGroups.has('undefined')).toBe(true);
     });
 
@@ -1382,11 +1403,11 @@ describe('Task 9.2: Verify grouping functionality', () => {
       expect(roleGroups.get('coordinating')).toHaveLength(2);
       expect(roleGroups.get('ml')).toHaveLength(1);
 
-      // Test label grouping by zone
+      // Test label grouping by extracted zone values: "zone-a" → "a", "zone-b" → "b", "zone-c" → "c"
       const zoneGroups = calculateNodeGroups(nodes, { attribute: 'label' });
-      expect(zoneGroups.get('zone-a')).toHaveLength(5); // master-1, hot-1, warm-1, coord-1, ml-1
-      expect(zoneGroups.get('zone-b')).toHaveLength(4); // master-2, hot-2, warm-2, coord-2
-      expect(zoneGroups.get('zone-c')).toHaveLength(1); // master-3
+      expect(zoneGroups.get('a')).toHaveLength(5); // master-1, hot-1, warm-1, coord-1, ml-1
+      expect(zoneGroups.get('b')).toHaveLength(4); // master-2, hot-2, warm-2, coord-2
+      expect(zoneGroups.get('c')).toHaveLength(1); // master-3
 
       // Test type grouping
       const typeGroups = calculateNodeGroups(nodes, { attribute: 'type' });
@@ -1410,11 +1431,11 @@ describe('Task 9.2: Verify grouping functionality', () => {
       expect(roleGroups.get('data')).toHaveLength(1);
       expect(roleGroups.get('undefined')).toHaveLength(2);
 
-      // Label grouping should handle missing labels
+      // Label grouping should handle missing labels and extract values: "zone-a" → "a", "zone-b" → "b"
       const labelGroups = calculateNodeGroups(nodes, { attribute: 'label' });
-      expect(labelGroups.get('zone-a')).toHaveLength(1);
-      expect(labelGroups.get('zone-b')).toHaveLength(1);
-      expect(labelGroups.get('undefined')).toHaveLength(2);
+      expect(labelGroups.get('a')).toHaveLength(1); // node-1 with "zone-a" → extracted value "a"
+      expect(labelGroups.get('b')).toHaveLength(1); // node-2 with "zone-b" → extracted value "b"
+      expect(labelGroups.get('undefined')).toHaveLength(2); // node-3 and node-4 with no tags
     });
 
     it('should handle large cluster efficiently', () => {
