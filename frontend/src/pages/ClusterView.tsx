@@ -478,23 +478,27 @@ export function ClusterView() {
     }
   }, [activeTab, id, refetchStats]);
 
-  // Get selected time range from store (for Prometheus metrics)
-  const metricsStore = useMetricsStore();
-  const selectedTimeRange = metricsStore.selectedTimeRange;
+  // Get selected time range from URL params (for Prometheus metrics)
+  // Default to 24h if not specified
+  const timeRangeParam = searchParams.get('timeRange') || '1440'; // minutes
+  const timeRangeMinutes = parseInt(timeRangeParam, 10);
+  
+  // Find matching preset or create custom range
+  const selectedTimeRange = TIME_RANGE_PRESETS.find(p => p.minutes === timeRangeMinutes) || {
+    minutes: timeRangeMinutes,
+    label: timeRangeMinutes === 1440 ? 'Last 24h' : `Last ${timeRangeMinutes}m`,
+  };
+  
   const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
 
   // Fetch metrics history from Prometheus when in statistics tab
   const { data: metricsHistory } = useQuery({
-    queryKey: ['cluster', id, 'metrics-history', selectedTimeRange],
+    queryKey: ['cluster', id, 'metrics-history', timeRangeMinutes],
     queryFn: async () => {
       if (!id) throw new Error('Cluster ID is required');
-      // Use selected time range or default to last 24 hours
-      const timeRange = selectedTimeRange || {
-        start: Math.floor(Date.now() / 1000) - 24 * 60 * 60,
-        end: Math.floor(Date.now() / 1000),
-        label: 'Last 24h',
-      };
-      return apiClient.getClusterMetrics(id, { start: timeRange.start, end: timeRange.end });
+      const now = Math.floor(Date.now() / 1000);
+      const start = now - timeRangeMinutes * 60;
+      return apiClient.getClusterMetrics(id, { start, end: now });
     },
     enabled: activeTab === 'statistics' && !!id,
     refetchInterval: 60000, // Refetch every minute
@@ -1296,13 +1300,9 @@ export function ClusterView() {
                   <Menu.Item
                     key={preset.label}
                     onClick={() => {
-                      const now = Math.floor(Date.now() / 1000);
-                      const start = now - preset.minutes * 60;
-                      metricsStore.setTimeRange({
-                        start,
-                        end: now,
-                        label: preset.label,
-                      });
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.set('timeRange', preset.minutes.toString());
+                      setSearchParams(newParams);
                       setTimeRangeDropdownOpened(false);
                     }}
                     leftSection={

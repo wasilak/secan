@@ -511,12 +511,12 @@ impl MetricsService for PrometheusMetricsService {
         );
 
         metrics.disk_used_bytes = Some(
-            self.query_metric_range("elasticsearch_indices_store_size_bytes", &time_range)
+            self.query_metric_range("sum(elasticsearch_indices_store_size_bytes)", &time_range)
                 .await?,
         );
         prometheus_queries.insert(
             "disk_used_bytes".to_string(),
-            self.build_query("elasticsearch_indices_store_size_bytes"),
+            self.build_query("sum(elasticsearch_indices_store_size_bytes)"),
         );
 
         metrics.cpu_usage_percent = Some(
