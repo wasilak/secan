@@ -1787,8 +1787,8 @@ function NodesList({
     <Stack gap="md">
       <NodeStatsCards nodes={sortedNodes || []} />
       
-      <Group justify="space-between" align="flex-end">
-        <Group style={{ flex: 1 }} wrap="wrap">
+      <Group justify="space-between" align="center" wrap="wrap">
+        <Group gap="md" wrap="wrap" style={{ flex: 1 }}>
           <TextInput
             placeholder="Search nodes..."
             leftSection={<IconSearch size={16} />}
@@ -1796,6 +1796,13 @@ function NodesList({
             onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
             style={{ minWidth: 200 }}
           />
+          {allRoles.length > 0 && (
+            <RoleFilterToggle
+              roles={allRoles.sort()}
+              selectedRoles={selectedRoles}
+              onToggle={toggleRole}
+            />
+          )}
         </Group>
 
         <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
@@ -1809,14 +1816,6 @@ function NodesList({
           </ActionIcon>
         </Tooltip>
       </Group>
-
-      {allRoles.length > 0 && (
-        <RoleFilterToggle
-          roles={allRoles.sort()}
-          selectedRoles={selectedRoles}
-          onToggle={toggleRole}
-        />
-      )}
 
       {sortedNodes && sortedNodes.length === 0 ? (
         <Text c="dimmed" ta="center" py="xl">
