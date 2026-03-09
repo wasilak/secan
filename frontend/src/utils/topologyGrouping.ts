@@ -212,31 +212,32 @@ export function calculateNodeGroups(
       break;
       
     case 'type':
-      // Group by type with priority: master > data > ingest > ml > coordinating
+      // Group by type: master-eligible vs non-master (with duplication)
       for (const node of nodes) {
-        let groupKey = 'undefined';
-        
         if (node.roles && node.roles.length > 0) {
-          // Priority order for type classification
+          // Check if node is master-eligible
           if (node.roles.includes('master')) {
-            groupKey = 'master';
-          } else if (node.roles.includes('data')) {
-            groupKey = 'data';
-          } else if (node.roles.includes('ingest')) {
-            groupKey = 'ingest';
-          } else if (node.roles.includes('ml')) {
-            groupKey = 'ml';
-          } else if (node.roles.includes('coordinating')) {
-            groupKey = 'coordinating';
-          } else {
-            groupKey = node.roles[0]; // Use first role if none of the above
+            if (!groups.has('master')) {
+              groups.set('master', []);
+            }
+            groups.get('master')!.push(node);
           }
+          
+          // Check if node has any non-master roles
+          const hasNonMasterRoles = node.roles.some(role => role !== 'master');
+          if (hasNonMasterRoles) {
+            if (!groups.has('other')) {
+              groups.set('other', []);
+            }
+            groups.get('other')!.push(node);
+          }
+        } else {
+          // Node with no roles goes to 'undefined' group
+          if (!groups.has('undefined')) {
+            groups.set('undefined', []);
+          }
+          groups.get('undefined')!.push(node);
         }
-        
-        if (!groups.has(groupKey)) {
-          groups.set(groupKey, []);
-        }
-        groups.get(groupKey)!.push(node);
       }
       break;
       

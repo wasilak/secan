@@ -233,32 +233,39 @@ describe('calculateNodeGroups', () => {
   });
 
   describe('type grouping', () => {
-    it('should group nodes by type with master priority', () => {
+    it('should group nodes into master-eligible and other (with duplication)', () => {
       const nodes = [
-        createMockNode({ id: 'node-1', roles: ['master', 'data'] }),
-        createMockNode({ id: 'node-2', roles: ['data'] }),
-        createMockNode({ id: 'node-3', roles: ['ingest'] }),
-      ];
-      const config: GroupingConfig = { attribute: 'type' };
-      const groups = calculateNodeGroups(nodes, config);
-
-      expect(groups.size).toBe(3);
-      expect(groups.get('master')).toHaveLength(1);
-      expect(groups.get('data')).toHaveLength(1);
-      expect(groups.get('ingest')).toHaveLength(1);
-    });
-
-    it('should handle ml and coordinating roles', () => {
-      const nodes = [
-        createMockNode({ id: 'node-1', roles: ['ml'] }),
-        createMockNode({ id: 'node-2', roles: ['coordinating'] }),
+        createMockNode({ id: 'node-1', roles: ['master', 'data'] }), // appears in both groups
+        createMockNode({ id: 'node-2', roles: ['data'] }), // only in other
+        createMockNode({ id: 'node-3', roles: ['ingest'] }), // only in other
+        createMockNode({ id: 'node-4', roles: ['master'] }), // only in master
       ];
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
       expect(groups.size).toBe(2);
-      expect(groups.get('ml')).toHaveLength(1);
-      expect(groups.get('coordinating')).toHaveLength(1);
+      expect(groups.get('master')).toHaveLength(2); // node-1 and node-4
+      expect(groups.get('other')).toHaveLength(3); // node-1, node-2, node-3
+      
+      // Verify node-1 appears in both groups (duplication)
+      const masterGroup = groups.get('master')!;
+      const otherGroup = groups.get('other')!;
+      expect(masterGroup.some(n => n.id === 'node-1')).toBe(true);
+      expect(otherGroup.some(n => n.id === 'node-1')).toBe(true);
+    });
+
+    it('should handle ml and coordinating roles in other group', () => {
+      const nodes = [
+        createMockNode({ id: 'node-1', roles: ['ml'] }),
+        createMockNode({ id: 'node-2', roles: ['coordinating'] }),
+        createMockNode({ id: 'node-3', roles: ['master', 'ml'] }), // appears in both
+      ];
+      const config: GroupingConfig = { attribute: 'type' };
+      const groups = calculateNodeGroups(nodes, config);
+
+      expect(groups.size).toBe(2);
+      expect(groups.get('master')).toHaveLength(1); // node-3
+      expect(groups.get('other')).toHaveLength(3); // node-1, node-2, node-3
     });
 
     it('should handle nodes without roles', () => {
@@ -394,12 +401,12 @@ describe('getGroupLabel', () => {
       expect(getGroupLabel('master', 'type')).toBe('master');
     });
 
-    it('should return raw data type', () => {
-      expect(getGroupLabel('data', 'type')).toBe('data');
+    it('should return raw other type', () => {
+      expect(getGroupLabel('other', 'type')).toBe('other');
     });
 
-    it('should return raw ml type', () => {
-      expect(getGroupLabel('ml', 'type')).toBe('ml');
+    it('should return "Unknown Type" for undefined', () => {
+      expect(getGroupLabel('undefined', 'type')).toBe('Unknown Type');
     });
   });
 
@@ -509,7 +516,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
         createMockNode({ id: 'data-2', roles: ['data', 'ingest'] }),
       ];
 
-      const config: GroupingConfig = { attribute: 'type' };
+      const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
       expect(groups.has('data')).toBe(true);
@@ -522,7 +529,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
         createMockNode({ id: 'ingest-2', roles: ['ingest'] }),
       ];
 
-      const config: GroupingConfig = { attribute: 'type' };
+      const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
       expect(groups.has('ingest')).toBe(true);
@@ -535,7 +542,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
         createMockNode({ id: 'ml-2', roles: ['ml'] }),
       ];
 
-      const config: GroupingConfig = { attribute: 'type' };
+      const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
       expect(groups.has('ml')).toBe(true);
@@ -548,7 +555,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
         createMockNode({ id: 'coord-2', roles: ['coordinating'] }),
       ];
 
-      const config: GroupingConfig = { attribute: 'type' };
+      const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
       expect(groups.has('coordinating')).toBe(true);
@@ -564,7 +571,7 @@ describe('Task 9.1: Verify all node types are displayed', () => {
         createMockNode({ id: 'coord-1', roles: ['coordinating'] }),
       ];
 
-      const config: GroupingConfig = { attribute: 'type' };
+      const config: GroupingConfig = { attribute: 'role' };
       const groups = calculateNodeGroups(nodes, config);
 
       // All 5 node types should be present
@@ -808,19 +815,19 @@ describe('Task 9.1: Verify all node types are displayed', () => {
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Verify all nodes are present
+      // With type grouping: master group (3 master nodes) + other group (3 master+data + 4 data + 2 ingest + 1 ml + 2 coord = 12)
+      // Total with duplication: 3 + 12 = 15
       const totalNodes = Array.from(groups.values()).reduce(
         (sum, groupNodes) => sum + groupNodes.length,
         0
       );
-      expect(totalNodes).toBe(nodes.length);
+      expect(totalNodes).toBe(15);
 
-      // Verify all node types are represented
+      // Verify both groups exist
       expect(groups.has('master')).toBe(true);
-      expect(groups.has('data')).toBe(true);
-      expect(groups.has('ingest')).toBe(true);
-      expect(groups.has('ml')).toBe(true);
-      expect(groups.has('coordinating')).toBe(true);
+      expect(groups.has('other')).toBe(true);
+      expect(groups.get('master')).toHaveLength(3); // master-1, master-2, master-3
+      expect(groups.get('other')).toHaveLength(12); // master-1, master-2, master-3 (data role) + 4 data + 2 ingest + 1 ml + 2 coord
     });
 
     it('should handle mixed role configurations (with duplication)', () => {
@@ -974,9 +981,9 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Should group by type only
+      // Should group by type only: master and other groups
       expect(groups.has('master')).toBe(true);
-      expect(groups.has('ingest')).toBe(true);
+      expect(groups.has('other')).toBe(true);
       expect(groups.has('zone-a')).toBe(false);
       expect(groups.has('zone-b')).toBe(false);
     });
@@ -1064,7 +1071,7 @@ describe('Task 9.2: Verify grouping functionality', () => {
   });
 
   describe('Requirement 2.3: Grouping by node types', () => {
-    it('should classify nodes by primary type', () => {
+    it('should classify nodes into master-eligible and other groups', () => {
       const nodes = [
         createMockNode({ id: 'master-1', roles: ['master'] }),
         createMockNode({ id: 'data-1', roles: ['data'] }),
@@ -1076,56 +1083,49 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
-      expect(groups.size).toBe(5);
-      expect(groups.get('master')).toHaveLength(1);
-      expect(groups.get('data')).toHaveLength(1);
-      expect(groups.get('ingest')).toHaveLength(1);
-      expect(groups.get('ml')).toHaveLength(1);
-      expect(groups.get('coordinating')).toHaveLength(1);
+      expect(groups.size).toBe(2);
+      expect(groups.get('master')).toHaveLength(1); // master-1
+      expect(groups.get('other')).toHaveLength(4); // data-1, ingest-1, ml-1, coord-1
     });
 
-    it('should prioritize master type in mixed roles', () => {
+    it('should put master-eligible nodes in master group and also in other if they have non-master roles', () => {
       const nodes = [
-        createMockNode({ id: 'node-1', roles: ['master', 'data'] }),
-        createMockNode({ id: 'node-2', roles: ['master', 'ingest'] }),
-        createMockNode({ id: 'node-3', roles: ['data', 'ingest'] }),
+        createMockNode({ id: 'node-1', roles: ['master', 'data'] }), // both groups
+        createMockNode({ id: 'node-2', roles: ['master', 'ingest'] }), // both groups
+        createMockNode({ id: 'node-3', roles: ['data', 'ingest'] }), // only other
       ];
 
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Master takes priority
+      // Master group: nodes with master role
       expect(groups.get('master')).toHaveLength(2);
-      expect(groups.get('master')?.map(n => n.id)).toEqual(['node-1', 'node-2']);
+      expect(groups.get('master')?.map(n => n.id).sort()).toEqual(['node-1', 'node-2']);
       
-      // Data type for node without master role
-      expect(groups.get('data')).toHaveLength(1);
-      expect(groups.get('data')?.map(n => n.id)).toEqual(['node-3']);
+      // Other group: nodes with non-master roles (including master nodes with other roles)
+      expect(groups.get('other')).toHaveLength(3);
+      expect(groups.get('other')?.map(n => n.id).sort()).toEqual(['node-1', 'node-2', 'node-3']);
     });
 
-    it('should follow type hierarchy: master > data > ingest > ml > coordinating', () => {
+    it('should handle pure master nodes (only in master group) and mixed nodes (in both groups)', () => {
       const nodes = [
-        createMockNode({ id: 'node-1', roles: ['data', 'ingest', 'ml'] }),
-        createMockNode({ id: 'node-2', roles: ['ingest', 'ml', 'coordinating'] }),
-        createMockNode({ id: 'node-3', roles: ['ml', 'coordinating'] }),
-        createMockNode({ id: 'node-4', roles: ['coordinating'] }),
+        createMockNode({ id: 'node-1', roles: ['data', 'ingest', 'ml'] }), // only other
+        createMockNode({ id: 'node-2', roles: ['ingest', 'ml', 'coordinating'] }), // only other
+        createMockNode({ id: 'node-3', roles: ['ml', 'coordinating'] }), // only other
+        createMockNode({ id: 'node-4', roles: ['master'] }), // only master
+        createMockNode({ id: 'node-5', roles: ['master', 'data'] }), // both groups
       ];
 
       const config: GroupingConfig = { attribute: 'type' };
       const groups = calculateNodeGroups(nodes, config);
 
-      // Each node classified by highest priority role
-      expect(groups.get('data')).toHaveLength(1);
-      expect(groups.get('data')?.map(n => n.id)).toEqual(['node-1']);
+      // Master group: nodes with master role
+      expect(groups.get('master')).toHaveLength(2);
+      expect(groups.get('master')?.map(n => n.id).sort()).toEqual(['node-4', 'node-5']);
       
-      expect(groups.get('ingest')).toHaveLength(1);
-      expect(groups.get('ingest')?.map(n => n.id)).toEqual(['node-2']);
-      
-      expect(groups.get('ml')).toHaveLength(1);
-      expect(groups.get('ml')?.map(n => n.id)).toEqual(['node-3']);
-      
-      expect(groups.get('coordinating')).toHaveLength(1);
-      expect(groups.get('coordinating')?.map(n => n.id)).toEqual(['node-4']);
+      // Other group: all nodes with non-master roles
+      expect(groups.get('other')).toHaveLength(4);
+      expect(groups.get('other')?.map(n => n.id).sort()).toEqual(['node-1', 'node-2', 'node-3', 'node-5']);
     });
   });
 
@@ -1300,10 +1300,10 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const typeConfig: GroupingConfig = { attribute: 'type' };
       const typeGroups = calculateNodeGroups(testNodes, typeConfig);
       
-      expect(typeGroups.size).toBe(4);
+      // Type grouping creates only 2 groups: master and other (plus undefined if needed)
+      expect(typeGroups.size).toBe(3); // master, other, undefined
       expect(typeGroups.has('master')).toBe(true);
-      expect(typeGroups.has('data')).toBe(true);
-      expect(typeGroups.has('ingest')).toBe(true);
+      expect(typeGroups.has('other')).toBe(true);
       expect(typeGroups.has('undefined')).toBe(true);
     });
 
@@ -1311,7 +1311,7 @@ describe('Task 9.2: Verify grouping functionality', () => {
       const typeConfig: GroupingConfig = { attribute: 'type' };
       const typeGroups = calculateNodeGroups(testNodes, typeConfig);
       
-      expect(typeGroups.size).toBe(4);
+      expect(typeGroups.size).toBe(3); // master, other, undefined
 
       const labelConfig: GroupingConfig = { attribute: 'label' };
       const labelGroups = calculateNodeGroups(testNodes, labelConfig);
@@ -1409,12 +1409,10 @@ describe('Task 9.2: Verify grouping functionality', () => {
       expect(zoneGroups.get('b')).toHaveLength(4); // master-2, hot-2, warm-2, coord-2
       expect(zoneGroups.get('c')).toHaveLength(1); // master-3
 
-      // Test type grouping
+      // Test type grouping: master group (3 masters) + other group (4 data + 2 coord + 1 ml = 7)
       const typeGroups = calculateNodeGroups(nodes, { attribute: 'type' });
-      expect(typeGroups.get('master')).toHaveLength(3);
-      expect(typeGroups.get('data')).toHaveLength(4);
-      expect(typeGroups.get('coordinating')).toHaveLength(2);
-      expect(typeGroups.get('ml')).toHaveLength(1);
+      expect(typeGroups.get('master')).toHaveLength(3); // master-1, master-2, master-3
+      expect(typeGroups.get('other')).toHaveLength(7); // hot-1, hot-2, warm-1, warm-2, coord-1, coord-2, ml-1
     });
 
     it('should handle cluster with nodes missing various attributes', () => {
