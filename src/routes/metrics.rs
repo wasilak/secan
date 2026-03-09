@@ -248,7 +248,9 @@ pub async fn get_cluster_metrics(
                 }
             })?;
 
-            let mut prom_metrics = service
+            // For Prometheus metrics source, ALL data comes from Prometheus ONLY
+            // No mixing with Elasticsearch API calls
+            service
                 .get_cluster_metrics(&cluster_id, time_range.clone())
                 .await
                 .map_err(|e| {
@@ -257,40 +259,7 @@ pub async fn get_cluster_metrics(
                         error: "metrics_error".to_string(),
                         message: format!("Failed to retrieve Prometheus metrics: {}", e),
                     }
-                })?;
-
-            // For Prometheus, fetch current cluster stats from Elasticsearch for counts
-            // This provides node_count, index_count, etc. that Prometheus doesn't track
-            if let Ok(client) = cluster_conn.client.health().await {
-                if let Ok(health) =
-                    serde_json::from_value::<crate::cluster::manager::ClusterHealth>(client)
-                {
-                    prom_metrics.node_count = Some(health.number_of_nodes);
-                    prom_metrics.shard_count = Some(health.active_shards);
-                    prom_metrics.health_status = Some(health.status);
-                }
-            }
-            // Fetch index count, document count, and unassigned shards from cluster stats API
-            if let Ok(stats) = cluster_conn.client.cluster_stats().await {
-                if let Some(count) = stats["indices"]["count"].as_u64() {
-                    prom_metrics.index_count = Some(count as u32);
-                }
-                if let Some(docs_count) = stats["indices"]["docs"]["count"].as_u64() {
-                    prom_metrics.document_count = Some(docs_count);
-                }
-                // Also get shard details from cluster stats
-                if let Some(unassigned) = stats["unassigned_shards"].as_u64() {
-                    prom_metrics.unassigned_shards = Some(unassigned as u32);
-                }
-                if let Some(relocating) = stats["relocating_shards"].as_u64() {
-                    prom_metrics.relocating_shards = Some(relocating as u32);
-                }
-                if let Some(initializing) = stats["initializing_shards"].as_u64() {
-                    prom_metrics.initializing_shards = Some(initializing as u32);
-                }
-            }
-
-            prom_metrics
+                })?
         }
     };
 

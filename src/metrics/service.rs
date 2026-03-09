@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 
 use crate::cluster::client::ElasticsearchClient;
-use crate::cluster::manager::{ClusterConnection, HealthStatus};
+use crate::cluster::manager::{ClusterConnection, HealthStatus, HealthStatus as ClusterHealthStatus};
 use crate::prometheus::client::Client as PrometheusClient;
 use crate::prometheus::client::PrometheusConfig;
 
@@ -651,33 +651,149 @@ impl MetricsService for PrometheusMetricsService {
             ),
         );
 
-        // Add queries for cluster stats
-        // For indices count, use PromQL to count unique index metrics
+        // Query cluster stats metrics from Prometheus
+        // These are instant queries (current values) not time series
+        
+        // Node count
+        let node_count_query = self.build_query("elasticsearch_cluster_health_number_of_nodes");
+        if let Ok(results) = self.client.query_instant(&node_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.node_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Shard count
+        let shard_count_query = self.build_query("elasticsearch_cluster_health_active_shards");
+        if let Ok(results) = self.client.query_instant(&shard_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.shard_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Unassigned shards
+        let unassigned_query = self.build_query("elasticsearch_cluster_health_unassigned_shards");
+        if let Ok(results) = self.client.query_instant(&unassigned_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.unassigned_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Relocating shards
+        let relocating_query = self.build_query("elasticsearch_cluster_health_relocating_shards");
+        if let Ok(results) = self.client.query_instant(&relocating_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.relocating_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Initializing shards
+        let initializing_query = self.build_query("elasticsearch_cluster_health_initializing_shards");
+        if let Ok(results) = self.client.query_instant(&initializing_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.initializing_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Index count - count unique indices from metrics
+        let index_count_query = format!(
+            "count({})",
+            self.build_query("elasticsearch_indices_stats_count")
+        );
+        if let Ok(results) = self.client.query_instant(&index_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.index_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+        
+        // Document count - sum across all primary shards
+        let document_count_query = format!(
+            "sum({})",
+            self.build_query("elasticsearch_indices_docs_primary")
+        );
+        if let Ok(results) = self.client.query_instant(&document_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.document_count = Some(parsed as u64);
+                    }
+                }
+            }
+        }
+        
+        // Health status - parse from metric value
+        let health_query = self.build_query("elasticsearch_cluster_health_status");
+        if let Ok(results) = self.client.query_instant(&health_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        // Elasticsearch exporter encodes health as: green=1, yellow=2, red=3
+                        metrics.health_status = Some(match parsed as i32 {
+                            1 => ClusterHealthStatus::Green,
+                            2 => ClusterHealthStatus::Yellow,
+                            3 => ClusterHealthStatus::Red,
+                            _ => ClusterHealthStatus::Red,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Add queries for cluster stats to prometheus_queries map
         prometheus_queries.insert(
             "indices".to_string(),
-            format!(
-                "count({})",
-                self.build_query("elasticsearch_indices_stats_count")
-            ),
+            index_count_query,
         );
         prometheus_queries.insert(
             "documents".to_string(),
-            format!(
-                "sum({})",
-                self.build_query("elasticsearch_indices_docs_primary")
-            ),
+            document_count_query,
         );
         prometheus_queries.insert(
             "nodes".to_string(),
-            self.build_query("elasticsearch_cluster_health_number_of_nodes"),
+            node_count_query,
         );
         prometheus_queries.insert(
             "shards".to_string(),
-            self.build_query("elasticsearch_cluster_health_active_shards"),
+            shard_count_query,
         );
         prometheus_queries.insert(
             "unassigned_shards".to_string(),
-            self.build_query("elasticsearch_cluster_health_unassigned_shards"),
+            unassigned_query,
+        );
+        prometheus_queries.insert(
+            "relocating_shards".to_string(),
+            relocating_query,
+        );
+        prometheus_queries.insert(
+            "initializing_shards".to_string(),
+            initializing_query,
+        );
+        prometheus_queries.insert(
+            "health_status".to_string(),
+            health_query,
         );
 
         metrics.prometheus_queries = Some(prometheus_queries);
