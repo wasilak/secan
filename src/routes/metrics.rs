@@ -3,6 +3,7 @@ use crate::cluster::client::ElasticsearchClient;
 use crate::cluster::manager::HealthStatus as ClusterHealthStatus;
 use crate::cluster::Manager as ClusterManager;
 use crate::metrics::{InternalMetricsService, MetricsService, PrometheusMetricsService, TimeRange};
+use crate::metrics::service::MetricPoint;
 use crate::prometheus::client::{
     Client as PrometheusClient, PrometheusConfig as PrometheusClientConfig,
 };
@@ -290,8 +291,27 @@ pub async fn get_cluster_metrics(
     // Use node_count as the base time series ONLY for internal metrics (no Prometheus time series)
     if let Some(node_counts) = &backend_metrics.node_count {
         if !has_prometheus_data {
-            // This is from internal metrics - single value, create synthetic history
+            // This is from internal metrics - single snapshot, create synthetic history
+            // Use the single data point values for all historical points
             let now = chrono::Utc::now().timestamp();
+            
+            // Extract current values from single data points
+            let cpu_value = backend_metrics
+                .cpu_usage_percent
+                .as_ref()
+                .and_then(|v: &Vec<MetricPoint>| v.first())
+                .map(|p| p.value);
+            let memory_value = backend_metrics
+                .jvm_memory_used_bytes
+                .as_ref()
+                .and_then(|v: &Vec<MetricPoint>| v.first())
+                .map(|p| p.value);
+            let disk_used_value = backend_metrics
+                .disk_used_bytes
+                .as_ref()
+                .and_then(|v: &Vec<MetricPoint>| v.first())
+                .map(|p| p.value);
+            
             for i in 0..20 {
                 let ts = now - (i * 60); // 1 minute intervals
                 data_points.push(ClusterMetricsPoint {
@@ -314,10 +334,10 @@ pub async fn get_cluster_metrics(
                     document_count: backend_metrics.document_count,
                     shard_count: backend_metrics.shard_count,
                     unassigned_shards: backend_metrics.unassigned_shards,
-                    disk_used_bytes: None, // Not available from internal metrics
-                    disk_total_bytes: None,
-                    cpu_percent: None,       // Not available from internal metrics
-                    memory_used_bytes: None, // Not available from internal metrics
+                    disk_used_bytes: disk_used_value.map(|v| v as u64),
+                    disk_total_bytes: None, // Not tracked separately in internal metrics
+                    cpu_percent: cpu_value,
+                    memory_used_bytes: memory_value.map(|v| v as u64),
                     memory_non_heap_bytes: None, // Not available from internal metrics
                 });
             }

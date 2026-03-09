@@ -249,6 +249,10 @@ impl MetricsService for InternalMetricsService {
             node_count: None,
             shard_count: None,
             index_count: None,
+            document_count: None,
+            unassigned_shards: None,
+            relocating_shards: None,
+            initializing_shards: None,
             ..Default::default()
         };
 
@@ -260,6 +264,9 @@ impl MetricsService for InternalMetricsService {
                 metrics.node_count = Some(health_struct.number_of_nodes);
                 metrics.shard_count = Some(health_struct.active_shards);
                 metrics.health_status = Some(health_struct.status);
+                metrics.unassigned_shards = Some(health_struct.unassigned_shards);
+                metrics.relocating_shards = Some(health_struct.relocating_shards);
+                metrics.initializing_shards = Some(health_struct.initializing_shards);
             }
         }
 
@@ -272,23 +279,96 @@ impl MetricsService for InternalMetricsService {
             }
         }
 
-        // Get index count from indices stats
+        // Get index count and document count from indices stats
         if let Ok(indices) = client.indices_stats().await {
             if let Some(indices_obj) = indices.get("indices") {
                 if let Some(indices_map) = indices_obj.as_object() {
-                    // Subtract "_all" if present
+                    // Count indices (subtract "_all" if present)
                     let count = indices_map.len() as u32;
                     metrics.index_count = Some(if count > 0 { count - 1 } else { 0 });
+                }
+            }
+            
+            // Get total document count from _all stats
+            if let Some(all_stats) = indices.get("_all").and_then(|a| a.get("primaries")) {
+                if let Some(docs) = all_stats.get("docs") {
+                    if let Some(count) = docs.get("count").and_then(|c| c.as_i64()) {
+                        metrics.document_count = Some(count as u64);
+                    }
+                }
+            }
+        }
+
+        // Aggregate node-level metrics (CPU, memory, disk) from nodes stats
+        if let Ok(nodes_stats) = client.nodes_stats().await {
+            if let Some(stats_nodes) = nodes_stats.get("nodes").and_then(|n| n.as_object()) {
+                let mut total_cpu = 0.0;
+                let mut total_memory_used = 0.0;
+                let mut total_disk_used = 0.0;
+                let mut total_disk_total = 0.0;
+                let mut node_count = 0;
+
+                for (_node_id, node_stats) in stats_nodes {
+                    node_count += 1;
+
+                    // Extract CPU
+                    if let Some(cpu) = node_stats.get("os").and_then(|o| o.get("cpu")) {
+                        if let Some(percent) = cpu.get("percent").and_then(|p| p.as_i64()) {
+                            total_cpu += percent as f64;
+                        }
+                    }
+
+                    // Extract JVM memory
+                    if let Some(jvm) = node_stats.get("jvm").and_then(|j| j.get("mem")) {
+                        if let Some(used) = jvm.get("heap_used_in_bytes").and_then(|u| u.as_i64()) {
+                            total_memory_used += used as f64;
+                        }
+                    }
+
+                    // Extract disk
+                    if let Some(fs) = node_stats.get("fs").and_then(|f| f.get("total")) {
+                        if let Some(used) = fs.get("total_in_bytes").and_then(|u| u.as_i64()) {
+                            total_disk_total += used as f64;
+                        }
+                        if let Some(available) = fs.get("available_in_bytes").and_then(|a| a.as_i64()) {
+                            total_disk_used += total_disk_total - available as f64;
+                        }
+                    }
+                }
+
+                // Create single data point with aggregated values
+                if node_count > 0 {
+                    let now = current_unix_timestamp();
+                    let avg_cpu = total_cpu / node_count as f64;
+                    
+                    metrics.cpu_usage_percent = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: avg_cpu,
+                        labels: None,
+                    }]);
+                    
+                    metrics.jvm_memory_used_bytes = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: total_memory_used,
+                        labels: None,
+                    }]);
+                    
+                    metrics.disk_used_bytes = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: total_disk_used,
+                        labels: None,
+                    }]);
                 }
             }
         }
 
         debug!(
-            "Internal metrics for cluster {}: {} nodes, {} shards, {} indices",
+            "Internal metrics for cluster {}: {} nodes, {} shards, {} indices, {} docs",
             self.cluster_connection.id,
             metrics.node_count.unwrap_or(0),
             metrics.shard_count.unwrap_or(0),
-            metrics.index_count.unwrap_or(0)
+            metrics.index_count.unwrap_or(0),
+            metrics.document_count.unwrap_or(0)
         );
 
         Ok(metrics)
