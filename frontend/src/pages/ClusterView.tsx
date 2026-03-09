@@ -168,6 +168,35 @@ export function ClusterView() {
     setLocalIndicesSearch(value);
   };
 
+  // Nodes search filter (handled at parent level to prevent re-renders and focus loss)
+  const nodesSearch = searchParams.get('nodesSearch') || '';
+  const [localNodesSearch, setLocalNodesSearch] = useState(nodesSearch);
+
+  // Sync local input with URL when it changes externally (back/forward navigation)
+  useEffect(() => {
+    setLocalNodesSearch(searchParams.get('nodesSearch') || '');
+  }, [searchParams]);
+
+  // Debounce: update URL after 300ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localNodesSearch !== searchParams.get('nodesSearch')) {
+        const newParams = new URLSearchParams(searchParams);
+        if (localNodesSearch) {
+          newParams.set('nodesSearch', localNodesSearch);
+        } else {
+          newParams.delete('nodesSearch');
+        }
+        setSearchParams(newParams);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localNodesSearch, searchParams, setSearchParams]);
+
+  const setNodesSearch = (value: string) => {
+    setLocalNodesSearch(value);
+  };
+
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
 
@@ -1454,6 +1483,8 @@ export function ClusterView() {
             loading={nodesLoading}
             error={nodesError}
             openNodeModal={openNodeModal}
+            nodesSearch={localNodesSearch}
+            setNodesSearch={setNodesSearch}
           />
           {nodesPaginated && nodesPaginated.total_pages > 1 && (
             <SimplePagination
@@ -1619,11 +1650,15 @@ function NodesList({
   loading,
   error,
   openNodeModal,
+  nodesSearch,
+  setNodesSearch,
 }: {
   nodes?: NodeInfo[];
   loading: boolean;
   error: Error | null;
   openNodeModal?: (nodeId: string) => void;
+  nodesSearch: string;
+  setNodesSearch: (value: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -1633,7 +1668,7 @@ function NodesList({
   const { getColor } = useWatermarks(id);
 
   // Get filters from URL
-  const searchQuery = searchParams.get('nodesSearch') || '';
+  const searchQuery = nodesSearch; // Use prop instead of URL param directly
   // Get all unique roles from nodes
   const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
   const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || allRoles;
@@ -1649,21 +1684,12 @@ function NodesList({
     | 'cpu';
   const nodesSortDirection = (searchParams.get('nodesSortDir') || 'asc') as 'asc' | 'desc';
 
-  // Debounce search query
-  // Requirements: 31.7 - Debounce user input in search and filter fields
-  const debouncedSearch = useDebounce(searchQuery, 300);
+  // Debounce search query for filtering (use URL param for actual filtering since it's debounced at parent)
+  const debouncedSearch = useDebounce(searchParams.get('nodesSearch') || '', 300);
 
-  // Update URL when filters change
-  const updateFilters = (newSearch?: string, newRoles?: string[], newExpanded?: boolean) => {
+  // Update URL when filters change (but NOT search - that's handled by parent)
+  const updateFilters = (newRoles?: string[], newExpanded?: boolean) => {
     const params = new URLSearchParams(searchParams);
-
-    if (newSearch !== undefined) {
-      if (newSearch) {
-        params.set('nodesSearch', newSearch);
-      } else {
-        params.delete('nodesSearch');
-      }
-    }
 
     if (newRoles !== undefined) {
       if (newRoles.length > 0) {
@@ -1688,7 +1714,7 @@ function NodesList({
     const newRoles = selectedRoles.includes(role)
       ? selectedRoles.filter((r) => r !== role)
       : [...selectedRoles, role];
-    updateFilters(undefined, newRoles, undefined);
+    updateFilters(newRoles, undefined);
   };
 
   // Handle nodes table column sort
@@ -1793,7 +1819,7 @@ function NodesList({
             placeholder="Search nodes..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
-            onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined)}
+            onChange={(e) => setNodesSearch(e.currentTarget.value)}
             style={{ minWidth: 200 }}
           />
           {allRoles.length > 0 && (
@@ -1809,7 +1835,7 @@ function NodesList({
           <ActionIcon
             variant="subtle"
             size="md"
-            onClick={() => updateFilters(undefined, undefined, !expandedView)}
+            onClick={() => updateFilters(undefined, !expandedView)}
             aria-label={expandedView ? 'Collapse view' : 'Expand view'}
           >
             {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
