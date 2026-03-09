@@ -412,11 +412,20 @@ impl PrometheusMetricsService {
         time_range: &TimeRange,
     ) -> Result<Vec<MetricPoint>> {
         let query = self.build_query(metric_name);
+        self.query_metric_range_with_query(&query, time_range).await
+    }
+
+    /// Query a metric over a time range using a pre-built query string
+    async fn query_metric_range_with_query(
+        &self,
+        query: &str,
+        time_range: &TimeRange,
+    ) -> Result<Vec<MetricPoint>> {
         let step = time_range.recommended_step();
 
         match self
             .client
-            .query_range(&query, time_range.start, time_range.end, step)
+            .query_range(query, time_range.start, time_range.end, step)
             .await
         {
             Ok(results) => {
@@ -434,14 +443,14 @@ impl PrometheusMetricsService {
 
                 debug!(
                     "Prometheus query {} returned {} data points",
-                    metric_name,
+                    query,
                     points.len()
                 );
 
                 Ok(points)
             }
             Err(e) => {
-                warn!("Prometheus query for {} failed: {}", metric_name, e);
+                warn!("Prometheus query {} failed: {}", query, e);
                 Ok(Vec::new()) // Return empty instead of failing entire request
             }
         }
@@ -510,13 +519,18 @@ impl MetricsService for PrometheusMetricsService {
             self.build_query("elasticsearch_indices_search_query_total"),
         );
 
+        // Disk usage - aggregate across all indices
+        let disk_query = format!(
+            "sum({})",
+            self.build_query("elasticsearch_indices_store_size_bytes")
+        );
         metrics.disk_used_bytes = Some(
-            self.query_metric_range("sum(elasticsearch_indices_store_size_bytes)", &time_range)
+            self.query_metric_range_with_query(&disk_query, &time_range)
                 .await?,
         );
         prometheus_queries.insert(
             "disk_used_bytes".to_string(),
-            self.build_query("sum(elasticsearch_indices_store_size_bytes)"),
+            disk_query,
         );
 
         metrics.cpu_usage_percent = Some(
