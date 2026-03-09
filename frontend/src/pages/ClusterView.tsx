@@ -778,7 +778,7 @@ export function ClusterView() {
   // Memoize filters to prevent query key from changing unnecessarily
   const nodesFilters = useMemo(() => ({
     search: searchParams.get('nodesSearch') || '',
-    roles: searchParams.get('nodeRoles')?.split(',').filter(Boolean) || [],
+    roles: searchParams.get('nodeRoles') || '', // comma-separated roles
   }), [searchParams]);
 
   const {
@@ -1671,9 +1671,11 @@ const NodesList = memo(function NodesList({
 
   // Get filters from URL
   const searchQuery = nodesSearch; // Use prop instead of URL param directly
-  // Get all unique roles from nodes
-  const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
-  const selectedRoles = searchParams.get('roles')?.split(',').filter(Boolean) || allRoles;
+  
+  // Get role filters from URL to send to backend
+  const nodeRolesParam = searchParams.get('nodeRoles') || '';
+  const selectedRoles = nodeRolesParam.split(',').filter(Boolean);
+  
   const expandedView = searchParams.get('nodesExpanded') === 'true';
 
   // Column sorting state for nodes
@@ -1686,18 +1688,15 @@ const NodesList = memo(function NodesList({
     | 'cpu';
   const nodesSortDirection = (searchParams.get('nodesSortDir') || 'asc') as 'asc' | 'desc';
 
-  // Debounce search query for filtering (use URL param for actual filtering since it's debounced at parent)
-  const debouncedSearch = useDebounce(searchParams.get('nodesSearch') || '', 300);
-
   // Update URL when filters change (but NOT search - that's handled by parent)
   const updateFilters = (newRoles?: string[], newExpanded?: boolean) => {
     const params = new URLSearchParams(searchParams);
 
     if (newRoles !== undefined) {
       if (newRoles.length > 0) {
-        params.set('roles', newRoles.join(','));
+        params.set('nodeRoles', newRoles.join(','));
       } else {
-        params.delete('roles');
+        params.delete('nodeRoles');
       }
     }
 
@@ -1737,18 +1736,12 @@ const NodesList = memo(function NodesList({
     setSearchParams(newParams);
   };
 
-  // Filter nodes based on debounced search query and selected roles
-  const filteredNodes = nodes?.filter((node) => {
-    const matchesSearch =
-      node.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      node.ip?.toLowerCase().includes(debouncedSearch.toLowerCase());
-
-    const matchesRoles =
-      selectedRoles.length === 0 ||
-      selectedRoles.some((role) => node.roles.includes(role as NodeRole));
-
-    return matchesSearch && matchesRoles;
-  });
+  // Server-side filtering is already applied - no client-side filtering needed
+  // Just use the nodes directly from the API
+  const filteredNodes = nodes || [];
+  
+  // Get all unique roles from nodes for the filter UI
+  const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
 
   // Apply sorting by selected column or default master-first sorting
   // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5

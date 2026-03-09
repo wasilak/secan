@@ -375,7 +375,7 @@ export class ApiClient {
     pageSize: number = 50,
     filters?: {
       search?: string;
-      roles?: string[]; // ['master', 'data', 'ingest']
+      roles?: string; // comma-separated: 'master,data,ingest'
     }
   ): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
@@ -386,7 +386,7 @@ export class ApiClient {
             page,
             page_size: pageSize,
             search: filters?.search || '',
-            roles: filters?.roles?.join(',') || '',
+            roles: filters?.roles || '',
           },
         }
       );
