@@ -100,7 +100,7 @@ import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedRe
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 /**
  * Get background color for index health in shard allocation grid
@@ -790,6 +790,7 @@ export function ClusterView() {
     refetchInterval: refreshInterval,
     enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
   // Extract nodes array from paginated response (default to empty array while loading)
@@ -1750,42 +1751,47 @@ function NodesList({
 
   // Apply sorting by selected column or default master-first sorting
   // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
-  let sortedNodes = filteredNodes ? [...filteredNodes] : [];
+  // Memoize sorted nodes to prevent unnecessary recalculations
+  const sortedNodes = useMemo(() => {
+    let sorted = filteredNodes ? [...filteredNodes] : [];
 
-  if (nodesSortColumn === 'name' && nodesSortDirection) {
-    // Custom column sort
-    sortedNodes.sort((a, b) => {
-      const compareResult = a.name.localeCompare(b.name);
-      return nodesSortDirection === 'asc' ? compareResult : -compareResult;
-    });
-  } else if (nodesSortColumn === 'uptime' && nodesSortDirection) {
-    sortedNodes.sort((a, b) => {
-      const aValue = a.uptimeMillis || 0;
-      const bValue = b.uptimeMillis || 0;
-      return nodesSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-  } else if (nodesSortColumn === 'heap' && nodesSortDirection) {
-    sortedNodes.sort((a, b) => {
-      const aPercent = (a.heapUsed / a.heapMax) * 100;
-      const bPercent = (b.heapUsed / b.heapMax) * 100;
-      return nodesSortDirection === 'asc' ? aPercent - bPercent : bPercent - aPercent;
-    });
-  } else if (nodesSortColumn === 'disk' && nodesSortDirection) {
-    sortedNodes.sort((a, b) => {
-      const aPercent = (a.diskUsed / a.diskTotal) * 100;
-      const bPercent = (b.diskUsed / b.diskTotal) * 100;
-      return nodesSortDirection === 'asc' ? aPercent - bPercent : bPercent - aPercent;
-    });
-  } else if (nodesSortColumn === 'cpu' && nodesSortDirection) {
-    sortedNodes.sort((a, b) => {
-      const aValue = a.cpuPercent || 0;
-      const bValue = b.cpuPercent || 0;
-      return nodesSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-  } else {
-    // Default master-first sorting
-    sortedNodes = sortNodesMasterFirst(sortedNodes);
-  }
+    if (nodesSortColumn === 'name' && nodesSortDirection) {
+      // Custom column sort
+      sorted.sort((a, b) => {
+        const compareResult = a.name.localeCompare(b.name);
+        return nodesSortDirection === 'asc' ? compareResult : -compareResult;
+      });
+    } else if (nodesSortColumn === 'uptime' && nodesSortDirection) {
+      sorted.sort((a, b) => {
+        const aValue = a.uptimeMillis || 0;
+        const bValue = b.uptimeMillis || 0;
+        return nodesSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      });
+    } else if (nodesSortColumn === 'heap' && nodesSortDirection) {
+      sorted.sort((a, b) => {
+        const aPercent = (a.heapUsed / a.heapMax) * 100;
+        const bPercent = (b.heapUsed / b.heapMax) * 100;
+        return nodesSortDirection === 'asc' ? aPercent - bPercent : bPercent - aPercent;
+      });
+    } else if (nodesSortColumn === 'disk' && nodesSortDirection) {
+      sorted.sort((a, b) => {
+        const aPercent = (a.diskUsed / a.diskTotal) * 100;
+        const bPercent = (b.diskUsed / b.diskTotal) * 100;
+        return nodesSortDirection === 'asc' ? aPercent - bPercent : bPercent - aPercent;
+      });
+    } else if (nodesSortColumn === 'cpu' && nodesSortDirection) {
+      sorted.sort((a, b) => {
+        const aValue = a.cpuPercent || 0;
+        const bValue = b.cpuPercent || 0;
+        return nodesSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      });
+    } else {
+      // Default master-first sorting
+      sorted = sortNodesMasterFirst(sorted);
+    }
+
+    return sorted;
+  }, [filteredNodes, nodesSortColumn, nodesSortDirection]);
 
   if (loading) {
     return (
@@ -1809,9 +1815,12 @@ function NodesList({
     return <Text c="dimmed">No nodes found</Text>;
   }
 
+  // Memoize stats cards to prevent re-renders when only table data changes
+  const statsCards = useMemo(() => <NodeStatsCards nodes={sortedNodes || []} />, [sortedNodes]);
+
   return (
     <Stack gap="md">
-      <NodeStatsCards nodes={sortedNodes || []} />
+      {statsCards}
       
       <Group justify="space-between" align="center" wrap="wrap">
         <Group gap="md" wrap="wrap" style={{ flex: 1 }}>
