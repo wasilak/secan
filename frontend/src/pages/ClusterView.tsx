@@ -842,7 +842,7 @@ export function ClusterView() {
 
   // Fetch shards with auto-refresh, pagination, and server-side filtering
   const shardsFilters = {
-    state: searchParams.get('shardState')?.split(',').filter(Boolean) || [],
+    state: searchParams.get('shardState') || '', // comma-separated states
     index: searchParams.get('shardIndex') || '',
     node: searchParams.get('shardNode') || '',
   };
@@ -856,6 +856,7 @@ export function ClusterView() {
     queryFn: () => apiClient.getShards(id!, shardsPage, 50, shardsFilters),
     refetchInterval: refreshInterval,
     enabled: !!id && activeTab === 'shards', // Only fetch when in shards tab
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
   // Fetch ALL shards for topology view (unfiltered, unpaginated)
@@ -4503,7 +4504,7 @@ function ShardsSortableHeader({
   );
 }
 
-function ShardsList({
+const ShardsList = memo(function ShardsList({
   shards,
   loading,
   error,
@@ -4643,67 +4644,65 @@ function ShardsList({
     setSearchParams(newParams);
   };
 
-  // Apply all filters to shards
-  const filteredShards = (shards || []).filter((shard) => {
-    // Search filter (index name or node name)
-    if (searchQuery) {
-      const search = searchQuery.toLowerCase();
-      const matchesIndex = shard.index.toLowerCase().includes(search);
-      const matchesNode = shard.node?.toLowerCase().includes(search);
-      if (!matchesIndex && !matchesNode) return false;
-    }
+  // Server-side filtering is already applied for state, index, and node
+  // Only need client-side filtering for primary/replica type and special indices
+  const filteredShards = useMemo(() => {
+    if (!shards) return [];
+    
+    return shards.filter((shard) => {
+      // Primary/Replica filter
+      if (!showPrimaries && shard.primary) return false;
+      if (!showReplicas && !shard.primary) return false;
 
-    // State filter
-    if (selectedStates.length > 0 && !selectedStates.includes(shard.state)) {
-      return false;
-    }
+      // Special indices filter
+      if (!showSpecialIndices && shard.index.startsWith('.')) {
+        return false;
+      }
 
-    // Primary/Replica filter
-    if (!showPrimaries && shard.primary) return false;
-    if (!showReplicas && !shard.primary) return false;
-
-    // Special indices filter
-    if (!showSpecialIndices && shard.index.startsWith('.')) {
-      return false;
-    }
-
-    return true;
-  });
+      return true;
+    });
+  }, [shards, showPrimaries, showReplicas, showSpecialIndices]);
 
   // Sort shards by selected column (client-side sorting only)
-  const sortedShards = [...filteredShards].sort((a, b) => {
-    let compareResult: number;
+  const sortedShards = useMemo(() => {
+    const sorted = [...filteredShards];
+    
+    sorted.sort((a, b) => {
+      let compareResult: number;
 
-    switch (shardsSortColumn) {
-      case 'index':
-        compareResult = a.index.localeCompare(b.index);
-        break;
-      case 'shard':
-        compareResult = a.shard - b.shard;
-        break;
-      case 'type':
-        compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
-          b.primary ? 'Primary' : 'Replica'
-        );
-        break;
-      case 'state':
-        compareResult = a.state.localeCompare(b.state);
-        break;
-      case 'node':
-        compareResult = (a.node || '').localeCompare(b.node || '');
-        break;
-      case 'documents':
-        compareResult = a.docs - b.docs;
-        break;
-      case 'size':
-        compareResult = a.store - b.store;
-        break;
-      default:
-        compareResult = a.index.localeCompare(b.index);
-    }
+      switch (shardsSortColumn) {
+        case 'index':
+          compareResult = a.index.localeCompare(b.index);
+          break;
+        case 'shard':
+          compareResult = a.shard - b.shard;
+          break;
+        case 'type':
+          compareResult = (a.primary ? 'Primary' : 'Replica').localeCompare(
+            b.primary ? 'Primary' : 'Replica'
+          );
+          break;
+        case 'state':
+          compareResult = a.state.localeCompare(b.state);
+          break;
+        case 'node':
+          compareResult = (a.node || '').localeCompare(b.node || '');
+          break;
+        case 'documents':
+          compareResult = a.docs - b.docs;
+          break;
+        case 'size':
+          compareResult = a.store - b.store;
+          break;
+        default:
+          compareResult = a.index.localeCompare(b.index);
+      }
 
-    return shardsSortDirection === 'asc' ? compareResult : -compareResult;
-  });
+      return shardsSortDirection === 'asc' ? compareResult : -compareResult;
+    });
+    
+    return sorted;
+  }, [filteredShards, shardsSortColumn, shardsSortDirection]);
 
   if (loading) {
     return (
@@ -5072,5 +5071,5 @@ function ShardsList({
       )}
     </Stack>
   );
-}
+});
 

@@ -503,7 +503,7 @@ export class ApiClient {
     page: number = 1,
     pageSize: number = 50,
     filters?: {
-      state?: string[]; // ['UNASSIGNED', 'STARTED']
+      state?: string; // comma-separated: 'UNASSIGNED,STARTED'
       index?: string;
       node?: string;
     }
@@ -515,7 +515,7 @@ export class ApiClient {
           params: {
             page,
             page_size: pageSize,
-            state: filters?.state?.join(',') || '',
+            state: filters?.state || '',
             index: filters?.index || '',
             node: filters?.node || '',
           },

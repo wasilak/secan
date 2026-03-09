@@ -1,4 +1,5 @@
 import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+import { memo } from 'react';
 
 /**
  * Props for ShardStatsCards component
@@ -20,7 +21,7 @@ interface ShardStatsCardsProps {
  *
  * Requirements: 14.2, 14.3, 14.4, 14.5
  */
-export function ShardStatsCards({ stats }: ShardStatsCardsProps) {
+export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardStatsCardsProps) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
       <Card shadow="sm" padding="md">
@@ -90,4 +91,4 @@ export function ShardStatsCards({ stats }: ShardStatsCardsProps) {
       </Card>
     </SimpleGrid>
   );
-}
+});
