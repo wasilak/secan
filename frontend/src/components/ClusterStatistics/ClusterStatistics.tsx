@@ -1,8 +1,8 @@
 import { Grid, Stack, Group, useMantineColorScheme, Card, Text } from '@mantine/core';
 import type { DataPoint } from '../../hooks/useSparklineData';
 import type { NodeInfo } from '../../types/api';
-import { TimeSeriesChart, DistributionChart, NodeRolesChart } from './index';
-import { TimeSeriesChart as MultiSeriesChart } from '../charts/TimeSeriesChart';
+import { DistributionChart, NodeRolesChart } from './index';
+import { TimeSeriesChart } from '../charts/TimeSeriesChart';
 import HiddenIndicesToggle from './HiddenIndicesToggle';
 import { formatBytes } from '../../utils/formatters';
 
@@ -192,17 +192,20 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Nodes Over Time"
-            data={nodesHistory}
-            dataKey="nodes"
-            color="var(--mantine-color-blue-6)"
-            gradientId="colorNodes"
+            series={[
+              {
+                name: 'Nodes',
+                color: 'blue',
+                data: nodesHistory,
+              },
+            ]}
             query={prometheusQueries?.nodes}
           />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
           {cpuSeries && cpuSeries.length > 0 ? (
-            <MultiSeriesChart
+            <TimeSeriesChart
               title="CPU Usage Over Time"
               series={cpuSeries.map((s, idx) => ({
                 name: s.name,
@@ -216,12 +219,16 @@ export function ClusterStatistics({
           ) : (
             <TimeSeriesChart
               title="CPU Usage Over Time"
-              data={cpuHistory || []}
-              dataKey="cpu"
-              color="var(--mantine-color-red-6)"
-              gradientId="colorCpu"
-              unit="%"
-              valueFormatter={(value: number | undefined) => value?.toFixed(1) + '%'}
+              series={[
+                {
+                  name: 'CPU',
+                  color: 'red',
+                  data: cpuHistory || [],
+                  unit: '%',
+                },
+              ]}
+              valueFormatter={(value: number) => value.toFixed(1) + '%'}
+              tickFormatter={(value) => value.toFixed(0) + '%'}
               query={prometheusQueries?.cpu_usage_percent}
             />
           )}
@@ -229,7 +236,7 @@ export function ClusterStatistics({
 
         <Grid.Col span={{ base: 12, md: 3 }}>
           {memorySeries && memorySeries.length > 0 ? (
-            <MultiSeriesChart
+            <TimeSeriesChart
               title="Memory Usage Over Time"
               series={memorySeries.map((s, idx) => ({
                 name: s.name,
@@ -252,11 +259,14 @@ export function ClusterStatistics({
           ) : (
             <TimeSeriesChart
               title="Memory Usage Over Time"
-              data={memoryHistory || []}
-              dataKey="memory"
-              color="var(--mantine-color-violet-6)"
-              gradientId="colorMemory"
-              valueFormatter={(value: number | undefined) => {
+              series={[
+                {
+                  name: 'Memory',
+                  color: 'violet',
+                  data: memoryHistory || [],
+                },
+              ]}
+              valueFormatter={(value: number) => {
                 if (!value) return '0 MB';
                 const mb = value / (1024 * 1024);
                 if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
@@ -275,11 +285,14 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Disk Usage Over Time"
-            data={diskUsageHistory || []}
-            dataKey="disk"
-            color="var(--mantine-color-orange-6)"
-            gradientId="colorDisk"
-            valueFormatter={(value: number | undefined) => {
+            series={[
+              {
+                name: 'Disk',
+                color: 'orange',
+                data: diskUsageHistory || [],
+              },
+            ]}
+            valueFormatter={(value: number) => {
               if (value === undefined) return '0 B';
               return formatBytes(value);
             }}
@@ -302,10 +315,13 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Indices Over Time"
-            data={filteredIndicesHistory}
-            dataKey="indices"
-            color="var(--mantine-color-green-6)"
-            gradientId="colorIndices"
+            series={[
+              {
+                name: 'Indices',
+                color: 'green',
+                data: filteredIndicesHistory,
+              },
+            ]}
             query={prometheusQueries?.indices}
           />
         </Grid.Col>
@@ -313,11 +329,14 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Documents Over Time"
-            data={filteredDocumentsHistory}
-            dataKey="documents"
-            color="var(--mantine-color-cyan-6)"
-            gradientId="colorDocuments"
-            valueFormatter={(value: number | undefined) => {
+            series={[
+              {
+                name: 'Documents',
+                color: 'cyan',
+                data: filteredDocumentsHistory,
+              },
+            ]}
+            valueFormatter={(value: number) => {
               if (value === undefined) return '0';
               return value > 1000000 ? value.toLocaleString() : value.toString();
             }}
@@ -328,10 +347,13 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Active Shards Over Time"
-            data={filteredShardsHistory}
-            dataKey="shards"
-            color="var(--mantine-color-violet-6)"
-            gradientId="colorShards"
+            series={[
+              {
+                name: 'Shards',
+                color: 'violet',
+                data: filteredShardsHistory,
+              },
+            ]}
             query={prometheusQueries?.shards}
           />
         </Grid.Col>
@@ -339,10 +361,13 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Unassigned Shards Over Time"
-            data={unassignedHistory}
-            dataKey="unassigned"
-            color="var(--mantine-color-red-6)"
-            gradientId="colorUnassigned"
+            series={[
+              {
+                name: 'Unassigned',
+                color: 'red',
+                data: unassignedHistory,
+              },
+            ]}
             query={prometheusQueries?.unassigned_shards}
           />
         </Grid.Col>

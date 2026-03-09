@@ -1,16 +1,7 @@
 import React from 'react';
-import { Card, Stack, Text, Code, useMantineColorScheme } from '@mantine/core';
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  YAxis,
-  XAxis,
-  CartesianGrid,
-} from 'recharts';
-import { formatChartTime } from '../../utils/formatters';
+import { TimeSeriesChart as MultiSeriesChart } from '../charts/TimeSeriesChart';
 import type { DataPoint } from '../../hooks/useSparklineData';
+import type { MantineColor } from '@mantine/core';
 
 interface TimeSeriesChartProps {
   title: string;
@@ -26,136 +17,41 @@ interface TimeSeriesChartProps {
 }
 
 /**
- * Generic time series area chart component
+ * Single-series time series chart wrapper
+ * Wraps the multi-series TimeSeriesChart component for backward compatibility
+ * @deprecated Use TimeSeriesChart from '../charts/TimeSeriesChart' directly with series array
  */
 export function TimeSeriesChart({
   title,
   data,
   dataKey: _dataKey,
   color,
-  gradientId,
+  gradientId: _gradientId,
   unit,
   valueFormatter,
   tickFormatter,
   query,
   height = 200,
 }: TimeSeriesChartProps) {
-  const { colorScheme } = useMantineColorScheme();
-  const hasData = data && data.length > 0;
-  
-  // Sort data chronologically by timestamp
-  const sortedData = hasData ? [...data].sort((a, b) => a.timestamp - b.timestamp) : [];
-  
-  // Theme-aware code block colors
-  const isDark = colorScheme === 'dark';
-  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
-  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
+  // Extract color name from CSS variable or use as-is
+  const colorMatch = color.match(/--mantine-color-(\w+)-/);
+  const colorName = (colorMatch ? colorMatch[1] : 'blue') as MantineColor;
 
   return (
-    <Card shadow="sm" padding="lg">
-      <Stack gap="xs">
-        <Text size="sm" fw={500}>
-          {title}
-        </Text>
-        {hasData ? (
-          <ResponsiveContainer width="100%" height={height}>
-            <AreaChart
-              data={sortedData.map((p) => ({
-                time: formatChartTime(p.timestamp),
-                timestamp: p.timestamp,
-                value: p.value,
-              }))}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                  <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="var(--mantine-color-dark-4)"
-                opacity={0.3}
-              />
-              <XAxis
-                dataKey="time"
-                stroke="var(--mantine-color-gray-6)"
-                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
-                height={40}
-                angle={-45}
-                textAnchor="end"
-              />
-              <YAxis
-                stroke="var(--mantine-color-gray-6)"
-                tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 11 }}
-                width={unit ? 50 : 35}
-                unit={unit}
-                tickFormatter={tickFormatter}
-              />
-              <RechartsTooltip
-                contentStyle={{
-                  backgroundColor: 'var(--mantine-color-dark-7)',
-                  border: '1px solid var(--mantine-color-dark-4)',
-                  borderRadius: '4px',
-                  color: 'var(--mantine-color-gray-0)',
-                }}
-                labelStyle={{ color: 'var(--mantine-color-gray-0)' }}
-                labelFormatter={(label: any, payload: any) => {
-                  if (payload && payload.length > 0 && payload[0].payload.timestamp) {
-                    const date = new Date(payload[0].payload.timestamp);
-                    return date.toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    });
-                  }
-                  return label;
-                }}
-                formatter={valueFormatter || ((_value: number | undefined) => _value ?? 0)}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={color}
-                strokeWidth={2}
-                fillOpacity={1}
-                fill={`url(#${gradientId})`}
-                name={title}
-                dot={{ fill: color, r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        ) : (
-          <Stack justify="center" align="center" style={{ height }}>
-            <Text size="sm" c="dimmed">
-              Data not available
-            </Text>
-          </Stack>
-        )}
-        {query && (
-          <Code
-            block
-            style={{
-              backgroundColor: codeBg,
-              color: codeColor,
-              padding: '8px 12px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-            }}
-          >
-            {query}
-          </Code>
-        )}
-      </Stack>
-    </Card>
+    <MultiSeriesChart
+      title={title}
+      series={[
+        {
+          name: title,
+          color: colorName,
+          data: data,
+          unit: unit,
+        },
+      ]}
+      height={height}
+      query={query}
+      valueFormatter={valueFormatter ? (value: number, _name: string) => valueFormatter(value) : undefined}
+      tickFormatter={tickFormatter}
+    />
   );
 }
