@@ -610,6 +610,14 @@ export function ClusterView() {
       }))
       : [];
 
+  const memoryNonHeapHistory: DataPoint[] =
+    activeTab === 'statistics' && metricsHistory?.data
+      ? metricsHistory.data.map((d) => ({
+        value: d.memory_non_heap_bytes || 0,
+        timestamp: new Date(d.date).getTime(),
+      }))
+      : [];
+
   // For Sparkline components (needs number[])
   const nodesHistoryNumbers =
     activeTab === 'statistics' && metricsHistory?.data
@@ -1324,6 +1332,7 @@ export function ClusterView() {
             nodesHistory={nodesHistory as DataPoint[]}
             cpuHistory={cpuHistory as DataPoint[]}
             memoryHistory={memoryHistory as DataPoint[]}
+            memoryNonHeapHistory={memoryNonHeapHistory as DataPoint[]}
             indicesHistory={indicesHistory as DataPoint[]}
             documentsHistory={documentsHistory as DataPoint[]}
             shardsHistory={shardsHistory as DataPoint[]}

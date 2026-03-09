@@ -82,6 +82,8 @@ pub struct ClusterMetricsPoint {
     pub cpu_percent: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory_used_bytes: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_non_heap_bytes: Option<u64>,
 }
 
 /// Cluster metrics history response
@@ -323,6 +325,7 @@ pub async fn get_cluster_metrics(
                     disk_total_bytes: None,
                     cpu_percent: None,       // Not available from internal metrics
                     memory_used_bytes: None, // Not available from internal metrics
+                    memory_non_heap_bytes: None, // Not available from internal metrics
                 });
             }
         } else {
@@ -392,6 +395,17 @@ pub async fn get_cluster_metrics(
                                     .map(|m| m.value as u64)
                             });
 
+                    let memory_non_heap_value =
+                        backend_metrics
+                            .jvm_memory_non_heap_bytes
+                            .as_ref()
+                            .and_then(|mem_series| {
+                                mem_series
+                                    .iter()
+                                    .find(|m| (m.timestamp - point.timestamp).abs() <= 120)
+                                    .map(|m| m.value as u64)
+                            });
+
                     data_points.push(ClusterMetricsPoint {
                         timestamp: point.timestamp,
                         date: chrono::DateTime::<chrono::Utc>::from_timestamp(point.timestamp, 0)
@@ -416,6 +430,7 @@ pub async fn get_cluster_metrics(
                         disk_total_bytes: None,
                         cpu_percent: cpu_value,
                         memory_used_bytes: memory_value,
+                        memory_non_heap_bytes: memory_non_heap_value,
                     });
                 }
             }

@@ -2,6 +2,7 @@ import { Grid, Stack, Group, useMantineColorScheme, Card, Text } from '@mantine/
 import type { DataPoint } from '../../hooks/useSparklineData';
 import type { NodeInfo } from '../../types/api';
 import { TimeSeriesChart, DistributionChart, NodeRolesChart } from './index';
+import { TimeSeriesChart as MultiSeriesChart } from '../charts/TimeSeriesChart';
 import HiddenIndicesToggle from './HiddenIndicesToggle';
 import { formatBytes } from '../../utils/formatters';
 
@@ -10,6 +11,7 @@ interface ClusterStatisticsProps {
   nodesHistory: DataPoint[];
   cpuHistory?: DataPoint[];
   memoryHistory?: DataPoint[];
+  memoryNonHeapHistory?: DataPoint[];
   indicesHistory: DataPoint[];
   documentsHistory: DataPoint[];
   shardsHistory: DataPoint[];
@@ -61,6 +63,7 @@ export function ClusterStatistics({
   nodesHistory,
   cpuHistory,
   memoryHistory,
+  memoryNonHeapHistory,
   indicesHistory,
   documentsHistory,
   shardsHistory,
@@ -209,13 +212,21 @@ export function ClusterStatistics({
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
-          <TimeSeriesChart
+          <MultiSeriesChart
             title="Memory Usage Over Time"
-            data={memoryHistory || []}
-            dataKey="memory"
-            color="var(--mantine-color-violet-6)"
-            gradientId="colorMemory"
-            valueFormatter={(value: number | undefined) => {
+            series={[
+              {
+                name: 'Heap',
+                color: 'violet',
+                data: memoryHistory || [],
+              },
+              {
+                name: 'Non-Heap',
+                color: 'grape',
+                data: memoryNonHeapHistory || [],
+              },
+            ]}
+            valueFormatter={(value: number) => {
               if (!value) return '0 MB';
               const mb = value / (1024 * 1024);
               if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
@@ -226,7 +237,10 @@ export function ClusterStatistics({
               if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
               return `${mb.toFixed(0)}MB`;
             }}
-            query={prometheusQueries?.jvm_memory_used_bytes}
+            query={[
+              prometheusQueries?.jvm_memory_used_bytes_heap || '',
+              prometheusQueries?.jvm_memory_used_bytes_non_heap || '',
+            ].filter(Boolean)}
           />
         </Grid.Col>
 

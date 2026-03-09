@@ -88,6 +88,9 @@ pub struct ClusterMetrics {
     /// JVM memory usage in bytes
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jvm_memory_used_bytes: Option<Vec<MetricPoint>>,
+    /// JVM non-heap memory usage in bytes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jvm_memory_non_heap_bytes: Option<Vec<MetricPoint>>,
     /// JVM memory max in bytes
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jvm_memory_max_bytes: Option<Vec<MetricPoint>>,
@@ -474,13 +477,43 @@ impl MetricsService for PrometheusMetricsService {
         let mut prometheus_queries = std::collections::HashMap::new();
 
         // Query each metric in parallel
-        metrics.jvm_memory_used_bytes = Some(
-            self.query_metric_range("elasticsearch_jvm_memory_used_bytes", &time_range)
-                .await?,
+        
+        // Memory usage - JVM memory has both node AND area dimensions (heap/non-heap)
+        // We aggregate by area across all nodes to get 2 series
+        let base_memory_query = self.build_query("elasticsearch_jvm_memory_used_bytes");
+        
+        // Query heap memory aggregated across all nodes
+        let heap_query = if base_memory_query.contains('{') {
+            format!("sum({})", base_memory_query.replace("}", r#",area="heap"}"#))
+        } else {
+            format!(r#"sum({}{{area="heap"}})"#, base_memory_query)
+        };
+        
+        // Query non-heap memory aggregated across all nodes
+        let non_heap_query = if base_memory_query.contains('{') {
+            format!("sum({})", base_memory_query.replace("}", r#",area="non-heap"}"#))
+        } else {
+            format!(r#"sum({}{{area="non-heap"}})"#, base_memory_query)
+        };
+        
+        // Fetch both series
+        let heap_points = self.query_metric_range_with_query(&heap_query, &time_range).await?;
+        let non_heap_points = self.query_metric_range_with_query(&non_heap_query, &time_range).await?;
+        
+        // Store heap series in main field (for backward compatibility)
+        metrics.jvm_memory_used_bytes = Some(heap_points);
+        
+        // Store non-heap series in separate field
+        metrics.jvm_memory_non_heap_bytes = Some(non_heap_points);
+        
+        // Store both queries
+        prometheus_queries.insert(
+            "jvm_memory_used_bytes_heap".to_string(),
+            heap_query,
         );
         prometheus_queries.insert(
-            "jvm_memory_used_bytes".to_string(),
-            self.build_query("elasticsearch_jvm_memory_used_bytes"),
+            "jvm_memory_used_bytes_non_heap".to_string(),
+            non_heap_query,
         );
 
         metrics.jvm_memory_max_bytes = Some(
