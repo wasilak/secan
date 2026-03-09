@@ -4,9 +4,6 @@ import {
   Stack,
   Text,
   Code,
-  Group,
-  ActionIcon,
-  Tooltip,
   useMantineColorScheme,
   type MantineColor,
 } from '@mantine/core';
@@ -20,7 +17,6 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
-import { IconCopy, IconCheck } from '@tabler/icons-react';
 import { formatChartTime } from '../../utils/formatters';
 import type { DataPoint } from '../../hooks/useSparklineData';
 
@@ -41,40 +37,6 @@ export interface TimeSeriesChartProps {
   tickFormatter?: (value: number) => string;
   showLegend?: boolean;
   showDots?: boolean;
-}
-
-/**
- * CopyButton component for copying query text
- */
-function QueryCopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  return (
-    <Tooltip label={copied ? 'Copied!' : 'Copy query'} position="top">
-      <ActionIcon
-        variant="subtle"
-        color={copied ? 'green' : 'gray'}
-        size="sm"
-        onClick={copyToClipboard}
-      >
-        {copied ? (
-          <IconCheck style={{ width: '1rem', height: '1rem' }} />
-        ) : (
-          <IconCopy style={{ width: '1rem', height: '1rem' }} />
-        )}
-      </ActionIcon>
-    </Tooltip>
-  );
 }
 
 /**
@@ -136,20 +98,9 @@ export function TimeSeriesChart({
   return (
     <Card shadow="sm" padding="lg">
       <Stack gap="xs">
-        <Group justify="space-between" wrap="nowrap">
-          <Text size="sm" fw={500}>
-            {title}
-          </Text>
-          {query && (
-            <Group gap="xs">
-              {Array.isArray(query) ? (
-                query.map((q, i) => <QueryCopyButton key={i} value={q} />)
-              ) : (
-                <QueryCopyButton value={query} />
-              )}
-            </Group>
-          )}
-        </Group>
+        <Text size="sm" fw={500}>
+          {title}
+        </Text>
         
         {hasData ? (
           <ResponsiveContainer width="100%" height={height}>

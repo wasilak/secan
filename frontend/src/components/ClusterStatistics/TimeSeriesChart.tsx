@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Stack, Text, Code, Group, ActionIcon, Tooltip, useMantineColorScheme } from '@mantine/core';
+import { Card, Stack, Text, Code, useMantineColorScheme } from '@mantine/core';
 import {
   AreaChart,
   Area,
@@ -9,7 +9,6 @@ import {
   XAxis,
   CartesianGrid,
 } from 'recharts';
-import { IconCopy, IconCheck } from '@tabler/icons-react';
 import { formatChartTime } from '../../utils/formatters';
 import type { DataPoint } from '../../hooks/useSparklineData';
 
@@ -24,40 +23,6 @@ interface TimeSeriesChartProps {
   tickFormatter?: (value: number) => string;
   query?: string;
   height?: number;
-}
-
-/**
- * CopyButton component for copying query text
- */
-function QueryCopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = React.useState(false);
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  return (
-    <Tooltip label={copied ? 'Copied!' : 'Copy query'} position="top">
-      <ActionIcon
-        variant="subtle"
-        color={copied ? 'green' : 'gray'}
-        size="sm"
-        onClick={copyToClipboard}
-      >
-        {copied ? (
-          <IconCheck style={{ width: '1rem', height: '1rem' }} />
-        ) : (
-          <IconCopy style={{ width: '1rem', height: '1rem' }} />
-        )}
-      </ActionIcon>
-    </Tooltip>
-  );
 }
 
 /**
@@ -86,14 +51,9 @@ export function TimeSeriesChart({
   return (
     <Card shadow="sm" padding="lg">
       <Stack gap="xs">
-        <Group justify="space-between" wrap="nowrap">
-          <Text size="sm" fw={500}>
-            {title}
-          </Text>
-          {query && (
-            <QueryCopyButton value={query} />
-          )}
-        </Group>
+        <Text size="sm" fw={500}>
+          {title}
+        </Text>
         {hasData ? (
           <ResponsiveContainer width="100%" height={height}>
             <AreaChart
