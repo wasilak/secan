@@ -451,11 +451,10 @@ export function DotBasedTopologyView({
 
       {/* Nodes Grid - with or without grouping */}
       {groupingConfig.attribute === 'none' ? (
-        // No grouping - render nodes directly (backward compatible)
+        // No grouping - render ALL nodes (including those without shards)
         <Grid gutter="md">
-          {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
-            const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
-            if (!node) return null;
+          {filteredNodes.map((node) => {
+            const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
             return renderNodeCard(node, nodeShards);
           })}
         </Grid>
@@ -475,13 +474,14 @@ export function DotBasedTopologyView({
         >
           {Array.from(nodeGroups.entries())
             .map(([groupKey, groupNodes]) => {
-              // Filter to only nodes that have shards (are in filteredShardsByNode)
-              const nodesWithShards = groupNodes.filter(node => 
-                filteredShardsByNode[node.name] || filteredShardsByNode[node.id]
+              // Show ALL nodes in the group, not just those with shards
+              // Master nodes without shard allocations should still be visible
+              const visibleNodes = groupNodes.filter(node =>
+                filteredNodes.some(fn => fn.name === node.name || fn.id === node.id)
               );
 
               // Skip empty groups - filter out before rendering
-              if (nodesWithShards.length === 0) {
+              if (visibleNodes.length === 0) {
                 return null;
               }
 
@@ -490,10 +490,10 @@ export function DotBasedTopologyView({
                   key={groupKey}
                   groupKey={groupKey}
                   groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
-                  nodes={nodesWithShards}
+                  nodes={visibleNodes}
                 >
                   <Grid gutter="md">
-                    {nodesWithShards.map(node => {
+                    {visibleNodes.map(node => {
                       const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
                       return renderNodeCard(node, nodeShards);
                     })}
