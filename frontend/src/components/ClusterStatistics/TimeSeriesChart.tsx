@@ -99,6 +99,7 @@ export function TimeSeriesChart({
             <AreaChart
               data={data.map((p) => ({
                 time: formatChartTime(p.timestamp),
+                timestamp: p.timestamp,
                 value: p.value,
               }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
@@ -137,6 +138,20 @@ export function TimeSeriesChart({
                   color: 'var(--mantine-color-gray-0)',
                 }}
                 labelStyle={{ color: 'var(--mantine-color-gray-0)' }}
+                labelFormatter={(label: any, payload: any) => {
+                  if (payload && payload.length > 0 && payload[0].payload.timestamp) {
+                    const date = new Date(payload[0].payload.timestamp);
+                    return date.toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    });
+                  }
+                  return label;
+                }}
                 formatter={valueFormatter || ((_value: number | undefined) => _value ?? 0)}
               />
               <Area
