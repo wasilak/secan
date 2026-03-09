@@ -278,20 +278,12 @@ pub async fn get_cluster_metrics(
             .map(|s| s.len())
     );
 
-    // Check if we have Prometheus time series data (multiple points, not just single snapshot)
-    let has_prometheus_data = backend_metrics
-        .jvm_memory_used_bytes
-        .as_ref()
-        .is_some_and(|s| s.len() > 1)
-        || backend_metrics
-            .disk_used_bytes
-            .as_ref()
-            .is_some_and(|s| s.len() > 1);
-
-    // Use node_count as the base time series ONLY for internal metrics (no Prometheus time series)
-    if let Some(node_counts) = &backend_metrics.node_count {
-        if !has_prometheus_data {
-            // This is from internal metrics - single snapshot, create synthetic history
+    // Determine how to build time series based on metrics_source configuration
+    // Internal metrics: single snapshot, create synthetic history for visualization
+    // Prometheus metrics: use real time series data
+    match cluster_conn.metrics_source {
+        crate::config::MetricsSource::Internal => {
+            // Internal metrics - single snapshot, create synthetic history
             // Use the single data point values for all historical points
             let now = chrono::Utc::now().timestamp();
             
@@ -312,8 +304,9 @@ pub async fn get_cluster_metrics(
                 .and_then(|v: &Vec<MetricPoint>| v.first())
                 .map(|p| p.value);
             
+            // Create 20 synthetic data points (1 minute intervals) for visualization
             for i in 0..20 {
-                let ts = now - (i * 60); // 1 minute intervals
+                let ts = now - (i * 60);
                 data_points.push(ClusterMetricsPoint {
                     timestamp: ts,
                     date: chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0)
@@ -329,20 +322,21 @@ pub async fn get_cluster_metrics(
                         })
                         .unwrap_or("green")
                         .to_string(),
-                    node_count: *node_counts,
+                    node_count: backend_metrics.node_count.unwrap_or(0),
                     index_count: backend_metrics.index_count,
                     document_count: backend_metrics.document_count,
                     shard_count: backend_metrics.shard_count,
                     unassigned_shards: backend_metrics.unassigned_shards,
                     disk_used_bytes: disk_used_value.map(|v| v as u64),
-                    disk_total_bytes: None, // Not tracked separately in internal metrics
+                    disk_total_bytes: None,
                     cpu_percent: cpu_value,
                     memory_used_bytes: memory_value.map(|v| v as u64),
-                    memory_non_heap_bytes: None, // Not available from internal metrics
+                    memory_non_heap_bytes: None,
                 });
             }
-        } else {
-            // We have Prometheus data, use disk or JVM as base
+        }
+        crate::config::MetricsSource::Prometheus => {
+            // Prometheus metrics - use real time series data
             let disk_series = backend_metrics
                 .disk_used_bytes
                 .as_ref()
@@ -361,7 +355,7 @@ pub async fn get_cluster_metrics(
                 jvm_series.map(|s| s.len()).unwrap_or(0)
             );
 
-            // Use whichever series has data
+            // Use whichever series has data as base
             if let Some(base_series) = disk_series.or(jvm_series) {
                 // Limit to last 20 data points to avoid performance issues
                 let start_idx = base_series.len().saturating_sub(20);
