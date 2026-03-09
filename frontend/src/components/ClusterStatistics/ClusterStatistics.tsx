@@ -1,4 +1,5 @@
 import { Grid, Stack, Group, useMantineColorScheme, Card, Text } from '@mantine/core';
+import { useMemo } from 'react';
 import type { DataPoint } from '../../hooks/useSparklineData';
 import type { NodeInfo } from '../../types/api';
 import { DistributionChart, NodeRolesChart } from './index';
@@ -80,6 +81,50 @@ export function ClusterStatistics({
   allIndices,
 }: ClusterStatisticsProps) {
   const { colorScheme } = useMantineColorScheme();
+
+  // Memoize series arrays to prevent unnecessary re-renders
+  const nodesSeries = useMemo(() => [{
+    name: 'Nodes',
+    color: 'blue' as const,
+    data: nodesHistory,
+  }], [nodesHistory]);
+
+  const cpuSeriesMemoized = useMemo(() => {
+    if (cpuSeries && cpuSeries.length > 0) {
+      return cpuSeries.map((s, idx) => ({
+        name: s.name,
+        color: (['red', 'orange', 'yellow', 'pink'][idx % 4]) as any,
+        data: s.data,
+      }));
+    }
+    return [{
+      name: 'CPU',
+      color: 'red' as const,
+      data: cpuHistory || [],
+      unit: '%',
+    }];
+  }, [cpuSeries, cpuHistory]);
+
+  const memorySeriesMemoized = useMemo(() => {
+    if (memorySeries && memorySeries.length > 0) {
+      return memorySeries.map((s, idx) => ({
+        name: s.name,
+        color: (['violet', 'grape', 'indigo', 'blue'][idx % 4]) as any,
+        data: s.data,
+      }));
+    }
+    return [{
+      name: 'Memory',
+      color: 'violet' as const,
+      data: memoryHistory || [],
+    }];
+  }, [memorySeries, memoryHistory]);
+
+  const diskSeries = useMemo(() => [{
+    name: 'Disk',
+    color: 'orange' as const,
+    data: diskUsageHistory || [],
+  }], [diskUsageHistory]);
 
   // Calculate system indices statistics from per-index data
   const systemIndicesCount = allIndices?.filter((idx) => idx.name.startsWith('.')).length || 0;
@@ -192,106 +237,44 @@ export function ClusterStatistics({
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Nodes Over Time"
-            series={[
-              {
-                name: 'Nodes',
-                color: 'blue',
-                data: nodesHistory,
-              },
-            ]}
+            series={nodesSeries}
             query={prometheusQueries?.nodes}
           />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
-          {cpuSeries && cpuSeries.length > 0 ? (
-            <TimeSeriesChart
-              title="CPU Usage Over Time"
-              series={cpuSeries.map((s, idx) => ({
-                name: s.name,
-                color: ['red', 'orange', 'yellow', 'pink'][idx % 4] as any,
-                data: s.data,
-              }))}
-              valueFormatter={(value: number) => value.toFixed(1) + '%'}
-              tickFormatter={(value) => value.toFixed(0) + '%'}
-              query={prometheusQueries?.cpu_usage_percent}
-            />
-          ) : (
-            <TimeSeriesChart
-              title="CPU Usage Over Time"
-              series={[
-                {
-                  name: 'CPU',
-                  color: 'red',
-                  data: cpuHistory || [],
-                  unit: '%',
-                },
-              ]}
-              valueFormatter={(value: number) => value.toFixed(1) + '%'}
-              tickFormatter={(value) => value.toFixed(0) + '%'}
-              query={prometheusQueries?.cpu_usage_percent}
-            />
-          )}
+          <TimeSeriesChart
+            title="CPU Usage Over Time"
+            series={cpuSeriesMemoized}
+            valueFormatter={(value: number) => value.toFixed(1) + '%'}
+            tickFormatter={(value) => value.toFixed(0) + '%'}
+            query={prometheusQueries?.cpu_usage_percent}
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
-          {memorySeries && memorySeries.length > 0 ? (
-            <TimeSeriesChart
-              title="Memory Usage Over Time"
-              series={memorySeries.map((s, idx) => ({
-                name: s.name,
-                color: ['violet', 'grape', 'indigo', 'blue'][idx % 4] as any,
-                data: s.data,
-              }))}
-              valueFormatter={(value: number) => {
-                if (!value) return '0 MB';
-                const mb = value / (1024 * 1024);
-                if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
-                return `${mb.toFixed(0)}MB`;
-              }}
-              tickFormatter={(value) => {
-                const mb = value / (1024 * 1024);
-                if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
-                return `${mb.toFixed(0)}MB`;
-              }}
-              query={prometheusQueries?.jvm_memory_used_bytes}
-            />
-          ) : (
-            <TimeSeriesChart
-              title="Memory Usage Over Time"
-              series={[
-                {
-                  name: 'Memory',
-                  color: 'violet',
-                  data: memoryHistory || [],
-                },
-              ]}
-              valueFormatter={(value: number) => {
-                if (!value) return '0 MB';
-                const mb = value / (1024 * 1024);
-                if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
-                return `${mb.toFixed(0)}MB`;
-              }}
-              tickFormatter={(value) => {
-                const mb = value / (1024 * 1024);
-                if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
-                return `${mb.toFixed(0)}MB`;
-              }}
-              query={prometheusQueries?.jvm_memory_used_bytes}
-            />
-          )}
+          <TimeSeriesChart
+            title="Memory Usage Over Time"
+            series={memorySeriesMemoized}
+            valueFormatter={(value: number) => {
+              if (!value) return '0 MB';
+              const mb = value / (1024 * 1024);
+              if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
+              return `${mb.toFixed(0)}MB`;
+            }}
+            tickFormatter={(value) => {
+              const mb = value / (1024 * 1024);
+              if (mb >= 1024) return `${(mb / 1024).toFixed(0)}GB`;
+              return `${mb.toFixed(0)}MB`;
+            }}
+            query={prometheusQueries?.jvm_memory_used_bytes}
+          />
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
           <TimeSeriesChart
             title="Disk Usage Over Time"
-            series={[
-              {
-                name: 'Disk',
-                color: 'orange',
-                data: diskUsageHistory || [],
-              },
-            ]}
+            series={diskSeries}
             valueFormatter={(value: number) => {
               if (value === undefined) return '0 B';
               return formatBytes(value);
