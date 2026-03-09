@@ -57,18 +57,15 @@ export function useSparklineData(
     if (!initializedRef.current) {
       // Skip initialization if value is 0 - wait for actual data
       if (currentValue === 0) {
-        console.log('[useSparklineData] Skipping initialization with 0 value, waiting for actual data');
         return;
       }
       
       initializedRef.current = true;
       const now = Date.now();
-      const initialData = [
+      setData([
         { value: 0, timestamp: now - 1000 }, // 1 second before for baseline
         { value: currentValue, timestamp: now },
-      ];
-      console.log('[useSparklineData] Initializing with:', { currentValue, initialData });
-      setData(initialData);
+      ]);
       needsImmediateDataRef.current = false; // Clear the flag after initialization
       return;
     }
@@ -78,7 +75,6 @@ export function useSparklineData(
     // FIFO: when limit is reached, remove oldest (first) data point
     setData((prev) => {
       const newData = [...prev, { value: currentValue, timestamp: Date.now() }];
-      console.log('[useSparklineData] Adding point:', { currentValue, dataLength: newData.length });
 
       // FIFO: Keep only the last maxDataPoints by removing from the beginning
       if (newData.length > maxDataPoints) {

@@ -554,19 +554,6 @@ export function ClusterView() {
     disk: metricsHistory.data[0].disk_used_bytes ?? 0,
   } : null;
 
-  // Debug: Log internal metrics values
-  useEffect(() => {
-    if (currentInternalMetrics && activeTab === 'statistics') {
-      console.log('Internal metrics values:', {
-        cpu: currentInternalMetrics.cpu,
-        memory: currentInternalMetrics.memory,
-        disk: currentInternalMetrics.disk,
-        nodes: currentInternalMetrics.nodes,
-        indices: currentInternalMetrics.indices,
-      });
-    }
-  }, [currentInternalMetrics, activeTab]);
-
   // Accumulate internal metrics over time (resets when switching tabs)
   const nodesHistoryInternal = useSparklineData(
     currentInternalMetrics?.nodes,
