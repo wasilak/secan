@@ -1449,9 +1449,9 @@ export function ClusterView() {
         <Card shadow="sm" padding="lg">
           <Group justify="space-between" mb="md">
             <Text size="lg" fw={700}>Nodes</Text>
-            <Badge size="lg" variant="light" color="blue">
-              {nodesPaginated?.total || 0} total
-            </Badge>
+            <Text size="sm" c="dimmed">
+              Showing {nodesArray.length} of {nodesPaginated?.total || 0}
+            </Text>
           </Group>
           <NodesList
             nodes={nodes}
@@ -1476,9 +1476,9 @@ export function ClusterView() {
         <Card shadow="sm" padding="lg">
           <Group justify="space-between" mb="md">
             <Text size="lg" fw={700}>Indices</Text>
-            <Badge size="lg" variant="light" color="green">
-              {indicesPaginated?.total || 0} total
-            </Badge>
+            <Text size="sm" c="dimmed">
+              Showing {indicesArray.length} of {indicesPaginated?.total || 0}
+            </Text>
           </Group>
           <IndicesList
              indices={indices}
@@ -1506,9 +1506,9 @@ export function ClusterView() {
         <Card shadow="sm" padding="lg">
           <Group justify="space-between" mb="md">
             <Text size="lg" fw={700}>Shards</Text>
-            <Badge size="lg" variant="light" color="violet">
-              {shardsPaginated?.total || 0} total
-            </Badge>
+            <Text size="sm" c="dimmed">
+              Showing {shards.length} of {shardsPaginated?.total || 0}
+            </Text>
           </Group>
           <ShardsList
             shards={shards}
