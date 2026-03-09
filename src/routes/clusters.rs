@@ -1457,6 +1457,8 @@ pub struct ShardsQueryParams {
     pub index: String,
     #[serde(default)]
     pub node: String,
+    #[serde(default)]
+    pub search: String, // search both index and node (OR logic)
 }
 
 pub async fn get_shards(
@@ -1472,6 +1474,7 @@ pub async fn get_shards(
         state = %params.state,
         index = %params.index,
         node = %params.node,
+        search = %params.search,
         "Getting shards with filters"
     );
 
@@ -1522,8 +1525,24 @@ pub async fn get_shards(
                 return false;
             }
 
-            // Index filter (substring match)
-            if !params.index.is_empty()
+            // Search filter (OR logic: matches either index OR node)
+            if !params.search.is_empty() {
+                let search_lower = params.search.to_lowercase();
+                let index_matches = shard.index.to_lowercase().contains(&search_lower);
+                let node_matches = shard
+                    .node
+                    .as_deref()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(&search_lower);
+                
+                if !index_matches && !node_matches {
+                    return false;
+                }
+            }
+
+            // Index filter (substring match) - only if search is not used
+            if params.search.is_empty() && !params.index.is_empty()
                 && !shard
                     .index
                     .to_lowercase()
@@ -1532,8 +1551,8 @@ pub async fn get_shards(
                 return false;
             }
 
-            // Node filter (substring match on node name)
-            if !params.node.is_empty() {
+            // Node filter (substring match on node name) - only if search is not used
+            if params.search.is_empty() && !params.node.is_empty() {
                 let node_name = shard.node.as_deref().unwrap_or("");
                 if !node_name
                     .to_lowercase()

@@ -504,8 +504,9 @@ export class ApiClient {
     pageSize: number = 50,
     filters?: {
       state?: string; // comma-separated: 'UNASSIGNED,STARTED'
-      index?: string;
-      node?: string;
+      search?: string; // search both index and node (OR logic)
+      index?: string; // specific index filter (AND logic with node)
+      node?: string; // specific node filter (AND logic with index)
     }
   ): Promise<PaginatedResponse<ShardInfo>> {
     return this.executeWithRetry(async () => {
@@ -516,6 +517,7 @@ export class ApiClient {
             page,
             page_size: pageSize,
             state: filters?.state || '',
+            search: filters?.search || '',
             index: filters?.index || '',
             node: filters?.node || '',
           },

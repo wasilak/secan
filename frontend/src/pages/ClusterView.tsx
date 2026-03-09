@@ -841,11 +841,10 @@ export function ClusterView() {
   const hiddenIndicesCount = allIndicesArray.filter((idx) => idx.name.startsWith('.')).length;
 
   // Fetch shards with auto-refresh, pagination, and server-side filtering
-  const shardsFilters = {
-    state: searchParams.get('shardState') || '', // comma-separated states
-    index: searchParams.get('shardIndex') || '',
-    node: searchParams.get('shardNode') || '',
-  };
+  const shardsFilters = useMemo(() => ({
+    state: searchParams.get('shardStates') || '', // comma-separated states
+    search: searchParams.get('shardsSearch') || '', // search both index and node (OR logic)
+  }), [searchParams]);
 
   const {
     data: shardsPaginated,
