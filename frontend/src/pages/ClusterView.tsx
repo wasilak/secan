@@ -1811,9 +1811,11 @@ function NodesList({
     );
   }
 
-  // Only show "No nodes found" if there are truly no nodes from the API
-  // If nodes exist but are filtered out, we still show the UI
-  if (!nodes || nodes.length === 0) {
+  // Show UI with "no results" message if filters are active, even if no nodes returned
+  // Only show "No nodes found" if there are truly no nodes AND no filters active
+  const hasActiveFilters = searchQuery || selectedRoles.length < allRoles.length;
+  
+  if ((!nodes || nodes.length === 0) && !hasActiveFilters && !loading) {
     return <Text c="dimmed">No nodes found</Text>;
   }
 
