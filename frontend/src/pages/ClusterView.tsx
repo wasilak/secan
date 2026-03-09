@@ -1592,7 +1592,7 @@ export function ClusterView() {
 
       {/* Nodes Section */}
       {activeTab === 'nodes' && (
-        <Card shadow="sm" padding="lg">
+        <Stack gap="md" style={{ width: '100%' }}>
           <NodesList
             nodes={nodes}
             loading={nodesLoading}
@@ -1610,12 +1610,12 @@ export function ClusterView() {
               onPageChange={setNodesPage}
             />
           )}
-        </Card>
+        </Stack>
       )}
 
       {/* Indices Section */}
       {activeTab === 'indices' && (
-        <Card shadow="sm" padding="lg">
+        <Stack gap="md" style={{ width: '100%' }}>
           <IndicesList
              indices={indices}
              indicesPaginated={indicesPaginated}
@@ -1634,12 +1634,12 @@ export function ClusterView() {
               onPageChange={setIndicesPage}
             />
           )}
-        </Card>
+        </Stack>
       )}
 
       {/* Shards Section */}
       {activeTab === 'shards' && (
-        <Card shadow="sm" padding="lg">
+        <Stack gap="md" style={{ width: '100%' }}>
           <ShardsList
             shards={shards}
             loading={shardsLoading}
@@ -1655,7 +1655,7 @@ export function ClusterView() {
               onPageChange={setShardsPage}
             />
           )}
-        </Card>
+        </Stack>
       )}
 
       {/* Console Section */}
@@ -1960,13 +1960,14 @@ const NodesList = memo(function NodesList({
         </Tooltip>
       </Group>
 
-      {sortedNodes && sortedNodes.length === 0 ? (
-        <Text c="dimmed" ta="center" py="xl">
-          No nodes match your filters
-        </Text>
-      ) : (
-        <ScrollArea>
-          <Table striped highlightOnHover>
+      <Card shadow="sm" padding="lg">
+        {sortedNodes && sortedNodes.length === 0 ? (
+          <Text c="dimmed" ta="center" py="xl">
+            No nodes match your filters
+          </Text>
+        ) : (
+          <ScrollArea>
+            <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>
@@ -2192,7 +2193,8 @@ const NodesList = memo(function NodesList({
             </Table.Tbody>
           </Table>
         </ScrollArea>
-      )}
+        )}
+      </Card>
     </Stack>
   );
 });
@@ -2766,6 +2768,9 @@ const IndicesList = memo(function IndicesList({
 
   return (
     <Stack gap="md">
+      {/* Index statistics cards */}
+      <IndexStatsCards stats={indexStats} />
+
       {/* Toolbar with convenience actions */}
       <Group justify="space-between" wrap="wrap">
         <Group>
@@ -3034,14 +3039,12 @@ const IndicesList = memo(function IndicesList({
         )}
       </Group>
 
-      {/* Index statistics cards */}
-      <IndexStatsCards stats={indexStats} />
-
       {/* Unassigned shards section - REMOVED, now shown in table column */}
 
       {/* Always show table with filters - even if no indices match */}
-      <ScrollArea>
-        <Table striped highlightOnHover>
+      <Card shadow="sm" padding="lg">
+        <ScrollArea>
+          <Table striped highlightOnHover>
           <Table.Thead>
               <Table.Tr>
                 <Table.Th>
@@ -3359,6 +3362,7 @@ const IndicesList = memo(function IndicesList({
             </Table.Tbody>
           </Table>
         </ScrollArea>
+      </Card>
 
       {/* Pagination */}
       {indices && indices.length > 0 && indicesPaginated && indicesPaginated.total_pages > 1 && (
@@ -4865,6 +4869,18 @@ const ShardsList = memo(function ShardsList({
 
   return (
     <Stack gap="md">
+      {/* Shard statistics cards */}
+      <ShardStatsCards
+        stats={{
+          totalShards: sortedShards?.length || 0,
+          primaryShards: sortedShards?.filter((s) => s.primary).length || 0,
+          replicaShards: sortedShards?.filter((s) => !s.primary).length || 0,
+          unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
+          relocatingShards: shardsByState['RELOCATING']?.length || 0,
+          initializingShards: shardsByState['INITIALIZING']?.length || 0,
+        }}
+      />
+
       {/* Filters */}
       <Group wrap="wrap">
         <TextInput
@@ -4989,25 +5005,14 @@ const ShardsList = memo(function ShardsList({
         </Group>
       </Group>
 
-      {/* Shard statistics cards */}
-      <ShardStatsCards
-        stats={{
-          totalShards: sortedShards?.length || 0,
-          primaryShards: sortedShards?.filter((s) => s.primary).length || 0,
-          replicaShards: sortedShards?.filter((s) => !s.primary).length || 0,
-          unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
-          relocatingShards: shardsByState['RELOCATING']?.length || 0,
-          initializingShards: shardsByState['INITIALIZING']?.length || 0,
-        }}
-      />
-
-      {sortedShards && sortedShards.length === 0 ? (
-        <Text c="dimmed" ta="center" py="xl">
-          No shards match your filters
-        </Text>
-      ) : (
-        <ScrollArea>
-          <Table striped highlightOnHover>
+      <Card shadow="sm" padding="lg">
+        {sortedShards && sortedShards.length === 0 ? (
+          <Text c="dimmed" ta="center" py="xl">
+            No shards match your filters
+          </Text>
+        ) : (
+          <ScrollArea>
+            <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>
@@ -5165,7 +5170,8 @@ const ShardsList = memo(function ShardsList({
             </Table.Tbody>
           </Table>
         </ScrollArea>
-      )}
+        )}
+      </Card>
 
       {/* Pagination */}
       {sortedShards && sortedShards.length > pageSize && (

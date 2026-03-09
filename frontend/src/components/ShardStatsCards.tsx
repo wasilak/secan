@@ -1,4 +1,4 @@
-import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+import { SimpleGrid, Paper, Text, Stack } from '@mantine/core';
 import { memo } from 'react';
 
 /**
@@ -24,7 +24,7 @@ interface ShardStatsCardsProps {
 export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardStatsCardsProps) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Total Shards
@@ -33,9 +33,9 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.totalShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Primary
@@ -44,9 +44,9 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.primaryShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Replica
@@ -55,9 +55,9 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.replicaShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Unassigned
@@ -66,9 +66,9 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.unassignedShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Relocating
@@ -77,9 +77,9 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.relocatingShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Initializing
@@ -88,7 +88,7 @@ export const ShardStatsCards = memo(function ShardStatsCards({ stats }: ShardSta
             {stats.initializingShards}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
     </SimpleGrid>
   );
 });

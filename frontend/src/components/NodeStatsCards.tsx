@@ -1,4 +1,4 @@
-import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+import { SimpleGrid, Paper, Text, Stack } from '@mantine/core';
 import { memo, useMemo } from 'react';
 import type { NodeInfo } from '../types/api';
 
@@ -34,7 +34,7 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
 
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Total Nodes
@@ -43,9 +43,9 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.totalNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Master
@@ -54,9 +54,9 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.masterNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Data
@@ -65,9 +65,9 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.dataNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Ingest
@@ -76,9 +76,9 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.ingestNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Coordinating
@@ -87,9 +87,9 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.coordinatingNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             ML
@@ -98,7 +98,7 @@ export const NodeStatsCards = memo(function NodeStatsCards({ nodes }: NodeStatsC
             {stats.mlNodes}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
     </SimpleGrid>
   );
 });

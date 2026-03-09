@@ -1,4 +1,4 @@
-import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+import { SimpleGrid, Paper, Text, Stack } from '@mantine/core';
 import { memo } from 'react';
 
 /**
@@ -22,7 +22,7 @@ interface IndexStatsCardsProps {
 export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexStatsCardsProps) {
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Total Indices
@@ -31,9 +31,9 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.totalIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Green
@@ -42,9 +42,9 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.greenIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Yellow
@@ -53,9 +53,9 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.yellowIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Red
@@ -64,9 +64,9 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.redIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Open
@@ -75,9 +75,9 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.openIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
 
-      <Card shadow="sm" padding="md">
+      <Paper withBorder p="md">
         <Stack gap={4}>
           <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
             Closed
@@ -86,7 +86,7 @@ export const IndexStatsCards = memo(function IndexStatsCards({ stats }: IndexSta
             {stats.closedIndices}
           </Text>
         </Stack>
-      </Card>
+      </Paper>
     </SimpleGrid>
   );
 });
