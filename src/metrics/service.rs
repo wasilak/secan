@@ -7,7 +7,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 
 use crate::cluster::client::ElasticsearchClient;
-use crate::cluster::manager::{ClusterConnection, HealthStatus, HealthStatus as ClusterHealthStatus};
+use crate::cluster::manager::{
+    ClusterConnection, HealthStatus, HealthStatus as ClusterHealthStatus,
+};
 use crate::prometheus::client::Client as PrometheusClient;
 use crate::prometheus::client::PrometheusConfig;
 
@@ -288,7 +290,7 @@ impl MetricsService for InternalMetricsService {
                     metrics.index_count = Some(if count > 0 { count - 1 } else { 0 });
                 }
             }
-            
+
             // Get total document count from _all stats
             if let Some(all_stats) = indices.get("_all").and_then(|a| a.get("primaries")) {
                 if let Some(docs) = all_stats.get("docs") {
@@ -330,7 +332,9 @@ impl MetricsService for InternalMetricsService {
                         if let Some(used) = fs.get("total_in_bytes").and_then(|u| u.as_i64()) {
                             total_disk_total += used as f64;
                         }
-                        if let Some(available) = fs.get("available_in_bytes").and_then(|a| a.as_i64()) {
+                        if let Some(available) =
+                            fs.get("available_in_bytes").and_then(|a| a.as_i64())
+                        {
                             total_disk_used += total_disk_total - available as f64;
                         }
                     }
@@ -340,19 +344,19 @@ impl MetricsService for InternalMetricsService {
                 if node_count > 0 {
                     let now = current_unix_timestamp();
                     let avg_cpu = total_cpu / node_count as f64;
-                    
+
                     metrics.cpu_usage_percent = Some(vec![MetricPoint {
                         timestamp: now,
                         value: avg_cpu,
                         labels: None,
                     }]);
-                    
+
                     metrics.jvm_memory_used_bytes = Some(vec![MetricPoint {
                         timestamp: now,
                         value: total_memory_used,
                         labels: None,
                     }]);
-                    
+
                     metrics.disk_used_bytes = Some(vec![MetricPoint {
                         timestamp: now,
                         value: total_disk_used,
@@ -733,7 +737,7 @@ impl MetricsService for PrometheusMetricsService {
 
         // Query cluster stats metrics from Prometheus
         // These are instant queries (current values) not time series
-        
+
         // Node count
         let node_count_query = self.build_query("elasticsearch_cluster_health_number_of_nodes");
         if let Ok(results) = self.client.query_instant(&node_count_query, None).await {
@@ -745,7 +749,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Shard count
         let shard_count_query = self.build_query("elasticsearch_cluster_health_active_shards");
         if let Ok(results) = self.client.query_instant(&shard_count_query, None).await {
@@ -757,7 +761,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Unassigned shards
         let unassigned_query = self.build_query("elasticsearch_cluster_health_unassigned_shards");
         if let Ok(results) = self.client.query_instant(&unassigned_query, None).await {
@@ -769,7 +773,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Relocating shards
         let relocating_query = self.build_query("elasticsearch_cluster_health_relocating_shards");
         if let Ok(results) = self.client.query_instant(&relocating_query, None).await {
@@ -781,9 +785,10 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Initializing shards
-        let initializing_query = self.build_query("elasticsearch_cluster_health_initializing_shards");
+        let initializing_query =
+            self.build_query("elasticsearch_cluster_health_initializing_shards");
         if let Ok(results) = self.client.query_instant(&initializing_query, None).await {
             if let Some(result) = results.first() {
                 if let Some(value) = &result.value {
@@ -793,7 +798,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Index count - count unique indices from per-index metrics
         // Use elasticsearch_indices_docs_primary which has one series per index
         // Count the number of unique index labels to get total index count
@@ -810,7 +815,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Document count - sum across all primary shards
         let document_count_query = format!(
             "sum({})",
@@ -825,7 +830,7 @@ impl MetricsService for PrometheusMetricsService {
                 }
             }
         }
-        
+
         // Health status - parse from metric value
         let health_query = self.build_query("elasticsearch_cluster_health_status");
         if let Ok(results) = self.client.query_instant(&health_query, None).await {
@@ -845,38 +850,14 @@ impl MetricsService for PrometheusMetricsService {
         }
 
         // Add queries for cluster stats to prometheus_queries map
-        prometheus_queries.insert(
-            "indices".to_string(),
-            index_count_query,
-        );
-        prometheus_queries.insert(
-            "documents".to_string(),
-            document_count_query,
-        );
-        prometheus_queries.insert(
-            "nodes".to_string(),
-            node_count_query,
-        );
-        prometheus_queries.insert(
-            "shards".to_string(),
-            shard_count_query,
-        );
-        prometheus_queries.insert(
-            "unassigned_shards".to_string(),
-            unassigned_query,
-        );
-        prometheus_queries.insert(
-            "relocating_shards".to_string(),
-            relocating_query,
-        );
-        prometheus_queries.insert(
-            "initializing_shards".to_string(),
-            initializing_query,
-        );
-        prometheus_queries.insert(
-            "health_status".to_string(),
-            health_query,
-        );
+        prometheus_queries.insert("indices".to_string(), index_count_query);
+        prometheus_queries.insert("documents".to_string(), document_count_query);
+        prometheus_queries.insert("nodes".to_string(), node_count_query);
+        prometheus_queries.insert("shards".to_string(), shard_count_query);
+        prometheus_queries.insert("unassigned_shards".to_string(), unassigned_query);
+        prometheus_queries.insert("relocating_shards".to_string(), relocating_query);
+        prometheus_queries.insert("initializing_shards".to_string(), initializing_query);
+        prometheus_queries.insert("health_status".to_string(), health_query);
 
         metrics.prometheus_queries = Some(prometheus_queries);
 

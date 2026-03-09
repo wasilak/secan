@@ -1535,14 +1535,15 @@ pub async fn get_shards(
                     .unwrap_or("")
                     .to_lowercase()
                     .contains(&search_lower);
-                
+
                 if !index_matches && !node_matches {
                     return false;
                 }
             }
 
             // Index filter (substring match) - only if search is not used
-            if params.search.is_empty() && !params.index.is_empty()
+            if params.search.is_empty()
+                && !params.index.is_empty()
                 && !shard
                     .index
                     .to_lowercase()

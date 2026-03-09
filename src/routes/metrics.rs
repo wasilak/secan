@@ -2,8 +2,8 @@ use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::client::ElasticsearchClient;
 use crate::cluster::manager::HealthStatus as ClusterHealthStatus;
 use crate::cluster::Manager as ClusterManager;
-use crate::metrics::{InternalMetricsService, MetricsService, PrometheusMetricsService, TimeRange};
 use crate::metrics::service::MetricPoint;
+use crate::metrics::{InternalMetricsService, MetricsService, PrometheusMetricsService, TimeRange};
 use crate::prometheus::client::{
     Client as PrometheusClient, PrometheusConfig as PrometheusClientConfig,
 };
@@ -286,7 +286,7 @@ pub async fn get_cluster_metrics(
             // Internal metrics - return single current snapshot
             // Frontend will accumulate these over time to build live time series
             let now = chrono::Utc::now().timestamp();
-            
+
             // Extract current values from single data points
             let cpu_value = backend_metrics
                 .cpu_usage_percent
@@ -303,7 +303,7 @@ pub async fn get_cluster_metrics(
                 .as_ref()
                 .and_then(|v: &Vec<MetricPoint>| v.first())
                 .map(|p| p.value);
-            
+
             // Return single data point representing current state
             data_points.push(ClusterMetricsPoint {
                 timestamp: now,
