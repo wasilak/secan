@@ -1489,54 +1489,57 @@ export function ClusterView() {
                 {clusterInfo?.metrics_source === 'prometheus' ? 'Prometheus' : 'Internal'}
               </Badge>
             </Group>
-            <Menu
-              opened={timeRangeDropdownOpened}
-              onChange={setTimeRangeDropdownOpened}
-              position="bottom-end"
-              withArrow
-            >
-              <Menu.Target>
-                <Button
-                  variant="light"
-                  size="sm"
-                  leftSection={<IconClock size={16} />}
-                  rightSection={
-                    <Text size="xs" c="dimmed">
-                      {selectedTimeRange?.label || 'Last 24h'}
-                    </Text>
-                  }
-                  aria-label="Select time range"
-                >
-                  Time Range
-                </Button>
-              </Menu.Target>
-
-              <Menu.Dropdown>
-                <Text size="xs" c="dimmed" px="sm" py="xs">
-                  Select time range
-                </Text>
-                {TIME_RANGE_PRESETS.map((preset) => (
-                  <Menu.Item
-                    key={preset.label}
-                    onClick={() => {
-                      const newParams = new URLSearchParams(searchParams);
-                      newParams.set('timeRange', preset.minutes.toString());
-                      setSearchParams(newParams);
-                      setTimeRangeDropdownOpened(false);
-                    }}
-                    leftSection={
-                      selectedTimeRange?.label === preset.label ? (
-                        <Badge size="xs" variant="filled" color="blue">
-                          ✓
-                        </Badge>
-                      ) : null
+            {/* Only show time range selector for Prometheus metrics */}
+            {!isInternalMetrics && (
+              <Menu
+                opened={timeRangeDropdownOpened}
+                onChange={setTimeRangeDropdownOpened}
+                position="bottom-end"
+                withArrow
+              >
+                <Menu.Target>
+                  <Button
+                    variant="light"
+                    size="sm"
+                    leftSection={<IconClock size={16} />}
+                    rightSection={
+                      <Text size="xs" c="dimmed">
+                        {selectedTimeRange?.label || 'Last 24h'}
+                      </Text>
                     }
+                    aria-label="Select time range"
                   >
-                    {preset.label}
-                  </Menu.Item>
-                ))}
-              </Menu.Dropdown>
-            </Menu>
+                    Time Range
+                  </Button>
+                </Menu.Target>
+
+                <Menu.Dropdown>
+                  <Text size="xs" c="dimmed" px="sm" py="xs">
+                    Select time range
+                  </Text>
+                  {TIME_RANGE_PRESETS.map((preset) => (
+                    <Menu.Item
+                      key={preset.label}
+                      onClick={() => {
+                        const newParams = new URLSearchParams(searchParams);
+                        newParams.set('timeRange', preset.minutes.toString());
+                        setSearchParams(newParams);
+                        setTimeRangeDropdownOpened(false);
+                      }}
+                      leftSection={
+                        selectedTimeRange?.label === preset.label ? (
+                          <Badge size="xs" variant="filled" color="blue">
+                            ✓
+                          </Badge>
+                        ) : null
+                      }
+                    >
+                      {preset.label}
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            )}
           </Group>
 
           <ClusterStatistics
