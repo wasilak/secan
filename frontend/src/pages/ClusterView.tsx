@@ -656,6 +656,54 @@ export function ClusterView() {
     };
   });
 
+  // Group raw CPU metrics by labels to create separate series
+  // This handles metrics with grouping like avg by (node) (elasticsearch_process_cpu_percent)
+  const cpuSeriesMap = new Map<string, DataPoint[]>();
+  
+  if (activeTab === 'statistics' && metricsHistory?.raw_metrics?.cpu) {
+    for (const point of metricsHistory.raw_metrics.cpu) {
+      // Create a series key from labels in logfmt format (e.g., "node=node-1")
+      const seriesKey = point.labels
+        ? Object.entries(point.labels)
+            .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
+            .map(([k, v]) => `${k}=${v}`)
+            .join(',')
+        : 'default';
+      
+      if (!cpuSeriesMap.has(seriesKey)) {
+        cpuSeriesMap.set(seriesKey, []);
+      }
+      
+      cpuSeriesMap.get(seriesKey)!.push({
+        value: point.value,
+        timestamp: point.timestamp * 1000, // Convert to milliseconds
+      });
+    }
+  }
+  
+  // Convert map to array of series with formatted names
+  const cpuSeries = Array.from(cpuSeriesMap.entries()).map(([key, data]) => {
+    // Parse logfmt key back to get label values for display name
+    const labels = key.split(',').reduce((acc, pair) => {
+      const [k, v] = pair.split('=');
+      if (k && v) acc[k] = v;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    // Create display name from labels in logfmt format (e.g., "node=node-1")
+    // Show all labels in key=value format
+    const displayName = Object.entries(labels)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join(',') || 'CPU';
+    
+    return {
+      name: displayName,
+      data,
+      labels,
+    };
+  });
+
   const memoryNonHeapHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
@@ -1377,6 +1425,7 @@ export function ClusterView() {
           <ClusterStatistics
             nodesHistory={nodesHistory as DataPoint[]}
             cpuHistory={cpuHistory as DataPoint[]}
+            cpuSeries={cpuSeries}
             memoryHistory={memoryHistory as DataPoint[]}
             memorySeries={memorySeries}
             indicesHistory={indicesHistory as DataPoint[]}

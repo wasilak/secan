@@ -116,6 +116,9 @@ pub struct RawMetrics {
     /// Memory usage points with labels (e.g., area=heap, area=non-heap)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<Vec<LabeledMetricPoint>>,
+    /// CPU usage points with labels (e.g., node=node-1, node=node-2)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<Vec<LabeledMetricPoint>>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PrometheusValidationRequest {
@@ -452,7 +455,21 @@ pub async fn get_cluster_metrics(
     data_points.reverse();
 
     // Convert MetricPoint to LabeledMetricPoint for raw metrics
-    let raw_memory = backend_metrics.jvm_memory_used_bytes.as_ref().map(|points| {
+    let raw_memory = backend_metrics
+        .jvm_memory_used_bytes
+        .as_ref()
+        .map(|points| {
+            points
+                .iter()
+                .map(|p| LabeledMetricPoint {
+                    timestamp: p.timestamp,
+                    value: p.value,
+                    labels: p.labels.clone(),
+                })
+                .collect()
+        });
+
+    let raw_cpu = backend_metrics.cpu_usage_percent.as_ref().map(|points| {
         points
             .iter()
             .map(|p| LabeledMetricPoint {
@@ -469,6 +486,7 @@ pub async fn get_cluster_metrics(
         data: data_points,
         raw_metrics: Some(RawMetrics {
             memory: raw_memory,
+            cpu: raw_cpu,
         }),
         prometheus_queries: backend_metrics.prometheus_queries,
     };

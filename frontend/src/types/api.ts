@@ -721,6 +721,7 @@ export interface LabeledMetricPoint {
  */
 export interface RawMetrics {
   memory?: LabeledMetricPoint[];
+  cpu?: LabeledMetricPoint[];
 }
 
 /**

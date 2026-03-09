@@ -10,6 +10,7 @@ interface ClusterStatisticsProps {
   // Time series data with timestamps
   nodesHistory: DataPoint[];
   cpuHistory?: DataPoint[];
+  cpuSeries?: Array<{ name: string; data: DataPoint[]; labels: Record<string, string> }>;
   memoryHistory?: DataPoint[];
   memorySeries?: Array<{ name: string; data: DataPoint[]; labels: Record<string, string> }>;
   indicesHistory: DataPoint[];
@@ -62,6 +63,7 @@ interface ClusterStatisticsProps {
 export function ClusterStatistics({
   nodesHistory,
   cpuHistory,
+  cpuSeries,
   memoryHistory,
   memorySeries,
   indicesHistory,
@@ -199,16 +201,30 @@ export function ClusterStatistics({
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
-          <TimeSeriesChart
-            title="CPU Usage Over Time"
-            data={cpuHistory || []}
-            dataKey="cpu"
-            color="var(--mantine-color-red-6)"
-            gradientId="colorCpu"
-            unit="%"
-            valueFormatter={(value: number | undefined) => value?.toFixed(1) + '%'}
-            query={prometheusQueries?.cpu_usage_percent}
-          />
+          {cpuSeries && cpuSeries.length > 0 ? (
+            <MultiSeriesChart
+              title="CPU Usage Over Time"
+              series={cpuSeries.map((s, idx) => ({
+                name: s.name,
+                color: ['red', 'orange', 'yellow', 'pink'][idx % 4] as any,
+                data: s.data,
+              }))}
+              valueFormatter={(value: number) => value.toFixed(1) + '%'}
+              tickFormatter={(value) => value.toFixed(0) + '%'}
+              query={prometheusQueries?.cpu_usage_percent}
+            />
+          ) : (
+            <TimeSeriesChart
+              title="CPU Usage Over Time"
+              data={cpuHistory || []}
+              dataKey="cpu"
+              color="var(--mantine-color-red-6)"
+              gradientId="colorCpu"
+              unit="%"
+              valueFormatter={(value: number | undefined) => value?.toFixed(1) + '%'}
+              query={prometheusQueries?.cpu_usage_percent}
+            />
+          )}
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 3 }}>
