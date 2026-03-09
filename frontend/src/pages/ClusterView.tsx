@@ -536,6 +536,71 @@ export function ClusterView() {
     staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
+  // Detect if we're using internal metrics (single data point) vs Prometheus (time series)
+  const isInternalMetrics = metricsHistory?.data && metricsHistory.data.length === 1;
+  
+  // For internal metrics, extract current values to accumulate over time
+  const currentInternalMetrics = isInternalMetrics && metricsHistory?.data[0] ? {
+    nodes: metricsHistory.data[0].node_count,
+    indices: metricsHistory.data[0].index_count,
+    documents: metricsHistory.data[0].document_count,
+    shards: metricsHistory.data[0].shard_count,
+    unassigned: metricsHistory.data[0].unassigned_shards,
+    cpu: metricsHistory.data[0].cpu_percent,
+    memory: metricsHistory.data[0].memory_used_bytes,
+    disk: metricsHistory.data[0].disk_used_bytes,
+  } : null;
+
+  // Accumulate internal metrics over time (resets when switching tabs)
+  const nodesHistoryInternal = useSparklineData(
+    currentInternalMetrics?.nodes,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const indicesHistoryInternal = useSparklineData(
+    currentInternalMetrics?.indices,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const documentsHistoryInternal = useSparklineData(
+    currentInternalMetrics?.documents,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const shardsHistoryInternal = useSparklineData(
+    currentInternalMetrics?.shards,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const unassignedHistoryInternal = useSparklineData(
+    currentInternalMetrics?.unassigned,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const cpuHistoryInternal = useSparklineData(
+    currentInternalMetrics?.cpu,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const memoryHistoryInternal = useSparklineData(
+    currentInternalMetrics?.memory,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+  const diskHistoryInternal = useSparklineData(
+    currentInternalMetrics?.disk,
+    50,
+    activeTab,
+    true
+  ) as DataPoint[];
+
   // Hidden indices toggle state
   const [showHiddenIndices, setShowHiddenIndices] = useState(false);
   
@@ -577,68 +642,86 @@ export function ClusterView() {
 
   // Use metrics history data when available (statistics tab), otherwise use sparkline data
   // For ClusterStatistics component (needs DataPoint[])
+  // Internal metrics (single point): use accumulated history
+  // Prometheus metrics (time series): use data directly
   const nodesHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.node_count,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? nodesHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.node_count,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : nodesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const indicesHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.index_count || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? indicesHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.index_count || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : indicesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const documentsHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.document_count || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? documentsHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.document_count || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : documentsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const shardsHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.shard_count || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? shardsHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.shard_count || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : shardsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const unassignedHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.unassigned_shards || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? unassignedHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.unassigned_shards || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : unassignedHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const diskUsageHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.disk_used_bytes || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? diskHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.disk_used_bytes || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : []; // No sparkline fallback for disk usage
 
   const cpuHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.cpu_percent || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? cpuHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.cpu_percent || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : [];
 
   const memoryHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
-      ? metricsHistory.data.map((d) => ({
-        value: d.memory_used_bytes || 0,
-        timestamp: new Date(d.date).getTime(),
-      }))
+      ? isInternalMetrics
+        ? memoryHistoryInternal
+        : metricsHistory.data.map((d) => ({
+            value: d.memory_used_bytes || 0,
+            timestamp: new Date(d.date).getTime(),
+          }))
       : [];
 
   // Group raw memory metrics by labels to create separate series
