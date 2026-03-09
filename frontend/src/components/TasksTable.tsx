@@ -52,7 +52,7 @@ interface TasksTableProps {
   onClearSelection?: () => void;
 }
 
-export function TasksTable({
+export const TasksTable = React.memo(function TasksTable({
   tasks,
   sortBy,
   sortOrder,
@@ -187,4 +187,4 @@ export function TasksTable({
             </Table.Tbody>
     </Table>
   );
-}
+});

@@ -1,13 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { Stack, LoadingOverlay, Alert, Button, Group, Modal, Text } from '@mantine/core';
 import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { TaskInfo } from '../types/api';
-import { useTasksData } from '../hooks/useTasksData';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { TasksFilters } from './TasksFilters';
 import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
+import { TaskStatsCards } from './TaskStatsCards';
 import { apiClient } from '../api/client';
 
 /**
@@ -32,10 +34,7 @@ interface TasksTabProps {
 }
 
 export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactElement {
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedActions, setSelectedActions] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedTask, setSelectedTask] = useState<TaskInfo | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -43,31 +42,110 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   const [isBulkCancelling, setIsBulkCancelling] = useState(false);
   const { selectedIndices, toggleSelection, selectAll, clearSelection, count } = useBulkSelection();
 
-  // Fetch tasks with auto-refresh
-  const { tasks, uniqueTypes, uniqueActions, isLoading, error, filterTasks, sortTasks } =
-    useTasksData(clusterId, refreshInterval);
+  // Get filters from URL params
+  const selectedTypes = searchParams.get('taskTypes')?.split(',').filter(Boolean) || [];
+  const selectedActions = searchParams.get('taskActions')?.split(',').filter(Boolean) || [];
+  const sortBy = searchParams.get('taskSortBy') || null;
+  const sortOrder = (searchParams.get('taskSortOrder') || 'none') as 'asc' | 'desc' | 'none';
 
-  // Filter and sort tasks
-  const filteredTasks = filterTasks(tasks, selectedTypes, selectedActions);
-  const displayTasks = sortTasks(filteredTasks, sortBy, sortOrder);
+  // Memoize filters object to prevent unnecessary refetches
+  const filters = useMemo(() => ({
+    types: selectedTypes.length > 0 ? selectedTypes : undefined,
+    actions: selectedActions.length > 0 ? selectedActions : undefined,
+  }), [selectedTypes.join(','), selectedActions.join(',')]);
+
+  // Fetch tasks with auto-refresh and server-side filtering
+  const {
+    data: tasksResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['cluster', clusterId, 'tasks', filters],
+    queryFn: () => apiClient.getTasks(clusterId, filters),
+    refetchInterval: refreshInterval,
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching
+  });
+
+  const tasks = tasksResponse?.tasks || [];
+  const uniqueTypes = tasksResponse?.unique_types || [];
+  const uniqueActions = tasksResponse?.unique_actions || [];
+
+  // Calculate stats from server data (memoized)
+  const stats = useMemo(() => ({
+    totalTasks: tasks.length,
+    runningTasks: tasks.filter(t => !t.cancelled).length,
+    cancellableTasks: tasks.filter(t => t.cancellable && !t.cancelled).length,
+    cancelledTasks: tasks.filter(t => t.cancelled).length,
+  }), [tasks]);
+
+  // Client-side sorting only (server handles filtering)
+  const sortedTasks = useMemo(() => {
+    if (!sortBy || sortOrder === 'none') {
+      return tasks;
+    }
+
+    return [...tasks].sort((a, b) => {
+      const aVal = a[sortBy as keyof TaskInfo];
+      const bVal = b[sortBy as keyof TaskInfo];
+
+      if (aVal === undefined || bVal === undefined) {
+        return 0;
+      }
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
+      const aStr = String(aVal);
+      const bStr = String(bVal);
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+  }, [tasks, sortBy, sortOrder]);
 
   // Handle sort column click
   const handleSort = useCallback((column: string) => {
-    setSortBy(column);
-    setSortOrder((prev) => {
-      if (prev === 'none') return 'asc';
-      if (prev === 'asc') return 'desc';
-      return 'none';
-    });
-  }, []);
+    const params = new URLSearchParams(searchParams);
+    params.set('taskSortBy', column);
+    
+    const currentOrder = searchParams.get('taskSortOrder') || 'none';
+    if (currentOrder === 'none') {
+      params.set('taskSortOrder', 'asc');
+    } else if (currentOrder === 'asc') {
+      params.set('taskSortOrder', 'desc');
+    } else {
+      params.delete('taskSortBy');
+      params.delete('taskSortOrder');
+    }
+    
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  // Handle filter changes
+  const handleTypesChange = useCallback((types: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    if (types.length > 0) {
+      params.set('taskTypes', types.join(','));
+    } else {
+      params.delete('taskTypes');
+    }
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  const handleActionsChange = useCallback((actions: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    if (actions.length > 0) {
+      params.set('taskActions', actions.join(','));
+    } else {
+      params.delete('taskActions');
+    }
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
 
   // Handle task row click to open details
   const handleTaskClick = useCallback((task: TaskInfo) => {
     setSelectedTask(task);
     setIsDetailModalOpen(true);
   }, []);
-
-
 
   // Handle bulk task cancellation
   const handleBulkCancel = useCallback(async () => {
@@ -85,6 +163,20 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
     }
   }, [selectedIndices, clusterId, clearSelection]);
 
+  // Detect if any filters are active
+  const hasActiveFilters = selectedTypes.length > 0 || selectedActions.length > 0;
+
+  // Only show "No tasks found" if there are truly no tasks AND no filters active
+  if (!isLoading && !error && tasks.length === 0 && !hasActiveFilters) {
+    return (
+      <Stack gap="lg" style={{ width: '100%', padding: '0 1rem' }}>
+        <Text c="dimmed" ta="center" py="xl">
+          No active tasks found
+        </Text>
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap="lg" style={{ width: '100%', padding: '0 1rem' }}>
       {/* Error Alert */}
@@ -94,14 +186,17 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
         </Alert>
       )}
 
+      {/* Task Statistics Cards */}
+      <TaskStatsCards stats={stats} />
+
       {/* Filters */}
       <TasksFilters
         uniqueTypes={uniqueTypes}
         uniqueActions={uniqueActions}
         selectedTypes={selectedTypes}
         selectedActions={selectedActions}
-        onTypesChange={setSelectedTypes}
-        onActionsChange={setSelectedActions}
+        onTypesChange={handleTypesChange}
+        onActionsChange={handleActionsChange}
       />
 
       {/* Bulk Actions Bar */}
@@ -126,17 +221,23 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
       {/* Table with Loading Overlay */}
       <div style={{ position: 'relative' }}>
         <LoadingOverlay visible={isLoading} zIndex={1000} />
-        <TasksTable
-           tasks={displayTasks}
-           sortBy={sortBy}
-           sortOrder={sortOrder}
-           onSort={handleSort}
-           onRowClick={handleTaskClick}
-           selectedTasks={selectedIndices}
-           onToggleSelect={toggleSelection}
-           onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
-           onClearSelection={clearSelection}
-         />
+        {sortedTasks.length === 0 ? (
+          <Text c="dimmed" ta="center" py="xl">
+            No tasks match your filters
+          </Text>
+        ) : (
+          <TasksTable
+            tasks={sortedTasks}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            onRowClick={handleTaskClick}
+            selectedTasks={selectedIndices}
+            onToggleSelect={toggleSelection}
+            onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
+            onClearSelection={clearSelection}
+          />
+        )}
       </div>
 
       {/* Task Details Modal */}
