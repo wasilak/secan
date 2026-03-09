@@ -81,6 +81,7 @@ import { Sparkline } from '../components/Sparkline';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
 import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
+import { IndexStatsCards } from '../components/IndexStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { ClusterStatistics } from '../components/ClusterStatistics';
 import { IconClock } from '@tabler/icons-react';
@@ -2913,6 +2914,18 @@ function IndicesList({
           </Button>
         )}
       </Group>
+
+      {/* Index statistics cards */}
+      <IndexStatsCards
+        stats={{
+          totalIndices: sortedIndices?.length || 0,
+          greenIndices: sortedIndices?.filter((idx) => idx.health === 'green').length || 0,
+          yellowIndices: sortedIndices?.filter((idx) => idx.health === 'yellow').length || 0,
+          redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
+          openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
+          closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
+        }}
+      />
 
       {/* Unassigned shards section - REMOVED, now shown in table column */}
 

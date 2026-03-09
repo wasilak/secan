@@ -1,0 +1,91 @@
+import { SimpleGrid, Card, Text, Stack } from '@mantine/core';
+
+/**
+ * Props for IndexStatsCards component
+ */
+interface IndexStatsCardsProps {
+  stats: {
+    totalIndices: number;
+    greenIndices: number;
+    yellowIndices: number;
+    redIndices: number;
+    openIndices: number;
+    closedIndices: number;
+  };
+}
+
+/**
+ * IndexStatsCards component displays index statistics in compact cards
+ * matching the visual style of overview statistics cards.
+ */
+export function IndexStatsCards({ stats }: IndexStatsCardsProps) {
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Total Indices
+          </Text>
+          <Text size="xl" fw={700}>
+            {stats.totalIndices}
+          </Text>
+        </Stack>
+      </Card>
+
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Green
+          </Text>
+          <Text size="xl" fw={700} c="green">
+            {stats.greenIndices}
+          </Text>
+        </Stack>
+      </Card>
+
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Yellow
+          </Text>
+          <Text size="xl" fw={700} c="yellow">
+            {stats.yellowIndices}
+          </Text>
+        </Stack>
+      </Card>
+
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Red
+          </Text>
+          <Text size="xl" fw={700} c="red">
+            {stats.redIndices}
+          </Text>
+        </Stack>
+      </Card>
+
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Open
+          </Text>
+          <Text size="xl" fw={700} c="blue">
+            {stats.openIndices}
+          </Text>
+        </Stack>
+      </Card>
+
+      <Card shadow="sm" padding="md">
+        <Stack gap={4}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Closed
+          </Text>
+          <Text size="xl" fw={700} c="gray">
+            {stats.closedIndices}
+          </Text>
+        </Stack>
+      </Card>
+    </SimpleGrid>
+  );
+}
