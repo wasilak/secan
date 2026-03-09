@@ -662,7 +662,10 @@ impl MetricsService for PrometheusMetricsService {
         );
         prometheus_queries.insert(
             "documents".to_string(),
-            self.build_query("elasticsearch_indices_docs_primary"),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_indices_docs_primary")
+            ),
         );
         prometheus_queries.insert(
             "nodes".to_string(),
