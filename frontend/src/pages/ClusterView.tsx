@@ -542,17 +542,22 @@ export function ClusterView() {
   
   // For internal metrics, extract current values to accumulate over time
   // Ensure values are numbers (not undefined) for useSparklineData to work
-  const currentInternalMetrics = isInternalMetrics && metricsHistory?.data[0] ? {
-    nodes: metricsHistory.data[0].node_count,
-    indices: metricsHistory.data[0].index_count ?? 0,
-    documents: metricsHistory.data[0].document_count ?? 0,
-    shards: metricsHistory.data[0].shard_count ?? 0,
-    unassigned: metricsHistory.data[0].unassigned_shards ?? 0,
-    // Use ?? 0 for all metrics consistently
-    cpu: metricsHistory.data[0].cpu_percent ?? 0,
-    memory: metricsHistory.data[0].memory_used_bytes ?? 0,
-    disk: metricsHistory.data[0].disk_used_bytes ?? 0,
-  } : null;
+  // CRITICAL: Memoize this object to prevent unnecessary re-renders and hook resets
+  const currentInternalMetrics = useMemo(() => {
+    if (!isInternalMetrics || !metricsHistory?.data[0]) return null;
+    
+    return {
+      nodes: metricsHistory.data[0].node_count,
+      indices: metricsHistory.data[0].index_count ?? 0,
+      documents: metricsHistory.data[0].document_count ?? 0,
+      shards: metricsHistory.data[0].shard_count ?? 0,
+      unassigned: metricsHistory.data[0].unassigned_shards ?? 0,
+      // Use ?? 0 for all metrics consistently
+      cpu: metricsHistory.data[0].cpu_percent ?? 0,
+      memory: metricsHistory.data[0].memory_used_bytes ?? 0,
+      disk: metricsHistory.data[0].disk_used_bytes ?? 0,
+    };
+  }, [isInternalMetrics, metricsHistory?.data]);
 
   // Accumulate internal metrics over time (resets when switching tabs)
   const nodesHistoryInternal = useSparklineData(
