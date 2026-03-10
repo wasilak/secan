@@ -208,7 +208,10 @@ export function NodeModal({
                   />
                   <Tooltip
                     labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                    formatter={(value: number | undefined) => `${((value || 0) / 1024 / 1024).toFixed(1)} MB`}
+                    formatter={(value: unknown) => {
+                      const numValue = typeof value === 'number' ? value : 0;
+                      return `${(numValue / 1024 / 1024).toFixed(1)} MB`;
+                    }}
                   />
                   <Area
                     type="monotone"
@@ -254,7 +257,10 @@ export function NodeModal({
                   />
                   <Tooltip
                     labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                    formatter={(value: number | undefined) => `${(value || 0).toFixed(1)}%`}
+                    formatter={(value: unknown) => {
+                      const numValue = typeof value === 'number' ? value : 0;
+                      return `${numValue.toFixed(1)}%`;
+                    }}
                   />
                   <Area
                     type="monotone"
@@ -300,7 +306,10 @@ export function NodeModal({
                   />
                   <Tooltip
                     labelFormatter={(ts) => new Date(ts * 1000).toLocaleString()}
-                    formatter={(value: number | undefined) => `${(value || 0).toFixed(1)}%`}
+                    formatter={(value: unknown) => {
+                      const numValue = typeof value === 'number' ? value : 0;
+                      return `${numValue.toFixed(1)}%`;
+                    }}
                   />
                   <Area
                     type="monotone"

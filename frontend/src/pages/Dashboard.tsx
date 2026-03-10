@@ -563,7 +563,10 @@ export function Dashboard() {
                         ))}
                       </Pie>
                       <Legend wrapperStyle={{ paddingTop: '4px' }} height={24} />
-                      <Tooltip formatter={(value: number | undefined) => value ? `${value} cluster${value !== 1 ? 's' : ''}` : '0'} />
+                      <Tooltip formatter={(value: unknown) => {
+                        const numValue = typeof value === 'number' ? value : 0;
+                        return numValue ? `${numValue} cluster${numValue !== 1 ? 's' : ''}` : '0';
+                      }} />
                     </PieChart>
                   </ResponsiveContainer>
                 );

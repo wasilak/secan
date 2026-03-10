@@ -169,11 +169,13 @@ export function TimeSeriesChart({
                   }
                   return label;
                 }}
-                formatter={(value: number | undefined, name: string | undefined) => {
-                  if (valueFormatter && name) {
-                    return [valueFormatter(value ?? 0, name), name];
+                formatter={(value: unknown, name: unknown) => {
+                  const numValue = typeof value === 'number' ? value : 0;
+                  const strName = typeof name === 'string' ? name : '';
+                  if (valueFormatter && strName) {
+                    return [valueFormatter(numValue, strName), strName];
                   }
-                  return [value ?? 0, name || ''];
+                  return [numValue, strName];
                 }}
               />
               {showLegend && <Legend />}
