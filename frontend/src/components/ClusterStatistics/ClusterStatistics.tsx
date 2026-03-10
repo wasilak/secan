@@ -134,46 +134,64 @@ export function ClusterStatistics({
     data: diskUsageHistory || [],
   }], [diskUsageHistory]);
 
-  // Calculate system indices statistics from per-index data
-  const systemIndicesCount = allIndices?.filter((idx) => idx.name.startsWith('.')).length || 0;
-  const systemDocsCount =
+  // Calculate system indices statistics from per-index data (memoized)
+  const systemIndicesCount = useMemo(() => 
+    allIndices?.filter((idx) => idx.name.startsWith('.')).length || 0,
+    [allIndices]
+  );
+  
+  const systemDocsCount = useMemo(() =>
     allIndices
       ?.filter((idx) => idx.name.startsWith('.'))
-      .reduce((sum, idx) => sum + (idx.docsCount || 0), 0) || 0;
-  const systemShardsCount =
+      .reduce((sum, idx) => sum + (idx.docsCount || 0), 0) || 0,
+    [allIndices]
+  );
+  
+  const systemShardsCount = useMemo(() =>
     allIndices
       ?.filter((idx) => idx.name.startsWith('.'))
-      .reduce((sum, idx) => sum + (idx.primaries || 0) + (idx.replicas || 0), 0) || 0;
+      .reduce((sum, idx) => sum + (idx.primaries || 0) + (idx.replicas || 0), 0) || 0,
+    [allIndices]
+  );
 
-  // Filter indices based on showHiddenIndices toggle
-  const filteredIndicesHistory = indicesHistory.map((point) => ({
-    ...point,
-    value:
-      showHiddenIndices === false && systemIndicesCount > 0
-        ? Math.max(0, point.value - systemIndicesCount)
-        : point.value,
-  }));
+  // Filter indices based on showHiddenIndices toggle (memoized)
+  const filteredIndicesHistory = useMemo(() => 
+    indicesHistory.map((point) => ({
+      ...point,
+      value:
+        showHiddenIndices === false && systemIndicesCount > 0
+          ? Math.max(0, point.value - systemIndicesCount)
+          : point.value,
+    })),
+    [indicesHistory, showHiddenIndices, systemIndicesCount]
+  );
 
-  // Filter documents based on showHiddenIndices toggle
-  const filteredDocumentsHistory = documentsHistory.map((point) => ({
-    ...point,
-    value:
-      showHiddenIndices === false && systemDocsCount > 0
-        ? Math.max(0, point.value - systemDocsCount)
-        : point.value,
-  }));
+  // Filter documents based on showHiddenIndices toggle (memoized)
+  const filteredDocumentsHistory = useMemo(() =>
+    documentsHistory.map((point) => ({
+      ...point,
+      value:
+        showHiddenIndices === false && systemDocsCount > 0
+          ? Math.max(0, point.value - systemDocsCount)
+          : point.value,
+    })),
+    [documentsHistory, showHiddenIndices, systemDocsCount]
+  );
 
-  // Filter shards based on showHiddenIndices toggle
-  const filteredShardsHistory = shardsHistory.map((point) => ({
-    ...point,
-    value:
-      showHiddenIndices === false && systemShardsCount > 0
-        ? Math.max(0, point.value - systemShardsCount)
-        : point.value,
-  }));
+  // Filter shards based on showHiddenIndices toggle (memoized)
+  const filteredShardsHistory = useMemo(() =>
+    shardsHistory.map((point) => ({
+      ...point,
+      value:
+        showHiddenIndices === false && systemShardsCount > 0
+          ? Math.max(0, point.value - systemShardsCount)
+          : point.value,
+    })),
+    [shardsHistory, showHiddenIndices, systemShardsCount]
+  );
 
-  // Prepare shard types data for donut chart
-  const shardTypesData = [
+  // Prepare shard types data for donut chart (memoized)
+  const shardTypesData = useMemo(() => [
     {
       name: 'Primary',
       value: stats?.activePrimaryShards || 0,
@@ -194,24 +212,26 @@ export function ClusterStatistics({
       value: stats?.relocatingShards || 0,
       color: 'var(--mantine-color-yellow-6)',
     },
-  ].filter((item) => item.value > 0);
+  ].filter((item) => item.value > 0), [stats]);
 
-  // Calculate node counts by role for radar chart
-  const roleCount = new Map<string, number>();
-  nodes?.forEach((node) => {
-    node.roles.forEach((role) => {
-      roleCount.set(role, (roleCount.get(role) || 0) + 1);
+  // Calculate node counts by role for radar chart (memoized)
+  const nodeRolesData = useMemo(() => {
+    const roleCount = new Map<string, number>();
+    nodes?.forEach((node) => {
+      node.roles.forEach((role) => {
+        roleCount.set(role, (roleCount.get(role) || 0) + 1);
+      });
     });
-  });
 
-  const nodeRolesData = Array.from(roleCount.entries()).map(([role, count]) => ({
-    role: role,
-    count,
-    fullMark: Math.max(...Array.from(roleCount.values())) + 2,
-  }));
+    return Array.from(roleCount.entries()).map(([role, count]) => ({
+      role: role,
+      count,
+      fullMark: Math.max(...Array.from(roleCount.values())) + 2,
+    }));
+  }, [nodes]);
 
-  // Prepare memory usage data for donut chart
-  const memoryUsageData =
+  // Prepare memory usage data for donut chart (memoized)
+  const memoryUsageData = useMemo(() =>
     stats?.memoryTotal && stats.memoryTotal > 0
       ? [
           {
@@ -225,7 +245,9 @@ export function ClusterStatistics({
             color: 'var(--mantine-color-gray-6)',
           },
         ].filter((item) => item.value > 0)
-      : [];
+      : [],
+    [stats]
+  );
 
   return (
     <Stack gap="md">
