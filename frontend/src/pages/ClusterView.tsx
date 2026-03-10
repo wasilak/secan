@@ -567,12 +567,6 @@ export function ClusterView() {
     true
   ) as DataPoint[];
   
-  // Debug: Log Nodes history length
-  useEffect(() => {
-    if (activeTab === 'statistics') {
-      console.log('[NODES] nodesHistoryInternal length:', nodesHistoryInternal.length, 'value:', currentInternalMetrics?.nodes);
-    }
-  }, [nodesHistoryInternal, currentInternalMetrics?.nodes, activeTab]);
   const indicesHistoryInternal = useSparklineData(
     currentInternalMetrics?.indices,
     50,
@@ -603,13 +597,6 @@ export function ClusterView() {
     activeTab,
     true
   ) as DataPoint[];
-  
-  // Debug: Log CPU history length
-  useEffect(() => {
-    if (activeTab === 'statistics') {
-      console.log('[CPU] cpuHistoryInternal length:', cpuHistoryInternal.length, 'value:', currentInternalMetrics?.cpu);
-    }
-  }, [cpuHistoryInternal, currentInternalMetrics?.cpu, activeTab]);
   const memoryHistoryInternal = useSparklineData(
     currentInternalMetrics?.memory,
     50,
@@ -3716,8 +3703,6 @@ function ShardAllocationGrid({
 
   // Handle select for relocation
   const handleSelectForRelocation = (shard: ShardInfo) => {
-    console.log('[ClusterView] handleSelectForRelocation called with shard:', shard);
-
     if (!nodes || !shards) {
       console.error('[ClusterView] Cannot enter relocation mode: nodes or shards not available');
       return;
@@ -3753,8 +3738,6 @@ function ShardAllocationGrid({
 
       validDestinations.push(node.id);
     }
-
-    console.log('[ClusterView] Valid destinations:', validDestinations);
 
     // Check if there are any valid destinations
     if (validDestinations.length === 0) {

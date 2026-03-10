@@ -50,21 +50,12 @@ export function useSparklineData(
   }, [resetKey]);
 
   useEffect(() => {
-    console.log('[useSparklineData] Effect triggered:', { 
-      currentValue, 
-      initialized: initializedRef.current, 
-      dataLength: data.length,
-      lastRefreshTime 
-    });
-    
     if (currentValue === undefined) {
-      console.log('[useSparklineData] currentValue is undefined, returning');
       return;
     }
 
     // On first value, initialize with [0, currentValue] to show trend from baseline
     if (!initializedRef.current) {
-      console.log('[useSparklineData] Initializing with value:', currentValue);
       initializedRef.current = true;
       const now = Date.now();
       setData([
@@ -78,10 +69,8 @@ export function useSparklineData(
     // Add data point on EVERY refresh (tracked by lastRefreshTime)
     // This ensures the time axis progresses even if value doesn't change
     // FIFO: when limit is reached, remove oldest (first) data point
-    console.log('[useSparklineData] Adding data point:', currentValue);
     setData((prev) => {
       const newData = [...prev, { value: currentValue, timestamp: Date.now() }];
-      console.log('[useSparklineData] New data length:', newData.length);
 
       // FIFO: Keep only the last maxDataPoints by removing from the beginning
       if (newData.length > maxDataPoints) {
@@ -91,7 +80,7 @@ export function useSparklineData(
     });
 
     needsImmediateDataRef.current = false; // Clear the flag after adding data
-  }, [currentValue, lastRefreshTime, maxDataPoints, data.length]);
+  }, [currentValue, lastRefreshTime, maxDataPoints]);
 
   // Perform immediate data pull when switching to statistics tab
   // This effect runs when currentValue changes AND we need immediate data
