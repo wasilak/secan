@@ -844,28 +844,29 @@ export function ClusterView() {
       : [];
 
   // For Sparkline components (needs number[])
+  // Use Prometheus data if available (not internal metrics), regardless of active tab
   const nodesHistoryNumbers =
-    activeTab === 'statistics' && metricsHistory?.data
+    !isInternalMetrics && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.node_count)
       : nodesHistorySparkline;
 
   const indicesHistoryNumbers =
-    activeTab === 'statistics' && metricsHistory?.data
+    !isInternalMetrics && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.index_count || 0)
       : indicesHistorySparkline;
 
   const documentsHistoryNumbers =
-    activeTab === 'statistics' && metricsHistory?.data
+    !isInternalMetrics && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.document_count || 0)
       : documentsHistorySparkline;
 
   const shardsHistoryNumbers =
-    activeTab === 'statistics' && metricsHistory?.data
+    !isInternalMetrics && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.shard_count || 0)
       : shardsHistorySparkline;
 
   const unassignedHistoryNumbers =
-    activeTab === 'statistics' && metricsHistory?.data
+    !isInternalMetrics && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.unassigned_shards || 0)
       : unassignedHistorySparkline;
 
