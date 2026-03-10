@@ -751,98 +751,102 @@ export function ClusterView() {
   // Group raw memory metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like sum by (area) (elasticsearch_jvm_memory_used_bytes)
   // For internal metrics, raw_metrics is undefined, so these will be empty arrays
-  const memorySeriesMap = new Map<string, DataPoint[]>();
-  
-  if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
-    for (const point of metricsHistory.raw_metrics.memory) {
-      // Create a series key from labels in logfmt format (e.g., "area=heap")
-      const seriesKey = point.labels
-        ? Object.entries(point.labels)
-            .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
-            .map(([k, v]) => `${k}=${v}`)
-            .join(',')
-        : 'default';
-      
-      if (!memorySeriesMap.has(seriesKey)) {
-        memorySeriesMap.set(seriesKey, []);
+  const memorySeries = useMemo(() => {
+    const memorySeriesMap = new Map<string, DataPoint[]>();
+    
+    if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
+      for (const point of metricsHistory.raw_metrics.memory) {
+        // Create a series key from labels in logfmt format (e.g., "area=heap")
+        const seriesKey = point.labels
+          ? Object.entries(point.labels)
+              .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
+              .map(([k, v]) => `${k}=${v}`)
+              .join(',')
+          : 'default';
+        
+        if (!memorySeriesMap.has(seriesKey)) {
+          memorySeriesMap.set(seriesKey, []);
+        }
+        
+        memorySeriesMap.get(seriesKey)!.push({
+          value: point.value,
+          timestamp: point.timestamp * 1000, // Convert to milliseconds
+        });
       }
-      
-      memorySeriesMap.get(seriesKey)!.push({
-        value: point.value,
-        timestamp: point.timestamp * 1000, // Convert to milliseconds
-      });
     }
-  }
-  
-  // Convert map to array of series with formatted names
-  const memorySeries = Array.from(memorySeriesMap.entries()).map(([key, data]) => {
-    // Parse logfmt key back to get label values for display name
-    const labels = key.split(',').reduce((acc, pair) => {
-      const [k, v] = pair.split('=');
-      if (k && v) acc[k] = v;
-      return acc;
-    }, {} as Record<string, string>);
     
-    // Create display name from labels (e.g., "Heap" from area=heap)
-    const displayName = Object.entries(labels)
-      .map(([k, v]) => v.charAt(0).toUpperCase() + v.slice(1)) // Capitalize first letter
-      .join(', ') || 'Memory';
-    
-    return {
-      name: displayName,
-      data,
-      labels,
-    };
-  });
+    // Convert map to array of series with formatted names
+    return Array.from(memorySeriesMap.entries()).map(([key, data]) => {
+      // Parse logfmt key back to get label values for display name
+      const labels = key.split(',').reduce((acc, pair) => {
+        const [k, v] = pair.split('=');
+        if (k && v) acc[k] = v;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      // Create display name from labels (e.g., "Heap" from area=heap)
+      const displayName = Object.entries(labels)
+        .map(([k, v]) => v.charAt(0).toUpperCase() + v.slice(1)) // Capitalize first letter
+        .join(', ') || 'Memory';
+      
+      return {
+        name: displayName,
+        data,
+        labels,
+      };
+    });
+  }, [activeTab, isInternalMetrics, metricsHistory?.raw_metrics?.memory]);
 
   // Group raw CPU metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like avg by (node) (elasticsearch_process_cpu_percent)
   // For internal metrics, raw_metrics is undefined, so these will be empty arrays
-  const cpuSeriesMap = new Map<string, DataPoint[]>();
-  
-  if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
-    for (const point of metricsHistory.raw_metrics.cpu) {
-      // Create a series key from labels in logfmt format (e.g., "node=node-1")
-      const seriesKey = point.labels
-        ? Object.entries(point.labels)
-            .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
-            .map(([k, v]) => `${k}=${v}`)
-            .join(',')
-        : 'default';
-      
-      if (!cpuSeriesMap.has(seriesKey)) {
-        cpuSeriesMap.set(seriesKey, []);
+  const cpuSeries = useMemo(() => {
+    const cpuSeriesMap = new Map<string, DataPoint[]>();
+    
+    if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
+      for (const point of metricsHistory.raw_metrics.cpu) {
+        // Create a series key from labels in logfmt format (e.g., "node=node-1")
+        const seriesKey = point.labels
+          ? Object.entries(point.labels)
+              .sort(([a], [b]) => a.localeCompare(b)) // Sort for consistency
+              .map(([k, v]) => `${k}=${v}`)
+              .join(',')
+          : 'default';
+        
+        if (!cpuSeriesMap.has(seriesKey)) {
+          cpuSeriesMap.set(seriesKey, []);
+        }
+        
+        cpuSeriesMap.get(seriesKey)!.push({
+          value: point.value,
+          timestamp: point.timestamp * 1000, // Convert to milliseconds
+        });
       }
-      
-      cpuSeriesMap.get(seriesKey)!.push({
-        value: point.value,
-        timestamp: point.timestamp * 1000, // Convert to milliseconds
-      });
     }
-  }
-  
-  // Convert map to array of series with formatted names
-  const cpuSeries = Array.from(cpuSeriesMap.entries()).map(([key, data]) => {
-    // Parse logfmt key back to get label values for display name
-    const labels = key.split(',').reduce((acc, pair) => {
-      const [k, v] = pair.split('=');
-      if (k && v) acc[k] = v;
-      return acc;
-    }, {} as Record<string, string>);
     
-    // Create display name from labels in logfmt format (e.g., "node=node-1")
-    // Show all labels in key=value format
-    const displayName = Object.entries(labels)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => `${k}=${v}`)
-      .join(',') || 'CPU';
-    
-    return {
-      name: displayName,
-      data,
-      labels,
-    };
-  });
+    // Convert map to array of series with formatted names
+    return Array.from(cpuSeriesMap.entries()).map(([key, data]) => {
+      // Parse logfmt key back to get label values for display name
+      const labels = key.split(',').reduce((acc, pair) => {
+        const [k, v] = pair.split('=');
+        if (k && v) acc[k] = v;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      // Create display name from labels in logfmt format (e.g., "node=node-1")
+      // Show all labels in key=value format
+      const displayName = Object.entries(labels)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join(',') || 'CPU';
+      
+      return {
+        name: displayName,
+        data,
+        labels,
+      };
+    });
+  }, [activeTab, isInternalMetrics, metricsHistory?.raw_metrics?.cpu]);
 
   const memoryNonHeapHistory: DataPoint[] =
     activeTab === 'statistics' && metricsHistory?.data
