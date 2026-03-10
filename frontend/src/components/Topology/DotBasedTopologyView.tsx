@@ -435,6 +435,33 @@ export function DotBasedTopologyView({
     );
   };
 
+  // Helper function to sort nodes with master nodes first
+  const sortNodesWithMasterFirst = (nodes: NodeInfo[]): NodeInfo[] => {
+    return [...nodes].sort((a, b) => {
+      const aIsMaster = a.roles?.includes('master') ?? false;
+      const bIsMaster = b.roles?.includes('master') ?? false;
+      
+      // Master nodes come first
+      if (aIsMaster && !bIsMaster) return -1;
+      if (!aIsMaster && bIsMaster) return 1;
+      
+      // Otherwise maintain original order (stable sort by name)
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  // Helper function to sort group entries with master group first
+  const sortGroupEntriesWithMasterFirst = (entries: [string, NodeInfo[]][]): [string, NodeInfo[]][] => {
+    return [...entries].sort(([keyA], [keyB]) => {
+      // Master group always comes first
+      if (keyA === 'master' && keyB !== 'master') return -1;
+      if (keyA !== 'master' && keyB === 'master') return 1;
+      
+      // Otherwise maintain original order
+      return 0;
+    });
+  };
+
   return (
     <div>
       {/* Grouping Control - wrapped in error boundary */}
@@ -452,8 +479,9 @@ export function DotBasedTopologyView({
       {/* Nodes Grid - with or without grouping */}
       {groupingConfig.attribute === 'none' ? (
         // No grouping - render ALL nodes (including those without shards)
+        // Sort to show master nodes first
         <Grid gutter="md">
-          {filteredNodes.map((node) => {
+          {sortNodesWithMasterFirst(filteredNodes).map((node) => {
             const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
             return renderNodeCard(node, nodeShards);
           })}
@@ -472,7 +500,7 @@ export function DotBasedTopologyView({
             </Grid>
           }
         >
-          {Array.from(nodeGroups.entries())
+          {sortGroupEntriesWithMasterFirst(Array.from(nodeGroups.entries()))
             .map(([groupKey, groupNodes]) => {
               // Show ALL nodes in the group, not just those with shards
               // Master nodes without shard allocations should still be visible
@@ -485,15 +513,18 @@ export function DotBasedTopologyView({
                 return null;
               }
 
+              // Sort nodes within each group to show master nodes first
+              const sortedVisibleNodes = sortNodesWithMasterFirst(visibleNodes);
+
               return (
                 <GroupRenderer
                   key={groupKey}
                   groupKey={groupKey}
                   groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
-                  nodes={visibleNodes}
+                  nodes={sortedVisibleNodes}
                 >
                   <Grid gutter="md">
-                    {visibleNodes.map(node => {
+                    {sortedVisibleNodes.map(node => {
                       const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
                       return renderNodeCard(node, nodeShards);
                     })}
