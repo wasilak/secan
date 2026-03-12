@@ -1,4 +1,9 @@
-import { Tooltip, Box } from '@mantine/core';
+/**
+ * AllocationLockIndicator component displays and controls cluster allocation state
+ * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7
+ */
+
+import { ActionIcon, Tooltip, Menu, Group } from '@mantine/core';
 import {
   IconLockOpen,
   IconLock,
@@ -6,101 +11,109 @@ import {
   IconLockCog,
 } from '@tabler/icons-react';
 
-/**
- * Allocation state types for cluster shard allocation
- * Requirements: 2.3, 2.4, 2.5, 2.6
- */
 export type AllocationState = 'all' | 'primaries' | 'new_primaries' | 'none';
 
-/**
- * Props for AllocationLockIndicator component
- */
-export interface AllocationLockIndicatorProps {
-  /** Current allocation state of the cluster */
+interface AllocationLockIndicatorProps {
+  /** Current allocation state */
   allocationState: AllocationState;
-  /** Cluster name for tooltip context */
-  clusterName: string;
-  /** Cluster version for tooltip context */
-  clusterVersion: string;
+  /** Mutation for enabling allocation */
+  enableAllocationMutation: { mutate: (variables?: void) => void; isPending: boolean };
+  /** Mutation for disabling allocation */
+  disableAllocationMutation: { mutate: (mode: string) => void; isPending: boolean };
 }
 
 /**
- * AllocationLockIndicator Component
- *
- * Displays the current cluster allocation lock status with an appropriate icon.
- * Shows a tooltip explaining the allocation state when hovered.
- *
- * Icon Mapping:
- * - 'all': IconLockOpen (unlocked) - All shard allocations enabled
- * - 'primaries': IconLockSquare (partially locked) - Only primary shard allocations enabled
- * - 'new_primaries': IconLockCog (lock with settings) - Only new primary shard allocations enabled
- * - 'none': IconLock (fully locked) - All shard allocations disabled
- *
- * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7
+ * Maps allocation states to visual indicators
+ * 
+ * Requirements:
+ * - 2.3: all → unlocked padlock (green)
+ * - 2.4: primaries → partially locked (yellow)
+ * - 2.5: none → fully locked (red)
+ * - 2.6: new_primaries → distinct state (orange)
+ */
+const getAllocationIcon = (state: AllocationState) => {
+  switch (state) {
+    case 'all':
+      return { Icon: IconLockOpen, color: 'green', label: 'Allocation Enabled (All)' };
+    case 'primaries':
+      return { Icon: IconLockSquare, color: 'yellow', label: 'Allocation Enabled (Primaries Only)' };
+    case 'new_primaries':
+      return { Icon: IconLockCog, color: 'orange', label: 'Allocation Enabled (New Primaries Only)' };
+    case 'none':
+      return { Icon: IconLock, color: 'red', label: 'Allocation Disabled' };
+  }
+};
+
+/**
+ * AllocationLockIndicator component
+ * 
+ * Displays the current cluster allocation lock status with appropriate icon and color.
+ * Opens context menu on click to change allocation state.
+ * Positioned in cluster header for constant visibility.
+ * 
+ * Requirements:
+ * - 2.1: Display on same line as cluster name and version
+ * - 2.2: Position at maximum right of display area
+ * - 2.3, 2.4, 2.5, 2.6: Map states to distinct icons
+ * - 2.7: Remain visible during scrolling
  */
 export function AllocationLockIndicator({
   allocationState,
-  clusterName: _clusterName,
-  clusterVersion: _clusterVersion,
+  enableAllocationMutation,
+  disableAllocationMutation,
 }: AllocationLockIndicatorProps) {
-  // Map allocation states to icons and tooltip messages
-  const getIconAndTooltip = () => {
-    switch (allocationState) {
-      case 'all':
-        return {
-          Icon: IconLockOpen,
-          tooltip: 'Shard allocation: Enabled for all shards',
-          color: 'var(--mantine-color-green-6)',
-        };
-      case 'primaries':
-        return {
-          Icon: IconLockSquare,
-          tooltip: 'Shard allocation: Enabled for primaries only',
-          color: 'var(--mantine-color-yellow-6)',
-        };
-      case 'new_primaries':
-        return {
-          Icon: IconLockCog,
-          tooltip: 'Shard allocation: Enabled for new primaries only',
-          color: 'var(--mantine-color-orange-6)',
-        };
-      case 'none':
-        return {
-          Icon: IconLock,
-          tooltip: 'Shard allocation: Disabled for all shards',
-          color: 'var(--mantine-color-red-6)',
-        };
-      default:
-        // Fallback for unknown states
-        return {
-          Icon: IconLock,
-          tooltip: 'Shard allocation: Unknown state',
-          color: 'var(--mantine-color-gray-6)',
-        };
-    }
-  };
-
-  const { Icon, tooltip, color } = getIconAndTooltip();
+  const { Icon, color, label } = getAllocationIcon(allocationState);
+  const isEnabled = allocationState === 'all';
 
   return (
-    <Tooltip
-      label={tooltip}
-      withArrow
-      position="bottom"
-    >
-      <Box
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          cursor: 'help',
-        }}
-      >
-        <Icon
-          size={20}
-          style={{ color }}
-          aria-label={tooltip}
-        />
-      </Box>
-    </Tooltip>
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <Tooltip label={label} position="bottom">
+          <ActionIcon
+            variant="subtle"
+            color={color}
+            size="lg"
+            loading={enableAllocationMutation.isPending || disableAllocationMutation.isPending}
+          >
+            <Icon size={20} />
+          </ActionIcon>
+        </Tooltip>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {isEnabled ? (
+          <>
+            <Menu.Label>Disable Allocation</Menu.Label>
+            <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
+              <Group gap="xs">
+                <IconLock size={14} />
+                None (disable all)
+              </Group>
+            </Menu.Item>
+            <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
+              <Group gap="xs">
+                <IconLockSquare size={14} />
+                Primaries only
+              </Group>
+            </Menu.Item>
+            <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
+              <Group gap="xs">
+                <IconLockCog size={14} />
+                New primaries only
+              </Group>
+            </Menu.Item>
+          </>
+        ) : (
+          <>
+            <Menu.Label>Enable Allocation</Menu.Label>
+            <Menu.Item onClick={() => enableAllocationMutation.mutate()}>
+              <Group gap="xs">
+                <IconLockOpen size={14} />
+                Enable all
+              </Group>
+            </Menu.Item>
+          </>
+        )}
+      </Menu.Dropdown>
+    </Menu>
   );
 }

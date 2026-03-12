@@ -1072,8 +1072,8 @@ export function ClusterView() {
           {clusterSettings && (
             <AllocationLockIndicator
               allocationState={allocationState}
-              clusterName={clusterName}
-              clusterVersion={stats?.esVersion || 'unknown'}
+              enableAllocationMutation={enableAllocationMutation}
+              disableAllocationMutation={disableAllocationMutation}
             />
           )}
         </Group>
