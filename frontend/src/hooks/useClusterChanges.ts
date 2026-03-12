@@ -34,10 +34,9 @@ export function useClusterChanges(
   // Store previous cluster state using useRef to persist across renders
   const previousStateRef = useRef<ClusterState | null>(null);
   
-  // Track if we've seen the first load for nodes and indices separately
+  // Track if we've initialized with first real data (not empty arrays)
   // This prevents showing notifications for existing items on page load/refresh
-  const hasSeenNodesRef = useRef<boolean>(false);
-  const hasSeenIndicesRef = useRef<boolean>(false);
+  const isInitializedRef = useRef<boolean>(false);
   
   // Track the current cluster ID to detect changes
   const clusterIdRef = useRef<string>(clusterId);
@@ -53,8 +52,7 @@ export function useClusterChanges(
     if (clusterIdRef.current !== clusterId) {
       clusterIdRef.current = clusterId;
       previousStateRef.current = null;
-      hasSeenNodesRef.current = false;
-      hasSeenIndicesRef.current = false;
+      isInitializedRef.current = false;
       // Don't call onChanges here - just reset state
       return;
     }
@@ -64,16 +62,6 @@ export function useClusterChanges(
       return;
     }
 
-    // Track first load for nodes
-    if (!hasSeenNodesRef.current && nodes.length > 0) {
-      hasSeenNodesRef.current = true;
-    }
-
-    // Track first load for indices
-    if (!hasSeenIndicesRef.current && indices.length > 0) {
-      hasSeenIndicesRef.current = true;
-    }
-
     // Create current state snapshot
     const currentState: ClusterState = {
       nodes,
@@ -81,14 +69,19 @@ export function useClusterChanges(
       timestamp: Date.now(),
     };
 
-    // If we haven't seen the first load for both nodes and indices yet, just store state
-    if (!hasSeenNodesRef.current || !hasSeenIndicesRef.current) {
-      previousStateRef.current = currentState;
-      // Don't detect changes on first load - just return
+    // If not initialized yet, wait for BOTH arrays to have actual data
+    // This handles the case where queries go: undefined → [] → [data]
+    if (!isInitializedRef.current) {
+      // Only initialize when we have real data (not just empty arrays from initial fetch)
+      if (nodes.length > 0 && indices.length > 0) {
+        isInitializedRef.current = true;
+        previousStateRef.current = currentState;
+      }
+      // Don't detect changes until initialized
       return;
     }
 
-    // If there's no previous state (shouldn't happen after first load), set it
+    // If there's no previous state (shouldn't happen after initialization), set it
     if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
       return;
