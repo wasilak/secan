@@ -115,42 +115,46 @@ export function AllocationLockIndicator({
         </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
-        {/* Always show Enable All option if not already in 'all' state */}
+        <Menu.Label>Allocation State</Menu.Label>
+        
+        {/* Enable all option */}
         {displayState !== 'all' && (
-          <>
-            <Menu.Label>Enable Allocation</Menu.Label>
-            <Menu.Item onClick={handleEnableAll}>
-              <Group gap="xs">
-                <IconLockOpen size={14} />
-                Enable all
-              </Group>
-            </Menu.Item>
-          </>
+          <Menu.Item onClick={handleEnableAll}>
+            <Group gap="xs">
+              <IconLockOpen size={14} />
+              Enable all
+            </Group>
+          </Menu.Item>
         )}
         
-        {/* Show disable options when allocation is enabled (all state) */}
-        {displayState === 'all' && (
-          <>
-            <Menu.Label>Disable Allocation</Menu.Label>
-            <Menu.Item onClick={() => handleDisable('none')}>
-              <Group gap="xs">
-                <IconLock size={14} />
-                None (disable all)
-              </Group>
-            </Menu.Item>
-            <Menu.Item onClick={() => handleDisable('primaries')}>
-              <Group gap="xs">
-                <IconLockSquare size={14} />
-                Primaries only
-              </Group>
-            </Menu.Item>
-            <Menu.Item onClick={() => handleDisable('new_primaries')}>
-              <Group gap="xs">
-                <IconLockCog size={14} />
-                New primaries only
-              </Group>
-            </Menu.Item>
-          </>
+        {/* Primaries only option */}
+        {displayState !== 'primaries' && (
+          <Menu.Item onClick={() => handleDisable('primaries')}>
+            <Group gap="xs">
+              <IconLockSquare size={14} />
+              Primaries only
+            </Group>
+          </Menu.Item>
+        )}
+        
+        {/* New primaries only option */}
+        {displayState !== 'new_primaries' && (
+          <Menu.Item onClick={() => handleDisable('new_primaries')}>
+            <Group gap="xs">
+              <IconLockCog size={14} />
+              New primaries only
+            </Group>
+          </Menu.Item>
+        )}
+        
+        {/* Disable all option */}
+        {displayState !== 'none' && (
+          <Menu.Item onClick={() => handleDisable('none')}>
+            <Group gap="xs">
+              <IconLock size={14} />
+              None (disable all)
+            </Group>
+          </Menu.Item>
         )}
       </Menu.Dropdown>
     </Menu>
