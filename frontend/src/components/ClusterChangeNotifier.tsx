@@ -44,7 +44,7 @@ export function ClusterChangeNotifier({
     changes.nodesAdded.forEach((node) => {
       showInfoNotification({
         title: 'Node Joined',
-        message: `Node "${node.name}" (${node.id}) has joined cluster "${clusterId}"`,
+        message: `Node "${node.name}" (${node.id}) has joined`,
       });
     });
 
@@ -52,7 +52,7 @@ export function ClusterChangeNotifier({
     changes.nodesRemoved.forEach((node) => {
       showWarningNotification({
         title: 'Node Left',
-        message: `Node "${node.name}" (${node.id}) has left cluster "${clusterId}"`,
+        message: `Node "${node.name}" (${node.id}) has left`,
       });
     });
 
@@ -60,7 +60,7 @@ export function ClusterChangeNotifier({
     changes.indicesCreated.forEach((index) => {
       showInfoNotification({
         title: 'Index Created',
-        message: `Index "${index.name}" has been created in cluster "${clusterId}"`,
+        message: `Index "${index.name}" has been created`,
       });
     });
 
@@ -68,7 +68,7 @@ export function ClusterChangeNotifier({
     changes.indicesDeleted.forEach((index) => {
       showWarningNotification({
         title: 'Index Deleted',
-        message: `Index "${index.name}" has been deleted from cluster "${clusterId}"`,
+        message: `Index "${index.name}" has been deleted`,
       });
     });
   }, [clusterId, changes]);

@@ -11,9 +11,6 @@ import {
   type ClusterChanges,
 } from '../utils/clusterDiff';
 
-// Track which clusters have been initialized (persists across component lifecycles)
-const initializedClusters = new Set<string>();
-
 /**
  * Hook that detects changes in cluster topology by comparing current state with previous state
  * 
@@ -52,14 +49,10 @@ export function useClusterChanges(
       timestamp: Date.now(),
     };
 
-    // Check if this cluster has been initialized before (across all component lifecycles)
-    const isFirstLoad = !initializedClusters.has(clusterId);
-
-    // On first load for this cluster, just initialize the previous state without detecting changes
-    // This prevents showing notifications for all existing nodes/indices
-    if (isFirstLoad) {
+    // If there's no previous state, this is the first load
+    // Initialize previous state without detecting changes to prevent notifications for existing items
+    if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
-      initializedClusters.add(clusterId);
       return;
     }
 
