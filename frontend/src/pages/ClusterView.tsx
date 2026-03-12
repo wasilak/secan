@@ -97,7 +97,6 @@ import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
 import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import { useBulkSelection } from '../hooks/useBulkSelection';
-import { useClusterChanges } from '../hooks/useClusterChanges';
 import { ClusterChangeNotifier } from '../components/ClusterChangeNotifier';
 import { AllocationLockIndicator, AllocationState } from '../components/Topology/AllocationLockIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
@@ -1000,10 +999,6 @@ export function ClusterView() {
   const nodes = nodesArray;
   const indices = indicesArray;
 
-  // Detect cluster topology changes and show notifications
-  // Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6
-  const clusterChanges = useClusterChanges(id || '', nodesArray, allIndicesArray);
-
   if (!id) {
     return (
       <Stack p="md">
@@ -1058,7 +1053,7 @@ export function ClusterView() {
   return (
     <Stack gap="md" p="md">
       {/* Cluster change notifications - Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 */}
-      <ClusterChangeNotifier clusterId={id} changes={clusterChanges} />
+      <ClusterChangeNotifier clusterId={id} nodes={nodesArray} indices={allIndicesArray} />
       
       {/* Cluster Name with Version and Allocation Lock Indicator */}
       <div>

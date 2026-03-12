@@ -3,7 +3,7 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4
  */
 
-import { useRef, useMemo } from 'react';
+import { useRef, useEffect } from 'react';
 import type { NodeInfo, IndexInfo } from '../types/api';
 import {
   detectClusterChanges,
@@ -17,19 +17,20 @@ import {
  * @param clusterId - Cluster identifier for tracking state
  * @param nodes - Current list of nodes
  * @param indices - Current list of indices
- * @returns ClusterChanges object with detected changes, or null if no changes or first load
+ * @param onChanges - Callback function to handle detected changes
  * 
  * Requirements:
  * - 1.1: Detect nodes added/removed
  * - 1.2: Detect indices created/deleted
- * - 1.3: Return structured ClusterChanges object
+ * - 1.3: Return structured ClusterChanges object via callback
  * - 1.4: Use useRef to store previous state
  */
 export function useClusterChanges(
   clusterId: string,
   nodes: NodeInfo[] | undefined,
-  indices: IndexInfo[] | undefined
-): ClusterChanges | null {
+  indices: IndexInfo[] | undefined,
+  onChanges: (changes: ClusterChanges | null) => void
+): void {
   // Store previous cluster state using useRef to persist across renders
   const previousStateRef = useRef<ClusterState | null>(null);
   
@@ -39,20 +40,33 @@ export function useClusterChanges(
   
   // Track the current cluster ID to detect changes
   const clusterIdRef = useRef<string>(clusterId);
+  
+  // Stable callback reference
+  const onChangesRef = useRef(onChanges);
+  useEffect(() => {
+    onChangesRef.current = onChanges;
+  }, [onChanges]);
 
-  // Use useMemo to compute changes without triggering re-renders
-  return useMemo(() => {
+  useEffect(() => {
     // Reset state when cluster ID changes (e.g., navigating to different cluster)
     if (clusterIdRef.current !== clusterId) {
       clusterIdRef.current = clusterId;
       previousStateRef.current = null;
       initializedRef.current = false;
-      return null;
+      // Don't call onChanges here - just reset state
+      return;
     }
 
     // Skip if data is not yet loaded
     if (!nodes || !indices) {
-      return null;
+      return;
+    }
+
+    // Skip if arrays are empty (still loading initial data)
+    // This prevents setting initial state with empty arrays, which would cause
+    // all items to be detected as "added" when real data loads
+    if (nodes.length === 0 && indices.length === 0) {
+      return;
     }
 
     // Create current state snapshot
@@ -67,13 +81,13 @@ export function useClusterChanges(
     if (!initializedRef.current) {
       previousStateRef.current = currentState;
       initializedRef.current = true;
-      return null;
+      return;
     }
 
     // If there's no previous state (shouldn't happen after initialization), set it
     if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
-      return null;
+      return;
     }
 
     // Detect changes by comparing with previous state
@@ -82,6 +96,7 @@ export function useClusterChanges(
     // Update previous state for next comparison
     previousStateRef.current = currentState;
 
-    return detectedChanges;
+    // Call the callback with detected changes
+    onChangesRef.current(detectedChanges);
   }, [clusterId, nodes, indices]);
 }
