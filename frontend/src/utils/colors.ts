@@ -84,11 +84,11 @@ export function getShardStateColor(state: ShardInfo['state']): string {
 /**
  * Get border color for shard cells in the grid
  *
- * Requirements: 1.5, 3.5
+ * Requirements: 5.1, 5.2, 5.6
  * - Uses CSS variables for theme compatibility
  * - Green border for STARTED (healthy)
- * - Yellow border for INITIALIZING
- * - Orange border for RELOCATING
+ * - Blue-4 border for INITIALIZING (light blue)
+ * - Orange-6 border for RELOCATING (yellow-orange)
  * - Red border for UNASSIGNED
  *
  * @param state - The state of the shard
@@ -99,7 +99,7 @@ export function getShardBorderColor(state: ShardInfo['state']): string {
     case 'STARTED':
       return 'var(--mantine-color-green-6)';
     case 'INITIALIZING':
-      return 'var(--mantine-color-yellow-6)';
+      return 'var(--mantine-color-blue-4)';
     case 'RELOCATING':
       return 'var(--mantine-color-orange-6)';
     case 'UNASSIGNED':
@@ -107,4 +107,20 @@ export function getShardBorderColor(state: ShardInfo['state']): string {
     default:
       return 'var(--mantine-color-gray-6)';
   }
+}
+
+/**
+ * Get color for unassigned shards with differentiation between primary and replica
+ *
+ * Requirements: 5.3, 5.4
+ * - Bright red (red-6) for unassigned primary shards
+ * - Dimmed red (red-4) for unassigned replica shards
+ *
+ * @param isPrimary - Whether the shard is a primary shard
+ * @returns CSS color variable for the unassigned shard
+ */
+export function getUnassignedShardColor(isPrimary: boolean): string {
+  return isPrimary
+    ? 'var(--mantine-color-red-6)' // Bright red for primaries
+    : 'var(--mantine-color-red-4)'; // Dimmed red for replicas
 }
