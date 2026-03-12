@@ -1063,7 +1063,7 @@ export function ClusterView() {
       {/* Cluster change notifications - Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 */}
       <ClusterChangeNotifier clusterId={id} changes={clusterChanges} />
       
-      {/* Cluster Name with Version */}
+      {/* Cluster Name with Version and Allocation Lock Indicator */}
       <div>
         <Group gap="xs" wrap="nowrap" justify="space-between">
           <Group gap="xs" wrap="nowrap">
