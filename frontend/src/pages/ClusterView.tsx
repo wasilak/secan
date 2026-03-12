@@ -245,9 +245,17 @@ export function ClusterView() {
     const data = clusterSettings as Record<string, unknown>;
     const transient = data.transient as Record<string, unknown> | undefined;
     const persistent = data.persistent as Record<string, unknown> | undefined;
-    const transientEnable = (transient?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
-    const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
-    const enableValue = ((transientEnable as Record<string, unknown>)?.enable as string) || ((persistentEnable as Record<string, unknown>)?.enable as string) || 'all';
+    
+    // Navigate through nested structure: cluster.routing.allocation.enable
+    const transientCluster = transient?.cluster as Record<string, unknown> | undefined;
+    const persistentCluster = persistent?.cluster as Record<string, unknown> | undefined;
+    const transientRouting = transientCluster?.routing as Record<string, unknown> | undefined;
+    const persistentRouting = persistentCluster?.routing as Record<string, unknown> | undefined;
+    const transientAllocation = transientRouting?.allocation as Record<string, unknown> | undefined;
+    const persistentAllocation = persistentRouting?.allocation as Record<string, unknown> | undefined;
+    
+    // Get enable value (transient takes precedence over persistent)
+    const enableValue = (transientAllocation?.enable as string) || (persistentAllocation?.enable as string) || 'all';
     return enableValue === 'all';
   })();
 
@@ -258,9 +266,17 @@ export function ClusterView() {
     const data = clusterSettings as Record<string, unknown>;
     const transient = data.transient as Record<string, unknown> | undefined;
     const persistent = data.persistent as Record<string, unknown> | undefined;
-    const transientEnable = (transient?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
-    const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
-    const enableValue = ((transientEnable as Record<string, unknown>)?.enable as string) || ((persistentEnable as Record<string, unknown>)?.enable as string) || 'all';
+    
+    // Navigate through nested structure: cluster.routing.allocation.enable
+    const transientCluster = transient?.cluster as Record<string, unknown> | undefined;
+    const persistentCluster = persistent?.cluster as Record<string, unknown> | undefined;
+    const transientRouting = transientCluster?.routing as Record<string, unknown> | undefined;
+    const persistentRouting = persistentCluster?.routing as Record<string, unknown> | undefined;
+    const transientAllocation = transientRouting?.allocation as Record<string, unknown> | undefined;
+    const persistentAllocation = persistentRouting?.allocation as Record<string, unknown> | undefined;
+    
+    // Get enable value (transient takes precedence over persistent)
+    const enableValue = (transientAllocation?.enable as string) || (persistentAllocation?.enable as string) || 'all';
     
     // Validate and return allocation state
     if (enableValue === 'all' || enableValue === 'primaries' || enableValue === 'new_primaries' || enableValue === 'none') {

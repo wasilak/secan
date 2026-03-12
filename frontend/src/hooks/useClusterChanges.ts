@@ -34,9 +34,9 @@ export function useClusterChanges(
   // Store previous cluster state using useRef to persist across renders
   const previousStateRef = useRef<ClusterState | null>(null);
   
-  // Track if we've initialized for this cluster in this session
+  // Track if we've seen the first complete data load
   // This prevents showing notifications for existing items on page load/refresh
-  const initializedRef = useRef<boolean>(false);
+  const hasSeenFirstLoadRef = useRef<boolean>(false);
   
   // Track the current cluster ID to detect changes
   const clusterIdRef = useRef<string>(clusterId);
@@ -52,13 +52,13 @@ export function useClusterChanges(
     if (clusterIdRef.current !== clusterId) {
       clusterIdRef.current = clusterId;
       previousStateRef.current = null;
-      initializedRef.current = false;
+      hasSeenFirstLoadRef.current = false;
       // Don't call onChanges here - just reset state
       return;
     }
 
-    // Skip if data is not yet loaded
-    if (!nodes || !indices) {
+    // Skip if data is not yet loaded (undefined means still loading)
+    if (nodes === undefined || indices === undefined) {
       return;
     }
 
@@ -69,20 +69,20 @@ export function useClusterChanges(
       timestamp: Date.now(),
     };
 
-    // If not yet initialized for this cluster, set initial state without detecting changes
-    // This prevents notifications for all existing items on first load
-    if (!initializedRef.current) {
-      // Only initialize if we have actual data in BOTH arrays (not empty arrays from loading state)
-      // This prevents detecting everything as "added" when one array loads before the other
-      // We wait for both to have data to ensure we capture the complete initial state
+    // If we haven't seen the first complete load yet
+    if (!hasSeenFirstLoadRef.current) {
+      // Wait for BOTH arrays to have data (not empty arrays from loading state)
+      // This ensures we capture the complete initial state
       if (nodes.length > 0 && indices.length > 0) {
+        // Mark that we've seen the first load and store the state
+        hasSeenFirstLoadRef.current = true;
         previousStateRef.current = currentState;
-        initializedRef.current = true;
       }
+      // Don't detect changes on first load - just return
       return;
     }
 
-    // If there's no previous state (shouldn't happen after initialization), set it
+    // If there's no previous state (shouldn't happen after first load), set it
     if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
       return;
