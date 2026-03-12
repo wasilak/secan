@@ -4,7 +4,6 @@
  */
 
 import { useEffect } from 'react';
-import { IconCirclePlus, IconCircleMinus } from '@tabler/icons-react';
 import type { ClusterChanges } from '../utils/clusterDiff';
 import { hasChanges } from '../utils/clusterDiff';
 import { showInfoNotification, showWarningNotification } from '../utils/notifications';
@@ -46,7 +45,6 @@ export function ClusterChangeNotifier({
       showInfoNotification({
         title: 'Node Joined',
         message: `Node "${node.name}" (${node.id}) has joined cluster "${clusterId}"`,
-        icon: <IconCirclePlus size={18} />,
       });
     });
 
@@ -55,7 +53,6 @@ export function ClusterChangeNotifier({
       showWarningNotification({
         title: 'Node Left',
         message: `Node "${node.name}" (${node.id}) has left cluster "${clusterId}"`,
-        icon: <IconCircleMinus size={18} />,
       });
     });
 
@@ -64,7 +61,6 @@ export function ClusterChangeNotifier({
       showInfoNotification({
         title: 'Index Created',
         message: `Index "${index.name}" has been created in cluster "${clusterId}"`,
-        icon: <IconCirclePlus size={18} />,
       });
     });
 
@@ -73,7 +69,6 @@ export function ClusterChangeNotifier({
       showWarningNotification({
         title: 'Index Deleted',
         message: `Index "${index.name}" has been deleted from cluster "${clusterId}"`,
-        icon: <IconCircleMinus size={18} />,
       });
     });
   }, [clusterId, changes]);
