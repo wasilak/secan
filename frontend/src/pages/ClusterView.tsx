@@ -98,6 +98,7 @@ import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useClusterChanges } from '../hooks/useClusterChanges';
 import { ClusterChangeNotifier } from '../components/ClusterChangeNotifier';
+import { AllocationLockIndicator, AllocationState } from '../components/Topology/AllocationLockIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
@@ -248,6 +249,24 @@ export function ClusterView() {
     const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
     const enableValue = ((transientEnable as Record<string, unknown>)?.enable as string) || ((persistentEnable as Record<string, unknown>)?.enable as string) || 'all';
     return enableValue === 'all';
+  })();
+
+  // Extract allocation state for AllocationLockIndicator
+  // Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
+  const allocationState: AllocationState = (() => {
+    if (!clusterSettings) return 'all';
+    const data = clusterSettings as Record<string, unknown>;
+    const transient = data.transient as Record<string, unknown> | undefined;
+    const persistent = data.persistent as Record<string, unknown> | undefined;
+    const transientEnable = (transient?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
+    const persistentEnable = (persistent?.cluster as Record<string, unknown> | undefined)?.routing as Record<string, unknown> | undefined;
+    const enableValue = ((transientEnable as Record<string, unknown>)?.enable as string) || ((persistentEnable as Record<string, unknown>)?.enable as string) || 'all';
+    
+    // Validate and return allocation state
+    if (enableValue === 'all' || enableValue === 'primaries' || enableValue === 'new_primaries' || enableValue === 'none') {
+      return enableValue as AllocationState;
+    }
+    return 'all'; // Default fallback
   })();
 
   const enableAllocationMutation = useMutation({
@@ -1046,15 +1065,23 @@ export function ClusterView() {
       
       {/* Cluster Name with Version */}
       <div>
-        <Group gap="xs" wrap="nowrap">
-          <Title order={1} className="text-responsive-xl">
-            {clusterName}
-          </Title>
-          {stats?.esVersion && (
-            <Text size="lg" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-              {stats.esVersion}
-            </Text>
-          )}
+        <Group gap="xs" wrap="nowrap" justify="space-between">
+          <Group gap="xs" wrap="nowrap">
+            <Title order={1} className="text-responsive-xl">
+              {clusterName}
+            </Title>
+            {stats?.esVersion && (
+              <Text size="lg" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                {stats.esVersion}
+              </Text>
+            )}
+          </Group>
+          {/* Allocation Lock Indicator - Requirements: 2.1, 2.2, 2.7 */}
+          <AllocationLockIndicator
+            allocationState={allocationState}
+            clusterName={clusterName}
+            clusterVersion={stats?.esVersion || 'unknown'}
+          />
         </Group>
       </div>
 

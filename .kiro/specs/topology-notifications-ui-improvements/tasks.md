@@ -62,11 +62,11 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test notification configuration (timeout, position, colors)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [-] 3. Checkpoint - Verify notification system
+- [x] 3. Checkpoint - Verify notification system
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Implement allocation lock status indicator
-  - [ ] 4.1 Create `AllocationLockIndicator` component in `components/Topology/AllocationLockIndicator.tsx`
+- [x] 4. Implement allocation lock status indicator
+  - [x] 4.1 Create `AllocationLockIndicator` component in `components/Topology/AllocationLockIndicator.tsx`
     - Accept `allocationState`, `clusterName`, and `clusterVersion` props
     - Map allocation states to Tabler icons: all→IconLockOpen, primaries→IconLockHalf, new_primaries→IconLockAccess, none→IconLock
     - Add tooltip with allocation status explanation
@@ -77,7 +77,7 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - **Property 3: Allocation State Icon Mapping**
     - **Validates: Requirements 2.3, 2.4, 2.5, 2.6**
   
-  - [ ] 4.3 Integrate `AllocationLockIndicator` into topology view header
+  - [x] 4.3 Integrate `AllocationLockIndicator` into topology view header
     - Add component to cluster header on same line as cluster name and version
     - Position at maximum right of display area
     - Ensure visibility during scrolling
