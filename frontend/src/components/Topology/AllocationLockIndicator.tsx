@@ -115,7 +115,7 @@ export function AllocationLockIndicator({
         </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Label>Allocation State</Menu.Label>
+        <Menu.Label>Change Allocation State</Menu.Label>
         
         {/* Enable all option */}
         {displayState !== 'all' && (
