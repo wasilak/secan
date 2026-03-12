@@ -6,7 +6,7 @@
 import { useEffect } from 'react';
 import type { ClusterChanges } from '../utils/clusterDiff';
 import { hasChanges } from '../utils/clusterDiff';
-import { showInfoNotification, showWarningNotification } from '../utils/notifications';
+import { showSpecialNotification } from '../utils/notifications';
 
 interface ClusterChangeNotifierProps {
   /** Cluster identifier for notification context */
@@ -40,33 +40,33 @@ export function ClusterChangeNotifier({
       return;
     }
 
-    // Notify about nodes added (blue color for additions)
+    // Notify about nodes added (violet/purple color)
     changes.nodesAdded.forEach((node) => {
-      showInfoNotification({
+      showSpecialNotification({
         title: 'Node Joined',
         message: `Node "${node.name}" (${node.id}) has joined`,
       });
     });
 
-    // Notify about nodes removed (orange color for removals)
+    // Notify about nodes removed (violet/purple color)
     changes.nodesRemoved.forEach((node) => {
-      showWarningNotification({
+      showSpecialNotification({
         title: 'Node Left',
         message: `Node "${node.name}" (${node.id}) has left`,
       });
     });
 
-    // Notify about indices created (blue color for additions)
+    // Notify about indices created (violet/purple color)
     changes.indicesCreated.forEach((index) => {
-      showInfoNotification({
+      showSpecialNotification({
         title: 'Index Created',
         message: `Index "${index.name}" has been created`,
       });
     });
 
-    // Notify about indices deleted (orange color for removals)
+    // Notify about indices deleted (violet/purple color)
     changes.indicesDeleted.forEach((index) => {
-      showWarningNotification({
+      showSpecialNotification({
         title: 'Index Deleted',
         message: `Index "${index.name}" has been deleted`,
       });

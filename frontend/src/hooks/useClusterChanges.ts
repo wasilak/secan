@@ -33,8 +33,19 @@ export function useClusterChanges(
   // Store previous cluster state using useRef to persist across renders
   const previousStateRef = useRef<ClusterState | null>(null);
   
+  // Track if we've initialized for this cluster in this session
+  // This prevents showing notifications for existing items on page load/refresh
+  const initializedRef = useRef<boolean>(false);
+  
   // Store detected changes in state so they can be safely returned during render
   const [changes, setChanges] = useState<ClusterChanges | null>(null);
+
+  // Reset state when cluster ID changes (e.g., navigating to different cluster)
+  useEffect(() => {
+    previousStateRef.current = null;
+    initializedRef.current = false;
+    setChanges(null);
+  }, [clusterId]);
 
   useEffect(() => {
     // Skip if data is not yet loaded
@@ -49,8 +60,15 @@ export function useClusterChanges(
       timestamp: Date.now(),
     };
 
-    // If there's no previous state, this is the first load
-    // Initialize previous state without detecting changes to prevent notifications for existing items
+    // If not yet initialized for this cluster, set initial state without detecting changes
+    // This prevents notifications for all existing items on first load
+    if (!initializedRef.current) {
+      previousStateRef.current = currentState;
+      initializedRef.current = true;
+      return;
+    }
+
+    // If there's no previous state (shouldn't happen after initialization), set it
     if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
       return;
@@ -64,7 +82,7 @@ export function useClusterChanges(
 
     // Update previous state for next comparison
     previousStateRef.current = currentState;
-  }, [clusterId, nodes, indices]);
+  }, [nodes, indices]);
 
   return changes;
 }
