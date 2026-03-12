@@ -3,7 +3,7 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4
  */
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useMemo } from 'react';
 import type { NodeInfo, IndexInfo } from '../types/api';
 import {
   detectClusterChanges,
@@ -37,20 +37,22 @@ export function useClusterChanges(
   // This prevents showing notifications for existing items on page load/refresh
   const initializedRef = useRef<boolean>(false);
   
-  // Store detected changes in state so they can be safely returned during render
-  const [changes, setChanges] = useState<ClusterChanges | null>(null);
+  // Track the current cluster ID to detect changes
+  const clusterIdRef = useRef<string>(clusterId);
 
-  // Reset state when cluster ID changes (e.g., navigating to different cluster)
-  useEffect(() => {
-    previousStateRef.current = null;
-    initializedRef.current = false;
-    setChanges(null);
-  }, [clusterId]);
+  // Use useMemo to compute changes without triggering re-renders
+  return useMemo(() => {
+    // Reset state when cluster ID changes (e.g., navigating to different cluster)
+    if (clusterIdRef.current !== clusterId) {
+      clusterIdRef.current = clusterId;
+      previousStateRef.current = null;
+      initializedRef.current = false;
+      return null;
+    }
 
-  useEffect(() => {
     // Skip if data is not yet loaded
     if (!nodes || !indices) {
-      return;
+      return null;
     }
 
     // Create current state snapshot
@@ -65,24 +67,21 @@ export function useClusterChanges(
     if (!initializedRef.current) {
       previousStateRef.current = currentState;
       initializedRef.current = true;
-      return;
+      return null;
     }
 
     // If there's no previous state (shouldn't happen after initialization), set it
     if (previousStateRef.current === null) {
       previousStateRef.current = currentState;
-      return;
+      return null;
     }
 
     // Detect changes by comparing with previous state
     const detectedChanges = detectClusterChanges(previousStateRef.current, currentState);
 
-    // Update state with detected changes
-    setChanges(detectedChanges);
-
     // Update previous state for next comparison
     previousStateRef.current = currentState;
-  }, [nodes, indices]);
 
-  return changes;
+    return detectedChanges;
+  }, [clusterId, nodes, indices]);
 }
