@@ -1077,11 +1077,13 @@ export function ClusterView() {
             )}
           </Group>
           {/* Allocation Lock Indicator - Requirements: 2.1, 2.2, 2.7 */}
-          <AllocationLockIndicator
-            allocationState={allocationState}
-            clusterName={clusterName}
-            clusterVersion={stats?.esVersion || 'unknown'}
-          />
+          {clusterSettings && (
+            <AllocationLockIndicator
+              allocationState={allocationState}
+              clusterName={clusterName}
+              clusterVersion={stats?.esVersion || 'unknown'}
+            />
+          )}
         </Group>
       </div>
 
