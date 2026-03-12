@@ -63,7 +63,6 @@ export function AllocationLockIndicator({
   disableAllocationMutation,
 }: AllocationLockIndicatorProps) {
   const { Icon, color, label } = getAllocationIcon(allocationState);
-  const isEnabled = allocationState === 'all';
 
   return (
     <Menu position="bottom-end" withinPortal>
@@ -80,7 +79,21 @@ export function AllocationLockIndicator({
         </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
-        {isEnabled ? (
+        {/* Always show Enable All option if not already in 'all' state */}
+        {allocationState !== 'all' && (
+          <>
+            <Menu.Label>Enable Allocation</Menu.Label>
+            <Menu.Item onClick={() => enableAllocationMutation.mutate()}>
+              <Group gap="xs">
+                <IconLockOpen size={14} />
+                Enable all
+              </Group>
+            </Menu.Item>
+          </>
+        )}
+        
+        {/* Show disable options when allocation is enabled (all state) */}
+        {allocationState === 'all' && (
           <>
             <Menu.Label>Disable Allocation</Menu.Label>
             <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
@@ -99,16 +112,6 @@ export function AllocationLockIndicator({
               <Group gap="xs">
                 <IconLockCog size={14} />
                 New primaries only
-              </Group>
-            </Menu.Item>
-          </>
-        ) : (
-          <>
-            <Menu.Label>Enable Allocation</Menu.Label>
-            <Menu.Item onClick={() => enableAllocationMutation.mutate()}>
-              <Group gap="xs">
-                <IconLockOpen size={14} />
-                Enable all
               </Group>
             </Menu.Item>
           </>
