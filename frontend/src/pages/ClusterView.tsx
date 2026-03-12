@@ -96,6 +96,8 @@ import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
 import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import { useBulkSelection } from '../hooks/useBulkSelection';
+import { useClusterChanges } from '../hooks/useClusterChanges';
+import { ClusterChangeNotifier } from '../components/ClusterChangeNotifier';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
@@ -982,6 +984,10 @@ export function ClusterView() {
   const nodes = nodesArray;
   const indices = indicesArray;
 
+  // Detect cluster topology changes and show notifications
+  // Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6
+  const clusterChanges = useClusterChanges(id || '', nodesArray, allIndicesArray);
+
   if (!id) {
     return (
       <Stack p="md">
@@ -1035,6 +1041,9 @@ export function ClusterView() {
 
   return (
     <Stack gap="md" p="md">
+      {/* Cluster change notifications - Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 */}
+      <ClusterChangeNotifier clusterId={id} changes={clusterChanges} />
+      
       {/* Cluster Name with Version */}
       <div>
         <Group gap="xs" wrap="nowrap">
