@@ -240,6 +240,7 @@ export function ClusterView() {
     enabled: !!id,
     staleTime: 0, // Don't cache - always refetch when invalidated
     refetchOnWindowFocus: false, // Don't refetch on window focus
+    refetchOnMount: true, // Always refetch on mount
   });
 
   const shardAllocationEnabled = (() => {

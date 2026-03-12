@@ -4,6 +4,7 @@
  */
 
 import { ActionIcon, Tooltip, Menu, Group } from '@mantine/core';
+import { useState, useEffect } from 'react';
 import {
   IconLockOpen,
   IconLock,
@@ -14,12 +15,18 @@ import {
 export type AllocationState = 'all' | 'primaries' | 'new_primaries' | 'none';
 
 interface AllocationLockIndicatorProps {
-  /** Current allocation state */
+  /** Current allocation state from server */
   allocationState: AllocationState;
   /** Mutation for enabling allocation */
-  enableAllocationMutation: { mutate: (variables?: void) => void; isPending: boolean };
+  enableAllocationMutation: { 
+    mutate: (variables?: void, options?: { onSuccess?: () => void }) => void; 
+    isPending: boolean;
+  };
   /** Mutation for disabling allocation */
-  disableAllocationMutation: { mutate: (mode: string) => void; isPending: boolean };
+  disableAllocationMutation: { 
+    mutate: (mode: string, options?: { onSuccess?: () => void }) => void; 
+    isPending: boolean;
+  };
 }
 
 /**
@@ -51,6 +58,9 @@ const getAllocationIcon = (state: AllocationState) => {
  * Opens context menu on click to change allocation state.
  * Positioned in cluster header for constant visibility.
  * 
+ * Updates immediately to clicked state when mutation succeeds.
+ * Syncs with server state on refresh (manual or automatic).
+ * 
  * Requirements:
  * - 2.1: Display on same line as cluster name and version
  * - 2.2: Position at maximum right of display area
@@ -62,7 +72,33 @@ export function AllocationLockIndicator({
   enableAllocationMutation,
   disableAllocationMutation,
 }: AllocationLockIndicatorProps) {
-  const { Icon, color, label } = getAllocationIcon(allocationState);
+  // Local state for immediate updates after successful mutation
+  const [displayState, setDisplayState] = useState<AllocationState>(allocationState);
+
+  // Sync with server state when it changes (from refresh or external changes)
+  useEffect(() => {
+    setDisplayState(allocationState);
+  }, [allocationState]);
+
+  const { Icon, color, label } = getAllocationIcon(displayState);
+
+  const handleEnableAll = () => {
+    enableAllocationMutation.mutate(undefined, {
+      onSuccess: () => {
+        // Update display immediately on success
+        setDisplayState('all');
+      },
+    });
+  };
+
+  const handleDisable = (mode: AllocationState) => {
+    disableAllocationMutation.mutate(mode, {
+      onSuccess: () => {
+        // Update display immediately on success
+        setDisplayState(mode);
+      },
+    });
+  };
 
   return (
     <Menu position="bottom-end" withinPortal>
@@ -80,10 +116,10 @@ export function AllocationLockIndicator({
       </Menu.Target>
       <Menu.Dropdown>
         {/* Always show Enable All option if not already in 'all' state */}
-        {allocationState !== 'all' && (
+        {displayState !== 'all' && (
           <>
             <Menu.Label>Enable Allocation</Menu.Label>
-            <Menu.Item onClick={() => enableAllocationMutation.mutate()}>
+            <Menu.Item onClick={handleEnableAll}>
               <Group gap="xs">
                 <IconLockOpen size={14} />
                 Enable all
@@ -93,22 +129,22 @@ export function AllocationLockIndicator({
         )}
         
         {/* Show disable options when allocation is enabled (all state) */}
-        {allocationState === 'all' && (
+        {displayState === 'all' && (
           <>
             <Menu.Label>Disable Allocation</Menu.Label>
-            <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
+            <Menu.Item onClick={() => handleDisable('none')}>
               <Group gap="xs">
                 <IconLock size={14} />
                 None (disable all)
               </Group>
             </Menu.Item>
-            <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
+            <Menu.Item onClick={() => handleDisable('primaries')}>
               <Group gap="xs">
                 <IconLockSquare size={14} />
                 Primaries only
               </Group>
             </Menu.Item>
-            <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
+            <Menu.Item onClick={() => handleDisable('new_primaries')}>
               <Group gap="xs">
                 <IconLockCog size={14} />
                 New primaries only
