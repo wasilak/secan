@@ -72,9 +72,10 @@ export function useClusterChanges(
     // If not yet initialized for this cluster, set initial state without detecting changes
     // This prevents notifications for all existing items on first load
     if (!initializedRef.current) {
-      // Only initialize if we have actual data (not empty arrays from loading state)
-      // This prevents detecting everything as "added" when transitioning from empty to populated
-      if (nodes.length > 0 || indices.length > 0) {
+      // Only initialize if we have actual data in BOTH arrays (not empty arrays from loading state)
+      // This prevents detecting everything as "added" when one array loads before the other
+      // We wait for both to have data to ensure we capture the complete initial state
+      if (nodes.length > 0 && indices.length > 0) {
         previousStateRef.current = currentState;
         initializedRef.current = true;
       }
