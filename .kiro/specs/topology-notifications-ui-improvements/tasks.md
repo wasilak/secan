@@ -62,7 +62,7 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test notification configuration (timeout, position, colors)
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
 
-- [ ] 3. Checkpoint - Verify notification system
+- [-] 3. Checkpoint - Verify notification system
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Implement allocation lock status indicator
