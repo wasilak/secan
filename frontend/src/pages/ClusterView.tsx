@@ -64,6 +64,7 @@ import {
   IconArrowsRightLeft,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { showSuccessNotification, showErrorNotification, showSpecialNotification } from '../utils/notifications';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
@@ -396,11 +397,9 @@ export function ClusterView() {
     }
 
     if (validDestinations.length === 0) {
-      notifications.show({
+      showSpecialNotification({
         title: 'Cannot Relocate',
         message: `Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) of index "${shard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.`,
-        color: 'violet',
-        autoClose: 5000,
       });
       handleTopologyContextMenuClose();
       return;
@@ -445,16 +444,14 @@ export function ClusterView() {
       queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
       queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
       
-      notifications.show({
+      showSuccessNotification({
         title: 'Shard Relocation Started',
         message: `Shard ${relocationShard.shard} of index "${relocationShard.index}" is being relocated`,
-        color: 'green',
       });
     } catch (error) {
-      notifications.show({
+      showErrorNotification({
         title: 'Relocation Failed',
         message: error instanceof Error ? error.message : 'Failed to relocate shard',
-        color: 'red',
       });
     } finally {
       setRelocationInProgress(false);
@@ -3781,11 +3778,9 @@ function ShardAllocationGrid({
     // Check if there are any valid destinations
     if (validDestinations.length === 0) {
       // Show notification (same as Dot View)
-      notifications.show({
+      showSpecialNotification({
         title: 'Cannot Relocate',
         message: `Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'}) of index "${shard.index}" cannot be relocated. All data nodes either already host this shard or are the source node.`,
-        color: 'violet',
-        autoClose: 5000,
       });
       handleContextMenuClose();
       return;

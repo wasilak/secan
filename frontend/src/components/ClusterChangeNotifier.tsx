@@ -4,10 +4,10 @@
  */
 
 import { useEffect } from 'react';
-import { notifications } from '@mantine/notifications';
 import { IconCirclePlus, IconCircleMinus } from '@tabler/icons-react';
 import type { ClusterChanges } from '../utils/clusterDiff';
 import { hasChanges } from '../utils/clusterDiff';
+import { showInfoNotification, showWarningNotification } from '../utils/notifications';
 
 interface ClusterChangeNotifierProps {
   /** Cluster identifier for notification context */
@@ -43,49 +43,37 @@ export function ClusterChangeNotifier({
 
     // Notify about nodes added (blue color for additions)
     changes.nodesAdded.forEach((node) => {
-      notifications.show({
+      showInfoNotification({
         title: 'Node Joined',
         message: `Node "${node.name}" (${node.id}) has joined cluster "${clusterId}"`,
-        color: 'blue',
         icon: <IconCirclePlus size={18} />,
-        autoClose: 5000,
-        position: 'top-right',
       });
     });
 
     // Notify about nodes removed (orange color for removals)
     changes.nodesRemoved.forEach((node) => {
-      notifications.show({
+      showWarningNotification({
         title: 'Node Left',
         message: `Node "${node.name}" (${node.id}) has left cluster "${clusterId}"`,
-        color: 'orange',
         icon: <IconCircleMinus size={18} />,
-        autoClose: 5000,
-        position: 'top-right',
       });
     });
 
     // Notify about indices created (blue color for additions)
     changes.indicesCreated.forEach((index) => {
-      notifications.show({
+      showInfoNotification({
         title: 'Index Created',
         message: `Index "${index.name}" has been created in cluster "${clusterId}"`,
-        color: 'blue',
         icon: <IconCirclePlus size={18} />,
-        autoClose: 5000,
-        position: 'top-right',
       });
     });
 
     // Notify about indices deleted (orange color for removals)
     changes.indicesDeleted.forEach((index) => {
-      notifications.show({
+      showWarningNotification({
         title: 'Index Deleted',
         message: `Index "${index.name}" has been deleted from cluster "${clusterId}"`,
-        color: 'orange',
         icon: <IconCircleMinus size={18} />,
-        autoClose: 5000,
-        position: 'top-right',
       });
     });
   }, [clusterId, changes]);
