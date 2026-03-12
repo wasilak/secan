@@ -62,13 +62,6 @@ export function useClusterChanges(
       return;
     }
 
-    // Skip if arrays are empty (still loading initial data)
-    // This prevents setting initial state with empty arrays, which would cause
-    // all items to be detected as "added" when real data loads
-    if (nodes.length === 0 && indices.length === 0) {
-      return;
-    }
-
     // Create current state snapshot
     const currentState: ClusterState = {
       nodes,
@@ -79,8 +72,12 @@ export function useClusterChanges(
     // If not yet initialized for this cluster, set initial state without detecting changes
     // This prevents notifications for all existing items on first load
     if (!initializedRef.current) {
-      previousStateRef.current = currentState;
-      initializedRef.current = true;
+      // Only initialize if we have actual data (not empty arrays from loading state)
+      // This prevents detecting everything as "added" when transitioning from empty to populated
+      if (nodes.length > 0 || indices.length > 0) {
+        previousStateRef.current = currentState;
+        initializedRef.current = true;
+      }
       return;
     }
 
