@@ -238,7 +238,7 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'settings'],
     queryFn: () => apiClient.proxyRequest(id!, 'GET', '/_cluster/settings'),
     enabled: !!id,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 0, // Don't cache - always refetch when invalidated
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
