@@ -33,6 +33,9 @@ export function useClusterChanges(
   // Store previous cluster state using useRef to persist across renders
   const previousStateRef = useRef<ClusterState | null>(null);
   
+  // Track if this is the first load to skip initial notifications
+  const isFirstLoadRef = useRef(true);
+  
   // Store detected changes in state so they can be safely returned during render
   const [changes, setChanges] = useState<ClusterChanges | null>(null);
 
@@ -48,6 +51,14 @@ export function useClusterChanges(
       indices,
       timestamp: Date.now(),
     };
+
+    // On first load, just initialize the previous state without detecting changes
+    // This prevents showing notifications for all existing nodes/indices
+    if (isFirstLoadRef.current) {
+      previousStateRef.current = currentState;
+      isFirstLoadRef.current = false;
+      return;
+    }
 
     // Detect changes by comparing with previous state
     const detectedChanges = detectClusterChanges(previousStateRef.current, currentState);
