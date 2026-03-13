@@ -29,6 +29,7 @@ export function RelocatingShardOverlay({
   containerRef,
 }: RelocatingShardOverlayProps) {
   const [nodePositions, setNodePositions] = useState<Map<string, NodePosition>>(new Map());
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Update node positions when layout changes
@@ -41,6 +42,12 @@ export function RelocatingShardOverlay({
 
       const containerRect = container.getBoundingClientRect();
       const positions = new Map<string, NodePosition>();
+
+      // Store container dimensions for SVG viewBox
+      setContainerDimensions({
+        width: containerRect.width,
+        height: containerRect.height,
+      });
 
       // Find all node cards by their data-node-id attribute
       const nodeCards = container.querySelectorAll('[data-node-id]');
@@ -126,9 +133,8 @@ export function RelocatingShardOverlay({
 
   const path = generateCurvedPath(sourcePos.x, sourcePos.y, destPos.x, destPos.y);
 
-  // Get container dimensions for SVG viewBox
-  const containerRect = containerRef.current?.getBoundingClientRect();
-  if (!containerRect) return null;
+  // Don't render if container dimensions not yet calculated
+  if (!containerDimensions) return null;
 
   return (
     <svg
@@ -142,7 +148,7 @@ export function RelocatingShardOverlay({
         pointerEvents: 'none',
         zIndex: 1000,
       }}
-      viewBox={`0 0 ${containerRect.width} ${containerRect.height}`}
+      viewBox={`0 0 ${containerDimensions.width} ${containerDimensions.height}`}
     >
       {/* Curved line connecting source and destination */}
       <path

@@ -140,7 +140,7 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test hover interaction
     - _Requirements: 3.3, 3.4, 3.5_
 
-- [ ] 7. Checkpoint - Verify filtering and relocating shard features
+- [-] 7. Checkpoint - Verify filtering and relocating shard features
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Enhance dot view with additional node metrics

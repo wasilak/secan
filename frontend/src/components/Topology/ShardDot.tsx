@@ -1,6 +1,6 @@
 import { Tooltip, Box } from '@mantine/core';
 import { ShardInfo } from '../../types/api';
-import { getShardStateColor, getShardBorderColor } from '../../utils/colors';
+import { getShardStateColor } from '../../utils/colors';
 
 /**
  * ShardDot Component
