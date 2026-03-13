@@ -75,17 +75,17 @@ export function NodeCard({
       >
         {/* Upper Part: Node Information */}
         <Group gap="xs" wrap="nowrap" mb="xs" justify="space-between">
-          <Group gap="xs" wrap="nowrap">
+          <Group gap="xs" wrap="wrap" style={{ flex: 1, minWidth: 0 }}>
             <Text fw={600} size="sm" truncate>
               {node.name}
             </Text>
             {node?.ip && (
-              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              <Text size="xs" c="dimmed">
                 {node.ip}
               </Text>
             )}
           </Group>
-          <Group gap={4} wrap="nowrap">
+          <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
             {node?.isMaster && (
               <Badge size="xs" variant="filled" color="blue">
                 Master
@@ -117,9 +117,18 @@ export function NodeCard({
 
         {/* Node Stats - Heap and Disk */}
         <Group gap="xs" mb="xs" wrap="nowrap">
-          {node?.heapUsed && (
-            <Text size="xs" c="dimmed">
-              Heap: {(node.heapUsed / 1024 / 1024 / 1024).toFixed(1)}GB
+          {node?.heapUsed && node?.heapMax && (
+            <Text 
+              size="xs" 
+              c={
+                (node.heapUsed / node.heapMax) < 0.7 
+                  ? 'green' 
+                  : (node.heapUsed / node.heapMax) < 0.85 
+                    ? 'yellow' 
+                    : 'red'
+              }
+            >
+              Heap: {((node.heapUsed / node.heapMax) * 100).toFixed(1)}%
             </Text>
           )}
           {node?.diskUsed && (
