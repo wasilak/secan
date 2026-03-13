@@ -1,10 +1,9 @@
 import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
-import { Grid, Paper, Text, Tooltip, Flex, Box, Badge, Group, Divider, Skeleton } from '@mantine/core';
+import { Grid, Text, Box, Divider } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
-import { RoleIcons } from '../RoleIcons';
+import { NodeCard } from './NodeCard';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
-import { formatBytes } from '../../utils/formatters';
 import { sortShards } from '../../utils/shardOrdering';
 import {
   parseGroupingFromUrl,
@@ -335,174 +334,20 @@ export function DotBasedTopologyView({
     const isValidDestination = relocationMode && validDestinationNodes?.some(
       (id) => id === node?.id || id === node?.name
     );
-    
-    // Node card is clickable if onNodeClick is provided OR if it's a valid destination
-    const isClickable = !!onNodeClick || isValidDestination;
 
     return (
-      <Grid.Col span={{ base: 12, sm: 6, lg: 4, xl: 3 }} key={node.name}>
-        <Paper
-          shadow="xs"
-          p="md"
-          withBorder
-          style={{
-            borderColor: isValidDestination
-              ? 'var(--mantine-color-violet-6)'
-              : undefined,
-            borderStyle: isValidDestination
-              ? 'dashed'
-              : undefined,
-            borderWidth: isValidDestination
-              ? '2px'
-              : undefined,
-            cursor: isClickable
-              ? 'pointer'
-              : 'default',
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-          }}
-          onClick={() => {
-            if (isValidDestination && onDestinationClick) {
-              onDestinationClick(node.id);
-            } else if (onNodeClick) {
-              onNodeClick(node.id);
-            }
-          }}
-          onMouseEnter={(e) => {
-            if (isClickable) {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (isClickable) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '';
-            }
-          }}
-        >
-          {/* Upper Part: Node Information */}
-          <Group gap="xs" wrap="nowrap" mb="xs" justify="space-between">
-            <Group gap="xs" wrap="nowrap">
-              <Text fw={600} size="sm" truncate>
-                {node.name}
-              </Text>
-              {node?.ip && (
-                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                  {node.ip}
-                </Text>
-              )}
-            </Group>
-            <Group gap={4} wrap="nowrap">
-              {node?.isMaster && (
-                <Badge size="xs" variant="filled" color="blue">
-                  Master
-                </Badge>
-              )}
-              {node && <RoleIcons roles={node.roles || []} size={14} />}
-            </Group>
-          </Group>
-
-          {/* Node Stats - CPU and Load */}
-          <Group gap="xs" mb="xs" wrap="nowrap">
-            {node?.cpuPercent !== undefined && (
-              <Text 
-                size="xs" 
-                c={node.cpuPercent < 70 ? 'green' : node.cpuPercent < 85 ? 'yellow' : 'red'}
-              >
-                CPU: {node.cpuPercent.toFixed(1)}%
-              </Text>
-            )}
-            {node?.loadAverage && node.loadAverage.length > 0 && (
-              <Text 
-                size="xs" 
-                c={node.loadAverage[0] < 4 ? 'green' : node.loadAverage[0] < 6 ? 'yellow' : 'red'}
-              >
-                Load: {node.loadAverage[0].toFixed(2)}
-              </Text>
-            )}
-          </Group>
-
-          {/* Node Stats - Heap and Disk */}
-          <Group gap="xs" mb="xs" wrap="nowrap">
-            {node?.heapUsed && (
-              <Text size="xs" c="dimmed">
-                Heap: {(node.heapUsed / 1024 / 1024 / 1024).toFixed(1)}GB
-              </Text>
-            )}
-            {node?.diskUsed && (
-              <Text size="xs" c="dimmed">
-                Disk: {formatBytes(node.diskUsed)}
-              </Text>
-            )}
-          </Group>
-
-          {/* Elasticsearch Version */}
-          {node?.version && (
-            <Text size="xs" c="dimmed" mb="xs">
-              ES: {node.version}
-            </Text>
-          )}
-
-          <Divider mb="xs" />
-
-          {/* Loading State */}
-          {loadingNodes.has(node.id) && (
-            <Box py="md">
-              <Skeleton height={20} radius="sm" mb="xs" />
-              <Skeleton height={20} radius="sm" mb="xs" />
-              <Skeleton height={20} radius="sm" />
-            </Box>
-          )}
-
-          {/* Shards Grid */}
-          {!loadingNodes.has(node.id) && nodeShards.length > 0 && (
-            <Flex gap={3} wrap="wrap">
-              {nodeShards.map((shard, idx) => {
-                const indexColor = getIndexHealthColor(shard.index);
-                const isPrimary = shard.primary;
-
-                return (
-                  <Tooltip
-                    key={`${shard.index}-${shard.shard}-${shard.node}-${idx}`}
-                    label={`${shard.index} - Shard ${shard.shard}${isPrimary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`}
-                    withArrow
-                  >
-                    <Box
-                      style={{
-                        width: 14,
-                        height: 14,
-                        backgroundColor: indexColor,
-                        borderRadius: 2,
-                        cursor: onShardClick ? 'pointer' : 'default',
-                        opacity: isPrimary ? 1 : 0.5,
-                        boxShadow: isPrimary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
-                      }}
-                      onClick={(e) => {
-                        if (onShardClick) {
-                          e.stopPropagation();
-                          onShardClick(shard, e);
-                        }
-                      }}
-                    />
-                  </Tooltip>
-                );
-              })}
-            </Flex>
-          )}
-
-          {/* Shard Count Badge */}
-          <Group gap="xs" mt="xs" wrap="nowrap">
-            <Badge size="xs" variant="light">
-              {loadingNodes.has(node.id) ? '...' : nodeShards.length} shards
-            </Badge>
-            {nodeShards.filter(s => s.primary).length > 0 && (
-              <Badge size="xs" variant="light">
-                {nodeShards.filter(s => s.primary).length} primary
-              </Badge>
-            )}
-          </Group>
-        </Paper>
-      </Grid.Col>
+      <NodeCard
+        key={node.name}
+        node={node}
+        shards={nodeShards}
+        onNodeClick={onNodeClick}
+        onShardClick={onShardClick}
+        _relocationMode={relocationMode}
+        isValidDestination={isValidDestination}
+        onDestinationClick={onDestinationClick}
+        getIndexHealthColor={getIndexHealthColor}
+        isLoading={loadingNodes.has(node.id)}
+      />
     );
   };
 
