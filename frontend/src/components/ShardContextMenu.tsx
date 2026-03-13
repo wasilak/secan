@@ -1,6 +1,6 @@
 import { Menu, Portal } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconInfoCircle, IconArrowsMove } from '@tabler/icons-react';
+import { IconInfoCircle, IconArrowsMove, IconDatabase } from '@tabler/icons-react';
 import { useEffect, useRef } from 'react';
 import type { ShardInfo } from '../types/api';
 
@@ -14,6 +14,7 @@ interface ShardContextMenuProps {
   onClose: () => void;
   onShowStats: (shard: ShardInfo) => void;
   onSelectForRelocation: (shard: ShardInfo) => void;
+  onShowIndexDetails?: (shard: ShardInfo) => void;
 }
 
 /**
@@ -36,6 +37,7 @@ export function ShardContextMenu({
   onClose,
   onShowStats,
   onSelectForRelocation,
+  onShowIndexDetails,
 }: ShardContextMenuProps): React.JSX.Element | null {
   const targetRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +67,16 @@ export function ShardContextMenu({
   const handleShowStats = () => {
     console.log('[ShardContextMenu] handleShowStats called');
     onShowStats(shard);
+  };
+
+  const handleShowIndexDetails = () => {
+    console.log('[ShardContextMenu] handleShowIndexDetails called, onShowIndexDetails exists:', !!onShowIndexDetails);
+    if (onShowIndexDetails) {
+      console.log('[ShardContextMenu] calling onShowIndexDetails with', shard.index);
+      onShowIndexDetails(shard);
+    } else {
+      console.log('[ShardContextMenu] onShowIndexDetails is undefined!');
+    }
   };
 
   const handleSelectForRelocation = () => {
@@ -161,6 +173,19 @@ export function ShardContextMenu({
               }}
             >
               Display shard stats
+            </Menu.Item>
+
+            {/* Display index details option */}
+            <Menu.Item
+              leftSection={<IconDatabase size={isMobile ? 20 : 16} />}
+              onClick={handleShowIndexDetails}
+              style={{
+                fontSize: isMobile ? '16px' : '14px',
+                padding: isMobile ? '14px 16px' : '10px 12px',
+                minHeight: isMobile ? '48px' : 'auto',
+              }}
+            >
+              Display index details
             </Menu.Item>
 
             {/* Select for relocation option - Requirements: 4.4, 4.10 */}

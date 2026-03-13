@@ -1,0 +1,82 @@
+import { useState, useCallback, useMemo } from 'react';
+
+export type ModalType = 'index' | 'shard';
+
+export interface ModalData {
+  type: ModalType;
+  indexName?: string;
+  shardId?: string;
+  tab?: string;
+}
+
+export interface ModalStackItem extends ModalData {
+  id: string;
+}
+
+export interface UseModalStackReturn {
+  modalStack: ModalStackItem[];
+  topModal: ModalStackItem | null;
+  pushModal: (modal: ModalData) => void;
+  popModal: () => void;
+  clearModals: () => void;
+  hasModalAbove: (modalId: string) => boolean;
+}
+
+let modalIdCounter = 0;
+
+function generateModalId(): string {
+  return `modal-${Date.now()}-${++modalIdCounter}`;
+}
+
+export function useModalStack(): UseModalStackReturn {
+  const [modalStack, setModalStack] = useState<ModalStackItem[]>([]);
+
+  const topModal = useMemo(() => {
+    return modalStack.length > 0 ? modalStack[modalStack.length - 1] : null;
+  }, [modalStack]);
+
+  const pushModal = useCallback((modal: ModalData) => {
+    const newModal: ModalStackItem = {
+      ...modal,
+      id: generateModalId(),
+    };
+    setModalStack((prev) => {
+      const exists = prev.some(
+        (m) => m.type === modal.type && m.indexName === modal.indexName && m.shardId === modal.shardId
+      );
+      if (exists) {
+        return prev;
+      }
+      return [...prev, newModal];
+    });
+  }, []);
+
+  const popModal = useCallback(() => {
+    setModalStack((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  const clearModals = useCallback(() => {
+    setModalStack([]);
+  }, []);
+
+  const hasModalAbove = useCallback(
+    (modalId: string): boolean => {
+      const modalIndex = modalStack.findIndex((m) => m.id === modalId);
+      if (modalIndex === -1) return false;
+      return modalIndex < modalStack.length - 1;
+    },
+    [modalStack]
+  );
+
+  return {
+    modalStack,
+    topModal,
+    pushModal,
+    popModal,
+    clearModals,
+    hasModalAbove,
+  };
+}

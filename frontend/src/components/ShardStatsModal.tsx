@@ -12,6 +12,11 @@ interface ShardStatsModalProps {
   opened: boolean;
   onClose: () => void;
   clusterId?: string;
+  /**
+   * If true, this modal is layered above another modal
+   * When layered, uses higher z-index (300) vs normal (200)
+   */
+  isLayered?: boolean;
 }
 
 /**
@@ -27,6 +32,7 @@ export function ShardStatsModal({
   opened,
   onClose,
   clusterId,
+  isLayered = false,
 }: ShardStatsModalProps): React.JSX.Element {
   const [detailedStats, setDetailedStats] = useState<DetailedShardStats | null>(null);
   const [loading, setLoading] = useState(false);
@@ -211,6 +217,7 @@ export function ShardStatsModal({
     <Modal
       opened={opened}
       onClose={onClose}
+      zIndex={isLayered ? 300 : 200}
       title={
         <Group gap="sm">
           <Text fw={600} size="lg">

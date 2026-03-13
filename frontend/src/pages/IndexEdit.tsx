@@ -29,6 +29,7 @@ import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
 import { parseError } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
+import type { ShardInfo } from '../types/api';
 
 /**
  * Validate JSON string
@@ -121,9 +122,19 @@ interface IndexEditProps {
    * If true, hides the header with index name badge (for modal use)
    */
   hideHeader?: boolean;
+  /**
+   * Optional callback when a shard is clicked
+   * Only triggers for assigned shards (shard.node !== null)
+   */
+  onShardClick?: (shard: ShardInfo) => void;
+  /**
+   * If true, there's a modal layered above this one
+   * When true, ESC and click-outside should NOT close this modal
+   */
+  hasModalAbove?: boolean;
 }
 
-export function IndexEdit({ constrainToParent = false, hideHeader = false }: IndexEditProps) {
+export function IndexEdit({ constrainToParent = false, hideHeader = false, onShardClick }: IndexEditProps) {
   const params = useParams<{ id?: string; indexName?: string }>();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -464,6 +475,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false }: Ind
               clusterId={clusterId}
               indexName={indexName}
               onNodeClick={undefined}
+              onShardClick={onShardClick}
             />
           </Tabs.Panel>
 

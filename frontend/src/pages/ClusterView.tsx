@@ -97,6 +97,7 @@ import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
 import { BulkOperationConfirmModal } from '../components/BulkOperationConfirmModal';
 import { ProgressWithLabel } from '../components/ProgressWithLabel';
 import { useBulkSelection } from '../hooks/useBulkSelection';
+import { useModalStack } from '../hooks/useModalStack';
 import { ClusterChangeNotifier } from '../components/ClusterChangeNotifier';
 import { AllocationLockIndicator, AllocationState } from '../components/Topology/AllocationLockIndicator';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
@@ -374,6 +375,9 @@ export function ClusterView() {
   const [indexModalOpen, setIndexModalOpen] = useState(false);
   const [selectedIndexName, setSelectedIndexName] = useState<string | null>(null);
 
+  // Modal stack for layered modals
+  const { modalStack, topModal, pushModal, popModal, clearModals, hasModalAbove } = useModalStack();
+
   // Open index modal when URL path changes
   useEffect(() => {
     if (indexNameFromPath) {
@@ -390,9 +394,13 @@ export function ClusterView() {
     navigateToIndex(indexName, tab || 'visualization');
   };
 
-  // Handle closing index modal - navigate back to section
+  // Handle closing index modal - pop from stack or navigate back to section
   const closeIndexModal = () => {
-    closeModal();
+    if (modalStack.length > 0) {
+      popModal();
+    } else {
+      closeModal();
+    }
   };
 
   // Shared topology handlers
@@ -402,6 +410,16 @@ export function ClusterView() {
     setTopologyContextMenuPosition({ x: event.clientX, y: event.clientY });
     setTopologyContextMenuOpened(true);
   };
+
+  // Handler for shard clicks in index modal - opens shard modal on top
+  const handleShardClickInIndexModal = useCallback(
+    (shard: ShardInfo) => {
+      if (shard.node) {
+        pushModal({ type: 'shard', indexName: shard.index, shardId: `${shard.index}[${shard.shard}]` });
+      }
+    },
+    [pushModal]
+  );
 
   const handleTopologyContextMenuClose = () => {
     setTopologyContextMenuOpened(false);
@@ -1497,11 +1515,14 @@ export function ClusterView() {
               position={topologyContextMenuPosition}
               onClose={handleTopologyContextMenuClose}
               onShowStats={(shard) => {
-                setTopologyContextMenuShard(shard);
-                openIndexModal(shard.index);
+                pushModal({ type: 'shard', indexName: shard.index, shardId: `${shard.index}[${shard.shard}]` });
                 handleTopologyContextMenuClose();
               }}
               onSelectForRelocation={handleTopologySelectForRelocation}
+              onShowIndexDetails={(shard) => {
+                openIndexModal(shard.index);
+                handleTopologyContextMenuClose();
+              }}
             />
           )}
 
@@ -1747,7 +1768,7 @@ export function ClusterView() {
                 overflow: 'auto',
               }}
             >
-              <IndexEdit constrainToParent hideHeader />
+              <IndexEdit constrainToParent hideHeader onShardClick={handleShardClickInIndexModal} />
             </Modal.Body>
           </Modal.Content>
         </Modal.Root>
@@ -1762,6 +1783,37 @@ export function ClusterView() {
         context={activeTab === 'topology' ? 'topology' : activeTab === 'nodes' ? 'nodes' : 'shards'}
         clusterInfo={clusterInfo}
       />
+
+      {/* Shard Modals from stack */}
+      {modalStack.map((modal) => {
+        if (modal.type !== 'shard' || !modal.shardId) return null;
+        
+        const [indexName, shardPart] = modal.shardId.includes('[') 
+          ? modal.shardId.split('[') 
+          : [modal.indexName, modal.shardId];
+        const shardNum = shardPart ? parseInt(shardPart.replace(']', ''), 10) : 0;
+        
+        const shard: ShardInfo = {
+          index: modal.indexName || indexName || '',
+          shard: shardNum,
+          primary: true,
+          state: 'STARTED',
+          node: undefined,
+          docs: 0,
+          store: 0,
+        };
+        
+        return (
+          <ShardDetailsModal
+            key={modal.id}
+            shard={shard}
+            opened={true}
+            onClose={() => popModal()}
+            clusterId={id!}
+            zIndex={300}
+          />
+        );
+      })}
     </Stack>
   );
 }
@@ -3525,11 +3577,13 @@ function ShardDetailsModal({
   opened,
   onClose,
   clusterId,
+  zIndex,
 }: {
   shard: ShardInfo | null;
   opened: boolean;
   onClose: () => void;
   clusterId: string;
+  zIndex?: number;
 }) {
   const { colorScheme } = useMantineColorScheme();
   const [detailedStats, setDetailedStats] = useState<unknown>(null);
@@ -3563,7 +3617,7 @@ function ShardDetailsModal({
   if (!shard) return null;
 
   return (
-    <Modal.Root opened={opened} onClose={onClose} size="90%">
+    <Modal.Root opened={opened} onClose={onClose} size="90%" zIndex={zIndex}>
       <Modal.Overlay />
       <Modal.Content
         style={{
@@ -3683,7 +3737,7 @@ function ShardAllocationGrid({
 
   // Modal state for shard details
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
-  const [modalOpened] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
   // Context menu state
   const [contextMenuOpened, setContextMenuOpened] = useState(false);
@@ -3758,10 +3812,9 @@ function ShardAllocationGrid({
 
   // Handle show shard stats - use path-based navigation
   const handleShowStats = (shard: ShardInfo) => {
+    console.log('Display shard stats clicked for', shard.index, shard.shard);
     setSelectedShard(shard);
-    // TODO: Update to use path-based URL when shard modal navigation is complete
-    // const shardId = `${shard.index}[${shard.shard}]`;
-    // navigateToShard(shardId);
+    setDetailsModalOpen(true);
     handleContextMenuClose();
   };
 
@@ -4065,16 +4118,13 @@ function ShardAllocationGrid({
           onClose={handleContextMenuClose}
           onShowStats={handleShowStats}
           onSelectForRelocation={handleSelectForRelocation}
+          onShowIndexDetails={(shard) => {
+            console.log('Display index details clicked for', shard.index);
+            openIndexModal(shard.index);
+            handleContextMenuClose();
+          }}
         />
       )}
-
-      {/* Shard Details Modal */}
-      <ShardDetailsModal
-        shard={selectedShard}
-        opened={modalOpened}
-        onClose={() => setSelectedShard(null)}
-        clusterId={id!}
-      />
 
       {/* Shard allocation grid */}
       <ScrollArea>

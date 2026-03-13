@@ -32,7 +32,7 @@ const mockNodes: NodeWithShards[] = [
     diskUsed: 50000000000,
     diskTotal: 100000000000,
     cpuPercent: 45,
-    loadAverage: 2.5,
+    loadAverage: [2.5],
     isMaster: true,
     isMasterEligible: true,
     shards: new Map([
@@ -62,7 +62,7 @@ const mockNodes: NodeWithShards[] = [
     diskUsed: 30000000000,
     diskTotal: 100000000000,
     cpuPercent: 30,
-    loadAverage: 1.5,
+    loadAverage: [1.5],
     isMaster: false,
     isMasterEligible: false,
     shards: new Map([

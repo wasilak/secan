@@ -59,6 +59,12 @@ interface CenterIndexElementProps {
    * Total number of replica shards
    */
   replicaShards: number;
+  
+  /**
+   * Optional callback when shard is clicked
+   * Only triggers for assigned shards (shard.node !== null)
+   */
+  onShardClick?: (shard: ShardInfo) => void;
 }
 
 /**
@@ -76,6 +82,12 @@ interface NodeCardProps {
    * Optional callback when node is clicked
    */
   onClick?: (nodeId: string) => void;
+  
+  /**
+   * Optional callback when shard is clicked
+   * Only triggers for assigned shards (shard.node !== null)
+   */
+  onShardClick?: (shard: ShardInfo) => void;
   
   /**
    * Optional node metrics for tooltip display
@@ -142,6 +154,10 @@ interface ShardIndicatorProps {
    * Shard information to display
    */
   shard: ShardInfo;
+  /**
+   * Optional callback when a shard is clicked
+   */
+  onShardClick?: (shard: ShardInfo) => void;
 }
 
 /**
@@ -178,7 +194,7 @@ interface ShardIndicatorProps {
  * @param props - Component props
  * @returns Shard indicator element with tooltip
  */
-function ShardIndicator({ shard }: ShardIndicatorProps) {
+function ShardIndicator({ shard, onShardClick }: ShardIndicatorProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const borderColor = getShardBorderColor(shard.state);
@@ -245,6 +261,11 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
       w={250}
     >
       <Box
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onShardClick?.(shard);
+        }}
         style={{
           width: `${cellSize}px`,
           height: `${cellSize}px`,
@@ -261,6 +282,7 @@ function ShardIndicator({ shard }: ShardIndicatorProps) {
           color: isDark ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-gray-7)',
           userSelect: 'none',
           position: 'relative',
+          cursor: onShardClick ? 'pointer' : 'default',
         }}
         // Accessibility
         role="gridcell"
@@ -492,7 +514,7 @@ function ConnectionLines({
  * @param props - Component props
  * @returns Node card element
  */
-function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
+function NodeCard({ node, onClick, nodeMetrics, onShardClick }: NodeCardProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   
@@ -652,6 +674,7 @@ function NodeCard({ node, onClick, nodeMetrics }: NodeCardProps) {
               <ShardIndicator 
                 key={`${shard.index}-${shard.shard}-${shard.primary}`} 
                 shard={shard}
+                onShardClick={onShardClick}
               />
             ))}
           </Box>
@@ -690,6 +713,7 @@ function CenterIndexElement({
   health,
   primaryShards,
   replicaShards,
+  onShardClick,
 }: CenterIndexElementProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
@@ -780,6 +804,12 @@ export interface IndexVisualizationProps {
   onNodeClick?: (nodeId: string) => void;
   
   /**
+   * Optional callback when a shard is clicked
+   * Only triggers for assigned shards (shard.node !== null)
+   */
+  onShardClick?: (shard: ShardInfo) => void;
+  
+  /**
    * Optional refresh interval in milliseconds
    * Default: 30000 (30 seconds)
    */
@@ -809,7 +839,8 @@ export function IndexVisualization({
   clusterId,
   indexName,
   onNodeClick,
-  refreshInterval = 30000,
+  onShardClick,
+  refreshInterval,
 }: IndexVisualizationProps) {
   // TODO: Implement data fetching with useIndexShards hook (Task 2.1)
   // TODO: Implement data transformation logic (Task 3) - DONE: using calculateNodePositions
@@ -1487,6 +1518,7 @@ export function IndexVisualization({
                                         <ShardIndicator
                                           key={`${shard.index}-${shard.shard}-${shard.primary}`}
                                           shard={shard}
+                                          onShardClick={onShardClick}
                                         />
                                       ))}
                                     </Group>
@@ -1562,6 +1594,7 @@ export function IndexVisualization({
                                         <ShardIndicator
                                           key={`${shard.index}-${shard.shard}-${shard.primary}`}
                                           shard={shard}
+                                          onShardClick={onShardClick}
                                         />
                                       ))}
                                     </Group>
@@ -1641,10 +1674,11 @@ export function IndexVisualization({
                     
                     {/* Primary nodes (left side on desktop, stacked on mobile) - Requirements: 1.2, 2.3, 8.2 */}
                     {visiblePrimaryNodes.map((node) => (
-                      <NodeCard 
-                        key={`primary-${node.nodeId}`} 
-                        node={node} 
+<NodeCard 
+                        key={node.nodeId}
+                        node={node}
                         onClick={onNodeClick}
+                        onShardClick={onShardClick}
                       />
                     ))}
                     
@@ -1664,6 +1698,7 @@ export function IndexVisualization({
                         health={placeholderHealth}
                         primaryShards={placeholderPrimaryShards}
                         replicaShards={placeholderReplicaShards}
+                        onShardClick={onShardClick}
                       />
                     </Box>
                     
@@ -1674,6 +1709,7 @@ export function IndexVisualization({
                         key={`replica-${node.nodeId}`} 
                         node={node} 
                         onClick={onNodeClick}
+                        onShardClick={onShardClick}
                       />
                     ))}
                   </Box>
@@ -1713,6 +1749,7 @@ export function IndexVisualization({
                       key={`primary-${node.nodeId}`} 
                       node={node} 
                       onClick={onNodeClick}
+                      onShardClick={onShardClick}
                     />
                   ))}
                   
@@ -1742,6 +1779,7 @@ export function IndexVisualization({
                       key={`replica-${node.nodeId}`} 
                       node={node} 
                       onClick={onNodeClick}
+                      onShardClick={onShardClick}
                     />
                   ))}
                 </Box>

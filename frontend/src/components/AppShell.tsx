@@ -431,13 +431,13 @@ function ClusterNavItem({
       }
       styles={(theme) => ({
         root: {
-          backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[2],
+          backgroundColor: `${isDark ? theme.colors.dark[6] : theme.colors.gray[2]} !important`,
           '&:hover': {
             backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]} !important`,
           },
         },
         label: {
-          color: 'var(--mantine-color-blue-6)',
+          color: theme.colors.blue[6],
           fontWeight: 500,
           fontSize: '16px',
         },
@@ -449,48 +449,49 @@ function ClusterNavItem({
       aria-current={isActive ? 'page' : undefined}
       aria-expanded={isExpanded}
     >
-      {isExpanded && CLUSTER_SECTIONS.map((section) => {
-        const isSectionActive = currentSection === section.value;
-        return (
-          <NavLink
-            key={section.value}
-            href={`/cluster/${clusterId}/${section.value}`}
-            label={section.label}
-            leftSection={section.icon}
-            active={isSectionActive}
-            onClick={(e) => {
-              e.preventDefault();
-              onSectionNavigate(clusterId, section.value as ClusterSection);
-            }}
-            styles={(theme) => ({
-              root: {
-                backgroundColor: 'transparent',
-                '&:hover': {
-                  backgroundColor: isDark ? theme.colors.dark[5] : theme.colors.violet[0],
+      {isExpanded &&
+        CLUSTER_SECTIONS.map((section) => {
+          const isSectionActive = currentSection === section.value;
+          return (
+            <NavLink
+              key={section.value}
+              href={`/cluster/${clusterId}/${section.value}`}
+              label={section.label}
+              leftSection={section.icon}
+              active={isSectionActive}
+              onClick={(e) => {
+                e.preventDefault();
+                onSectionNavigate(clusterId, section.value as ClusterSection);
+              }}
+              styles={(theme) => ({
+                root: {
+                  backgroundColor: 'transparent !important',
+                  '&:hover': {
+                    backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]} !important`,
+                  },
                 },
-              },
-              label: {
-                color: 'var(--mantine-color-gray-7)',
-                fontWeight: 400,
-                fontSize: '14px',
-              },
-            })}
-            rightSection={
-              isSectionActive ? (
-                <div
-                  style={{
-                    width: '4px',
-                    height: '16px',
-                    backgroundColor: 'var(--mantine-color-orange-6)',
-                    borderRadius: '2px',
-                    flexShrink: 0,
-                  }}
-                />
-              ) : null
-            }
-          />
-        );
-      })}
+                label: {
+                  color: theme.colors.gray[7],
+                  fontWeight: 400,
+                  fontSize: '14px',
+                },
+              })}
+              rightSection={
+                isSectionActive ? (
+                  <div
+                    style={{
+                      width: '4px',
+                      height: '16px',
+                      backgroundColor: 'var(--mantine-color-orange-6)',
+                      borderRadius: '2px',
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : null
+              }
+            />
+          );
+        })}
     </NavLink>
   );
 }

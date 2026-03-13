@@ -33,6 +33,7 @@ interface ShardGridProps {
   clusterId: string;
   refreshInterval?: number;
   openNodeModal?: (nodeId: string) => void;
+  openIndexModal?: (indexName: string) => void;
 }
 
 /**
@@ -54,6 +55,7 @@ export function ShardGrid({
   clusterId,
   refreshInterval = 30000,
   openNodeModal,
+  openIndexModal,
 }: ShardGridProps): React.JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -1425,6 +1427,12 @@ export function ShardGrid({
           onClose={handleContextMenuClose}
           onShowStats={handleShowStats}
           onSelectForRelocation={handleSelectForRelocation}
+          onShowIndexDetails={(shard) => {
+            if (openIndexModal) {
+              openIndexModal(shard.index);
+            }
+            handleContextMenuClose();
+          }}
         />
       )}
 
