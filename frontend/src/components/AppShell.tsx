@@ -13,6 +13,7 @@ import {
   Tooltip,
   Menu,
   Button,
+  useMantineColorScheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
@@ -377,6 +378,8 @@ function ClusterNavItem({
 }) {
   const clusterName = useClusterName(clusterId);
   const refreshInterval = useRefreshInterval();
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
 
   // Fetch cluster stats for health status (independent of useClusterName to ensure fresh data)
   const { data: clusterStats } = useQuery({
@@ -414,7 +417,7 @@ function ClusterNavItem({
               root: {
                 backgroundColor: 'transparent',
                 '&:hover': {
-                  backgroundColor: theme.colors.violet[0],
+                  backgroundColor: isDark ? theme.colors.dark[5] : theme.colors.violet[0],
                 },
               },
               label: {
@@ -477,9 +480,9 @@ function ClusterNavItem({
         }
         styles={(theme) => ({
           root: {
-            backgroundColor: theme.colors.gray[1],
+            backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[1],
             '&:hover': {
-              backgroundColor: theme.colors.violet[1],
+              backgroundColor: isDark ? theme.colors.dark[5] : theme.colors.violet[1],
             },
           },
           label: {
