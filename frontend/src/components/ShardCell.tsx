@@ -64,9 +64,10 @@ export const ShardCell = memo(
     const finalBorderColor = isDestinationIndicator ? 'var(--mantine-color-violet-6)' : borderColor;
 
     // Selected shards have thicker border and pulsing animation
-    // Requirements: 4.1, 9.3
+    // Requirements: 4.1, 9.3, 16.1
     // Ensure border thickness for visibility with transparent backgrounds
-    const borderWidth = isSelected ? '3px' : '2px';
+    // No border for unassigned shards
+    const borderWidth = shard.state === 'UNASSIGNED' ? '0' : isSelected ? '3px' : '2px';
 
     // Handle click and touch events for shard selection
     // Requirements: 4.1, 11.4

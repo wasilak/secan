@@ -80,6 +80,9 @@ export function ShardDot({
     </div>
   );
 
+  // No border for unassigned shards (Requirement 16.1)
+  const borderWidth = shard.state === 'UNASSIGNED' ? '0px' : '2px';
+
   return (
     <Tooltip
       label={tooltipContent}
@@ -101,7 +104,7 @@ export function ShardDot({
           height: `${dotSize}px`,
           borderRadius: isRelocating ? '2px' : '50%',
           backgroundColor,
-          border: `2px ${borderStyle} ${borderColor}`,
+          border: `${borderWidth} ${borderStyle} ${borderColor}`,
           cursor: onClick ? 'pointer' : 'default',
           transition: 'transform 0.15s ease, box-shadow 0.15s ease',
           boxSizing: 'border-box',

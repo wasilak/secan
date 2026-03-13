@@ -4234,9 +4234,8 @@ function ShardAllocationGrid({
                                     fontSize: '10px',
                                     fontWeight: 600,
                                     borderRadius: '2px',
-                                    border: shard.primary
-                                      ? '2px solid var(--mantine-color-red-9)'
-                                      : '2px dashed var(--mantine-color-red-9)',
+                                    // No border for unassigned shards (Requirement 16.1)
+                                    border: 'none',
                                     cursor: 'pointer',
                                   }}
                                   onClick={(e) => handleShardClick(shard, e)}

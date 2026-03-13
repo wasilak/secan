@@ -84,12 +84,12 @@ export function getShardStateColor(state: ShardInfo['state']): string {
 /**
  * Get border color for shard cells in the grid
  *
- * Requirements: 5.1, 5.2, 5.6
+ * Requirements: 5.1, 5.2, 5.6, 16.1
  * - Uses CSS variables for theme compatibility
  * - Green border for STARTED (healthy)
  * - Blue-4 border for INITIALIZING (light blue)
  * - Orange-6 border for RELOCATING (yellow-orange)
- * - Red border for UNASSIGNED
+ * - Transparent (no border) for UNASSIGNED
  *
  * @param state - The state of the shard
  * @returns CSS color variable for the border
@@ -103,7 +103,7 @@ export function getShardBorderColor(state: ShardInfo['state']): string {
     case 'RELOCATING':
       return 'var(--mantine-color-orange-6)';
     case 'UNASSIGNED':
-      return 'var(--mantine-color-red-6)';
+      return 'transparent'; // No border for unassigned shards
     default:
       return 'var(--mantine-color-gray-6)';
   }

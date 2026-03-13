@@ -198,6 +198,8 @@ function ShardIndicator({ shard, onShardClick }: ShardIndicatorProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const borderColor = getShardBorderColor(shard.state);
+  // No border for unassigned shards (Requirement 16.1)
+  const borderWidth = shard.state === 'UNASSIGNED' ? '0' : '2px';
   const cellSize = 24; // Smaller size for compact display
   
   /**
@@ -271,7 +273,7 @@ function ShardIndicator({ shard, onShardClick }: ShardIndicatorProps) {
           height: `${cellSize}px`,
           minWidth: `${cellSize}px`,
           minHeight: `${cellSize}px`,
-          border: `2px solid ${borderColor}`,
+          border: `${borderWidth} solid ${borderColor}`,
           backgroundColor: 'transparent',
           borderRadius: '4px',
           display: 'flex',
