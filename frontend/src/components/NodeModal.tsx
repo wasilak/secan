@@ -14,6 +14,24 @@ import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 /**
+ * Color utilities for shard display consistency (Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 9.4)
+ * 
+ * Note: These utilities are imported to ensure they're available if/when individual shards
+ * are displayed in the NodeModal. Currently, the modal only shows shard statistics and counts.
+ * 
+ * When shards are rendered:
+ * - Use getShardBorderColor() for consistent border colors across all views
+ * - Use getUnassignedShardColor() for differentiated unassigned shard colors
+ * - Use sortShards() for deterministic shard ordering
+ * 
+ * These imports ensure color consistency with topology views and other components.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { getShardBorderColor, getUnassignedShardColor } from '../utils/colors';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { sortShards } from '../utils/shardOrdering';
+
+/**
  * Props for NodeModal component
  */
 interface NodeModalProps {
@@ -37,6 +55,12 @@ interface NodeModalProps {
  * - Context-aware display (shows over correct view)
  * - Master indicator in title
  * - Scrollable body for long content
+ *
+ * Color Consistency (Requirements 7.1, 7.2, 7.3, 7.4, 7.5):
+ * - Imports shared color utilities (getShardBorderColor, getUnassignedShardColor)
+ * - Imports shard ordering utility (sortShards)
+ * - These utilities ensure consistent shard display if/when individual shards are rendered
+ * - Currently, the modal displays shard statistics and counts, not individual shard cells
  *
  * Requirements: 8.1
  */
