@@ -381,19 +381,48 @@ export function DotBasedTopologyView({
           }}
         >
           {/* Upper Part: Node Information */}
-          <Group gap="xs" wrap="nowrap" mb="xs">
-            <Text fw={600} size="sm" style={{ flex: 1 }} truncate>
-              {node.name}
-            </Text>
-            {node?.isMaster && (
-              <Badge size="xs" variant="filled" color="blue">
-                Master
-              </Badge>
-            )}
-            {node && <RoleIcons roles={node.roles || []} size={14} />}
+          <Group gap="xs" wrap="nowrap" mb="xs" justify="space-between">
+            <Group gap="xs" wrap="nowrap">
+              <Text fw={600} size="sm" truncate>
+                {node.name}
+              </Text>
+              {node?.ip && (
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {node.ip}
+                </Text>
+              )}
+            </Group>
+            <Group gap={4} wrap="nowrap">
+              {node?.isMaster && (
+                <Badge size="xs" variant="filled" color="blue">
+                  Master
+                </Badge>
+              )}
+              {node && <RoleIcons roles={node.roles || []} size={14} />}
+            </Group>
           </Group>
 
-          {/* Node Stats */}
+          {/* Node Stats - CPU and Load */}
+          <Group gap="xs" mb="xs" wrap="nowrap">
+            {node?.cpuPercent !== undefined && (
+              <Text 
+                size="xs" 
+                c={node.cpuPercent < 70 ? 'green' : node.cpuPercent < 85 ? 'yellow' : 'red'}
+              >
+                CPU: {node.cpuPercent.toFixed(1)}%
+              </Text>
+            )}
+            {node?.loadAverage && node.loadAverage.length > 0 && (
+              <Text 
+                size="xs" 
+                c={node.loadAverage[0] < 4 ? 'green' : node.loadAverage[0] < 6 ? 'yellow' : 'red'}
+              >
+                Load: {node.loadAverage[0].toFixed(2)}
+              </Text>
+            )}
+          </Group>
+
+          {/* Node Stats - Heap and Disk */}
           <Group gap="xs" mb="xs" wrap="nowrap">
             {node?.heapUsed && (
               <Text size="xs" c="dimmed">
@@ -406,6 +435,13 @@ export function DotBasedTopologyView({
               </Text>
             )}
           </Group>
+
+          {/* Elasticsearch Version */}
+          {node?.version && (
+            <Text size="xs" c="dimmed" mb="xs">
+              ES: {node.version}
+            </Text>
+          )}
 
           <Divider mb="xs" />
 
