@@ -142,7 +142,7 @@ export interface NodeInfo {
   tags?: string[];
   isMaster: boolean;
   isMasterEligible: boolean;
-  loadAverage?: number; // 1-minute
+  loadAverage?: number[]; // [1m, 5m, 15m]
   uptime?: string;
   uptimeMillis?: number;
 }

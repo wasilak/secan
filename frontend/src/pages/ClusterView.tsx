@@ -2171,13 +2171,13 @@ const NodesList = memo(function NodesList({
                     </Table.Td>
                   )}
                   <Table.Td>
-                    {node.loadAverage !== undefined ? (
+                    {node.loadAverage !== undefined && node.loadAverage.length > 0 ? (
                       <Text
                         size="sm"
-                        c={getLoadColor(node.loadAverage)}
+                        c={getLoadColor(node.loadAverage[0])}
                         style={{ fontFamily: 'monospace' }}
                       >
-                        {formatLoadAverage(node.loadAverage)}
+                        {formatLoadAverage(node.loadAverage[0])}
                       </Text>
                     ) : (
                       <Text size="sm" c="dimmed">

@@ -140,18 +140,18 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test hover interaction
     - _Requirements: 3.3, 3.4, 3.5_
 
-- [-] 7. Checkpoint - Verify filtering and relocating shard features
+- [x] 7. Checkpoint - Verify filtering and relocating shard features
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Enhance dot view with additional node metrics
-  - [ ] 8.1 Update `NodeInfo` interface to include new fields
+- [x] 8. Enhance dot view with additional node metrics
+  - [x] 8.1 Update `NodeInfo` interface to include new fields
     - Add `ip: string` field
     - Add `cpuPercent?: number` field
     - Add `loadAverage?: number[]` field (1m, 5m, 15m)
     - Add `version?: string` field for Elasticsearch version
     - _Requirements: 6.1, 6.3, 6.4, 6.5_
   
-  - [ ] 8.2 Update `NodeCard.tsx` component layout
+  - [x] 8.2 Update `NodeCard.tsx` component layout
     - Display node IP to the right of node name with reduced visual prominence
     - Add CPU utilization display with color coding (green <70%, yellow 70-85%, red >85%)
     - Add load average display with color coding (green <cores, yellow cores-1.5x, red >1.5x)

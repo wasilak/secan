@@ -858,9 +858,9 @@ export function ShardGrid({
                               CPU: {formatPercent(node.cpuPercent)}
                             </Text>
                           )}
-                          {node.loadAverage !== undefined && (
+                          {node.loadAverage !== undefined && node.loadAverage.length > 0 && (
                             <Text size="xs" c="dimmed">
-                              Load: {formatLoad(node.loadAverage)}
+                              Load: {formatLoad(node.loadAverage[0])}
                             </Text>
                           )}
                         </Group>
@@ -1212,9 +1212,9 @@ export function ShardGrid({
                             )}
 
                             {/* Load average */}
-                            {node.loadAverage !== undefined && (
+                            {node.loadAverage !== undefined && node.loadAverage.length > 0 && (
                               <Text size="xs" c="dimmed">
-                                Load: {formatLoad(node.loadAverage)}
+                                Load: {formatLoad(node.loadAverage[0])}
                               </Text>
                             )}
                           </Group>
@@ -1239,9 +1239,9 @@ export function ShardGrid({
                           )}
 
                           {/* Load average */}
-                          {node.loadAverage !== undefined && (
+                          {node.loadAverage !== undefined && node.loadAverage.length > 0 && (
                             <Text size="xs" c="dimmed">
-                              Load: {formatLoad(node.loadAverage)}
+                              Load: {formatLoad(node.loadAverage[0])}
                             </Text>
                           )}
                         </Group>
