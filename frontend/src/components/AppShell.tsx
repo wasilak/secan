@@ -452,6 +452,9 @@ function ClusterNavItem({
         label={clusterName}
         active={isActive}
         opened={isExpanded}
+        style={{
+          backgroundColor: isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-2)',
+        }}
         leftSection={
           <div
             style={{
@@ -480,7 +483,6 @@ function ClusterNavItem({
         }
         styles={(theme) => ({
           root: {
-            backgroundColor: `${isDark ? theme.colors.dark[6] : theme.colors.gray[2]} !important`,
             '&:hover': {
               backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]} !important`,
             },
