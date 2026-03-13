@@ -5,6 +5,7 @@ import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { RoleIcons } from '../RoleIcons';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import { formatBytes } from '../../utils/formatters';
+import { sortShards } from '../../utils/shardOrdering';
 import {
   parseGroupingFromUrl,
   calculateNodeGroups,
@@ -223,10 +224,32 @@ export function DotBasedTopologyView({
     return nodes.filter(node => matchesWildcard(node.name, nodeNameFilter));
   }, [nodes, nodeNameFilter, matchesWildcard]);
 
+  // Apply all index filters: wildcard, closed, and special
+  // Requirements: 4.5 - Filter state persistence
   const filteredIndices = useMemo(() => {
-    if (!indexNameFilter || !matchesWildcard) return indices;
-    return indices.filter(index => matchesWildcard(index.name, indexNameFilter));
-  }, [indices, indexNameFilter, matchesWildcard]);
+    // Read filter state from URL params
+    const showClosed = searchParams.get('showClosed') === 'true';
+    const showSpecial = searchParams.get('showSpecial') === 'true';
+    
+    return indices.filter(index => {
+      // Apply wildcard filter
+      if (indexNameFilter && matchesWildcard && !matchesWildcard(index.name, indexNameFilter)) {
+        return false;
+      }
+      
+      // Apply closed filter - if showClosed is false, only show open indices
+      if (!showClosed && index.status !== 'open') {
+        return false;
+      }
+      
+      // Apply special filter - if showSpecial is false, hide indices starting with '.'
+      if (!showSpecial && index.name.startsWith('.')) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [indices, indexNameFilter, matchesWildcard, searchParams]);
 
   // Create index health lookup map
   const indexHealthMap = useMemo(() => {
@@ -256,8 +279,17 @@ export function DotBasedTopologyView({
   const filteredIndicesList = filteredIndices;
 
   // Filter shards (EXACTLY matching ShardAllocationGrid logic)
+  // RELOCATING shards should always be visible regardless of filter state
+  // Requirements: 3.1, 3.2, 4.1, 4.2, 4.3, 4.4
   const filteredShards = useMemo(() => {
-    return allShards.filter((shard) => {
+    const filtered = allShards.filter((shard) => {
+      // RELOCATING shards bypass the state filter and are always visible
+      if (shard.state === 'RELOCATING') {
+        // Still apply index filter
+        if (!filteredIndicesList.find((i) => i.name === shard.index)) return false;
+        return true;
+      }
+      
       // Filter by shard state
       if (!selectedShardStates.includes(shard.state)) return false;
 
@@ -266,6 +298,9 @@ export function DotBasedTopologyView({
 
       return true;
     });
+    
+    // Apply deterministic sorting - Requirements: 9.1, 9.2, 9.3
+    return sortShards(filtered);
   }, [allShards, selectedShardStates, filteredIndicesList]);
 
   // Separate assigned and unassigned shards BEFORE grouping by node

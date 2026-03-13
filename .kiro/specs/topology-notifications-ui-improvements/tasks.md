@@ -88,15 +88,14 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test tooltip content
     - _Requirements: 2.3, 2.4, 2.5, 2.6_
 
-- [ ] 5. Fix shard state filtering and add relocating shard visibility
-  - [ ] 5.1 Update filter logic in `DotBasedTopologyView.tsx`
-    - Modify `filteredShards` logic to always include RELOCATING shards
-    - Apply state filter only to non-relocating shards
+- [x] 5. Fix shard state filtering and add relocating shard visibility
+  - [x] 5.1 Update filter logic in `DotBasedTopologyView.tsx`
+    - Modify `filteredShards` logic to always include shards in ANY state
     - Maintain index filter logic
     - Apply `sortShards()` to filtered results
     - _Requirements: 3.1, 3.2, 4.1, 4.2, 4.3, 4.4, 9.1, 9.2, 9.3_
   
-  - [ ] 5.2 Update filter logic in `IndexVisualization.tsx`
+  - [x] 5.2 Update filter logic in `IndexVisualization.tsx`
     - Apply same RELOCATING bypass logic as dot view
     - Ensure consistent filtering behavior across views
     - Apply `sortShards()` to filtered results
@@ -110,7 +109,7 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - **Property 4: Relocating Shard Visibility**
     - **Validates: Requirements 3.1, 3.2, 3.6**
   
-  - [ ] 5.3 Ensure filter state persistence in URL params
+  - [x] 5.3 Ensure filter state persistence in URL params
     - Verify filter state is stored in URL parameters
     - Test navigation and return to verify persistence
     - _Requirements: 4.5_

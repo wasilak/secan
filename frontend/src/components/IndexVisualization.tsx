@@ -28,6 +28,7 @@ import {
   type PositioningConfig,
 } from '../utils/nodePositioning';
 import { formatBytes } from '../utils/formatters';
+import { sortShards } from '../utils/shardOrdering';
 import type { HealthStatus, ShardInfo } from '../types/api';
 import { useMemo, useState } from 'react';
 import { useIndexShards } from '../hooks/useIndexShards';
@@ -1186,8 +1187,10 @@ export function IndexVisualization({
   
   // Separate unassigned shards - Requirements: 3.5
   // Unassigned shards have no node assignment and should be displayed separately
+  // Apply deterministic sorting - Requirements: 9.1, 9.2, 9.3
   const unassignedShards = useMemo(() => {
-    return shardData.filter(s => s.state === 'UNASSIGNED');
+    const unassigned = shardData.filter(s => s.state === 'UNASSIGNED');
+    return sortShards(unassigned);
   }, [shardData]);
   
   // Calculate shard counts for center element

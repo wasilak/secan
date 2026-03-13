@@ -11,6 +11,7 @@
  */
 
 import type { ShardInfo } from '../types/api';
+import { sortShards } from './shardOrdering';
 
 /**
  * Node with shard information for visualization
@@ -118,11 +119,12 @@ export function groupShardsByNode(shards: ShardInfo[]): {
   }
   
   // Convert maps to arrays of NodeWithShards
+  // Apply deterministic sorting to shards - Requirements: 9.1, 9.2, 9.3
   const primaryNodes: NodeWithShards[] = Array.from(primaryNodeMap.entries()).map(
     ([nodeId, shards]) => ({
       nodeId,
       nodeName: nodeId, // Use nodeId as name for now, can be enriched with NodeInfo later
-      shards,
+      shards: sortShards(shards),
       shardCount: shards.length,
     })
   );
@@ -131,7 +133,7 @@ export function groupShardsByNode(shards: ShardInfo[]): {
     ([nodeId, shards]) => ({
       nodeId,
       nodeName: nodeId,
-      shards,
+      shards: sortShards(shards),
       shardCount: shards.length,
     })
   );
