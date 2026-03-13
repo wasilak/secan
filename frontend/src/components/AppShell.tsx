@@ -480,9 +480,9 @@ function ClusterNavItem({
         }
         styles={(theme) => ({
           root: {
-            backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[1],
+            backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[2],
             '&:hover': {
-              backgroundColor: isDark ? theme.colors.dark[5] : theme.colors.violet[1],
+              backgroundColor: isDark ? theme.colors.dark[5] : theme.colors.gray[3],
             },
           },
           label: {
