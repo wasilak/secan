@@ -118,14 +118,14 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - **Property 7: Filter State Persistence**
     - **Validates: Requirements 4.5**
 
-- [ ] 6. Implement relocating shard visual indicators in dot view
-  - [ ] 6.1 Update `ShardDot.tsx` component
+- [x] 6. Implement relocating shard visual indicators in dot view
+  - [x] 6.1 Update `ShardDot.tsx` component
     - Add `isSource` and `isDestination` props to `ShardDotProps`
     - Implement visual treatment: source node with solid yellow border, destination with dotted yellow border
     - Use orange-6 color for relocating shards
     - _Requirements: 3.3, 3.4, 3.6_
   
-  - [ ] 6.2 Add hover interaction for relocating shards
+  - [x] 6.2 Add hover interaction for relocating shards
     - Implement SVG overlay to show curved line connecting source and destination nodes
     - Trigger on hover over relocating shard
     - _Requirements: 3.5_

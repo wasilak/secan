@@ -16,6 +16,7 @@ export function NodeCard({
   indexColors,
   onNodeClick,
   onShardClick,
+  onShardHoverChange,
 }: {
   node: NodeDetailStats;
   shards: ShardInfo[];
@@ -23,6 +24,7 @@ export function NodeCard({
   indexColors: Record<string, string>;
   onNodeClick?: () => void;
   onShardClick?: (shardId: string) => void;
+  onShardHoverChange?: (shard: ShardInfo | null) => void;
 }) {
   const formatSize = (bytes?: number): string => {
     if (!bytes || bytes === 0) return '0 B';
@@ -73,6 +75,7 @@ export function NodeCard({
                 indexColor={indexColors[shard.index] || '#888'}
                 size="md"
                 onClick={() => onShardClick?.(`${shard.index}[${shard.shard}]`)}
+                onHoverChange={onShardHoverChange}
               />
             ))}
           </Group>
