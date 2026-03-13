@@ -170,8 +170,8 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test version display
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 9. Apply color consistency to node details modal
-  - [ ] 9.1 Update `NodeModal.tsx` to use shared color utilities
+- [x] 9. Apply color consistency to node details modal
+  - [x] 9.1 Update `NodeModal.tsx` to use shared color utilities
     - Import and use `getShardBorderColor()` from `utils/colors.ts`
     - Import and use `getUnassignedShardColor()` from `utils/colors.ts`
     - Apply same color scheme as topology views
@@ -185,8 +185,8 @@ This implementation plan covers UI/UX improvements and bugfixes for the topology
     - Test unassigned replica shards use red-4
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 10. Update side drawer cluster name styling
-  - [ ] 10.1 Update `AppShell.tsx` cluster name styling
+- [x] 10. Update side drawer cluster name styling
+  - [x] 10.1 Update `AppShell.tsx` cluster name styling
     - Apply larger font size (16px) and bold weight (700) to cluster names
     - Apply blue-6 color to cluster names
     - Apply smaller font size (14px) and normal weight (400) to submenu items

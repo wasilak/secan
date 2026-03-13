@@ -417,8 +417,9 @@ function ClusterNavItem({
                 },
               },
               label: {
-                color: 'var(--mantine-color-dimmed)',
-                fontSize: 'var(--mantine-font-size-sm)',
+                color: 'var(--mantine-color-gray-7)',
+                fontWeight: 400,
+                fontSize: '14px',
               },
             })}
             rightSection={
@@ -480,9 +481,9 @@ function ClusterNavItem({
             },
           },
           label: {
-            color: 'var(--mantine-color-dimmed)',
-            fontWeight: 500,
-            fontSize: 'var(--mantine-font-size-sm)',
+            color: 'var(--mantine-color-blue-6)',
+            fontWeight: 700,
+            fontSize: '16px',
           },
         })}
         onClick={(e) => {
