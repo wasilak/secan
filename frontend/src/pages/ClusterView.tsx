@@ -1399,9 +1399,6 @@ export function ClusterView() {
               indices={indices}
               shards={shards}
               nodes={nodes}
-              shardAllocationEnabled={shardAllocationEnabled}
-              enableAllocationMutation={enableAllocationMutation}
-              disableAllocationMutation={disableAllocationMutation}
               indexNameFilter={indexNameFilter}
               setIndexNameFilter={setIndexNameFilter}
               nodeNameFilter={nodeNameFilter}

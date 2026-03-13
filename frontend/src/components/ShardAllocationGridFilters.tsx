@@ -1,10 +1,8 @@
-import { Group, TextInput, Checkbox, Text, ActionIcon, Tooltip, Badge, Menu } from '@mantine/core';
+import { Group, TextInput, Checkbox, Text, Badge } from '@mantine/core';
 import {
   IconSearch,
   IconEyeOff,
   IconAlertCircle,
-  IconLockOpen,
-  IconLock,
 } from '@tabler/icons-react';
 import { ShardStateFilterToggle } from './ShardStateFilter';
 import { ShardInfo, IndexInfo, NodeInfo } from '../types/api';
@@ -15,9 +13,6 @@ interface ShardAllocationGridFiltersProps {
   indices: IndexInfo[];
   shards: ShardInfo[];
   nodes: NodeInfo[];
-  shardAllocationEnabled: boolean;
-  enableAllocationMutation: { mutate: (variables?: void) => void; isPending: boolean };
-  disableAllocationMutation: { mutate: (mode: string) => void; isPending: boolean };
   // Wildcard filters
   indexNameFilter?: string;
   setIndexNameFilter?: (value: string) => void;
@@ -37,9 +32,6 @@ export function ShardAllocationGridFilters({
   indices,
   shards,
   nodes,
-  shardAllocationEnabled,
-  enableAllocationMutation,
-  disableAllocationMutation,
   indexNameFilter = '',
   setIndexNameFilter,
   nodeNameFilter = '',
@@ -83,57 +75,7 @@ export function ShardAllocationGridFilters({
 
   return (
     <Group gap="xs" wrap="nowrap" justify="space-between">
-      {/* Left: Allocation control */}
-      <Group gap="xs" wrap="nowrap">
-        {shardAllocationEnabled ? (
-          <Menu position="bottom" withArrow withinPortal>
-            <Menu.Target>
-              <ActionIcon
-                size="md"
-                variant="subtle"
-                color="green"
-                loading={disableAllocationMutation.isPending}
-              >
-                <IconLockOpen size={18} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
-                <Group gap="xs">
-                  <IconLock size={14} />
-                  <Text size="sm">All</Text>
-                </Group>
-              </Menu.Item>
-              <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
-                <Group gap="xs">
-                  <IconLock size={14} />
-                  <Text size="sm">Primaries only</Text>
-                </Group>
-              </Menu.Item>
-              <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
-                <Group gap="xs">
-                  <IconLock size={14} />
-                  <Text size="sm">New primaries only</Text>
-                </Group>
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        ) : (
-          <Tooltip label="Enable shard allocation">
-            <ActionIcon
-              size="md"
-              variant="subtle"
-              color="red"
-              onClick={() => enableAllocationMutation.mutate()}
-              loading={enableAllocationMutation.isPending}
-            >
-              <IconLock size={18} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </Group>
-
-      {/* Center: Search and filters */}
+      {/* Left: Search and filters */}
       <Group gap="xs" style={{ flex: 1 }} wrap="wrap">
         <TextInput
           placeholder="Filter indices (te*st wildcard)..."
