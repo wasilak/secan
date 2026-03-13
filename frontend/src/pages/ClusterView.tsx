@@ -246,7 +246,13 @@ export function ClusterView() {
 
   const shardAllocationEnabled = (() => {
     if (!clusterSettings) return true;
-    const data = clusterSettings as Record<string, unknown>;
+    
+    // The proxy response wraps the actual settings in a 'data' property
+    const wrapper = clusterSettings as Record<string, unknown>;
+    const data = wrapper.data as Record<string, unknown> | undefined;
+    
+    if (!data) return true;
+    
     const transient = data.transient as Record<string, unknown> | undefined;
     const persistent = data.persistent as Record<string, unknown> | undefined;
     
@@ -266,8 +272,18 @@ export function ClusterView() {
   // Extract allocation state for AllocationLockIndicator
   // Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
   const allocationState: AllocationState = (() => {
-    if (!clusterSettings) return 'all';
-    const data = clusterSettings as Record<string, unknown>;
+    if (!clusterSettings) {
+      return 'all';
+    }
+    
+    // The proxy response wraps the actual settings in a 'data' property
+    const wrapper = clusterSettings as Record<string, unknown>;
+    const data = wrapper.data as Record<string, unknown> | undefined;
+    
+    if (!data) {
+      return 'all';
+    }
+    
     const transient = data.transient as Record<string, unknown> | undefined;
     const persistent = data.persistent as Record<string, unknown> | undefined;
     

@@ -73,17 +73,18 @@ export function AllocationLockIndicator({
   disableAllocationMutation,
 }: AllocationLockIndicatorProps) {
   // Local state for immediate updates after successful mutation
-  // Initialize with undefined to detect first real value from server
-  const [displayState, setDisplayState] = useState<AllocationState | undefined>(undefined);
+  // Start with the server state, then allow local overrides
+  const [displayState, setDisplayState] = useState<AllocationState>(allocationState);
 
   // Sync with server state when it changes (from refresh or external changes)
+  // But only if we're not in the middle of a mutation
   useEffect(() => {
-    setDisplayState(allocationState);
-  }, [allocationState]);
+    if (!enableAllocationMutation.isPending && !disableAllocationMutation.isPending) {
+      setDisplayState(allocationState);
+    }
+  }, [allocationState, enableAllocationMutation.isPending, disableAllocationMutation.isPending]);
 
-  // Use server state until we have a local override
-  const currentState = displayState ?? allocationState;
-  const { Icon, color, label } = getAllocationIcon(currentState);
+  const { Icon, color, label } = getAllocationIcon(displayState);
 
   const handleEnableAll = () => {
     enableAllocationMutation.mutate(undefined, {
@@ -121,7 +122,7 @@ export function AllocationLockIndicator({
         <Menu.Label>Change Allocation State</Menu.Label>
         
         {/* Enable all option */}
-        {currentState !== 'all' && (
+        {displayState !== 'all' && (
           <Menu.Item onClick={handleEnableAll}>
             <Group gap="xs">
               <IconLockOpen size={14} />
@@ -131,7 +132,7 @@ export function AllocationLockIndicator({
         )}
         
         {/* Primaries only option */}
-        {currentState !== 'primaries' && (
+        {displayState !== 'primaries' && (
           <Menu.Item onClick={() => handleDisable('primaries')}>
             <Group gap="xs">
               <IconLockSquare size={14} />
@@ -141,7 +142,7 @@ export function AllocationLockIndicator({
         )}
         
         {/* New primaries only option */}
-        {currentState !== 'new_primaries' && (
+        {displayState !== 'new_primaries' && (
           <Menu.Item onClick={() => handleDisable('new_primaries')}>
             <Group gap="xs">
               <IconLockCog size={14} />
@@ -151,7 +152,7 @@ export function AllocationLockIndicator({
         )}
         
         {/* Disable all option */}
-        {currentState !== 'none' && (
+        {displayState !== 'none' && (
           <Menu.Item onClick={() => handleDisable('none')}>
             <Group gap="xs">
               <IconLock size={14} />
