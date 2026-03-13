@@ -397,10 +397,59 @@ function ClusterNavItem({
   const clusterUrl =
     currentTab && !isActive ? `/cluster/${clusterId}?tab=${currentTab}` : `/cluster/${clusterId}`;
 
-  // Render section children when expanded
-  const sectionChildren = isExpanded ? (
-    <Stack gap={0} mt="xs">
-      {CLUSTER_SECTIONS.map((section) => {
+  return (
+    <NavLink
+      href={clusterUrl}
+      label={clusterName}
+      active={isActive}
+      opened={isExpanded}
+      leftSection={
+        <div
+          style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: healthColor,
+            transition: 'background-color 0.2s ease-in-out',
+            flexShrink: 0,
+          }}
+          aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
+        />
+      }
+      rightSection={
+        isActive ? (
+          <div
+            style={{
+              width: '4px',
+              height: '16px',
+              backgroundColor: 'var(--mantine-color-orange-6)',
+              borderRadius: '2px',
+              flexShrink: 0,
+            }}
+          />
+        ) : null
+      }
+      styles={(theme) => ({
+        root: {
+          backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[2],
+          '&:hover': {
+            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]} !important`,
+          },
+        },
+        label: {
+          color: 'var(--mantine-color-blue-6)',
+          fontWeight: 500,
+          fontSize: '16px',
+        },
+      })}
+      onClick={(e) => {
+        e.preventDefault();
+        onToggle();
+      }}
+      aria-current={isActive ? 'page' : undefined}
+      aria-expanded={isExpanded}
+    >
+      {isExpanded && CLUSTER_SECTIONS.map((section) => {
         const isSectionActive = currentSection === section.value;
         return (
           <NavLink
@@ -442,66 +491,7 @@ function ClusterNavItem({
           />
         );
       })}
-    </Stack>
-  ) : null;
-
-  return (
-    <>
-      <NavLink
-        href={clusterUrl}
-        label={clusterName}
-        active={isActive}
-        opened={isExpanded}
-        style={{
-          backgroundColor: isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-2)',
-        }}
-        leftSection={
-          <div
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: healthColor,
-              transition: 'background-color 0.2s ease-in-out',
-              flexShrink: 0,
-            }}
-            aria-label={`Health status: ${clusterStats?.health || 'unknown'}`}
-          />
-        }
-        rightSection={
-          isActive ? (
-            <div
-              style={{
-                width: '4px',
-                height: '16px',
-                backgroundColor: 'var(--mantine-color-orange-6)',
-                borderRadius: '2px',
-                flexShrink: 0,
-              }}
-            />
-          ) : null
-        }
-        styles={(theme) => ({
-          root: {
-            '&:hover': {
-              backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]} !important`,
-            },
-          },
-          label: {
-            color: 'var(--mantine-color-blue-6)',
-            fontWeight: 500,
-            fontSize: '16px',
-          },
-        })}
-        onClick={(e) => {
-          e.preventDefault();
-          onToggle();
-        }}
-        aria-current={isActive ? 'page' : undefined}
-        aria-expanded={isExpanded}
-      />
-      {sectionChildren}
-    </>
+    </NavLink>
   );
 }
 
