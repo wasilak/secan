@@ -412,6 +412,7 @@ function ClusterNavItem({
             }}
             styles={(theme) => ({
               root: {
+                backgroundColor: 'transparent',
                 '&:hover': {
                   backgroundColor: theme.colors.violet[0],
                 },
@@ -476,13 +477,14 @@ function ClusterNavItem({
         }
         styles={(theme) => ({
           root: {
+            backgroundColor: theme.colors.gray[1],
             '&:hover': {
-              backgroundColor: theme.colors.violet[0],
+              backgroundColor: theme.colors.violet[1],
             },
           },
           label: {
             color: 'var(--mantine-color-blue-6)',
-            fontWeight: 700,
+            fontWeight: 500,
             fontSize: '16px',
           },
         })}
