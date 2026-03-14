@@ -3844,12 +3844,13 @@ function ShardAllocationGrid({
   const expandedView = searchParams.get('overviewExpanded') === 'true';
   const showOnlyAffected = searchParams.get('overviewAffected') === 'true';
 
-  // Responsive default page size
-  const defaultPageSize = useResponsivePageSize();
+  // Topology index view: Always show 10 columns (indices) per page
+  // Nodes (rows) are not paginated - all are shown
+  const COLUMNS_PER_PAGE = 10;
 
-  // Pagination state
+  // Pagination state - only indices are paginated, not nodes
   const currentPage = parseInt(searchParams.get('overviewPage') || '1', 10);
-  const pageSize = parseInt(searchParams.get('overviewPageSize') || defaultPageSize.toString(), 10);
+  const pageSize = COLUMNS_PER_PAGE;
 
   const handleOverviewPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
