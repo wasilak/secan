@@ -139,7 +139,7 @@ pub fn transform_cluster_stats(
     };
 
     // Calculate disk totals - prefer Prometheus metrics when available
-    let (disk_used, disk_total) = if let Some(prom_metrics) = prometheus_metrics {
+    let (disk_used, disk_total) = if let Some(_prom_metrics) = prometheus_metrics {
         // For disk, we don't have direct Prometheus metrics in the current setup
         // Fall back to internal metrics
         let disk_total = stats["nodes"]["fs"]["total_in_bytes"].as_u64();
@@ -524,13 +524,16 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
                 .to_string();
             let node = shard_entry["node"].as_str().map(|s| s.to_string());
             // _cat/shards API returns docs and store as strings, not numbers
+            // Handle both string and number formats for compatibility
             let docs = shard_entry["docs"]
                 .as_str()
                 .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| shard_entry["docs"].as_u64())
                 .unwrap_or(0);
             let store = shard_entry["store"]
                 .as_str()
                 .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| shard_entry["store"].as_u64())
                 .unwrap_or(0);
 
             result.push(ShardInfoResponse {

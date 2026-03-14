@@ -130,9 +130,6 @@ pub async fn list_clusters(
             // Get health for health filter
             let health = cluster.health().await.ok();
 
-            // Get version for version filter
-            let version = cluster.client.es_version();
-
             // Fetch cluster name if not in config
             let cluster_name = cluster_info
                 .name
@@ -150,7 +147,6 @@ pub async fn list_clusters(
                 name: Some(cluster_name),
                 nodes: cluster_info.nodes,
                 accessible: cluster_info.accessible,
-                es_version: version,
                 metrics_source: cluster_info.metrics_source,
             });
         }
@@ -196,13 +192,8 @@ fn filter_clusters(clusters: &[ClusterInfo], params: &ClustersQueryParams) -> Ve
             // Health filter - would need to fetch health for each cluster
             // For now, skip health filtering at this level (done in frontend or with cached stats)
 
-            // Version filter
-            if !params.version.is_empty() {
-                let version_str = cluster.es_version.to_string();
-                if !version_str.contains(&params.version) {
-                    return false;
-                }
-            }
+            // Version filter - disabled (version fetched dynamically from cluster)
+            // Version filtering can be done client-side or with cached data
 
             true
         })

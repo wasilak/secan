@@ -24,7 +24,6 @@ clusters:
     nodes:
       - "http://es1.example.com:9200"
       - "http://es2.example.com:9200"
-    es_version: 8
 "#;
 
     fs::write(&config_path, yaml_content).unwrap();
@@ -45,7 +44,6 @@ clusters:
     assert_eq!(config.clusters.len(), 1);
     assert_eq!(config.clusters[0].id, "prod");
     assert_eq!(config.clusters[0].nodes.len(), 2);
-    assert_eq!(config.clusters[0].es_version, 8);
 }
 
 #[test]
@@ -67,7 +65,6 @@ clusters:
   - id: "local"
     nodes:
       - "http://localhost:9200"
-    es_version: 8
 "#;
 
     fs::write(&config_path, yaml_content).unwrap();
@@ -186,7 +183,6 @@ clusters:
   - id: "test"
     nodes:
       - "http://localhost:9200"
-    es_version: 8
 "#;
 
     fs::write(&config_path, yaml_content).unwrap();

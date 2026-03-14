@@ -114,7 +114,6 @@ async fn main() -> anyhow::Result<()> {
             node_count = cluster.nodes.len(),
             has_auth = cluster.auth.is_some(),
             tls_verify = cluster.tls.verify,
-            es_version = cluster.es_version,
             "Configured cluster"
         );
     }

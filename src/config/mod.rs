@@ -329,10 +329,6 @@ pub struct ClusterConfig {
     pub auth: Option<ClusterAuth>,
     #[serde(default)]
     pub tls: TlsConfig,
-    /// Elasticsearch major version (7, 8, or 9)
-    /// Used to select the appropriate SDK client version
-    #[serde(default = "default_es_version")]
-    pub es_version: u8,
     /// Metrics data source for this cluster
     #[serde(default)]
     pub metrics_source: MetricsSource,
@@ -352,7 +348,6 @@ impl Default for ClusterConfig {
             nodes: Vec::new(),
             auth: None,
             tls: TlsConfig::default(),
-            es_version: default_es_version(),
             metrics_source: MetricsSource::default(),
             prometheus: None,
             topology: TopologyConfig::default(),
@@ -403,18 +398,6 @@ impl Default for TlsConfig {
 
 fn default_tls_verify() -> bool {
     true
-}
-
-fn default_es_version() -> u8 {
-    8 // Default to Elasticsearch 8.x
-}
-
-/// Client type for Elasticsearch communication
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientType {
-    #[default]
-    Sdk,
 }
 
 /// Topology view configuration for progressive loading
@@ -700,15 +683,6 @@ impl ClusterConfig {
                     node
                 );
             }
-        }
-
-        // Validate Elasticsearch version
-        if self.es_version < 7 || self.es_version > 9 {
-            anyhow::bail!(
-                "Cluster '{}' has invalid Elasticsearch version: {}. Supported versions are 7, 8, or 9",
-                self.id,
-                self.es_version
-            );
         }
 
         self.tls.validate()?;
@@ -1072,7 +1046,6 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
             ..Default::default()
         };
 
@@ -1093,12 +1066,6 @@ mod tests {
         assert!(cluster.validate().is_err());
         cluster.nodes = vec!["http://localhost:9200".to_string()];
 
-        // Test invalid ES version
-        cluster.es_version = 6;
-        assert!(cluster.validate().is_err());
-        cluster.es_version = 10;
-        assert!(cluster.validate().is_err());
-        cluster.es_version = 8;
         assert!(cluster.validate().is_ok());
     }
 

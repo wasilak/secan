@@ -720,27 +720,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
-name = "elasticsearch"
-version = "8.15.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d99147dd351d320432ec103a20804cbb593d3d08fd2eed0ee86f21a0f5137a3c"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "dyn-clone",
- "lazy_static",
- "percent-encoding",
- "reqwest 0.12.28",
- "rustc_version",
- "serde",
- "serde_json",
- "serde_with",
- "tokio",
- "url",
- "void",
-]
-
-[[package]]
 name = "elliptic-curve"
 version = "0.13.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2864,7 +2843,6 @@ dependencies = [
  "bcrypt",
  "chrono",
  "config",
- "elasticsearch",
  "http",
  "jsonwebtoken",
  "ldap3",
@@ -3786,12 +3764,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "void"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "wait-timeout"

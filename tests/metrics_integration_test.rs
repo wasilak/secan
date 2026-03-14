@@ -28,7 +28,6 @@ clusters:
     name: "Production"
     nodes:
       - "http://es1.example.com:9200"
-    es_version: 8
     metrics_source: "internal"
 "#;
 

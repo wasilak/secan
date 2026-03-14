@@ -2,11 +2,6 @@ use crate::config::{ClusterAuth, ClusterConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::Engine;
-use elasticsearch::{
-    auth::Credentials,
-    http::transport::{SingleNodeConnectionPool, TransportBuilder},
-    Elasticsearch,
-};
 use reqwest::{Method, Response};
 use serde_json::Value;
 use std::time::Duration;
@@ -18,11 +13,9 @@ enum ElasticsearchAuth {
     ApiKey { id: String, api_key: String },
 }
 
-/// Elasticsearch client using official elasticsearch crate
+/// Elasticsearch client using HTTP
 #[derive(Debug, Clone)]
 pub struct Client {
-    client: Elasticsearch,
-    es_version: u8,
     http_client: reqwest::Client,
     base_url: String,
     auth: Option<ElasticsearchAuth>,
@@ -93,7 +86,7 @@ impl Client {
             .context("At least one node URL is required")?;
         let url = Url::parse(node_url).context("Invalid node URL")?;
 
-        // Store base URL for direct HTTP requests
+        // Store base URL for HTTP requests
         let base_url = format!(
             "{}://{}{}",
             url.scheme(),
@@ -101,37 +94,29 @@ impl Client {
             url.port().map(|p| format!(":{}", p)).unwrap_or_default()
         );
 
-        // Create connection pool
-        let conn_pool = SingleNodeConnectionPool::new(url.clone());
+        // Build HTTP client with TLS settings
+        let mut http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(30));
 
-        // Build transport with authentication and TLS settings
-        let mut transport_builder = TransportBuilder::new(conn_pool);
+        if !config.tls.verify {
+            tracing::warn!("TLS certificate verification is disabled - this is insecure!");
+            http_client_builder = http_client_builder.danger_accept_invalid_certs(true);
+        }
 
-        // Configure timeout
-        transport_builder = transport_builder.timeout(Duration::from_secs(30));
-
-        // Store authentication info for direct HTTP requests
+        // Store authentication info
         let auth_info = if let Some(auth) = &config.auth {
             match auth {
-                ClusterAuth::Basic { username, password } => {
-                    let credentials = Credentials::Basic(username.clone(), password.clone());
-                    transport_builder = transport_builder.auth(credentials);
-                    Some(ElasticsearchAuth::Basic {
-                        username: username.clone(),
-                        password: password.clone(),
-                    })
-                }
+                ClusterAuth::Basic { username, password } => Some(ElasticsearchAuth::Basic {
+                    username: username.clone(),
+                    password: password.clone(),
+                }),
                 ClusterAuth::ApiKey { key } => {
                     // ApiKey requires both id and api_key
-                    // For now, we'll split the key on ':' if present, otherwise use empty id
                     let parts: Vec<&str> = key.splitn(2, ':').collect();
                     let (id, api_key) = if parts.len() == 2 {
                         (parts[0].to_string(), parts[1].to_string())
                     } else {
                         (String::new(), key.clone())
                     };
-                    let credentials = Credentials::ApiKey(id.clone(), api_key.clone());
-                    transport_builder = transport_builder.auth(credentials);
                     Some(ElasticsearchAuth::ApiKey { id, api_key })
                 }
                 ClusterAuth::None => None,
@@ -140,43 +125,15 @@ impl Client {
             None
         };
 
-        // Configure TLS certificate verification
-        let mut http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(30));
-
-        if !config.tls.verify {
-            tracing::warn!("TLS certificate verification is disabled - this is insecure!");
-            transport_builder =
-                transport_builder.cert_validation(elasticsearch::cert::CertificateValidation::None);
-            http_client_builder = http_client_builder.tls_danger_accept_invalid_certs(true);
-        } else if config.tls.ca_cert_file.is_some() || config.tls.ca_cert_dir.is_some() {
-            // Load custom CA certificates if needed for the http_client
-            // (transport_builder will handle ES SDK TLS separately)
-            tracing::debug!("Using custom CA certificates for TLS validation");
-        }
-
-        // Build transport
-        let transport = transport_builder
-            .build()
-            .context("Failed to build Elasticsearch transport")?;
-
-        // Create clients
-        let client = Elasticsearch::new(transport);
         let http_client = http_client_builder
             .build()
             .context("Failed to build HTTP client")?;
 
         Ok(Self {
-            client,
-            es_version: config.es_version,
             http_client,
             base_url,
             auth: auth_info,
         })
-    }
-
-    /// Get the Elasticsearch version this client is configured for
-    pub fn es_version(&self) -> u8 {
-        self.es_version
     }
 }
 
@@ -232,20 +189,27 @@ impl ElasticsearchClient for Client {
     }
 
     async fn health(&self) -> Result<Value> {
-        let response = self
-            .client
-            .cluster()
-            .health(elasticsearch::cluster::ClusterHealthParts::None)
-            .level(elasticsearch::params::Level::Indices) // Get per-index health
-            .send()
-            .await
-            .context("Health check failed")?;
+        let url = format!("{}/_cluster/health?level=indices", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!(
-                "Health check failed with status: {}",
-                response.status_code()
-            );
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Health check request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Health check failed with status: {}", response.status());
         }
 
         response
@@ -255,18 +219,27 @@ impl ElasticsearchClient for Client {
     }
 
     async fn info(&self) -> Result<Value> {
-        let response = self
-            .client
-            .info()
-            .send()
-            .await
-            .context("Info request failed")?;
+        let url = format!("{}/_cluster/info", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!(
-                "Info request failed with status: {}",
-                response.status_code()
-            );
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Info request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Info request failed with status: {}", response.status());
         }
 
         response
@@ -275,21 +248,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse info response")
     }
 
-    /// Get cluster stats using SDK typed method
+    /// Get cluster stats
     async fn cluster_stats(&self) -> Result<Value> {
-        let response = self
-            .client
-            .cluster()
-            .stats(elasticsearch::cluster::ClusterStatsParts::None)
-            .send()
-            .await
-            .context("Cluster stats request failed")?;
+        let url = format!("{}/_cluster/stats", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!(
-                "Cluster stats failed with status: {}",
-                response.status_code()
-            );
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Cluster stats request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Cluster stats failed with status: {}", response.status());
         }
 
         response
@@ -298,18 +279,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse cluster stats response")
     }
 
-    /// Get nodes info using SDK typed method
+    /// Get nodes info
     async fn nodes_info(&self) -> Result<Value> {
-        let response = self
-            .client
-            .nodes()
-            .info(elasticsearch::nodes::NodesInfoParts::None)
-            .send()
-            .await
-            .context("Nodes info request failed")?;
+        let url = format!("{}/_nodes", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!("Nodes info failed with status: {}", response.status_code());
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Nodes info request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Nodes info failed with status: {}", response.status());
         }
 
         response
@@ -318,18 +310,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse nodes info response")
     }
 
-    /// Get nodes stats using SDK typed method
+    /// Get nodes stats
     async fn nodes_stats(&self) -> Result<Value> {
-        let response = self
-            .client
-            .nodes()
-            .stats(elasticsearch::nodes::NodesStatsParts::None)
-            .send()
-            .await
-            .context("Nodes stats request failed")?;
+        let url = format!("{}/_nodes/stats", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!("Nodes stats failed with status: {}", response.status_code());
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Nodes stats request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Nodes stats failed with status: {}", response.status());
         }
 
         response
@@ -338,18 +341,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse nodes stats response")
     }
 
-    /// Get stats for a specific node using SDK typed method
+    /// Get stats for a specific node
     async fn node_stats(&self, node_id: &str) -> Result<Value> {
-        let response = self
-            .client
-            .nodes()
-            .stats(elasticsearch::nodes::NodesStatsParts::NodeId(&[node_id]))
-            .send()
-            .await
-            .context("Node stats request failed")?;
+        let url = format!("{}/_nodes/{}/stats", self.base_url, node_id);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!("Node stats failed with status: {}", response.status_code());
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Node stats request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Node stats failed with status: {}", response.status());
         }
 
         response
@@ -358,18 +372,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse node stats response")
     }
 
-    /// Get indices using SDK typed method
+    /// Get indices
     async fn indices_get(&self, index: &str) -> Result<Value> {
-        let response = self
-            .client
-            .indices()
-            .get(elasticsearch::indices::IndicesGetParts::Index(&[index]))
-            .send()
-            .await
-            .context("Indices get request failed")?;
+        let url = format!("{}/{}", self.base_url, index);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!("Indices get failed with status: {}", response.status_code());
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Indices get request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Indices get failed with status: {}", response.status());
         }
 
         response
@@ -378,21 +403,35 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse indices get response")
     }
 
-    /// Get all indices stats using SDK typed method
+    /// Get all indices stats
     async fn indices_stats(&self) -> Result<Value> {
         // Get stats for open indices (closed indices don't have stats)
-        let stats_response = self
-            .client
-            .indices()
-            .stats(elasticsearch::indices::IndicesStatsParts::None)
+        let stats_url = format!("{}/_stats", self.base_url);
+        let mut stats_req = self.http_client.get(&stats_url);
+
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    stats_req = stats_req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    stats_req = stats_req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let stats_response = stats_req
             .send()
             .await
             .context("Indices stats request failed")?;
 
-        if !stats_response.status_code().is_success() {
+        if !stats_response.status().is_success() {
             anyhow::bail!(
                 "Indices stats failed with status: {}",
-                stats_response.status_code()
+                stats_response.status()
             );
         }
 
@@ -419,15 +458,29 @@ impl ElasticsearchClient for Client {
         }
 
         // Get all indices including closed ones from cluster state
-        let state_response = self
-            .client
-            .cluster()
-            .state(elasticsearch::cluster::ClusterStateParts::None)
+        let state_url = format!("{}/_cluster/state", self.base_url);
+        let mut state_req = self.http_client.get(&state_url);
+
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    state_req = state_req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    state_req = state_req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let state_response = state_req
             .send()
             .await
             .context("Cluster state request failed")?;
 
-        if state_response.status_code().is_success() {
+        if state_response.status().is_success() {
             let state = state_response
                 .json::<Value>()
                 .await
@@ -515,21 +568,34 @@ impl ElasticsearchClient for Client {
         }
     }
 
-    /// Get indices stats with shard-level details using SDK typed method
+    /// Get indices stats with shard-level details
     async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
-        let response = self
-            .client
-            .indices()
-            .stats(elasticsearch::indices::IndicesStatsParts::Index(&[index]))
-            .level(elasticsearch::params::Level::Shards)
+        let url = format!("{}/{}/_stats?level=shards", self.base_url, index);
+        let mut req = self.http_client.get(&url);
+
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req
             .send()
             .await
             .context("Indices stats with shards request failed")?;
 
-        if !response.status_code().is_success() {
+        if !response.status().is_success() {
             anyhow::bail!(
                 "Indices stats with shards failed with status: {}",
-                response.status_code()
+                response.status()
             );
         }
 
@@ -539,21 +605,29 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse indices stats with shards response")
     }
 
-    /// Get cluster state for shard information using SDK typed method
+    /// Get cluster state
     async fn cluster_state(&self) -> Result<Value> {
-        let response = self
-            .client
-            .cluster()
-            .state(elasticsearch::cluster::ClusterStateParts::None)
-            .send()
-            .await
-            .context("Cluster state request failed")?;
+        let url = format!("{}/_cluster/state", self.base_url);
+        let mut req = self.http_client.get(&url);
 
-        if !response.status_code().is_success() {
-            anyhow::bail!(
-                "Cluster state failed with status: {}",
-                response.status_code()
-            );
+        // Add authentication if configured
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let response = req.send().await.context("Cluster state request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Cluster state failed with status: {}", response.status());
         }
 
         response
@@ -718,7 +792,6 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
             ..Default::default()
         };
 
@@ -726,7 +799,6 @@ mod tests {
         assert!(client.is_ok());
 
         let client = client.unwrap();
-        assert_eq!(client.es_version(), 8);
     }
 
     #[tokio::test]
@@ -740,7 +812,6 @@ mod tests {
                 password: "pass".to_string(),
             }),
             tls: TlsConfig::default(),
-            es_version: 8,
             ..Default::default()
         };
 
@@ -758,7 +829,6 @@ mod tests {
                 key: "id:key".to_string(),
             }),
             tls: TlsConfig::default(),
-            es_version: 8,
             ..Default::default()
         };
 
@@ -774,12 +844,12 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 7,
+            
             ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();
-        assert_eq!(client.es_version(), 7);
+        
 
         let config = ClusterConfig {
             id: "test".to_string(),
@@ -787,11 +857,11 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 9,
+            
             ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();
-        assert_eq!(client.es_version(), 9);
+        
     }
 }

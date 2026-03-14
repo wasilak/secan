@@ -30,11 +30,6 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
 ] }
 
-# Elasticsearch Rust SDK
-elasticsearch = { version = "8.15.0-alpha.1", default-features = false, features = [
-  "rustls-tls",
-] }
-
 # URL parsing
 url = "2"
 

@@ -375,7 +375,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         };
 
@@ -401,7 +401,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: crate::config::TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         };
 

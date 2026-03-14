@@ -64,7 +64,6 @@ pub struct ClusterInfo {
     pub name: Option<String>,
     pub nodes: Vec<String>,
     pub accessible: bool,
-    pub es_version: u8,
     /// Metrics source (internal or prometheus)
     pub metrics_source: MetricsSource,
 }
@@ -270,7 +269,7 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         };
 
@@ -294,7 +293,7 @@ mod tests {
                 password: "pass".to_string(),
             }),
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         };
 
@@ -339,7 +338,7 @@ mod tests {
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             accessible: true,
-            es_version: 8,
+            
             metrics_source: MetricsSource::Internal,
         };
 
@@ -475,7 +474,6 @@ impl Manager {
                 name: conn.name.clone(),
                 nodes: conn.nodes.clone(),
                 accessible: true, // Will be determined by health checks
-                es_version: conn.client.es_version(),
                 metrics_source: conn.metrics_source.clone(),
             })
             .collect()
@@ -703,7 +701,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -712,7 +710,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -743,7 +741,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -766,7 +764,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -791,7 +789,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -800,7 +798,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -823,7 +821,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -844,7 +842,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -853,7 +851,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -876,7 +874,7 @@ mod manager_tests {
                     password: "pass".to_string(),
                 }),
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -887,7 +885,7 @@ mod manager_tests {
                     key: "key123".to_string(),
                 }),
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -896,7 +894,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -920,7 +918,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -929,7 +927,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -983,7 +981,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9200".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -992,7 +990,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9201".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
             ClusterConfig {
@@ -1001,7 +999,7 @@ mod manager_tests {
                 nodes: vec!["http://localhost:9202".to_string()],
                 auth: None,
                 tls: TlsConfig::default(),
-                es_version: 8,
+                
                 ..Default::default()
             },
         ];
@@ -1040,7 +1038,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -1077,7 +1075,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -1115,7 +1113,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
@@ -1138,7 +1136,7 @@ mod manager_tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            es_version: 8,
+            
             ..Default::default()
         }];
 
