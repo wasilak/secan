@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { Modal, Stack, Text, Group, Button, Badge, ScrollArea, Box, Divider } from '@mantine/core';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   validateBulkOperation,
   getBulkOperationDisplayName,
   hasValidIndices,
 } from '../utils/bulk-operations';
 import type { BulkOperationType, IndexInfo } from '../types/api';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 
 export interface BulkOperationConfirmModalProps {
   /** Whether the modal is opened */
@@ -110,16 +112,28 @@ export function BulkOperationConfirmModal({
   };
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={`Bulk ${operationName} Operation`}
-      centered
-      size="lg"
-      aria-labelledby="bulk-operation-modal-title"
-      aria-describedby="bulk-operation-modal-description"
-    >
-      <Stack gap="md">
+    <AnimatePresence>
+      {opened && (
+        <Modal
+          opened={opened}
+          onClose={onClose}
+          title={`Bulk ${operationName} Operation`}
+          centered
+          size="lg"
+          aria-labelledby="bulk-operation-modal-title"
+          aria-describedby="bulk-operation-modal-description"
+
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              duration: DURATIONS.slow,
+              ease: EASINGS.default,
+            }}
+          >
+            <Stack gap="md">
         {/* Summary section */}
         <Box>
           <Text size="sm" id="bulk-operation-modal-description">
@@ -201,7 +215,10 @@ export function BulkOperationConfirmModal({
             {operation === 'delete' ? 'Delete' : 'Proceed'}
           </Button>
         </Group>
-      </Stack>
-    </Modal>
+            </Stack>
+          </motion.div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 }

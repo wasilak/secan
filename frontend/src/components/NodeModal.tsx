@@ -1,12 +1,14 @@
-import { Modal, Group, Text, Alert, Stack } from '@mantine/core';
+import { Modal, Group, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 import { MasterIndicator } from './MasterIndicator';
 import { NodeDetailSkeleton } from './LoadingSkeleton';
 import { NodeDetailContent } from './NodeDetailContent';
-import { TimeRangePicker, TIME_RANGE_PRESETS, type TimeRangePreset } from './TimeRangePicker';
+import { TIME_RANGE_PRESETS, type TimeRangePreset } from './TimeRangePicker';
 import type { NodeDetailStats, NodeMetricsHistoryResponse } from '../types/api';
 import type { ClusterInfo } from '../types/api';
 import { useState } from 'react';
@@ -135,63 +137,76 @@ export function NodeModal({
   }, [nodeMetrics, isPrometheus]);
 
   return (
-    <Modal.Root opened={opened} onClose={onClose} size="90%">
-      <Modal.Overlay />
-      <Modal.Content
-        style={{
-          maxWidth: '100%',
-        }}
-      >
-        <Modal.Header>
-          <Modal.Title>
-            <Group gap="xs">
-              {nodeStats && (
-                <MasterIndicator
-                  isMaster={nodeStats.isMaster}
-                  isMasterEligible={nodeStats.isMasterEligible}
-                  size="lg"
-                  showTooltip={true}
-                />
-              )}
-              <Text size="lg" fw={600}>
-                {nodeStats ? nodeStats.name : 'Node Details'}
-              </Text>
-            </Group>
-          </Modal.Title>
-          <Modal.CloseButton />
-        </Modal.Header>
-        <Modal.Body>
-      {isLoading && <NodeDetailSkeleton />}
+    <AnimatePresence>
+      {opened && (
+        <Modal.Root opened={opened} onClose={onClose} size="90%">
+          <Modal.Overlay />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              duration: DURATIONS.slow,
+              ease: EASINGS.default,
+            }}
+            style={{ display: 'contents' }}
+          >
+            <Modal.Content
+              style={{
+                maxWidth: '100%',
+              }}
+            >
+              <Modal.Header>
+                <Modal.Title>
+                  <Group gap="xs">
+                    {nodeStats && (
+                      <MasterIndicator
+                        isMaster={nodeStats.isMaster}
+                        isMasterEligible={nodeStats.isMasterEligible}
+                        size="lg"
+                        showTooltip={true}
+                      />
+                    )}
+                    <Text size="lg" fw={600}>
+                      {nodeStats ? nodeStats.name : 'Node Details'}
+                    </Text>
+                  </Group>
+                </Modal.Title>
+                <Modal.CloseButton />
+              </Modal.Header>
+              <Modal.Body>
+                {isLoading && <NodeDetailSkeleton />}
 
-      {error && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load node statistics: {(error as Error).message}
-        </Alert>
+                {error && (
+                  <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                    Failed to load node statistics: {(error as Error).message}
+                  </Alert>
+                )}
+
+                {!isLoading && !error && nodeStats && (
+                  <NodeDetailContent
+                    nodeStats={nodeStats}
+                    loading={isLoading}
+                    isPrometheus={isPrometheus}
+                    prometheusQueries={prometheusQueries}
+                    prometheusMetrics={prometheusMetricsData}
+                    selectedTimeRange={selectedTimeRange}
+                    onTimeRangeChange={setSelectedTimeRange}
+                    timeRangeDropdownOpened={timeRangeDropdownOpened}
+                    onTimeRangeDropdownChange={setTimeRangeDropdownOpened}
+                  />
+                )}
+
+                {!isLoading && !error && !nodeStats && (
+                  <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                    Node statistics not found
+                  </Alert>
+                )}
+              </Modal.Body>
+            </Modal.Content>
+          </motion.div>
+        </Modal.Root>
       )}
-
-      {!isLoading && !error && nodeStats && (
-        <NodeDetailContent
-          nodeStats={nodeStats}
-          loading={isLoading}
-          isPrometheus={isPrometheus}
-          prometheusQueries={prometheusQueries}
-          prometheusMetrics={prometheusMetricsData}
-          selectedTimeRange={selectedTimeRange}
-          onTimeRangeChange={setSelectedTimeRange}
-          timeRangeDropdownOpened={timeRangeDropdownOpened}
-          onTimeRangeDropdownChange={setTimeRangeDropdownOpened}
-        />
-      )}
-
-      {!isLoading && !error && !nodeStats && (
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Node statistics not found
-        </Alert>
-      )}
-
-
-        </Modal.Body>
-      </Modal.Content>
-    </Modal.Root>
+    </AnimatePresence>
   );
 }

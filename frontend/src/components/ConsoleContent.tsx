@@ -30,6 +30,8 @@ import {
   IconCheck,
   IconPin,
   IconPinFilled,
+  IconLayoutSidebarRight,
+  IconLayoutSidebarRightFilled,
 } from '@tabler/icons-react';
 import { CodeEditor } from './CodeEditor';
 import { apiClient } from '../api/client';
@@ -212,7 +214,9 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
     const { addEntry, getHistory, clearHistory: clearHistoryHook } = useConsoleHistory();
     const {
       isSticky,
+      isDetached,
       setSticky,
+      setDetached,
       currentRequest: savedRequest,
       currentResponse: savedResponse,
       scrollPosition: savedScrollPosition,
@@ -516,15 +520,31 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
           <Text fw={600} size="sm">
             REST Console
           </Text>
-          <Tooltip label={isSticky ? 'Unpin console' : 'Pin console'}>
-            <ActionIcon
-              variant={isSticky ? 'filled' : 'subtle'}
-              size="sm"
-              onClick={() => setSticky(!isSticky)}
-            >
-              {isSticky ? <IconPinFilled size={16} /> : <IconPin size={16} />}
-            </ActionIcon>
-          </Tooltip>
+          <Group gap="xs">
+            {/* Detach/Attach button */}
+            <Tooltip label={isDetached ? 'Attach to drawer' : 'Detach to modal'}>
+              <ActionIcon
+                variant={isDetached ? 'filled' : 'subtle'}
+                size="sm"
+                onClick={() => setDetached(!isDetached)}
+              >
+                {isDetached ? <IconLayoutSidebarRightFilled size={16} /> : <IconLayoutSidebarRight size={16} />}
+              </ActionIcon>
+            </Tooltip>
+            
+            {/* Pin button - only show when not detached */}
+            {!isDetached && (
+              <Tooltip label={isSticky ? 'Unpin console' : 'Pin console'}>
+                <ActionIcon
+                  variant={isSticky ? 'filled' : 'subtle'}
+                  size="sm"
+                  onClick={() => setSticky(!isSticky)}
+                >
+                  {isSticky ? <IconPinFilled size={16} /> : <IconPin size={16} />}
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
         </Group>
 
         <Divider />

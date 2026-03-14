@@ -83,6 +83,21 @@ const theme = createTheme({
         },
       },
     },
+    Modal: {
+      defaultProps: {
+        size: '80%',
+      },
+    },
+    Tooltip: {
+      defaultProps: {
+        zIndex: 10000,
+      },
+    },
+    Popover: {
+      defaultProps: {
+        zIndex: 10000,
+      },
+    },
   },
 });
 

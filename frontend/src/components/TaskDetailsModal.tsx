@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Modal, Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
 import { formatTimestamp } from '../utils/formatters';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 
 /**
  * Task details modal component
@@ -81,14 +83,26 @@ export function TaskDetailsModal({
   const runningTime = Date.now() - task.start_time_in_millis;
 
   return (
-    <Modal
-      opened={isOpen}
-      onClose={onClose}
-      title={`Task Details: ${task.id}`}
-      size="xl"
-      centered
-    >
-      <Stack gap="md">
+    <AnimatePresence>
+      {isOpen && (
+        <Modal
+          opened={isOpen}
+          onClose={onClose}
+          title={`Task Details: ${task.id}`}
+          size="xl"
+          centered
+
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              duration: DURATIONS.slow,
+              ease: EASINGS.default,
+            }}
+          >
+            <Stack gap="md">
         {/* Error Alert */}
         {error && (
           <Alert icon={<IconAlertCircle size={16} />} color="red">
@@ -189,7 +203,10 @@ export function TaskDetailsModal({
             </Tabs.Panel>
           </Tabs>
         ) : null}
-      </Stack>
-    </Modal>
+            </Stack>
+          </motion.div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 }

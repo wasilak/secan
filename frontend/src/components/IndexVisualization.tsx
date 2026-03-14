@@ -715,7 +715,7 @@ function CenterIndexElement({
   health,
   primaryShards,
   replicaShards,
-  onShardClick,
+  onShardClick: _onShardClick,
 }: CenterIndexElementProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';

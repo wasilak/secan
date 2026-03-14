@@ -1,8 +1,10 @@
 import { Modal, Stack, Group, Text, Badge, Table, Box, Loader, Alert } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 
 /**
  * Props for ShardStatsModal component
@@ -214,24 +216,36 @@ export function ShardStatsModal({
   }
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      zIndex={isLayered ? 300 : 200}
-      title={
-        <Group gap="sm">
-          <Text fw={600} size="lg">
-            Shard Details
-          </Text>
-          <Badge color={shard.primary ? 'blue' : 'gray'} variant="light">
-            {getShardTypeLabel(shard.primary)}
-          </Badge>
-        </Group>
-      }
-      size="lg"
-      centered
-    >
-      <Stack gap="md">
+    <AnimatePresence>
+      {opened && (
+        <Modal
+          opened={opened}
+          onClose={onClose}
+          zIndex={isLayered ? 300 : 200}
+          title={
+            <Group gap="sm">
+              <Text fw={600} size="lg">
+                Shard Details
+              </Text>
+              <Badge color={shard.primary ? 'blue' : 'gray'} variant="light">
+                {getShardTypeLabel(shard.primary)}
+              </Badge>
+            </Group>
+          }
+          size="lg"
+          centered
+
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              duration: DURATIONS.slow,
+              ease: EASINGS.default,
+            }}
+          >
+            <Stack gap="md">
         {/* Basic shard information - Requirements: 4.6 */}
         <Box>
           <Text size="sm" fw={600} mb="xs">
@@ -432,7 +446,10 @@ export function ShardStatsModal({
             </Text>
           </Box>
         )}
-      </Stack>
-    </Modal>
+            </Stack>
+          </motion.div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 }

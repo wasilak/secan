@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   IconDashboard,
   IconPin,
@@ -38,7 +39,7 @@ import { RefreshControl } from './RefreshControl';
 import { DrawerControls } from './DrawerControls';
 import { ConsolePanel } from './ConsolePanel';
 import { ConsolePanelProvider } from '../contexts/ConsolePanelContext';
-import { ConsoleToggleButton } from './ConsoleToggleButton';
+import { ConsoleModal } from './ConsoleModal';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
@@ -47,6 +48,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getHealthColorValue } from '../utils/colors';
 import { APP_VERSION, getAppVersion } from '../utils/version';
 import { extractSectionFromPath } from '../utils/urlBuilders';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 import { defaultSection, isValidClusterSection, type ClusterSection } from '../routes/clusterRoutes';
 import type { ClusterInfo, ClusterStats } from '../types/api';
 
@@ -463,53 +465,69 @@ function ClusterNavItem({
       aria-current={isActive ? 'page' : undefined}
       aria-expanded={isExpanded}
     >
-      {isExpanded &&
-        CLUSTER_SECTIONS.map((section) => {
-          const isSectionActive = currentSection === section.value;
-          return (
-            <NavLink
-              key={section.value}
-              href={`/cluster/${clusterId}/${section.value}`}
-              label={section.label}
-              leftSection={section.icon}
-              active={isSectionActive}
-              onClick={(e) => {
-                if (e.metaKey || e.ctrlKey) {
-                  // Let browser handle Cmd+Click/Ctrl+Click for new tab
-                  return;
-                }
-                e.preventDefault();
-                onSectionNavigate(clusterId, section.value as ClusterSection);
-              }}
-              styles={(theme) => ({
-                root: {
-                  backgroundColor: 'transparent !important',
-                  '&:hover': {
-                    backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]} !important`,
-                  },
-                },
-                label: {
-                  color: theme.colors.gray[7],
-                  fontWeight: 400,
-                  fontSize: '14px',
-                },
-              })}
-              rightSection={
-                isSectionActive ? (
-                  <div
-                    style={{
-                      width: '4px',
-                      height: '16px',
-                      backgroundColor: 'var(--mantine-color-orange-6)',
-                      borderRadius: '2px',
-                      flexShrink: 0,
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DURATIONS.normal, ease: EASINGS.default }}
+          >
+            {CLUSTER_SECTIONS.map((section, index) => {
+              const isSectionActive = currentSection === section.value;
+              return (
+                <motion.div
+                  key={section.value}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.02, duration: DURATIONS.normal }}
+                >
+                  <NavLink
+                    href={`/cluster/${clusterId}/${section.value}`}
+                    label={section.label}
+                    leftSection={section.icon}
+                    active={isSectionActive}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey) {
+                        // Let browser handle Cmd+Click/Ctrl+Click for new tab
+                        return;
+                      }
+                      e.preventDefault();
+                      onSectionNavigate(clusterId, section.value as ClusterSection);
                     }}
+                    styles={(theme) => ({
+                      root: {
+                        backgroundColor: 'transparent !important',
+                        '&:hover': {
+                          backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]} !important`,
+                        },
+                      },
+                      label: {
+                        color: theme.colors.gray[7],
+                        fontWeight: 400,
+                        fontSize: '14px',
+                      },
+                    })}
+                    rightSection={
+                      isSectionActive ? (
+                        <div
+                          style={{
+                            width: '4px',
+                            height: '16px',
+                            backgroundColor: 'var(--mantine-color-orange-6)',
+                            borderRadius: '2px',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : null
+                    }
                   />
-                ) : null
-              }
-            />
-          );
-        })}
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </NavLink>
   );
 }
@@ -700,6 +718,7 @@ export function AppShell() {
   return (
     <ConsolePanelProvider>
       <MantineAppShell
+        h="100vh"
         header={{ height: { base: 56, sm: 60 } }}
         navbar={
           isPinned
@@ -735,7 +754,6 @@ export function AppShell() {
 
             <Group gap="xs" wrap="nowrap">
               <RefreshControl scope={getRefreshScope()} />
-              <ConsoleToggleButton />
             </Group>
           </Group>
         </MantineAppShell.Header>
@@ -747,7 +765,11 @@ export function AppShell() {
             component="nav"
             role="navigation"
             aria-label="Main navigation"
-            style={{ display: 'flex', flexDirection: 'column' }}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'width 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
           >
             <MantineAppShell.Section>
               <Group justify="space-between" mb="md">
@@ -786,14 +808,35 @@ export function AppShell() {
         )}
 
         {/* Main Content */}
-        <MantineAppShell.Main component="main" role="main">
+        <MantineAppShell.Main
+          component="main"
+          role="main"
+          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        >
           <ConsolePanel>
-            <Outlet />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{
+                  duration: DURATIONS.normal,
+                  ease: EASINGS.default,
+                }}
+                style={{ height: '100%' }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </ConsolePanel>
         </MantineAppShell.Main>
 
         {/* Spotlight Search - must be inside router context */}
         <SpotlightSearch />
+        
+        {/* Console Modal - renders when console is in detached mode */}
+        <ConsoleModal />
       </MantineAppShell>
 
       {/* Drawer Navigation (when not pinned) */}
@@ -820,6 +863,11 @@ export function AppShell() {
         }
         padding="md"
         size="280px"
+        transitionProps={{
+          transition: 'slide-right',
+          duration: 300,
+          timingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
         styles={{
           title: { width: '100%' },
           body: {

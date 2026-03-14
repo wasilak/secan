@@ -1,7 +1,9 @@
 import React from 'react';
 import { Modal, Text, Button, Group, Stack, Box, Alert } from '@mantine/core';
 import { IconAlertTriangle, IconAlertCircle } from '@tabler/icons-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { ShardInfo, NodeWithShards } from '../types/api';
+import { DURATIONS, EASINGS } from '../lib/transitions';
 
 /**
  * Props for RelocationConfirmDialog component
@@ -124,8 +126,26 @@ export function RelocationConfirmDialog({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Confirm Shard Relocation" size="md" centered>
-      <Stack gap="md">
+    <AnimatePresence>
+      {opened && (
+        <Modal
+          opened={opened}
+          onClose={onClose}
+          title="Confirm Shard Relocation"
+          size="md"
+          centered
+
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              duration: DURATIONS.slow,
+              ease: EASINGS.default,
+            }}
+          >
+            <Stack gap="md">
         {/* Validation error alert - Requirements: 8.7 */}
         {validationError && (
           <Alert icon={<IconAlertCircle size={16} />} title="Validation Error" color="red">
@@ -258,7 +278,10 @@ export function RelocationConfirmDialog({
             Relocate Shard
           </Button>
         </Group>
-      </Stack>
-    </Modal>
+            </Stack>
+          </motion.div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 }

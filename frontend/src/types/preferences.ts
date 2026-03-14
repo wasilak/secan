@@ -22,6 +22,9 @@ export interface ClusterConsoleState {
   /** Whether console panel is in sticky mode for this cluster */
   stickyMode: boolean;
 
+  /** Whether console is in detached modal mode */
+  isDetached: boolean;
+
   /** Current console panel width in pixels */
   panelWidth: number;
 

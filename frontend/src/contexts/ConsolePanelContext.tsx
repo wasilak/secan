@@ -41,6 +41,9 @@ interface ConsolePanelContextValue {
   /** Whether sticky mode is enabled (panel stays open during navigation) */
   isSticky: boolean;
 
+  /** Whether console is in detached modal mode */
+  isDetached: boolean;
+
   /** Current console panel width in pixels */
   width: number;
 
@@ -71,6 +74,9 @@ interface ConsolePanelContextValue {
   /** Set sticky mode */
   setSticky: (sticky: boolean) => void;
 
+  /** Set detached mode */
+  setDetached: (detached: boolean) => void;
+
   /** Set console panel width */
   setWidth: (width: number) => void;
 
@@ -98,6 +104,7 @@ interface ConsolePanelProviderProps {
  */
 const getDefaultClusterState = (): ClusterConsoleState => ({
   stickyMode: false,
+  isDetached: false,
   panelWidth: DEFAULT_CONSOLE_WIDTH,
   currentRequest: undefined,
   currentResponse: undefined,
@@ -132,15 +139,23 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
   // Get current cluster ID from URL params
   const clusterId = id ?? null;
 
-  // Panel open state (not persisted - starts closed)
-  const [isOpen, setIsOpen] = useState(false);
-
   // Current cluster state (loaded from preferences or defaults)
   const [currentState, setCurrentState] = useState<ClusterConsoleState>(() => {
     if (!clusterId) {
       return getDefaultClusterState();
     }
     return preferences.clusterConsoleStates[clusterId] ?? getDefaultClusterState();
+  });
+
+  // Panel open state (not persisted - starts closed)
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Detached mode state (loaded from saved state)
+  const [isDetached, setIsDetached] = useState<boolean>(() => {
+    if (!clusterId) {
+      return false;
+    }
+    return preferences.clusterConsoleStates[clusterId]?.isDetached ?? false;
   });
 
   // Refs for debouncing and previous cluster tracking
@@ -193,9 +208,12 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
         panelWidth: validateWidth(newState.panelWidth),
       };
       setCurrentState(validatedState);
+      // Also load detached state
+      setIsDetached(newState.isDetached ?? false);
     } else {
       // No cluster context - use defaults
       setCurrentState(getDefaultClusterState());
+      setIsDetached(false);
     }
 
     // Update previous cluster ref
@@ -244,6 +262,24 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
         }
         return newState;
       });
+    },
+    [clusterId, saveClusterState]
+  );
+
+  /**
+   * Set detached mode with persistence
+   */
+  const setDetached = useCallback(
+    (detached: boolean) => {
+      setIsDetached(detached);
+      // Persist to cluster state
+      if (clusterId) {
+        setCurrentState((prev) => {
+          const newState = { ...prev, isDetached: detached };
+          saveClusterState(clusterId, newState);
+          return newState;
+        });
+      }
     },
     [clusterId, saveClusterState]
   );
@@ -369,12 +405,14 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
       // Ctrl+` / Cmd+`: Toggle console
       if (event.key === '`' || event.key === '~') {
         event.preventDefault();
+        event.stopPropagation();
         togglePanel();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Use capture phase to ensure this handler runs before modal handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [togglePanel]);
 
   /**
@@ -391,6 +429,7 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
   const value: ConsolePanelContextValue = {
     isOpen,
     isSticky: currentState.stickyMode,
+    isDetached,
     width: currentState.panelWidth,
     clusterId,
     currentRequest: currentState.currentRequest,
@@ -401,6 +440,7 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
     openPanel,
     closePanel,
     setSticky,
+    setDetached,
     setWidth,
     setCurrentRequest,
     setCurrentResponse,

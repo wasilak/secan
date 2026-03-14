@@ -7,7 +7,7 @@ import { ConsoleContent } from './ConsoleContent';
 
 import '@gfazioli/mantine-split-pane/styles.css';
 
-// Custom CSS to override the library's default resizer width
+// Custom CSS to override the library's default styles
 const customResizerStyles = `
   .mantine-SplitResizer-root {
     width: 4px !important;
@@ -20,6 +20,32 @@ const customResizerStyles = `
     width: 4px !important;
     min-width: 4px !important;
     max-width: 4px !important;
+  }
+
+  /* Force split pane and all parent containers to be full height */
+  .mantine-SplitPane-root,
+  .mantine-SplitPane-root > div,
+  .mantine-SplitPane-pane {
+    height: 100% !important;
+    max-height: 100vh !important;
+  }
+
+  /* Ensure the Split container is full height */
+  [data-orientation="vertical"] {
+    height: 100% !important;
+  }
+
+  /* Console panel animation */
+  .console-pane-enter {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  
+  .console-pane-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+                transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 `;
 
@@ -58,31 +84,25 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
   const {
     isOpen,
     isSticky,
+    isDetached,
     width,
     setWidth,
     clusterId,
     closePanel,
-    currentRequest,
-    currentResponse,
-    showHistory,
-    scrollPosition,
-    setCurrentRequest,
-    setCurrentResponse,
-    setShowHistory,
-    setScrollPosition,
   } = useConsolePanel();
   const location = useLocation();
   const previousPathnameRef = useRef(location.pathname);
   const consolePaneRef = useRef<HTMLDivElement>(null);
 
   /**
-   * Handle click outside - close panel if not sticky
+   * Handle click outside - close panel if not sticky and not detached
    *
-   * Clicking outside the console panel closes it when not pinned.
+   * Clicking outside the console panel closes it when not pinned and in drawer mode.
    */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!isOpen || isSticky) return;
+      // Don't close if: not open, sticky mode, or detached modal mode
+      if (!isOpen || isSticky || isDetached) return;
       
       const target = event.target as HTMLElement;
       
@@ -103,10 +123,10 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, isSticky, closePanel]);
+  }, [isOpen, isSticky, isDetached, closePanel]);
 
   /**
-   * Handle route changes - close panel if not sticky
+   * Handle route changes - close panel if not sticky and not detached
    *
    * Requirements: 3
    */
@@ -116,15 +136,15 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
     // Only act if the path has actually changed
     if (currentPathname !== previousPathname) {
-      // If not sticky and panel is open, close it
-      if (!isSticky && isOpen) {
+      // If not sticky, not detached, and panel is open, close it
+      if (!isSticky && !isDetached && isOpen) {
         closePanel();
       }
 
       // Update previous pathname
       previousPathnameRef.current = currentPathname;
     }
-  }, [location.pathname, isSticky, isOpen, closePanel]);
+  }, [location.pathname, isSticky, isDetached, isOpen, closePanel]);
 
   /**
    * Calculate max width based on current viewport
@@ -151,22 +171,19 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
    * Handle resize during drag - real-time update without persistence
    */
   const handleResizing = useCallback(
-    (sizes: { beforePane: { width: number }; afterPane: { width: number } }) => {
+    (_sizes: { beforePane: { width: number }; afterPane: { width: number } }) => {
       // Optional: Could update state for real-time feedback
       // For now, we only persist on resize end for performance
     },
     []
   );
 
-  // Always render the split layout to prevent main content from reloading
-  // Just hide the console panel when closed by setting its width to 0
-  const consoleWidth = isOpen && clusterId ? width : 0;
-  const showConsole = isOpen && clusterId;
+  const showConsole = isOpen && clusterId && !isDetached;
 
   return (
     <>
       <style>{customResizerStyles}</style>
-      <Box style={{ height: '100%', width: '100%' }}>
+      <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>
         <Split style={{ height: '100%', width: '100%' }}>
           {/* Main content pane - grows to fill available space */}
           <SplitPane grow minWidth={200}>
@@ -187,21 +204,27 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
             />
           )}
 
-          {/* Console panel - fixed width, resizable */}
-          <SplitPane
-            minWidth={showConsole ? MIN_CONSOLE_WIDTH : 0}
-            maxWidth={getMaxWidth()}
-            initialWidth={consoleWidth}
-            style={{
-              display: showConsole ? 'flex' : 'none',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <div ref={consolePaneRef} style={{ height: '100%', width: '100%' }}>
-              {showConsole && <ConsoleContent clusterId={clusterId} />}
-            </div>
-          </SplitPane>
+          {/* Console panel - fixed width, resizable - only in drawer mode */}
+          {showConsole && (
+            <SplitPane
+              minWidth={MIN_CONSOLE_WIDTH}
+              maxWidth={getMaxWidth()}
+              initialWidth={width}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                ref={consolePaneRef}
+                className="console-pane-enter console-pane-enter-active"
+                style={{ height: '100%', width: '100%' }}
+              >
+                <ConsoleContent clusterId={clusterId} />
+              </div>
+            </SplitPane>
+          )}
         </Split>
       </Box>
     </>

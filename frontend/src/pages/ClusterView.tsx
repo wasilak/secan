@@ -74,6 +74,8 @@ import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
 import { useMetricsStore } from '../stores/metricsStore';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
+import { useConsolePanel } from '../contexts/ConsolePanelContext';
+import { IconTerminal2 } from '@tabler/icons-react';
 import { IndexEdit } from './IndexEdit';
 import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
@@ -132,6 +134,28 @@ function getIndexBackgroundColor(health: string): string {
  *
  * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 14.1, 14.2, 14.3, 14.4, 14.5
  */
+
+/**
+ * Console toggle button for cluster header
+ * Shows alongside cluster name and lock indicator
+ */
+function ConsoleToggleClusterHeader() {
+  const { isOpen, togglePanel } = useConsolePanel();
+
+  return (
+    <Tooltip label={isOpen ? 'Close console' : 'Open console'}>
+      <ActionIcon
+        variant={isOpen ? 'filled' : 'subtle'}
+        size="lg"
+        onClick={togglePanel}
+        aria-label={isOpen ? 'Close console' : 'Open console'}
+      >
+        <IconTerminal2 size={20} />
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
 export function ClusterView() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -1144,14 +1168,19 @@ export function ClusterView() {
               </Text>
             )}
           </Group>
-          {/* Allocation Lock Indicator - Requirements: 2.1, 2.2, 2.7 */}
-          {clusterSettings && (
-            <AllocationLockIndicator
-              allocationState={allocationState}
-              enableAllocationMutation={enableAllocationMutation}
-              disableAllocationMutation={disableAllocationMutation}
-            />
-          )}
+          {/* Console Toggle & Allocation Lock - right side group */}
+          <Group gap="xs">
+            <ConsoleToggleClusterHeader />
+            
+            {/* Allocation Lock Indicator - Requirements: 2.1, 2.2, 2.7 */}
+            {clusterSettings && (
+              <AllocationLockIndicator
+                allocationState={allocationState}
+                enableAllocationMutation={enableAllocationMutation}
+                disableAllocationMutation={disableAllocationMutation}
+              />
+            )}
+          </Group>
         </Group>
       </div>
 
