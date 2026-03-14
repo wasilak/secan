@@ -8,7 +8,6 @@ import {
   IconChartBar,
   IconCopy,
   IconTopologyFull,
-  IconTerminal2,
   IconPlayerPlay,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -136,13 +135,6 @@ export function SpotlightSearch() {
           path: '/tasks',
           description: 'View cluster tasks',
         },
-        { 
-          id: 'console-tab', 
-          label: 'Console', 
-          icon: IconTerminal2, 
-          path: '/console',
-          description: 'Open REST console',
-        },
       ].map((tab) => ({
         id: `cluster-${currentClusterId}-${tab.id}`,
         label: tab.label,
@@ -202,7 +194,6 @@ export function SpotlightSearch() {
           { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
           { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
           { id: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-          { id: 'console', label: 'Console', icon: IconTerminal2, path: '/console' },
         ];
 
         clusters.items.forEach((cluster) => {
