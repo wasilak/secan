@@ -66,6 +66,16 @@ export function usePreferences() {
         restConsoleHistory: Array.isArray(parsed.restConsoleHistory)
           ? parsed.restConsoleHistory
           : DEFAULT_PREFERENCES.restConsoleHistory,
+
+        defaultConsoleWidth:
+          typeof parsed.defaultConsoleWidth === 'number' && parsed.defaultConsoleWidth > 0
+            ? parsed.defaultConsoleWidth
+            : DEFAULT_PREFERENCES.defaultConsoleWidth,
+
+        clusterConsoleStates:
+          typeof parsed.clusterConsoleStates === 'object' && parsed.clusterConsoleStates !== null
+            ? parsed.clusterConsoleStates
+            : DEFAULT_PREFERENCES.clusterConsoleStates,
       };
 
       return preferences;

@@ -34,9 +34,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default:
 const ClusterView = lazy(() =>
   import('./pages/ClusterView').then((m) => ({ default: m.ClusterView }))
 );
-const RestConsole = lazy(() =>
-  import('./pages/RestConsole').then((m) => ({ default: m.RestConsole }))
-);
+
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
 const AccessDenied = lazy(() =>
   import('./pages/AccessDenied').then((m) => ({ default: m.AccessDenied }))
@@ -264,22 +262,7 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      {
-        path: 'cluster/:id/rest',
-        element: (
-          <LazyRoute>
-            <RestConsole />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/console',
-        element: (
-          <LazyRoute>
-            <RestConsole />
-          </LazyRoute>
-        ),
-      },
+
       {
         path: 'cluster/:id/indices/create',
         element: (

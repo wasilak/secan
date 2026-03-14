@@ -12,6 +12,33 @@ export interface RequestHistoryItem {
 }
 
 /**
+ * Per-cluster console panel state
+ *
+ * Stores the console state for each cluster separately,
+ * allowing users to maintain different contexts when
+ * working with multiple clusters.
+ */
+export interface ClusterConsoleState {
+  /** Whether console panel is in sticky mode for this cluster */
+  stickyMode: boolean;
+
+  /** Current console panel width in pixels */
+  panelWidth: number;
+
+  /** Current request input (preserved per cluster) */
+  currentRequest?: string;
+
+  /** Current response display (preserved per cluster) */
+  currentResponse?: string;
+
+  /** Whether history panel is visible */
+  showHistory: boolean;
+
+  /** Scroll position in console */
+  scrollPosition: number;
+}
+
+/**
  * User preferences stored in browser localStorage
  *
  * These preferences persist across sessions and allow users to
@@ -29,6 +56,12 @@ export interface UserPreferences {
 
   /** REST console request history */
   restConsoleHistory: RequestHistoryItem[];
+
+  /** Global default console panel width in pixels */
+  defaultConsoleWidth: number;
+
+  /** Per-cluster console states (keyed by cluster ID) */
+  clusterConsoleStates: Record<string, ClusterConsoleState>;
 }
 
 /**
@@ -39,4 +72,6 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   refreshInterval: 30000, // 30 seconds
   lastSelectedCluster: undefined,
   restConsoleHistory: [],
+  defaultConsoleWidth: 500, // Default console panel width in pixels
+  clusterConsoleStates: {}, // Empty object - states created on demand per cluster
 };

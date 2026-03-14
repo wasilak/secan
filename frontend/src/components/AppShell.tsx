@@ -37,6 +37,9 @@ import { useState, useEffect } from 'react';
 import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { DrawerControls } from './DrawerControls';
+import { ConsolePanel } from './ConsolePanel';
+import { ConsolePanelProvider } from '../contexts/ConsolePanelContext';
+import { ConsoleToggleButton } from './ConsoleToggleButton';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { useDrawer } from '../contexts/DrawerContext';
@@ -279,20 +282,15 @@ function HeaderTitle() {
         size="xs"
         p={0}
         h="auto"
-        component="a"
-        href="/"
-        onClick={(e) => {
-          if (e.metaKey || e.ctrlKey) {
-            // Let browser handle Cmd+Click/Ctrl+Click for new tab
-            return;
-          }
-          e.preventDefault();
+        onClick={() => {
           handleGoToDashboard();
         }}
         style={{
           fontSize: 'var(--mantine-font-size-sm)',
           fontWeight: 500,
           color: 'var(--mantine-color-dimmed)',
+          padding: '0rem',
+          height: 'auto',
         }}
       >
         Secan
@@ -702,7 +700,7 @@ export function AppShell() {
   };
 
   return (
-    <>
+    <ConsolePanelProvider>
       <MantineAppShell
         header={{ height: { base: 56, sm: 60 } }}
         navbar={
@@ -725,7 +723,7 @@ export function AppShell() {
             role="banner"
             wrap="nowrap"
           >
-            <Group gap="xs" wrap="nowrap">
+            <Group gap="xs" wrap="nowrap" align="center">
               {!isPinned && (
                 <Burger
                   opened={drawerOpened}
@@ -739,6 +737,7 @@ export function AppShell() {
 
             <Group gap="xs" wrap="nowrap">
               <RefreshControl scope={getRefreshScope()} />
+              <ConsoleToggleButton />
             </Group>
           </Group>
         </MantineAppShell.Header>
@@ -790,7 +789,9 @@ export function AppShell() {
 
         {/* Main Content */}
         <MantineAppShell.Main component="main" role="main">
-          <Outlet />
+          <ConsolePanel>
+            <Outlet />
+          </ConsolePanel>
         </MantineAppShell.Main>
 
         {/* Spotlight Search - must be inside router context */}
@@ -858,6 +859,6 @@ export function AppShell() {
           </div>
         </div>
       </Drawer>
-    </>
+    </ConsolePanelProvider>
   );
 }
