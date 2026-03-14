@@ -4208,9 +4208,9 @@ function ShardAllocationGrid({
               <Table.Tr>
                 <Table.Th
                   style={{
-                    width: '120px',
-                    minWidth: '120px',
-                    maxWidth: '120px',
+                    width: '180px',
+                    minWidth: '180px',
+                    maxWidth: '180px',
                     position: 'sticky',
                     left: 0,
                     backgroundColor: 'var(--mantine-color-body)',
@@ -4254,9 +4254,9 @@ function ShardAllocationGrid({
                 <Table.Tr>
                   <Table.Td
                     style={{
-                      width: '120px',
-                      minWidth: '120px',
-                      maxWidth: '120px',
+                      width: '180px',
+                      minWidth: '180px',
+                      maxWidth: '180px',
                       position: 'sticky',
                       left: 0,
                       zIndex: 1,
@@ -4341,9 +4341,9 @@ function ShardAllocationGrid({
                     <Table.Tr key={node.id}>
                       <Table.Td
                         style={{
-                          width: '120px',
-                          minWidth: '120px',
-                          maxWidth: '120px',
+                          width: '180px',
+                          minWidth: '180px',
+                          maxWidth: '180px',
                           position: 'sticky',
                           left: 0,
                           backgroundColor: 'var(--mantine-color-body)',
