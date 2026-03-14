@@ -844,12 +844,11 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            
+
             ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();
-        
 
         let config = ClusterConfig {
             id: "test".to_string(),
@@ -857,11 +856,10 @@ mod tests {
             nodes: vec!["http://localhost:9200".to_string()],
             auth: None,
             tls: TlsConfig::default(),
-            
+
             ..Default::default()
         };
 
         let client = Client::new(&config).await.unwrap();
-        
     }
 }

@@ -24,6 +24,8 @@ describe('usePreferences', () => {
         refreshInterval: 60000,
         lastSelectedCluster: 'prod-main',
         restConsoleHistory: [],
+        clusterConsoleStates: {},
+        defaultConsoleWidth: 500,
       };
 
       localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
@@ -222,10 +224,11 @@ describe('usePreferences', () => {
             timestamp: 1234567890,
             method: 'GET',
             path: '/_cluster/health',
-            body: undefined,
             response: '{"status":"green"}',
           },
         ],
+        clusterConsoleStates: {},
+        defaultConsoleWidth: 500,
       };
 
       const { result: result1 } = renderHook(() => usePreferences());

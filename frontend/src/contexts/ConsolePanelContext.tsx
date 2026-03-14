@@ -227,6 +227,7 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
       }
     };
     // Only depend on clusterId to avoid circular updates
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clusterId]);
 
   /**

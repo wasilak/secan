@@ -280,6 +280,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       setStatusCode(null);
       setExecutionTime(null);
       setError(null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
@@ -293,6 +294,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       setStatusCode(null);
       setExecutionTime(null);
       setError(null);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /**
@@ -374,6 +376,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       } finally {
         setLoading(false);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [clusterId, request, addEntry]);
 
     /**
@@ -389,6 +392,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       if (item.response) {
         setResponse(item.response);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /**

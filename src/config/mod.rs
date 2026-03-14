@@ -319,7 +319,7 @@ impl PrometheusConfig {
 }
 
 /// Cluster configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ClusterConfig {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -338,21 +338,6 @@ pub struct ClusterConfig {
     /// Topology view configuration
     #[serde(default)]
     pub topology: TopologyConfig,
-}
-
-impl Default for ClusterConfig {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            name: None,
-            nodes: Vec::new(),
-            auth: None,
-            tls: TlsConfig::default(),
-            metrics_source: MetricsSource::default(),
-            prometheus: None,
-            topology: TopologyConfig::default(),
-        }
-    }
 }
 
 impl ClusterConfig {
