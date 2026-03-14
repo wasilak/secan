@@ -22,7 +22,7 @@ import {
   IconActivity,
   IconExternalLink,
 } from '@tabler/icons-react';
-import { TimeRangePicker, TIME_RANGE_PRESETS } from './TimeRangePicker';
+import { TimeRangePicker, TIME_RANGE_PRESETS, type TimeRangePreset } from './TimeRangePicker';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { NodeCharts } from './NodeCharts';
 import { getRoleIcon } from './RoleIcons';
@@ -52,6 +52,11 @@ interface NodeDetailContentProps {
     load?: string;
   };
   isPrometheus?: boolean;
+  // Optional: external time range control (when used inside NodeModal)
+  selectedTimeRange?: TimeRangePreset;
+  onTimeRangeChange?: (preset: TimeRangePreset) => void;
+  timeRangeDropdownOpened?: boolean;
+  onTimeRangeDropdownChange?: (opened: boolean) => void;
 }
 
 /**
@@ -75,11 +80,22 @@ export function NodeDetailContent({
   prometheusMetrics,
   prometheusQueries,
   isPrometheus = false,
+  selectedTimeRange: externalTimeRange,
+  onTimeRangeChange,
+  timeRangeDropdownOpened: externalDropdownOpened,
+  onTimeRangeDropdownChange,
 }: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [timeRangeDropdownOpened, setTimeRangeDropdownOpened] = useState(false);
-  const [selectedTimeRange, setSelectedTimeRange] = useState(TIME_RANGE_PRESETS[2]); // Default 24h
+  
+  // Use external state if provided (when used inside NodeModal), otherwise use internal state
+  const [internalDropdownOpened, setInternalDropdownOpened] = useState(false);
+  const [internalTimeRange, setInternalTimeRange] = useState(TIME_RANGE_PRESETS[2]); // Default 24h
+  
+  const timeRangeDropdownOpened = externalDropdownOpened ?? internalDropdownOpened;
+  const setTimeRangeDropdownOpened = onTimeRangeDropdownChange ?? setInternalDropdownOpened;
+  const selectedTimeRange = externalTimeRange ?? internalTimeRange;
+  const setSelectedTimeRange = onTimeRangeChange ?? setInternalTimeRange;
 
   // Get current page/route as reset key for sparkline data
   // Use node ID to ensure data is specific to this node
@@ -692,59 +708,6 @@ export function NodeDetailContent({
           )}
         </Stack>
       </Card>
-
-      {/* Prometheus Metrics Section */}
-      {prometheusMetrics && (
-        <Card shadow="sm" padding="lg">
-          <Stack gap="md">
-            <Title order={3}>Historical Metrics (Prometheus)</Title>
-            <Text size="sm" c="dimmed">
-              Historical time-series data from Prometheus for this node
-            </Text>
-
-            {prometheusMetrics.heapHistory && prometheusMetrics.heapHistory.length > 0 && (
-              <div>
-                <Text size="sm" fw={500} mb="xs">
-                  Heap Usage History
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {prometheusMetrics.heapHistory.length} data points available
-                </Text>
-              </div>
-            )}
-
-            {prometheusMetrics.cpuHistory && prometheusMetrics.cpuHistory.length > 0 && (
-              <div>
-                <Text size="sm" fw={500} mb="xs">
-                  CPU Usage History
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {prometheusMetrics.cpuHistory.length} data points available
-                </Text>
-              </div>
-            )}
-
-            {prometheusMetrics.diskHistory && prometheusMetrics.diskHistory.length > 0 && (
-              <div>
-                <Text size="sm" fw={500} mb="xs">
-                  Disk Usage History
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {prometheusMetrics.diskHistory.length} data points available
-                </Text>
-              </div>
-            )}
-
-            {(!prometheusMetrics.heapHistory || prometheusMetrics.heapHistory.length === 0) &&
-              (!prometheusMetrics.cpuHistory || prometheusMetrics.cpuHistory.length === 0) &&
-              (!prometheusMetrics.diskHistory || prometheusMetrics.diskHistory.length === 0) && (
-                <Text c="dimmed" ta="center" py="xl">
-                  No Prometheus metrics available for this node
-                </Text>
-              )}
-          </Stack>
-        </Card>
-      )}
     </Stack>
   );
 }

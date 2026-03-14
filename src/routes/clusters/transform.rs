@@ -26,72 +26,143 @@ fn format_uptime(uptime_millis: u64) -> String {
 }
 
 /// Transform cluster stats from SDK response to frontend format
+///
+/// When Prometheus metrics are available, they take precedence over internal metrics
+/// for CPU, memory, disk, and load averages.
 pub fn transform_cluster_stats(
     stats: &Value,
     health: &Value,
     es_version: Option<String>,
     prometheus_metrics: Option<&std::collections::HashMap<String, serde_json::Value>>,
 ) -> Result<ClusterStatsResponse, anyhow::Error> {
-    // Extract memory and disk totals from nodes stats
-    let memory_used = stats["nodes"]["jvm"]["mem"]["heap_used_in_bytes"].as_u64();
-    let memory_total = stats["nodes"]["jvm"]["mem"]["heap_max_in_bytes"].as_u64();
-    let disk_total = stats["nodes"]["fs"]["total_in_bytes"].as_u64();
-    let disk_available = stats["nodes"]["fs"]["available_in_bytes"].as_u64();
-    let disk_used = if let (Some(total), Some(available)) = (disk_total, disk_available) {
-        Some(total.saturating_sub(available))
-    } else {
-        None
-    };
+    tracing::debug!(
+        has_prometheus = prometheus_metrics.is_some(),
+        prometheus_node_count = prometheus_metrics.map(|m| m.len()).unwrap_or(0),
+        "transform_cluster_stats called"
+    );
 
-    // Calculate average CPU usage across all nodes
-    // Note: OpenSearch returns -1 for CPU when metrics are unavailable
-    let cpu_percent = if let Some(nodes_stats_obj) = stats["nodes_stats"].as_object() {
-        // Try nodes_stats.nodes structure
-        let nodes_obj = nodes_stats_obj
-            .get("nodes")
-            .and_then(|v| v.as_object())
-            .or(Some(nodes_stats_obj)); // Fallback if nodes_stats is directly the nodes object
-
-        if let Some(nodes) = nodes_obj {
-            let mut total_cpu = 0u64;
-            let mut node_count = 0u64;
-            for (_node_id, node_stat) in nodes {
-                // Get CPU percent, treating -1 as 0 (matches transform_nodes behavior)
-                // Try multiple paths for different ES/OS versions
-                let cpu = node_stat["os"]["cpu"]["percent"]
-                    .as_i64()
-                    .map(|v| if v < 0 { 0 } else { v as u64 })
-                    .or_else(|| node_stat["os"]["cpu"]["usage"].as_u64())
-                    .or_else(|| {
-                        node_stat["process"]["cpu"]["percent"].as_i64().map(|v| {
-                            if v < 0 {
-                                0
-                            } else {
-                                v as u64
-                            }
-                        })
-                    })
-                    .or_else(|| node_stat["cpu"]["percent"].as_u64());
-
-                if let Some(cpu_val) = cpu {
-                    total_cpu += cpu_val;
-                    node_count += 1;
-                }
+    // Calculate average CPU usage - prefer Prometheus metrics when available
+    let cpu_percent = if let Some(prom_metrics) = prometheus_metrics {
+        tracing::debug!(
+            node_count = prom_metrics.len(),
+            "Using Prometheus metrics for CPU"
+        );
+        // Use Prometheus metrics for CPU
+        let mut total_cpu = 0.0;
+        let mut node_count = 0;
+        for (node_name, metrics) in prom_metrics.iter() {
+            let cpu_val = metrics.get("cpu_percent").and_then(|v| v.as_f64());
+            tracing::debug!(node = %node_name, cpu = ?cpu_val, "CPU metric for node");
+            if let Some(cpu) = cpu_val {
+                total_cpu += cpu;
+                node_count += 1;
             }
-            if node_count > 0 {
-                let avg = (total_cpu / node_count) as u32;
-                Some(avg)
+        }
+        tracing::debug!(total_cpu, node_count, "CPU aggregation result");
+        if node_count > 0 {
+            Some((total_cpu / node_count as f64) as u32)
+        } else {
+            None
+        }
+    } else {
+        // Fallback to internal metrics
+        if let Some(nodes_stats_obj) = stats["nodes_stats"].as_object() {
+            let nodes_obj = nodes_stats_obj
+                .get("nodes")
+                .and_then(|v| v.as_object())
+                .or(Some(nodes_stats_obj));
+
+            if let Some(nodes) = nodes_obj {
+                let mut total_cpu = 0u64;
+                let mut node_count = 0u64;
+                for (_node_id, node_stat) in nodes {
+                    let cpu = node_stat["os"]["cpu"]["percent"]
+                        .as_i64()
+                        .map(|v| if v < 0 { 0 } else { v as u64 })
+                        .or_else(|| node_stat["os"]["cpu"]["usage"].as_u64())
+                        .or_else(|| {
+                            node_stat["process"]["cpu"]["percent"].as_i64().map(|v| {
+                                if v < 0 {
+                                    0
+                                } else {
+                                    v as u64
+                                }
+                            })
+                        })
+                        .or_else(|| node_stat["cpu"]["percent"].as_u64());
+
+                    if let Some(cpu_val) = cpu {
+                        total_cpu += cpu_val;
+                        node_count += 1;
+                    }
+                }
+                if node_count > 0 {
+                    Some((total_cpu / node_count) as u32)
+                } else {
+                    None
+                }
             } else {
                 None
             }
         } else {
             None
         }
-    } else {
-        None
     };
 
-    // Calculate average load averages across all nodes from Prometheus metrics
+    // Calculate memory totals - prefer Prometheus metrics when available
+    let (memory_used, memory_total) = if let Some(prom_metrics) = prometheus_metrics {
+        tracing::debug!("Using Prometheus metrics for memory");
+        // Use Prometheus metrics for memory (heap_used_bytes from elasticsearch_jvm_memory_used_bytes)
+        let mut total_mem_used = 0u64;
+        let mut node_count = 0;
+        for (node_name, metrics) in prom_metrics.iter() {
+            let mem_val = metrics.get("memory_used_bytes").and_then(|v| v.as_u64());
+            tracing::debug!(node = %node_name, mem = ?mem_val, "Memory metric for node");
+            if let Some(mem) = mem_val {
+                total_mem_used += mem;
+                node_count += 1;
+            }
+        }
+        tracing::debug!(total_mem_used, node_count, "Memory aggregation result");
+        // For total memory with Prometheus, fall back to internal metrics
+        let mem_total = stats["nodes"]["jvm"]["mem"]["heap_max_in_bytes"].as_u64();
+        if node_count > 0 {
+            (Some(total_mem_used), mem_total)
+        } else {
+            (None, mem_total)
+        }
+    } else {
+        // Use internal metrics
+        let mem_used = stats["nodes"]["jvm"]["mem"]["heap_used_in_bytes"].as_u64();
+        let mem_total = stats["nodes"]["jvm"]["mem"]["heap_max_in_bytes"].as_u64();
+        (mem_used, mem_total)
+    };
+
+    // Calculate disk totals - prefer Prometheus metrics when available
+    let (disk_used, disk_total) = if let Some(prom_metrics) = prometheus_metrics {
+        // For disk, we don't have direct Prometheus metrics in the current setup
+        // Fall back to internal metrics
+        let disk_total = stats["nodes"]["fs"]["total_in_bytes"].as_u64();
+        let disk_available = stats["nodes"]["fs"]["available_in_bytes"].as_u64();
+        let disk_used = if let (Some(total), Some(available)) = (disk_total, disk_available) {
+            Some(total.saturating_sub(available))
+        } else {
+            None
+        };
+        (disk_used, disk_total)
+    } else {
+        // Use internal metrics
+        let disk_total = stats["nodes"]["fs"]["total_in_bytes"].as_u64();
+        let disk_available = stats["nodes"]["fs"]["available_in_bytes"].as_u64();
+        let disk_used = if let (Some(total), Some(available)) = (disk_total, disk_available) {
+            Some(total.saturating_sub(available))
+        } else {
+            None
+        };
+        (disk_used, disk_total)
+    };
+
+    // Calculate average load averages across all nodes - prefer Prometheus metrics when available
     let (load_average_1m, load_average_5m, load_average_15m) =
         if let Some(prom_metrics) = prometheus_metrics {
             let mut total_load1 = 0.0;
@@ -452,8 +523,15 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
                 .unwrap_or("UNASSIGNED")
                 .to_string();
             let node = shard_entry["node"].as_str().map(|s| s.to_string());
-            let docs = shard_entry["docs"].as_u64().unwrap_or(0);
-            let store = shard_entry["store"].as_u64().unwrap_or(0);
+            // _cat/shards API returns docs and store as strings, not numbers
+            let docs = shard_entry["docs"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            let store = shard_entry["store"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
 
             result.push(ShardInfoResponse {
                 index,
@@ -1159,49 +1237,54 @@ fn extract_thread_pools(
 }
 
 /// Aggregate shard statistics for a specific node
-fn aggregate_shard_stats(node_id: &str, shards: &Value) -> ShardStats {
+fn aggregate_shard_stats(_node_id: &str, shards: &Value) -> ShardStats {
     let mut total = 0;
     let mut primary = 0;
     let mut replica = 0;
     let mut list = Vec::new();
 
-    // Parse shards from cluster state routing table
-    if let Some(routing_table) = shards["routing_table"]["indices"].as_object() {
-        for (index_name, index_routing) in routing_table {
-            if let Some(shards_obj) = index_routing["shards"].as_object() {
-                for (shard_num, shard_array) in shards_obj {
-                    if let Some(shard_list) = shard_array.as_array() {
-                        for shard in shard_list {
-                            // Check if this shard is on the target node
-                            if let Some(shard_node) = shard["node"].as_str() {
-                                if shard_node == node_id {
-                                    total += 1;
-                                    let is_primary = shard["primary"].as_bool().unwrap_or(false);
-                                    if is_primary {
-                                        primary += 1;
-                                    } else {
-                                        replica += 1;
-                                    }
+    // Parse shards from _cat/shards API response (array format)
+    if let Some(shards_array) = shards.as_array() {
+        tracing::debug!(shards_count = shards_array.len(), "Aggregating shard stats");
+        for shard in shards_array {
+            // _cat/shards API returns node name in "node" field
+            // prirep field: "p" = primary, "r" = replica
+            let is_primary = shard["prirep"].as_str().map(|s| s == "p").unwrap_or(false);
 
-                                    list.push(ShardInfo {
-                                        index: index_name.clone(),
-                                        shard: shard_num.parse().unwrap_or(0),
-                                        primary: is_primary,
-                                        state: shard["state"]
-                                            .as_str()
-                                            .unwrap_or("UNASSIGNED")
-                                            .to_string(),
-                                        docs: 0,  // Default to 0 if unavailable
-                                        store: 0, // Default to 0 if unavailable
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
+            total += 1;
+            if is_primary {
+                primary += 1;
+            } else {
+                replica += 1;
             }
+
+            // Parse docs and store from the cat shards response (strings)
+            let docs = shard["docs"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+            let store = shard["store"]
+                .as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(0);
+
+            list.push(ShardInfo {
+                index: shard["index"].as_str().unwrap_or("").to_string(),
+                shard: shard["shard"].as_str().unwrap_or("0").parse().unwrap_or(0),
+                primary: is_primary,
+                state: shard["state"].as_str().unwrap_or("UNASSIGNED").to_string(),
+                docs,
+                store,
+            });
         }
     }
+
+    tracing::debug!(
+        total = total,
+        primary = primary,
+        replica = replica,
+        "Finished aggregating shard stats"
+    );
 
     ShardStats {
         total,

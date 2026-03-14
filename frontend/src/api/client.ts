@@ -379,16 +379,20 @@ export class ApiClient {
     }
   ): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
+      const params: Record<string, unknown> = {
+        page,
+        page_size: pageSize,
+        search: filters?.search || '',
+      };
+      // Only include roles param if it's explicitly set (even empty string)
+      // undefined means "no filter", '' means "filter out all", 'x,y' means "filter by x,y"
+      if (filters?.roles !== undefined) {
+        params.roles = filters.roles;
+      }
+
       const response = await this.client.get<PaginatedResponse<NodeInfo>>(
         `/clusters/${clusterId}/nodes`,
-        {
-          params: {
-            page,
-            page_size: pageSize,
-            search: filters?.search || '',
-            roles: filters?.roles || '',
-          },
-        }
+        { params }
       );
 
       // Ensure optional fields have proper defaults

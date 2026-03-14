@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Spotlight } from '@mantine/spotlight';
+import { Spotlight, type SpotlightActionData, type SpotlightActionGroupData } from '@mantine/spotlight';
 import {
   IconDashboard,
   IconServer,
@@ -22,9 +22,9 @@ import { useMemo } from 'react';
  *
  * Features:
  * - Cmd/Ctrl+K to open search
- * - Context-aware navigation items
- * - Dashboard view: Shows cluster tabs (Overview, Statistics, Nodes, Indices, Shards)
- * - Cluster view: Shows nodes, indices, and tabs for current cluster
+ * - Context-aware navigation items with grouped categories
+ * - Dashboard view: Shows cluster tabs grouped by cluster
+ * - Cluster view: Shows tabs, nodes, and indices in separate groups
  * - Keyboard navigation support
  * - Search filtering
  *
@@ -67,12 +67,12 @@ export function SpotlightSearch() {
 
   const indices = getPaginatedItems(indicesPaginated);
 
-  // Build actions array based on context
+  // Build actions array with groups based on context
   const actions = useMemo(() => {
-    const items = [];
+    const groups: (SpotlightActionGroupData | SpotlightActionData)[] = [];
 
-    // Always show dashboard
-    items.push({
+    // Always show dashboard as a standalone action
+    groups.push({
       id: 'dashboard',
       label: 'Dashboard',
       description: 'View all clusters overview',
@@ -82,64 +82,118 @@ export function SpotlightSearch() {
     });
 
     if (currentClusterId) {
-      // In cluster view - show nodes, indices, and tabs for current cluster
+      // In cluster view - show grouped tabs, nodes, and indices
       const clusterName = currentClusterName;
 
-      // Cluster tabs
-      const tabs = [
-        { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
-        { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
-        { id: 'nodes-tab', label: 'Nodes', icon: IconServer, path: '/nodes' },
-        { id: 'indices-tab', label: 'Indices', icon: IconDatabase, path: '/indices' },
-        { id: 'shards-tab', label: 'Shards', icon: IconCopy, path: '/shards' },
-        { id: 'topology-tab', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
-        { id: 'tasks-tab', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-        { id: 'console-tab', label: 'Console', icon: IconTerminal2, path: '/console' },
-      ];
+      // Group: Cluster Tabs
+      const tabActions: SpotlightActionData[] = [
+        { 
+          id: 'overview', 
+          label: 'Overview', 
+          icon: IconChartBar, 
+          path: '/overview',
+          description: 'View cluster overview',
+        },
+        { 
+          id: 'statistics', 
+          label: 'Statistics', 
+          icon: IconChartBar, 
+          path: '/statistics',
+          description: 'View cluster statistics',
+        },
+        { 
+          id: 'nodes-tab', 
+          label: 'Nodes', 
+          icon: IconServer, 
+          path: '/nodes',
+          description: 'View cluster nodes',
+        },
+        { 
+          id: 'indices-tab', 
+          label: 'Indices', 
+          icon: IconDatabase, 
+          path: '/indices',
+          description: 'View cluster indices',
+        },
+        { 
+          id: 'shards-tab', 
+          label: 'Shards', 
+          icon: IconCopy, 
+          path: '/shards',
+          description: 'View cluster shards',
+        },
+        { 
+          id: 'topology-tab', 
+          label: 'Topology', 
+          icon: IconTopologyFull, 
+          path: '/topology',
+          description: 'View cluster topology',
+        },
+        { 
+          id: 'tasks-tab', 
+          label: 'Tasks', 
+          icon: IconPlayerPlay, 
+          path: '/tasks',
+          description: 'View cluster tasks',
+        },
+        { 
+          id: 'console-tab', 
+          label: 'Console', 
+          icon: IconTerminal2, 
+          path: '/console',
+          description: 'Open REST console',
+        },
+      ].map((tab) => ({
+        id: `cluster-${currentClusterId}-${tab.id}`,
+        label: tab.label,
+        description: tab.description,
+        onClick: () => navigate(`/cluster/${currentClusterId}${tab.path}`),
+        leftSection: <tab.icon size={20} />,
+          keywords: ['cluster', tab.label.toLowerCase(), ...(clusterName ? [clusterName] : [])],
+      }));
 
-      tabs.forEach((tab) => {
-        items.push({
-          id: `cluster-${currentClusterId}-${tab.id}`,
-          label: `${clusterName} - ${tab.label}`,
-          description: `View ${tab.label.toLowerCase()} tab`,
-          onClick: () => navigate(`/cluster/${currentClusterId}${tab.path}`),
-          leftSection: <tab.icon size={20} />,
-          keywords: ['cluster', tab.label.toLowerCase(), clusterName],
-        });
+      groups.push({
+        group: clusterName,
+        actions: tabActions,
       });
 
-      // Individual nodes
+      // Group: Nodes
       if (nodes && nodes.length > 0) {
-        nodes.forEach((node) => {
-          items.push({
-            id: `node-${node.id}`,
-            label: `Node: ${node.name}`,
-            description: `${node.ip} - ${node.roles.join(', ')}`,
-            onClick: () => navigate(`/cluster/${currentClusterId}/nodes/${node.id}`),
-            leftSection: <IconServer size={20} />,
-            keywords: ['node', node.name, node.ip, ...node.roles, currentClusterName],
-          });
+        const nodeActions: SpotlightActionData[] = nodes.map((node) => ({
+          id: `node-${node.id}`,
+          label: node.name,
+          description: `${node.ip} - ${node.roles.join(', ')}`,
+          onClick: () => navigate(`/cluster/${currentClusterId}/nodes/${node.id}`),
+          leftSection: <IconServer size={20} />,
+          keywords: ['node', node.name, ...(node.ip ? [node.ip] : []), ...node.roles, ...(clusterName ? [clusterName] : [])],
+        }));
+
+        groups.push({
+          group: 'Nodes',
+          actions: nodeActions,
         });
       }
 
-      // Individual indices
+      // Group: Indices
       if (indices && indices.length > 0) {
-        indices.forEach((index) => {
-          items.push({
-            id: `index-${index.name}`,
-            label: `Index: ${index.name}`,
-            description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
-            onClick: () =>
-              navigate(`/cluster/${currentClusterId}/indices/${encodeURIComponent(index.name)}`),
-            leftSection: <IconDatabase size={20} />,
-            keywords: ['index', index.name, currentClusterName],
-          });
+        const indexActions: SpotlightActionData[] = indices.map((index) => ({
+          id: `index-${index.name}`,
+          label: index.name,
+          description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
+          onClick: () =>
+            navigate(`/cluster/${currentClusterId}/indices/${encodeURIComponent(index.name)}`),
+          leftSection: <IconDatabase size={20} />,
+          keywords: ['index', index.name, ...(clusterName ? [clusterName] : [])],
+        }));
+
+        groups.push({
+          group: 'Indices',
+          actions: indexActions,
         });
       }
     } else {
-      // In dashboard view - show all clusters with their tabs
-      // Ensure clusters is an array before iterating
-      if (Array.isArray(clusters) && clusters.length > 0) {
+      // In dashboard view - show all clusters with their tabs as groups
+      if (clusters?.items && clusters.items.length > 0) {
         const tabs = [
           { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
           { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
@@ -151,24 +205,25 @@ export function SpotlightSearch() {
           { id: 'console', label: 'Console', icon: IconTerminal2, path: '/console' },
         ];
 
-        clusters.forEach((cluster) => {
-          tabs.forEach((tab) => {
-            const path = `/cluster/${cluster.id}${tab.path}`;
+        clusters.items.forEach((cluster) => {
+          const clusterActions: SpotlightActionData[] = tabs.map((tab) => ({
+            id: `cluster-${cluster.id}-${tab.id}`,
+            label: tab.label,
+            description: `View ${cluster.name} ${tab.label.toLowerCase()}`,
+            onClick: () => navigate(`/cluster/${cluster.id}${tab.path}`),
+            leftSection: <tab.icon size={20} />,
+            keywords: ['cluster', tab.label.toLowerCase(), cluster.name],
+          }));
 
-            items.push({
-              id: `cluster-${cluster.id}-${tab.id}`,
-              label: `${cluster.name} - ${tab.label}`,
-              description: `View ${cluster.name} ${tab.label.toLowerCase()}`,
-              onClick: () => navigate(path),
-              leftSection: <tab.icon size={20} />,
-              keywords: ['cluster', tab.label.toLowerCase(), cluster.name],
-            });
+          groups.push({
+            group: cluster.name,
+            actions: clusterActions,
           });
         });
       }
     }
 
-    return items;
+    return groups;
   }, [clusters, currentClusterId, currentClusterName, nodes, indices, navigate]);
 
   return (
@@ -176,6 +231,8 @@ export function SpotlightSearch() {
       actions={actions}
       nothingFound="No results found"
       highlightQuery
+      scrollable
+      maxHeight={400}
       searchProps={{
         leftSection: <IconSearch size={20} />,
         placeholder: currentClusterId

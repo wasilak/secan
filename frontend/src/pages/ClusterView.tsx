@@ -104,7 +104,7 @@ import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedRe
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 
 /**
  * Get background color for index health in shard allocation grid
@@ -162,7 +162,7 @@ export function ClusterView() {
         } else {
           newParams.delete('indicesSearch');
         }
-        setSearchParams(newParams);
+        setSearchParams(newParams, { replace: true });
       }
     }, 300);
     return () => clearTimeout(timer);
@@ -191,7 +191,7 @@ export function ClusterView() {
         } else {
           newParams.delete('nodesSearch');
         }
-        setSearchParams(newParams);
+        setSearchParams(newParams, { replace: true });
       }
     }, 300);
     return () => clearTimeout(timer);
@@ -343,7 +343,7 @@ export function ClusterView() {
     } else {
       newParams.delete('indexFilter');
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   const setNodeNameFilter = (value: string) => {
@@ -353,7 +353,7 @@ export function ClusterView() {
     } else {
       newParams.delete('nodeFilter');
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Wildcard pattern matching (Elasticsearch cat API style)
@@ -969,6 +969,28 @@ export function ClusterView() {
   // Extract nodes array from paginated response (default to empty array while loading)
   const nodesArray: NodeInfo[] = nodesPaginated?.items ?? [];
 
+  // Fetch ALL nodes (unfiltered) to get available roles for the filter UI
+  // This ensures filters are always visible even when current filters exclude all nodes
+  const {
+    data: allNodesUnfiltered,
+  } = useQuery({
+    queryKey: ['cluster', id, 'nodes', 'all-roles'],
+    queryFn: () => apiClient.getNodes(id!, 1, 1000, { search: '' }), // No roles filter = get all nodes
+    refetchInterval: refreshInterval,
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Get all available roles from unfiltered nodes - used for filter UI
+  const availableRoles = useMemo(() => {
+    const roles = allNodesUnfiltered?.items?.flatMap((n) => n.roles) || [];
+    return Array.from(new Set(roles));
+  }, [allNodesUnfiltered]);
+
+  // Use unfiltered nodes for topology view so it always shows all nodes
+  // regardless of node role filters applied to the nodes list
+  const allNodesArray: NodeInfo[] = allNodesUnfiltered?.items ?? [];
+
   // Fetch indices with auto-refresh, pagination, and server-side filtering
   const indicesFilters = {
     search: searchParams.get('indicesSearch') || '',
@@ -1107,7 +1129,7 @@ export function ClusterView() {
   return (
     <Stack gap="md" p="md">
       {/* Cluster change notifications - Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 */}
-      <ClusterChangeNotifier clusterId={id} nodes={nodesArray} indices={allIndicesArray} />
+      <ClusterChangeNotifier clusterId={id} nodes={allNodesArray} indices={allIndicesArray} />
       
       {/* Cluster Name with Version and Allocation Lock Indicator */}
       <div>
@@ -1416,7 +1438,7 @@ export function ClusterView() {
               setSearchParams={setSearchParams}
               indices={indices}
               shards={shards}
-              nodes={nodes}
+              nodes={allNodesArray}
               indexNameFilter={indexNameFilter}
               setIndexNameFilter={setIndexNameFilter}
               nodeNameFilter={nodeNameFilter}
@@ -1468,7 +1490,7 @@ export function ClusterView() {
           <Card shadow="sm" padding="lg">
             {topologyViewType === 'dot' ? (
               <DotBasedTopologyView
-                nodes={nodes || []}
+                nodes={allNodesArray}
                 shards={allShards || []}
                 indices={allIndicesArray || []}
                 searchParams={searchParams}
@@ -1486,7 +1508,7 @@ export function ClusterView() {
               />
             ) : (
               <ShardAllocationGrid
-                nodes={nodes || []}
+                nodes={allNodesArray}
                 shards={allShards || []}
                 indices={allIndicesArray || []}
                 loading={nodesLoading || allIndicesLoading || allShardsLoading}
@@ -1625,7 +1647,7 @@ export function ClusterView() {
                       onClick={() => {
                         const newParams = new URLSearchParams(searchParams);
                         newParams.set('timeRange', preset.minutes.toString());
-                        setSearchParams(newParams);
+                        setSearchParams(newParams, { replace: true });
                         setTimeRangeDropdownOpened(false);
                       }}
                       leftSection={
@@ -1676,6 +1698,7 @@ export function ClusterView() {
             openNodeModal={openNodeModal}
             nodesSearch={localNodesSearch}
             setNodesSearch={setNodesSearch}
+            availableRoles={availableRoles}
           />
           {nodesPaginated && nodesPaginated.total_pages > 1 && (
             <SimplePagination
@@ -1874,6 +1897,7 @@ const NodesList = memo(function NodesList({
   openNodeModal,
   nodesSearch,
   setNodesSearch,
+  availableRoles,
 }: {
   nodes?: NodeInfo[];
   loading: boolean;
@@ -1881,6 +1905,7 @@ const NodesList = memo(function NodesList({
   openNodeModal?: (nodeId: string) => void;
   nodesSearch: string;
   setNodesSearch: (value: string) => void;
+  availableRoles: string[];
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -1909,14 +1934,16 @@ const NodesList = memo(function NodesList({
   const nodesSortDirection = (searchParams.get('nodesSortDir') || 'asc') as 'asc' | 'desc';
 
   // Update URL when filters change (but NOT search - that's handled by parent)
-  const updateFilters = (newRoles?: string[], newExpanded?: boolean) => {
+  const updateFilters = useCallback((newRoles?: string[], newExpanded?: boolean) => {
     const params = new URLSearchParams(searchParams);
 
     if (newRoles !== undefined) {
       if (newRoles.length > 0) {
         params.set('nodeRoles', newRoles.join(','));
       } else {
-        params.delete('nodeRoles');
+        // Set empty value to explicitly filter out all nodes
+        // (vs deleting param which means "no filter")
+        params.set('nodeRoles', '');
       }
     }
 
@@ -1928,8 +1955,8 @@ const NodesList = memo(function NodesList({
       }
     }
 
-    setSearchParams(params);
-  };
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const toggleRole = (role: string) => {
     const newRoles = selectedRoles.includes(role)
@@ -1953,15 +1980,32 @@ const NodesList = memo(function NodesList({
       newParams.set('nodesSortColumn', column);
       newParams.set('nodesSortDir', 'asc');
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Server-side filtering is already applied - no client-side filtering needed
   // Memoize filtered nodes to prevent dependency issues in other useMemo hooks
   const filteredNodes = useMemo(() => nodes || [], [nodes]);
-  
-  // Get all unique roles from nodes for the filter UI
-  const allRoles = Array.from(new Set(nodes?.flatMap((n) => n.roles) || []));
+
+  // Initialize node role filters with all roles enabled by default
+  // Requirements: 11.1, 11.2, 11.4
+  const hasInitializedRolesRef = useRef(false);
+  const nodeRolesInUrl = searchParams.get('nodeRoles');
+
+  useEffect(() => {
+    // Reset initialization when URL has no role params (user navigated to clean URL)
+    if (nodeRolesInUrl === null) {
+      hasInitializedRolesRef.current = false;
+    }
+
+    // Only initialize once if no roles are selected and we have roles available
+    if (!hasInitializedRolesRef.current && selectedRoles.length === 0 && availableRoles.length > 0) {
+      hasInitializedRolesRef.current = true;
+      // Initialize with all roles enabled
+      updateFilters(availableRoles, undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableRoles.length, nodeRolesInUrl]); // Re-run when available roles or URL changes
 
   // Apply sorting by selected column or default master-first sorting
   // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
@@ -2027,8 +2071,8 @@ const NodesList = memo(function NodesList({
 
   // Show UI with "no results" message if filters are active, even if no nodes returned
   // Only show "No nodes found" if there are truly no nodes AND no filters active
-  const hasActiveFilters = searchQuery || selectedRoles.length < allRoles.length;
-  
+  const hasActiveFilters = searchQuery || selectedRoles.length < availableRoles.length;
+
   if ((!nodes || nodes.length === 0) && !hasActiveFilters && !loading) {
     return <Text c="dimmed">No nodes found</Text>;
   }
@@ -2036,7 +2080,7 @@ const NodesList = memo(function NodesList({
   return (
     <Stack gap="md">
       <NodeStatsCards nodes={sortedNodes || []} />
-      
+
       <Group justify="space-between" align="center" wrap="wrap">
         <Group gap="md" wrap="wrap" style={{ flex: 1 }}>
           <TextInput
@@ -2046,9 +2090,9 @@ const NodesList = memo(function NodesList({
             onChange={(e) => setNodesSearch(e.currentTarget.value)}
             style={{ minWidth: 200 }}
           />
-          {allRoles.length > 0 && (
+          {availableRoles.length > 0 && (
             <RoleFilterToggle
-              roles={allRoles.sort()}
+              roles={availableRoles.sort()}
               selectedRoles={selectedRoles}
               onToggle={toggleRole}
             />
@@ -2420,14 +2464,14 @@ const IndicesList = memo(function IndicesList({
   const handleIndicesPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('indicesPage', page.toString());
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   const handleIndicesPageSizeChange = (size: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('indicesPageSize', size.toString());
     params.set('indicesPage', '1'); // Reset to first page when changing page size
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   // Bulk operations handlers
@@ -2737,7 +2781,7 @@ const IndicesList = memo(function IndicesList({
       }
     }
 
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   const updateParam = (key: string, value: string | boolean) => {
@@ -2749,7 +2793,7 @@ const IndicesList = memo(function IndicesList({
     } else {
       newParams.set(key, String(value));
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Handle indices table column sort
@@ -2767,7 +2811,7 @@ const IndicesList = memo(function IndicesList({
       newParams.set('indicesSortColumn', column);
       newParams.set('indicesSortDir', 'asc');
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Group shards by index to identify problem indices
@@ -3720,7 +3764,7 @@ function ShardAllocationGrid({
   openIndexModal: (indexName: string, tab?: string) => void;
   openNodeModal?: (nodeId: string) => void;
   searchParams: URLSearchParams;
-  setSearchParams: (params: URLSearchParams) => void;
+  setSearchParams: (params: URLSearchParams, opts?: { replace?: boolean }) => void;
   // Shared relocation
   sharedRelocationMode?: boolean;
   sharedValidDestinationNodes?: string[];
@@ -3781,7 +3825,7 @@ function ShardAllocationGrid({
   const handleOverviewPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('overviewPage', page.toString());
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -3884,7 +3928,7 @@ function ShardAllocationGrid({
     } else {
       newParams.set(key, String(value));
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Update shard state filter
@@ -3899,7 +3943,7 @@ function ShardAllocationGrid({
       // No states selected - keep at least one to avoid empty view
       newParams.set('shardStates', SHARD_STATES[0]);
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Fetch cluster settings to check allocation status
@@ -4779,14 +4823,14 @@ const ShardsList = memo(function ShardsList({
   const handleShardsPageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('shardsPage', page.toString());
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   const handleShardsPageSizeChange = (size: number) => {
     const params = new URLSearchParams(searchParams);
     params.set('shardsPageSize', size.toString());
     params.set('shardsPage', '1'); // Reset to first page when changing page size
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   // Handle shard click to open details modal
@@ -4836,7 +4880,7 @@ const ShardsList = memo(function ShardsList({
       }
     }
 
-    setSearchParams(params);
+    setSearchParams(params, { replace: true });
   };
 
   // Handle shards table column sort
@@ -4856,7 +4900,7 @@ const ShardsList = memo(function ShardsList({
       newParams.set('shardsSortColumn', column);
       newParams.set('shardsSortDir', 'asc');
     }
-    setSearchParams(newParams);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Server-side filtering is already applied for state, index, and node
@@ -5081,7 +5125,7 @@ const ShardsList = memo(function ShardsList({
             } else {
               params.delete('showSpecial');
             }
-            setSearchParams(params);
+            setSearchParams(params, { replace: true });
           }}
           role="button"
           tabIndex={0}
@@ -5094,7 +5138,7 @@ const ShardsList = memo(function ShardsList({
               } else {
                 params.delete('showSpecial');
               }
-              setSearchParams(params);
+              setSearchParams(params, { replace: true });
             }
           }}
         >

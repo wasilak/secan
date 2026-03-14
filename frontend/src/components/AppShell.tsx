@@ -279,7 +279,16 @@ function HeaderTitle() {
         size="xs"
         p={0}
         h="auto"
-        onClick={handleGoToDashboard}
+        component="a"
+        href="/"
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey) {
+            // Let browser handle Cmd+Click/Ctrl+Click for new tab
+            return;
+          }
+          e.preventDefault();
+          handleGoToDashboard();
+        }}
         style={{
           fontSize: 'var(--mantine-font-size-sm)',
           fontWeight: 500,
@@ -329,7 +338,16 @@ function HeaderTitle() {
           {CLUSTER_SECTIONS.map((section) => (
             <Menu.Item
               key={section.value}
-              onClick={() => handleSelectSection(section.value)}
+              component="a"
+              href={`/cluster/${clusterId}/${section.value}`}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  // Let browser handle Cmd+Click/Ctrl+Click for new tab
+                  return;
+                }
+                e.preventDefault();
+                handleSelectSection(section.value);
+              }}
               leftSection={
                 section.value === activeSection ? (
                   <div
@@ -460,6 +478,10 @@ function ClusterNavItem({
               leftSection={section.icon}
               active={isSectionActive}
               onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  // Let browser handle Cmd+Click/Ctrl+Click for new tab
+                  return;
+                }
                 e.preventDefault();
                 onSectionNavigate(clusterId, section.value as ClusterSection);
               }}
@@ -569,10 +591,14 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
         label="Dashboard"
         leftSection={<IconDashboard size={20} aria-hidden="true" />}
         active={isActive('/')}
-        onClick={(e) => {
-          e.preventDefault();
-          handleNavigation('/');
-        }}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey) {
+          // Let browser handle Cmd+Click/Ctrl+Click for new tab
+          return;
+        }
+        e.preventDefault();
+        handleNavigation('/');
+      }}
         aria-current={isActive('/') ? 'page' : undefined}
       />
 

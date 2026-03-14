@@ -644,11 +644,32 @@ impl ElasticsearchClient for Client {
 
         // Filter by node name or ID
         if let Some(shards_array) = all_shards.as_array() {
+            tracing::debug!(
+                total_shards = shards_array.len(),
+                node_filter = %node_id,
+                "Filtering shards for node"
+            );
             let filtered: Vec<serde_json::Value> = shards_array
                 .iter()
-                .filter(|shard| shard.get("node").and_then(|v| v.as_str()) == Some(node_id))
+                .filter(|shard| {
+                    let shard_node = shard.get("node").and_then(|v| v.as_str());
+                    let matches = shard_node == Some(node_id);
+                    if !matches {
+                        tracing::trace!(
+                            shard_node = ?shard_node,
+                            filter = %node_id,
+                            "Shard node doesn't match filter"
+                        );
+                    }
+                    matches
+                })
                 .cloned()
                 .collect();
+            tracing::debug!(
+                filtered_count = filtered.len(),
+                node_filter = %node_id,
+                "Finished filtering shards for node"
+            );
 
             Ok(serde_json::json!(filtered))
         } else {

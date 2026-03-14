@@ -362,7 +362,7 @@ pub async fn get_cluster_stats(
                         if extra.is_empty() {
                             String::new()
                         } else {
-                            format!(",{}", extra.join(","))
+                            extra.join(",")
                         }
                     } else {
                         String::new()
@@ -370,7 +370,8 @@ pub async fn get_cluster_stats(
 
                     // Query CPU, memory, and load averages for all nodes
                     let cpu_query = format!("elasticsearch_os_cpu_percent{{{}}}", labels_query);
-                    let mem_query = format!("elasticsearch_os_mem_used_bytes{{{}}}", labels_query);
+                    let mem_query =
+                        format!("elasticsearch_jvm_memory_used_bytes{{{}}}", labels_query);
                     let load1_query = format!("elasticsearch_os_load1{{{}}}", labels_query);
                     let load5_query = format!("elasticsearch_os_load5{{{}}}", labels_query);
                     let load15_query = format!("elasticsearch_os_load15{{{}}}", labels_query);
@@ -390,13 +391,47 @@ pub async fn get_cluster_stats(
                     let mut metrics_map: std::collections::HashMap<String, serde_json::Value> =
                         std::collections::HashMap::new();
 
+                    // Log errors if queries failed
+                    if let Err(ref e) = cpu_result {
+                        tracing::error!(cluster_id = %cluster_id, error = %e, "CPU query failed");
+                    }
+                    if let Err(ref e) = mem_result {
+                        tracing::error!(cluster_id = %cluster_id, error = %e, "Memory query failed");
+                    }
+
+                    tracing::debug!(
+                        cluster_id = %cluster_id,
+                        cpu_query = %cpu_query,
+                        mem_query = %mem_query,
+                        cpu_ok = cpu_result.is_ok(),
+                        mem_ok = mem_result.is_ok(),
+                        "Prometheus query results"
+                    );
+
                     if let Ok(cpu_series) = cpu_result {
+                        tracing::debug!(
+                            cluster_id = %cluster_id,
+                            series_count = cpu_series.len(),
+                            "CPU metrics series"
+                        );
                         for series in cpu_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let cpu_val = values.1.parse::<f64>().unwrap_or(0.0);
+                                    tracing::debug!(
+                                        cluster_id = %cluster_id,
+                                        node = %name,
+                                        cpu = cpu_val,
+                                        "Found CPU metric for node"
+                                    );
                                     let entry = metrics_map
                                         .entry(name.to_string())
                                         .or_insert_with(|| serde_json::json!({}));
@@ -407,14 +442,26 @@ pub async fn get_cluster_stats(
                                         );
                                     }
                                 }
+                            } else {
+                                tracing::warn!(
+                                    cluster_id = %cluster_id,
+                                    metric = ?series.metric,
+                                    "CPU metric missing node identifier label"
+                                );
                             }
                         }
                     }
 
                     if let Ok(mem_series) = mem_result {
                         for series in mem_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let mem_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -435,8 +482,14 @@ pub async fn get_cluster_stats(
                     // Process load1 metrics
                     if let Ok(load1_series) = load1_result {
                         for series in load1_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load1_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -457,8 +510,14 @@ pub async fn get_cluster_stats(
                     // Process load5 metrics
                     if let Ok(load5_series) = load5_result {
                         for series in load5_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load5_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -479,8 +538,14 @@ pub async fn get_cluster_stats(
                     // Process load15 metrics
                     if let Ok(load15_series) = load15_result {
                         for series in load15_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load15_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -498,11 +563,34 @@ pub async fn get_cluster_stats(
                         }
                     }
 
+                    // Debug: Print actual metric values
+                    tracing::debug!(
+                        cluster_id = %cluster_id,
+                        cpu_query = %cpu_query,
+                        mem_query = %mem_query,
+                        "Prometheus queries executed"
+                    );
+                    for (node_name, metrics) in &metrics_map {
+                        tracing::debug!(
+                            cluster_id = %cluster_id,
+                            node = %node_name,
+                            metrics = %metrics,
+                            "Prometheus metrics for node"
+                        );
+                    }
+
                     tracing::debug!(
                         cluster_id = %cluster_id,
                         nodes_with_metrics = metrics_map.len(),
                         "Fetched Prometheus metrics for cluster overview"
                     );
+
+                    if metrics_map.is_empty() {
+                        tracing::warn!(
+                            cluster_id = %cluster_id,
+                            "No Prometheus metrics found for any nodes - check metric names and labels"
+                        );
+                    }
 
                     Some(metrics_map)
                 }
@@ -521,6 +609,13 @@ pub async fn get_cluster_stats(
     } else {
         None
     };
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        has_prometheus_metrics = prometheus_node_metrics.is_some(),
+        metrics_count = prometheus_node_metrics.as_ref().map(|m| m.len()).unwrap_or(0),
+        "Prometheus metrics before transform"
+    );
 
     // Get cluster version from the info endpoint
     let es_version: Option<String> = cluster.client.info().await.ok().and_then(|info| {
@@ -746,8 +841,7 @@ pub struct NodesQueryParams {
     pub page_size: u32,
     #[serde(default)]
     pub search: String,
-    #[serde(default)]
-    pub roles: String, // comma-separated: master,data,ingest
+    pub roles: Option<String>, // comma-separated: master,data,ingest; None = not set, Some("") = explicitly empty
 }
 
 pub async fn get_nodes(
@@ -761,7 +855,7 @@ pub async fn get_nodes(
         page = params.page,
         page_size = params.page_size,
         search = %params.search,
-        roles = %params.roles,
+        roles = ?params.roles,
         "Getting nodes with filters"
     );
 
@@ -847,7 +941,7 @@ pub async fn get_nodes(
                         if extra.is_empty() {
                             String::new()
                         } else {
-                            format!(",{}", extra.join(","))
+                            extra.join(",")
                         }
                     } else {
                         String::new()
@@ -855,7 +949,8 @@ pub async fn get_nodes(
 
                     // Query CPU, memory, and load averages for all nodes
                     let cpu_query = format!("elasticsearch_os_cpu_percent{{{}}}", labels_query);
-                    let mem_query = format!("elasticsearch_os_mem_used_bytes{{{}}}", labels_query);
+                    let mem_query =
+                        format!("elasticsearch_jvm_memory_used_bytes{{{}}}", labels_query);
                     let load1_query = format!("elasticsearch_os_load1{{{}}}", labels_query);
                     let load5_query = format!("elasticsearch_os_load5{{{}}}", labels_query);
                     let load15_query = format!("elasticsearch_os_load15{{{}}}", labels_query);
@@ -877,8 +972,14 @@ pub async fn get_nodes(
 
                     if let Ok(cpu_series) = cpu_result {
                         for series in cpu_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let cpu_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -898,8 +999,14 @@ pub async fn get_nodes(
 
                     if let Ok(mem_series) = mem_result {
                         for series in mem_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let mem_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -920,8 +1027,14 @@ pub async fn get_nodes(
                     // Process load1 metrics
                     if let Ok(load1_series) = load1_result {
                         for series in load1_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load1_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -942,8 +1055,14 @@ pub async fn get_nodes(
                     // Process load5 metrics
                     if let Ok(load5_series) = load5_result {
                         for series in load5_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load5_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -964,8 +1083,14 @@ pub async fn get_nodes(
                     // Process load15 metrics
                     if let Ok(load15_series) = load15_result {
                         for series in load15_series {
-                            let name_opt: Option<&str> =
-                                series.metric.get("name").map(|v| v.as_str());
+                            // Try multiple possible label names for node identification
+                            let name_opt: Option<&str> = series
+                                .metric
+                                .get("name")
+                                .or_else(|| series.metric.get("node"))
+                                .or_else(|| series.metric.get("nodename"))
+                                .or_else(|| series.metric.get("instance"))
+                                .map(|v| v.as_str());
                             if let Some(name) = name_opt {
                                 if let Some(values) = &series.value {
                                     let load15_val = values.1.parse::<f64>().unwrap_or(0.0);
@@ -1016,7 +1141,11 @@ pub async fn get_nodes(
     );
 
     // Apply filters
-    let roles_filter: Vec<&str> = params.roles.split(',').filter(|s| !s.is_empty()).collect();
+    // Roles filter: None = not set (show all), Some("") = explicitly empty (show none), Some("x,y") = filter by roles
+    let roles_filter: Option<Vec<&str>> = params.roles.as_ref().map(|r| {
+        let filtered: Vec<&str> = r.split(',').filter(|s| !s.is_empty()).collect();
+        filtered
+    });
 
     let filtered_nodes: Vec<NodeInfoResponse> = all_nodes
         .into_iter()
@@ -1036,13 +1165,21 @@ pub async fn get_nodes(
             }
 
             // Roles filter
-            if !roles_filter.is_empty() {
-                let has_matching_role = node
-                    .roles
-                    .iter()
-                    .any(|role| roles_filter.contains(&role.as_str()));
-                if !has_matching_role {
+            // - None: filter not set, show all nodes
+            // - Some([]): explicitly empty, filter out all nodes
+            // - Some([...]): filter by specified roles
+            match &roles_filter {
+                None => {} // No filter set, show all
+                Some(roles) if roles.is_empty() => {
+                    // Explicitly empty filter - no nodes should match
                     return false;
+                }
+                Some(roles) => {
+                    let has_matching_role =
+                        node.roles.iter().any(|role| roles.contains(&role.as_str()));
+                    if !has_matching_role {
+                        return false;
+                    }
                 }
             }
 
@@ -1143,21 +1280,61 @@ pub async fn get_node_stats(
     })?;
 
     // Get shards for data nodes using lightweight _cat/shards API
+    // Note: _cat/shards API uses node NAMES, not node IDs for filtering
+    let node_name = nodes_info["nodes"][&node_id]["name"].as_str();
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_id = %node_id,
+        node_name = ?node_name,
+        "Looking up node for shard stats"
+    );
     let shards = if let Some(node_info) = nodes_info["nodes"][&node_id].as_object() {
         if let Some(roles) = node_info.get("roles").and_then(|r| r.as_array()) {
             let has_data_role = roles.iter().any(|r| r.as_str() == Some("data"));
+            tracing::debug!(
+                cluster_id = %cluster_id,
+                node_id = %node_id,
+                has_data_role = has_data_role,
+                "Checking if node has data role"
+            );
             if has_data_role {
-                match cluster.cat_shards_for_node(&node_id).await {
-                    Ok(shards_data) => Some(shards_data),
-                    Err(e) => {
-                        tracing::warn!(
-                            cluster_id = %cluster_id,
-                            node_id = %node_id,
-                            error = %e,
-                            "Failed to get shards for node"
-                        );
-                        None
+                if let Some(name) = node_name {
+                    tracing::debug!(
+                        cluster_id = %cluster_id,
+                        node_id = %node_id,
+                        node_name = %name,
+                        "Fetching shards for node"
+                    );
+                    match cluster.cat_shards_for_node(name).await {
+                        Ok(shards_data) => {
+                            let count = shards_data.as_array().map(|a| a.len()).unwrap_or(0);
+                            tracing::debug!(
+                                cluster_id = %cluster_id,
+                                node_id = %node_id,
+                                node_name = %name,
+                                shard_count = count,
+                                "Successfully fetched shards for node"
+                            );
+                            Some(shards_data)
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                cluster_id = %cluster_id,
+                                node_id = %node_id,
+                                node_name = %name,
+                                error = %e,
+                                "Failed to get shards for node"
+                            );
+                            None
+                        }
                     }
+                } else {
+                    tracing::warn!(
+                        cluster_id = %cluster_id,
+                        node_id = %node_id,
+                        "Node name not found, cannot fetch shards"
+                    );
+                    None
                 }
             } else {
                 None
@@ -1166,6 +1343,11 @@ pub async fn get_node_stats(
             None
         }
     } else {
+        tracing::warn!(
+            cluster_id = %cluster_id,
+            node_id = %node_id,
+            "Node not found in nodes_info"
+        );
         None
     };
 

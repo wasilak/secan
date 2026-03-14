@@ -76,7 +76,7 @@ export function NodeCard({
         {/* Upper Part: Node Information */}
         <Group gap="xs" wrap="nowrap" mb="xs" justify="space-between">
           <Group gap="xs" wrap="wrap" style={{ flex: 1, minWidth: 0 }}>
-            <Text fw={600} size="sm" truncate>
+            <Text fw={600} size="sm">
               {node.name}
             </Text>
             {node?.ip && (
