@@ -15,10 +15,20 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          mantine: ['@mantine/core', '@mantine/hooks', '@mantine/notifications', '@mantine/spotlight'],
-          tabler: ['@tabler/icons-react'],
+        manualChunks: (id) => {
+          // Vendor chunk: React ecosystem
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+            return 'vendor';
+          }
+          // Mantine chunk: UI components
+          if (id.includes('@mantine/core') || id.includes('@mantine/hooks') || 
+              id.includes('@mantine/notifications') || id.includes('@mantine/spotlight')) {
+            return 'mantine';
+          }
+          // Tabler chunk: Icons
+          if (id.includes('@tabler/icons-react')) {
+            return 'tabler';
+          }
         },
       },
     },
