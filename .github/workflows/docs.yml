@@ -29,6 +29,8 @@ jobs:
           cache-dependency-path: docs/package-lock.json
 
       - name: Setup Just
+        # FIXME: setup-just@v3 uses setup-crate@v1.4.0 which runs on Node.js 20
+        # This will be deprecated by June 2026. Track: https://github.com/extractions/setup-just/issues
         uses: extractions/setup-just@v3
         with:
           just-version: 1.46.0
