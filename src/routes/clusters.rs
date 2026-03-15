@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 mod pagination;
 pub mod tasks;
@@ -29,7 +30,7 @@ pub struct ClusterState {
 }
 
 /// Error response for cluster operations
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterErrorResponse {
     pub error: String,
     pub message: String,
@@ -46,15 +47,19 @@ impl IntoResponse for ClusterErrorResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 6.1, 6.2
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RelocateShardRequest {
     /// Index name
+    #[schema(example = "my-index")]
     pub index: String,
     /// Shard number
+    #[schema(example = 0)]
     pub shard: u32,
     /// Source node ID
+    #[schema(example = "node-1")]
     pub from_node: String,
     /// Destination node ID
+    #[schema(example = "node-2")]
     pub to_node: String,
 }
 
@@ -65,16 +70,21 @@ pub struct RelocateShardRequest {
 /// # Requirements
 ///
 /// Validates: Requirements 2.15
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClustersQueryParams {
+    #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
     pub page: u32,
+    #[schema(default = 50, example = 50)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
+    #[schema(example = "production")]
     #[serde(default)]
     pub search: String,
+    #[schema(example = "green,yellow")]
     #[serde(default)]
     pub health: String, // comma-separated: green,yellow,red
+    #[schema(example = "8.0.0")]
     #[serde(default)]
     pub version: String,
 }

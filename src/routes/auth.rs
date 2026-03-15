@@ -11,6 +11,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 /// Shared application state for authentication routes
 #[derive(Clone)]
@@ -22,14 +23,16 @@ pub struct AuthState {
 }
 
 /// Login request for local users
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct LoginRequest {
+    #[schema(example = "admin")]
     pub username: String,
+    #[schema(example = "password123")]
     pub password: String,
 }
 
 /// Login response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct LoginResponse {
     pub success: bool,
     pub message: String,
@@ -38,29 +41,34 @@ pub struct LoginResponse {
 }
 
 /// OIDC callback query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct OidcCallbackQuery {
+    #[schema(example = "auth_code_from_provider")]
     pub code: String,
+    #[schema(example = "random_state_string")]
     pub state: String,
 }
 
 /// OIDC login query parameters
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct OidcLoginQuery {
+    #[schema(example = "/clusters")]
     pub redirect_to: Option<String>,
 }
 
 /// Error response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ErrorResponse {
     pub error: String,
     pub message: String,
 }
 
 /// User info response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct UserInfoResponse {
+    #[schema(example = "admin")]
     pub username: String,
+    /// User groups/roles
     pub groups: Vec<String>,
 }
 

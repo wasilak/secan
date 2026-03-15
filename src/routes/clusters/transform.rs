@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 /// Format uptime in milliseconds to human-readable string
 ///
@@ -562,8 +563,9 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
 }
 
 /// Cluster stats response for frontend
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterStatsResponse {
+    #[schema(example = "green")]
     pub health: String,
     #[serde(rename = "clusterName")]
     pub cluster_name: String,
@@ -606,8 +608,9 @@ pub struct ClusterStatsResponse {
 }
 
 /// Node info response for frontend
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NodeInfoResponse {
+    #[schema(example = "node-1")]
     pub id: String,
     pub name: String,
     pub roles: Vec<String>,
