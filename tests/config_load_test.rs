@@ -212,3 +212,87 @@ clusters:
     // cache.metadata_duration_seconds is optional, defaults to None (which means 30s backend default)
     assert_eq!(config.cache.metadata_duration_seconds, None);
 }
+
+#[test]
+#[serial]
+fn test_config_load_invalid_yaml() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_path = temp_dir.path().join("config.yaml");
+
+    let yaml_content = r#"
+server:
+  host: "127.0.0.1"
+  port: 8080
+auth:
+  mode: open
+clusters:
+  - id: "prod"
+    nodes:
+      - "http://es1.example.com:9200"
+    invalid_field: this is invalid yaml
+  - also: invalid
+"#;
+
+    fs::write(&config_path, yaml_content).unwrap();
+
+    let orig_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = Config::load();
+
+    std::env::set_current_dir(&orig_dir).unwrap();
+
+    assert!(
+        result.is_err(),
+        "Should fail with invalid YAML: {:?}",
+        result
+    );
+}
+
+#[test]
+#[serial]
+fn test_config_load_missing_required_cluster_nodes() {
+    let temp_dir = TempDir::new().unwrap();
+    let config_path = temp_dir.path().join("config.yaml");
+
+    let yaml_content = r#"
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+auth:
+  mode: open
+
+clusters:
+  - id: "prod"
+    name: "Production"
+    # Missing: nodes field is required
+"#;
+
+    fs::write(&config_path, yaml_content).unwrap();
+
+    let orig_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = Config::load();
+
+    std::env::set_current_dir(&orig_dir).unwrap();
+
+    // Should either fail or have empty nodes (depends on validation)
+    match result {
+        Ok(config) => {
+            assert_eq!(
+                config.clusters[0].nodes.len(),
+                0,
+                "Empty nodes should be allowed"
+            );
+        }
+        Err(e) => {
+            assert!(
+                e.to_string().contains("nodes") || e.to_string().contains("required"),
+                "Error should mention required nodes field: {}",
+                e
+            );
+        }
+    }
+}

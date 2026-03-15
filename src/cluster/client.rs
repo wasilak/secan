@@ -5,6 +5,7 @@ use base64::Engine;
 use reqwest::{Method, Response};
 use serde_json::Value;
 use std::time::Duration;
+use tracing::instrument;
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -94,8 +95,11 @@ impl Client {
             url.port().map(|p| format!(":{}", p)).unwrap_or_default()
         );
 
-        // Build HTTP client with TLS settings
-        let mut http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(30));
+        // Build HTTP client with TLS settings and connection pooling
+        let mut http_client_builder = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .pool_max_idle_per_host(20)
+            .pool_idle_timeout(Some(Duration::from_secs(60)));
 
         if !config.tls.verify {
             tracing::warn!("TLS certificate verification is disabled - this is insecure!");
@@ -139,6 +143,7 @@ impl Client {
 
 #[async_trait]
 impl ElasticsearchClient for Client {
+    #[instrument(skip(self, body), fields(base_url = %self.base_url, http_method = %method, path = %path))]
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
         // For arbitrary requests, we need to use reqwest directly since the ES SDK
         // doesn't provide a generic request builder for all paths
@@ -188,6 +193,7 @@ impl ElasticsearchClient for Client {
         Ok(response)
     }
 
+    #[instrument(skip(self), fields(base_url = %self.base_url))]
     async fn health(&self) -> Result<Value> {
         let url = format!("{}/_cluster/health?level=indices", self.base_url);
         let mut req = self.http_client.get(&url);
@@ -249,6 +255,7 @@ impl ElasticsearchClient for Client {
     }
 
     /// Get cluster stats
+    #[instrument(skip(self), fields(base_url = %self.base_url))]
     async fn cluster_stats(&self) -> Result<Value> {
         let url = format!("{}/_cluster/stats", self.base_url);
         let mut req = self.http_client.get(&url);
@@ -446,7 +453,7 @@ impl ElasticsearchClient for Client {
             stats.as_object().map(|o| o.keys().collect::<Vec<_>>())
         );
         if let Some(indices) = stats["indices"].as_object() {
-            tracing::debug!("Indices found: {} indices", indices.len());
+            tracing::debug!(index_count = indices.len(), "Indices found");
             // Log first few index names for debugging
             let sample: Vec<_> = indices.keys().take(5).collect();
             tracing::debug!("Sample indices: {:?}", sample);
@@ -488,12 +495,14 @@ impl ElasticsearchClient for Client {
 
             // Add closed indices to stats with minimal info
             if let Some(metadata) = state["metadata"]["indices"].as_object() {
-                tracing::debug!("Cluster state has {} indices in metadata", metadata.len());
+                tracing::debug!(index_count = metadata.len(), "Cluster state indices found");
                 if !stats["indices"].is_object() {
                     stats["indices"] = serde_json::json!({});
                 }
 
-                let indices = stats["indices"].as_object_mut().unwrap();
+                let indices = stats["indices"].as_object_mut().ok_or_else(|| {
+                    anyhow::anyhow!("Failed to get indices as object after initialization")
+                })?;
                 let indices_before = indices.len();
                 for (index_name, index_state) in metadata {
                     // Only add if not already in stats (i.e., it's closed)
@@ -798,6 +807,8 @@ mod tests {
         let client = Client::new(&config).await;
         assert!(client.is_ok());
 
+        // SAFETY: unwrap is safe here because we just asserted is_ok() above
+        #[allow(clippy::unwrap_used)]
         let _client = client.unwrap();
     }
 
@@ -848,6 +859,8 @@ mod tests {
             ..Default::default()
         };
 
+        // SAFETY: Creating a client with valid config should always succeed in tests
+        #[allow(clippy::unwrap_used)]
         let _client = Client::new(&config).await.unwrap();
 
         let config = ClusterConfig {
@@ -860,6 +873,8 @@ mod tests {
             ..Default::default()
         };
 
+        // SAFETY: Creating a client with valid config should always succeed in tests
+        #[allow(clippy::unwrap_used)]
         let _client = Client::new(&config).await.unwrap();
     }
 }

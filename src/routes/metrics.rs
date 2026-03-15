@@ -17,7 +17,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, warn};
 
 /// Shared application state for metrics routes
 #[derive(Clone)]
@@ -152,6 +152,7 @@ pub struct PrometheusValidationResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 1.0, 1.1
+#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_metrics(
     State(state): State<MetricsState>,
     Path(cluster_id): Path<String>,
@@ -374,7 +375,11 @@ pub async fn get_cluster_metrics(
                             .unwrap_or(0)
                     };
 
-                    tracing::debug!("point at {} disk_value={}", point.timestamp, disk_value);
+                    tracing::debug!(
+                        timestamp = point.timestamp,
+                        disk_value = disk_value,
+                        "Processing data point"
+                    );
 
                     // Get CPU and Memory values at this timestamp
                     let cpu_value =
@@ -518,6 +523,7 @@ pub struct NodeMetricsHistoryResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 1.0, 1.1
+#[instrument(skip(state, user_ext, params_query, params))]
 pub async fn get_node_metrics(
     State(state): State<MetricsState>,
     Path(params): Path<(String, String)>,
@@ -740,24 +746,28 @@ pub async fn get_node_metrics(
         });
     }
 
+    let prometheus_queries = serde_json::json!({
+        "heap": heap_query,
+        "disk": disk_avail_query,
+        "cpu": cpu_query,
+        "load1": load1_query,
+        "load5": load5_query,
+        "load15": load15_query
+    });
+    let prometheus_queries = prometheus_queries
+        .as_object()
+        .ok_or_else(|| MetricsErrorResponse {
+            error: "internal_error".to_string(),
+            message: "Failed to construct prometheus queries".to_string(),
+        })?
+        .clone();
+
     let response = NodeMetricsHistoryResponse {
         cluster_id: cluster_id.clone(),
         node_id: node_id.clone(),
         time_range,
         data: data_points,
-        prometheus_queries: Some(
-            serde_json::json!({
-                "heap": heap_query,
-                "disk": disk_avail_query,
-                "cpu": cpu_query,
-                "load1": load1_query,
-                "load5": load5_query,
-                "load15": load15_query
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        ),
+        prometheus_queries: Some(prometheus_queries),
     };
 
     Ok(Json(response))
@@ -775,6 +785,7 @@ pub async fn get_node_metrics(
 /// # Requirements
 ///
 /// Validates: Requirements 3.0
+#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_metrics_history(
     State(state): State<MetricsState>,
     Path(cluster_id): Path<String>,
@@ -906,6 +917,7 @@ pub async fn get_cluster_metrics_history(
 /// # Requirements
 ///
 /// Validates: Requirements 2.0, 2.1
+#[instrument(skip(_state, user_ext, request))]
 pub async fn validate_prometheus_endpoint(
     State(_state): State<MetricsState>,
     Json(request): Json<PrometheusValidationRequest>,

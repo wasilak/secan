@@ -319,7 +319,12 @@ impl LdapAuthProvider {
         }
 
         // Convert to SearchEntry
-        let entry = SearchEntry::construct(entries.into_iter().next().unwrap());
+        let entry = SearchEntry::construct(
+            entries
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("LDAP search returned no entries after verification"))?,
+        );
 
         Ok(entry)
     }

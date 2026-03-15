@@ -11,7 +11,7 @@ license = "GPL-3.0"
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip", "trace"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -87,9 +87,37 @@ wiremock = "0.6"
 tokio-test = "0.4"
 tempfile = "3"
 serial_test = "3"
+criterion = "0.5"
+
+[[bench]]
+name = "cluster"
+harness = false
+
+[[bench]]
+name = "metrics"
+harness = false
+
+[[bench]]
+name = "auth"
+harness = false
 
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+[lints.rust]
+# Safety-critical: Deny unsafe code unless explicitly allowed
+# unsafe_code = "forbid"
+
+[lints.clippy]
+# Deny unwrap() usage in production code
+# Use #[allow(clippy::unwrap_used)] with SAFETY comment for legitimate cases
+unwrap_used = "deny"
+
+# Additional recommended lints for production quality
+# These will be enabled in future phases:
+# expect_used = "warn"
+# panic = "warn"
+# missing_docs_in_private_items = "allow"

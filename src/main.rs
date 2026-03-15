@@ -1,3 +1,4 @@
+use anyhow::Context;
 use secan::auth::{SessionConfig, SessionManager};
 use secan::cluster::Manager as ClusterManager;
 use secan::config::Config;
@@ -92,7 +93,7 @@ async fn main() -> anyhow::Result<()> {
     info!("Starting backend server...");
 
     // Load configuration
-    let config = Config::load()?;
+    let config = Config::load().context("Failed to load application configuration")?;
     info!("Configuration loaded successfully");
 
     // Log startup configuration (sanitized - no sensitive data)
@@ -136,7 +137,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Create and start server (async to initialize OIDC provider if configured)
     info!("Creating server...");
-    let server = Server::new(config, cluster_manager, session_manager).await?;
+    let server = Server::new(config, cluster_manager, session_manager)
+        .await
+        .context("Failed to create server")?;
 
     info!("Starting server...");
 

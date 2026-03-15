@@ -471,7 +471,11 @@ impl AuthConfig {
 
         match self.mode {
             AuthMode::LocalUsers => {
-                if self.local_users.is_none() || self.local_users.as_ref().unwrap().is_empty() {
+                let is_empty = self
+                    .local_users
+                    .as_ref()
+                    .is_none_or(|users| users.is_empty());
+                if is_empty {
                     anyhow::bail!("Local users mode requires at least one user to be configured");
                 }
 
@@ -907,6 +911,8 @@ impl Config {
         use std::env;
 
         // Match ${VAR:-default} or ${VAR}
+        // SAFETY: This regex pattern is a static literal and is always valid
+        #[allow(clippy::unwrap_used)]
         let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
 
         re.replace_all(content, |caps: &regex::Captures| {

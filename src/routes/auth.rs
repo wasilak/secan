@@ -10,6 +10,7 @@ use axum::{
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::instrument;
 
 /// Shared application state for authentication routes
 #[derive(Clone)]
@@ -76,6 +77,7 @@ impl IntoResponse for ErrorResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 29.2
+#[instrument(skip(state))]
 pub async fn oidc_login(
     State(state): State<AuthState>,
     Query(params): Query<OidcLoginQuery>,
@@ -113,6 +115,7 @@ pub async fn oidc_login(
 /// # Requirements
 ///
 /// Validates: Requirements 29.2, 30.4
+#[instrument(skip(state))]
 pub async fn oidc_callback(
     State(state): State<AuthState>,
     Query(params): Query<OidcCallbackQuery>,
@@ -224,6 +227,7 @@ pub async fn oidc_callback(
 /// # Requirements
 ///
 /// Validates: Requirements 29.2, 30.4
+#[instrument(skip(state, payload))]
 pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
@@ -318,14 +322,21 @@ pub async fn login(
     );
 
     // Create response with session cookie
-    let mut response = axum::response::Response::new(axum::body::Body::from(
-        serde_json::to_string(&LoginResponse {
-            success: true,
-            message: "Login successful".to_string(),
-            session_token: Some(token.clone()),
-        })
-        .unwrap(),
-    ));
+    let body = match serde_json::to_string(&LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+        session_token: Some(token.clone()),
+    }) {
+        Ok(json) => axum::body::Body::from(json),
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to serialize login response");
+            return Err(ErrorResponse {
+                error: "internal_error".to_string(),
+                message: "Failed to create login response".to_string(),
+            });
+        }
+    };
+    let mut response = axum::response::Response::new(body);
 
     response
         .headers_mut()
@@ -341,6 +352,7 @@ pub async fn login(
 /// Get current user info
 ///
 /// Returns authenticated user information or 401 if not authenticated
+#[instrument(fields(username = %user.0.username))]
 pub async fn get_current_user(
     Extension(user): Extension<AuthenticatedUser>,
 ) -> Json<UserInfoResponse> {
@@ -374,12 +386,20 @@ fn create_session_cookie(token: &str) -> http::HeaderValue {
             token
         )
     };
-    http::HeaderValue::from_str(&cookie_value).unwrap()
+    match http::HeaderValue::from_str(&cookie_value) {
+        Ok(header) => header,
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to create cookie header");
+            // Fall back to a safe default (this should never happen with valid tokens)
+            http::HeaderValue::from_static("session_token=invalid")
+        }
+    }
 }
 
 /// Logout endpoint
 ///
 /// Invalidates the user's session and clears the session cookie
+#[instrument(skip(state, headers))]
 pub async fn logout(
     State(state): State<AuthState>,
     headers: axum::http::HeaderMap,
@@ -388,7 +408,7 @@ pub async fn logout(
     if let Some(token) = extract_session_token(&headers) {
         // Invalidate session
         if let Err(e) = state.session_manager.invalidate_session(&token).await {
-            tracing::error!("Failed to invalidate session: {}", e);
+            tracing::error!(error = %e, "Failed to invalidate session");
         } else {
             tracing::info!("Session invalidated for user logout");
         }
@@ -443,6 +463,7 @@ pub struct AuthStatusResponse {
 }
 
 /// Get authentication status
+#[instrument(skip(state))]
 pub async fn get_auth_status(
     State(state): State<AuthState>,
 ) -> Result<Json<AuthStatusResponse>, ErrorResponse> {
@@ -477,6 +498,8 @@ mod tests {
     #[test]
     fn test_login_request_deserialization() {
         let json = r#"{"username":"testuser","password":"testpass"}"#;
+        // SAFETY: Test data is valid JSON matching the struct
+        #[allow(clippy::unwrap_used)]
         let request: LoginRequest = serde_json::from_str(json).unwrap();
         assert_eq!(request.username, "testuser");
         assert_eq!(request.password, "testpass");
@@ -489,6 +512,8 @@ mod tests {
             message: "Login successful".to_string(),
             session_token: Some("token123".to_string()),
         };
+        // SAFETY: Serializing a simple struct always succeeds
+        #[allow(clippy::unwrap_used)]
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"session_token\":\"token123\""));
@@ -497,6 +522,8 @@ mod tests {
     #[test]
     fn test_oidc_callback_query_deserialization() {
         let json = r#"{"code":"auth_code_123","state":"random_state"}"#;
+        // SAFETY: Test data is valid JSON matching the struct
+        #[allow(clippy::unwrap_used)]
         let query: OidcCallbackQuery = serde_json::from_str(json).unwrap();
         assert_eq!(query.code, "auth_code_123");
         assert_eq!(query.state, "random_state");
@@ -508,6 +535,8 @@ mod tests {
             error: "invalid_credentials".to_string(),
             message: "Username or password is incorrect".to_string(),
         };
+        // SAFETY: Serializing a simple struct always succeeds
+        #[allow(clippy::unwrap_used)]
         let json = serde_json::to_string(&error).unwrap();
         assert!(json.contains("\"error\":\"invalid_credentials\""));
         assert!(json.contains("\"message\":\"Username or password is incorrect\""));

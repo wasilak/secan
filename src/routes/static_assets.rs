@@ -6,6 +6,22 @@ use axum::{
 };
 use mime_guess;
 
+/// Error type for static asset serving
+#[derive(Debug)]
+enum StaticAssetError {
+    ResponseBuildError,
+}
+
+impl std::fmt::Display for StaticAssetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StaticAssetError::ResponseBuildError => write!(f, "Failed to build response"),
+        }
+    }
+}
+
+impl std::error::Error for StaticAssetError {}
+
 /// Serve embedded static assets
 ///
 /// This handler serves embedded frontend assets from the binary.
@@ -28,7 +44,13 @@ pub async fn serve_static(uri: Uri) -> Response {
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, mime_type.as_ref())
             .body(Body::from(content.data))
-            .unwrap();
+            .map_err(|_| StaticAssetError::ResponseBuildError)
+            .unwrap_or_else(|_| {
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from("Internal Server Error"))
+                    .unwrap_or_else(|_| panic!("Failed to build error response"))
+            });
     }
 
     // SPA fallback: serve index.html for unknown paths
@@ -38,14 +60,23 @@ pub async fn serve_static(uri: Uri) -> Response {
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html")
             .body(Body::from(index.data))
-            .unwrap();
+            .map_err(|_| StaticAssetError::ResponseBuildError)
+            .unwrap_or_else(|_| {
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from("Internal Server Error"))
+                    .unwrap_or_else(|_| panic!("Failed to build error response"))
+            });
     }
 
     // If even index.html is not found, return 404
     Response::builder()
         .status(StatusCode::NOT_FOUND)
         .body(Body::from("Not Found"))
-        .unwrap()
+        .unwrap_or_else(|_| {
+            // Last resort - if we can't even build a 404, return a minimal response
+            Response::new(Body::from("Not Found"))
+        })
 }
 
 #[cfg(test)]
@@ -55,23 +86,31 @@ mod tests {
 
     #[tokio::test]
     async fn test_serve_index_html() {
+        // SAFETY: Static path literals always parse successfully
+        #[allow(clippy::unwrap_used)]
         let uri: Uri = "/".parse().unwrap();
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
         // Check content type
+        // SAFETY: Response header always present after successful serve_static
+        #[allow(clippy::unwrap_used)]
         let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
         assert_eq!(content_type, "text/html");
     }
 
     #[tokio::test]
     async fn test_serve_static_file() {
+        // SAFETY: Static path literals always parse successfully
+        #[allow(clippy::unwrap_used)]
         let uri: Uri = "/index.html".parse().unwrap();
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
+        // SAFETY: Response header always present after successful serve_static
+        #[allow(clippy::unwrap_used)]
         let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
         assert_eq!(content_type, "text/html");
     }
@@ -80,11 +119,15 @@ mod tests {
     async fn test_spa_fallback() {
         // Request a path that doesn't exist as a file
         // Should return index.html for SPA routing
+        // SAFETY: Static path literals always parse successfully
+        #[allow(clippy::unwrap_used)]
         let uri: Uri = "/cluster/test-cluster".parse().unwrap();
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
+        // SAFETY: Response header always present after successful serve_static
+        #[allow(clippy::unwrap_used)]
         let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
         assert_eq!(content_type, "text/html");
     }
@@ -99,6 +142,8 @@ mod tests {
         ];
 
         for (path, expected_mime) in test_cases {
+            // SAFETY: Static path literals always parse successfully
+            #[allow(clippy::unwrap_used)]
             let uri: Uri = format!("/{}", path).parse().unwrap();
             let response = serve_static(uri).await;
 

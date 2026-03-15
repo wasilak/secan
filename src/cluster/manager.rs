@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 /// Cluster connection structure maintaining client and metadata
 #[derive(Debug)]
@@ -385,7 +386,7 @@ impl Manager {
 
         for config in cluster_configs {
             let display_name = config.name.as_deref().unwrap_or(&config.id);
-            tracing::info!("Initializing cluster: {} ({})", display_name, config.id);
+            tracing::info!(cluster_id = %config.id, cluster_name = %display_name, "Initializing cluster");
 
             let connection = ClusterConnection::new(&config)
                 .await
@@ -398,8 +399,11 @@ impl Manager {
             anyhow::bail!("No clusters configured");
         }
 
-        tracing::info!("Initialized {} cluster(s)", clusters.len());
-        tracing::info!("Cache duration: {:?}", cache_duration);
+        tracing::info!(cluster_count = clusters.len(), "Clusters initialized");
+        tracing::info!(
+            cache_duration_secs = cache_duration.as_secs(),
+            "Cache configured"
+        );
 
         Ok(Self {
             clusters: Arc::new(RwLock::new(clusters)),
@@ -446,6 +450,7 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.15, 2.16
+    #[instrument(skip(self), fields(cluster_id = %cluster_id))]
     pub async fn get_cluster(&self, cluster_id: &str) -> Result<Arc<ClusterConnection>> {
         let clusters = self.clusters.read().await;
 
@@ -464,6 +469,7 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.1, 2.15
+    #[instrument(skip(self))]
     pub async fn list_clusters(&self) -> Vec<ClusterInfo> {
         let clusters = self.clusters.read().await;
 
@@ -582,6 +588,7 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.15, 2.16, 2.18
+    #[instrument(skip(self, body), fields(cluster_id = %cluster_id, http_method = %method, path = %path))]
     pub async fn proxy_request(
         &self,
         cluster_id: &str,
@@ -591,7 +598,7 @@ impl Manager {
     ) -> Result<Response> {
         let cluster = self.get_cluster(cluster_id).await?;
 
-        tracing::debug!("Proxying {} {} to cluster '{}'", method, path, cluster_id);
+        tracing::debug!("Proxying request to cluster");
 
         cluster
             .request(method, path, body)
@@ -614,10 +621,11 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.14, 2.18, 31.2
+    #[instrument(skip(self), fields(cluster_id = %cluster_id))]
     pub async fn check_health(&self, cluster_id: &str) -> Result<ClusterHealth> {
         // Try to get from cache first
         if let Some(cached_health) = self.health_cache.get(cluster_id).await {
-            tracing::debug!("Returning cached health for cluster '{}'", cluster_id);
+            tracing::debug!("Returning cached health");
             return Ok(cached_health);
         }
 

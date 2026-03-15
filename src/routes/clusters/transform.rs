@@ -52,13 +52,17 @@ pub fn transform_cluster_stats(
         let mut node_count = 0;
         for (node_name, metrics) in prom_metrics.iter() {
             let cpu_val = metrics.get("cpu_percent").and_then(|v| v.as_f64());
-            tracing::debug!(node = %node_name, cpu = ?cpu_val, "CPU metric for node");
+            if tracing::enabled!(tracing::Level::DEBUG) {
+                tracing::debug!(node = %node_name, cpu = ?cpu_val, "CPU metric for node");
+            }
             if let Some(cpu) = cpu_val {
                 total_cpu += cpu;
                 node_count += 1;
             }
         }
-        tracing::debug!(total_cpu, node_count, "CPU aggregation result");
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            tracing::debug!(total_cpu, node_count, "CPU aggregation result");
+        }
         if node_count > 0 {
             Some((total_cpu / node_count as f64) as u32)
         } else {
@@ -111,19 +115,25 @@ pub fn transform_cluster_stats(
 
     // Calculate memory totals - prefer Prometheus metrics when available
     let (memory_used, memory_total) = if let Some(prom_metrics) = prometheus_metrics {
-        tracing::debug!("Using Prometheus metrics for memory");
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            tracing::debug!("Using Prometheus metrics for memory");
+        }
         // Use Prometheus metrics for memory (heap_used_bytes from elasticsearch_jvm_memory_used_bytes)
         let mut total_mem_used = 0u64;
         let mut node_count = 0;
         for (node_name, metrics) in prom_metrics.iter() {
             let mem_val = metrics.get("memory_used_bytes").and_then(|v| v.as_u64());
-            tracing::debug!(node = %node_name, mem = ?mem_val, "Memory metric for node");
+            if tracing::enabled!(tracing::Level::DEBUG) {
+                tracing::debug!(node = %node_name, mem = ?mem_val, "Memory metric for node");
+            }
             if let Some(mem) = mem_val {
                 total_mem_used += mem;
                 node_count += 1;
             }
         }
-        tracing::debug!(total_mem_used, node_count, "Memory aggregation result");
+        if tracing::enabled!(tracing::Level::DEBUG) {
+            tracing::debug!(total_mem_used, node_count, "Memory aggregation result");
+        }
         // For total memory with Prometheus, fall back to internal metrics
         let mem_total = stats["nodes"]["jvm"]["mem"]["heap_max_in_bytes"].as_u64();
         if node_count > 0 {
@@ -411,7 +421,7 @@ pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
                 uuid,
             });
         }
-        tracing::debug!("Successfully transformed {} indices", result.len());
+        tracing::debug!(index_count = result.len(), "Indices transformed");
     } else {
         tracing::warn!("No indices data found in indices_stats response");
     }

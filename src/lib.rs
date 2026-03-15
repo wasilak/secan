@@ -40,6 +40,12 @@ pub mod config;
 /// and CORS configuration.
 pub mod middleware;
 
+/// Error types and handling
+///
+/// Provides centralized error types using thiserror for domain-specific errors
+/// and integration with anyhow for application-level error handling.
+pub mod errors;
+
 /// Metrics abstraction layer
 ///
 /// Provides unified interface for metrics from multiple sources (internal Elasticsearch or Prometheus).
@@ -71,3 +77,6 @@ pub mod tls;
 // Re-export commonly used types
 pub use config::Config;
 pub use server::Server;
+
+// Re-export error types for convenience
+pub use errors::{AppError, AuthError, ClusterError, ConfigError};

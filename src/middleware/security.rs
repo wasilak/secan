@@ -32,6 +32,8 @@ pub async fn security_headers_middleware(
     // Allow inline styles for Mantine UI
     // Allow data: URIs for images (used by some components)
     // Allow blob: for Monaco Editor web workers
+    // SAFETY: Static CSP header string is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(
         header::CONTENT_SECURITY_POLICY,
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; worker-src 'self' blob:"
@@ -42,6 +44,8 @@ pub async fn security_headers_middleware(
     // Strict-Transport-Security: Force HTTPS for 1 year
     // includeSubDomains: Apply to all subdomains
     // preload: Allow inclusion in browser HSTS preload lists
+    // SAFETY: Static HSTS header string is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(
         header::STRICT_TRANSPORT_SECURITY,
         "max-age=31536000; includeSubDomains; preload"
@@ -50,24 +54,34 @@ pub async fn security_headers_middleware(
     );
 
     // X-Frame-Options: Prevent clickjacking
+    // SAFETY: Static header value "DENY" is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(header::X_FRAME_OPTIONS, "DENY".parse().unwrap());
 
     // X-Content-Type-Options: Prevent MIME sniffing
+    // SAFETY: Static header value "nosniff" is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(header::X_CONTENT_TYPE_OPTIONS, "nosniff".parse().unwrap());
 
     // X-XSS-Protection: Enable browser XSS protection
+    // SAFETY: Static header value is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(
         HeaderName::from_static("x-xss-protection"),
         "1; mode=block".parse().unwrap(),
     );
 
     // Referrer-Policy: Control referrer information
+    // SAFETY: Static header value is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(
         header::REFERRER_POLICY,
         "strict-origin-when-cross-origin".parse().unwrap(),
     );
 
     // Permissions-Policy: Disable unnecessary browser features
+    // SAFETY: Static header value is always valid
+    #[allow(clippy::unwrap_used)]
     headers.insert(
         HeaderName::from_static("permissions-policy"),
         "geolocation=(), microphone=(), camera=()".parse().unwrap(),

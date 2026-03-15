@@ -1,3 +1,5 @@
 # Clippy configuration
-# Warn on common mistakes and style issues
+# See: https://doc.rust-lang.org/clippy/lint_configuration.html
+
+# Additional recommended lints
 warn-on-all-wildcard-imports = true

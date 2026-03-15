@@ -255,18 +255,18 @@ impl SessionManager {
                 if session.is_expired() {
                     // Remove expired session
                     self.store.remove(token).await;
-                    tracing::debug!(token = %token, "Session expired and removed");
+                    tracing::debug!("Session expired and removed");
                     Ok(None)
                 } else {
                     // Renew session on activity
                     session.renew(self.config.timeout_minutes);
                     self.store.insert(session.clone()).await;
-                    tracing::debug!(token = %token, "Session validated and renewed");
+                    tracing::debug!("Session validated and renewed");
                     Ok(Some(session))
                 }
             }
             None => {
-                tracing::debug!(token = %token, "Session not found");
+                tracing::debug!("Session not found");
                 Ok(None)
             }
         }

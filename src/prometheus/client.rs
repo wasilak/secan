@@ -85,6 +85,8 @@ impl Client {
         let http_client = HttpClient::builder()
             .timeout(config.timeout)
             .connect_timeout(Duration::from_secs(5))
+            .pool_max_idle_per_host(10)
+            .pool_idle_timeout(Some(Duration::from_secs(30)))
             .danger_accept_invalid_certs(true) // Allow self-signed certs for internal Prometheus
             .build()
             .context("Failed to create HTTP client")?;

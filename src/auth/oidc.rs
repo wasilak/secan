@@ -86,14 +86,14 @@ impl OidcAuthProvider {
         permission_resolver: PermissionResolver,
     ) -> Result<Self> {
         tracing::info!("Initializing OIDC authentication provider");
-        tracing::debug!("OIDC client_id: {}", config.client_id);
-        tracing::debug!("OIDC redirect_uri: {}", config.redirect_uri);
+        tracing::debug!(client_id = %config.client_id, "OIDC client configured");
+        tracing::debug!(redirect_uri = %config.redirect_uri, "OIDC redirect URI configured");
 
         let http_client = HttpClient::new();
 
         // Discover OIDC provider metadata
         let discovery_url = &config.discovery_url;
-        tracing::info!("Discovering OIDC provider metadata: {}", discovery_url);
+        tracing::info!(discovery_url = %discovery_url, "Discovering OIDC provider metadata");
 
         let metadata_response = http_client
             .get(discovery_url)
@@ -227,16 +227,10 @@ impl OidcAuthProvider {
             .decode(parts[1])
             .context("Failed to decode ID token payload")?;
 
-        let payload_str = String::from_utf8_lossy(&payload_bytes);
-        tracing::debug!("ID token payload: {}", payload_str);
-
         let claims: IdTokenClaims =
             serde_json::from_slice(&payload_bytes).context("Failed to parse ID token claims")?;
 
-        tracing::info!(
-            "ID token validated successfully for subject: {}",
-            claims.sub
-        );
+        tracing::info!(subject = %claims.sub, "ID token validated successfully");
 
         Ok(claims)
     }

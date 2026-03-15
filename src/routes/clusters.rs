@@ -9,6 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use tracing::instrument;
 
 mod pagination;
 pub mod tasks;
@@ -78,6 +79,7 @@ pub struct ClustersQueryParams {
     pub version: String,
 }
 
+#[instrument(skip(state, user_ext))]
 pub async fn list_clusters(
     State(state): State<ClusterState>,
     Query(params): Query<ClustersQueryParams>,
@@ -267,6 +269,7 @@ fn check_cluster_access(
 /// # Requirements
 ///
 /// Validates: Requirements 4.1, 4.2, 4.3
+#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_stats(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -651,6 +654,7 @@ pub async fn get_cluster_stats(
 ///
 /// Returns cluster settings in JSON format
 /// Optionally includes default settings with `include_defaults` query parameter
+#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_settings(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -714,6 +718,7 @@ pub async fn get_cluster_settings(
 ///
 /// Updates persistent and/or transient cluster settings
 /// Only modified settings need to be provided in the request body
+#[instrument(skip(state, user_ext, request), fields(cluster_id = %cluster_id))]
 pub async fn update_cluster_settings(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -835,6 +840,7 @@ pub struct NodesQueryParams {
     pub roles: Option<String>, // comma-separated: master,data,ingest; None = not set, Some("") = explicitly empty
 }
 
+#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -1211,6 +1217,7 @@ pub async fn get_nodes(
 /// # Requirements
 ///
 /// Validates: Requirements 14.3, 14.4, 14.5
+#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_stats(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
@@ -1405,6 +1412,7 @@ fn default_page_size() -> u32 {
     50
 }
 
+#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_indices(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -1531,6 +1539,7 @@ pub async fn get_indices(
 /// # Requirements
 ///
 /// Validates: Requirements 4.8
+#[instrument(skip(state), fields(cluster_id = %cluster_id, index_name = %index_name, shard_num = %shard_num))]
 pub async fn get_shard_stats(
     State(state): State<ClusterState>,
     Path((cluster_id, index_name, shard_num)): Path<(String, String, String)>,
@@ -1634,6 +1643,7 @@ pub struct ShardsQueryParams {
     pub search: String, // search both index and node (OR logic)
 }
 
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_shards(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -1773,6 +1783,7 @@ pub async fn get_shards(
 /// # Requirements
 ///
 /// Validates: Requirements 4.8
+#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_shards(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
@@ -1838,6 +1849,7 @@ pub async fn get_node_shards(
 /// # Requirements
 ///
 /// Validates: Requirements 2.16, 29.3
+#[instrument(skip(state, query, body), fields(cluster_id = %cluster_id, http_method = %method))]
 pub async fn proxy_request(
     State(state): State<ClusterState>,
     Path((cluster_id, path)): Path<(String, String)>,
@@ -2070,6 +2082,7 @@ pub async fn proxy_request(
 /// # Requirements
 ///
 /// Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.11, 8.1, 8.2, 8.3, 8.4
+#[instrument(skip(state, user_ext, req), fields(cluster_id = %cluster_id, index = %req.index, shard = req.shard))]
 pub async fn relocate_shard(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,

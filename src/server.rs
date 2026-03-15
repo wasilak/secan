@@ -9,10 +9,14 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tower_http::{
     compression::CompressionLayer,
     cors::{Any, CorsLayer},
+    trace::TraceLayer,
 };
+use tracing::Span;
+use uuid::Uuid;
 
 /// Server structure containing application state and configuration
 #[derive(Clone)]
@@ -140,11 +144,18 @@ impl Server {
         };
 
         // Build the router with all routes
+        let health_state = crate::routes::health::HealthState {
+            cluster_manager: self.cluster_manager.clone(),
+            session_manager: self.session_manager.clone(),
+        };
+
         Router::new()
             // Health, readiness, and version endpoints (no auth required)
+            // These must come before .with_state() since they use different state
             .route("/health", get(crate::routes::health::health_check))
             .route("/ready", get(crate::routes::health::readiness_check))
             .route("/api/version", get(crate::routes::health::get_version))
+            .with_state(Arc::new(RwLock::new(health_state)))
             // Authentication routes
             .route("/api/auth/login", post(crate::routes::auth::login))
             .route("/api/auth/logout", post(crate::routes::auth::logout))
@@ -245,6 +256,69 @@ impl Server {
             .layer(middleware::from_fn(
                 crate::middleware::logging::logging_middleware,
             ))
+            // Add TraceLayer for structured request tracing
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(|request: &axum::extract::Request| {
+                        let trace_id = Uuid::new_v4().to_string();
+                        let method = request.method();
+                        let path = request.uri().path();
+                        let user_agent = request
+                            .headers()
+                            .get(axum::http::header::USER_AGENT)
+                            .and_then(|v| v.to_str().ok())
+                            .unwrap_or("unknown");
+
+                        tracing::info_span!(
+                            "http_request",
+                            trace_id = %trace_id,
+                            http_method = %method,
+                            path = %path,
+                            user_agent = %user_agent,
+                        )
+                    })
+                    .on_response(
+                        |response: &axum::response::Response,
+                         latency: std::time::Duration,
+                         _span: &Span| {
+                            let status = response.status().as_u16();
+                            let latency_ms = latency.as_millis() as u64;
+
+                            tracing::debug!(
+                                http_status = status,
+                                latency_ms = latency_ms,
+                                "Request completed"
+                            );
+                        },
+                    )
+                    .on_failure(
+                        |error: tower_http::classify::ServerErrorsFailureClass,
+                         latency: std::time::Duration,
+                         _span: &Span| {
+                            let latency_ms = latency.as_millis() as u64;
+                            match error {
+                                tower_http::classify::ServerErrorsFailureClass::StatusCode(
+                                    status,
+                                ) => {
+                                    tracing::error!(
+                                        http_status = status.as_u16(),
+                                        latency_ms = latency_ms,
+                                        error_type = "status_code",
+                                        "Request failed"
+                                    );
+                                }
+                                tower_http::classify::ServerErrorsFailureClass::Error(error) => {
+                                    tracing::error!(
+                                        latency_ms = latency_ms,
+                                        error_type = "error",
+                                        error = %error,
+                                        "Request failed with error"
+                                    );
+                                }
+                            }
+                        },
+                    ),
+            )
             // Add CORS middleware with proper configuration
             // Allow specific methods and headers for security
             .layer(
@@ -302,7 +376,7 @@ impl Server {
             );
         }
 
-        tracing::info!("Server listening on {}", addr);
+        tracing::info!(address = %addr, "Server listening");
 
         let app = self.router();
 
