@@ -798,7 +798,7 @@ mod tests {
         let client = Client::new(&config).await;
         assert!(client.is_ok());
 
-        let client = client.unwrap();
+        let _client = client.unwrap();
     }
 
     #[tokio::test]
@@ -848,7 +848,7 @@ mod tests {
             ..Default::default()
         };
 
-        let client = Client::new(&config).await.unwrap();
+        let _client = Client::new(&config).await.unwrap();
 
         let config = ClusterConfig {
             id: "test".to_string(),
@@ -860,6 +860,6 @@ mod tests {
             ..Default::default()
         };
 
-        let client = Client::new(&config).await.unwrap();
+        let _client = Client::new(&config).await.unwrap();
     }
 }

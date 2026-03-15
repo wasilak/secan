@@ -45,8 +45,8 @@ test: test-backend test-frontend
 
 [group('test')]
 test-backend:
-    # Run backend tests
-    cargo test
+    # Run backend tests with warnings as errors (matches CI)
+    RUSTFLAGS="-D warnings" cargo test
 
 [group('test')]
 test-frontend:
@@ -86,7 +86,7 @@ ci-backend:
     echo "✅ PASSED"
     echo ""
     echo "3. Cargo test..."
-    cargo test
+    RUSTFLAGS="-D warnings" cargo test
     echo "✅ PASSED"
     echo ""
     echo "=== BACKEND CI/CD COMPLETE ==="
