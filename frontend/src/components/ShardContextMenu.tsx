@@ -65,29 +65,18 @@ export function ShardContextMenu({
 
   // Handle menu item clicks
   const handleShowStats = () => {
-    console.log('[ShardContextMenu] handleShowStats called');
     onShowStats(shard);
   };
 
   const handleShowIndexDetails = () => {
-    console.log('[ShardContextMenu] handleShowIndexDetails called, onShowIndexDetails exists:', !!onShowIndexDetails);
     if (onShowIndexDetails) {
-      console.log('[ShardContextMenu] calling onShowIndexDetails with', shard.index);
       onShowIndexDetails(shard);
-    } else {
-      console.log('[ShardContextMenu] onShowIndexDetails is undefined!');
     }
   };
 
   const handleSelectForRelocation = () => {
-    console.log('[ShardContextMenu] handleSelectForRelocation called');
-    console.log('[ShardContextMenu] isRelocationDisabled:', isRelocationDisabled);
-    console.log('[ShardContextMenu] shard:', shard);
     if (!isRelocationDisabled) {
-      console.log('[ShardContextMenu] Calling onSelectForRelocation');
       onSelectForRelocation(shard);
-    } else {
-      console.log('[ShardContextMenu] Relocation is disabled, not calling handler');
     }
   };
 

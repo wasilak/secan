@@ -234,11 +234,13 @@ export function formatNumber(value: number | undefined, decimals: number = 0): s
  * Examples:
  * - 1000 -> "1,000"
  * - 1234567 -> "1,234,567"
+ * - undefined -> "N/A"
  *
- * @param num - Number to format
- * @returns Formatted number with commas
+ * @param num - Number to format (can be undefined)
+ * @returns Formatted number with commas or "N/A"
  */
-export function formatNumberWithCommas(num: number): string {
+export function formatNumberWithCommas(num: number | undefined): string {
+  if (num === undefined || num === null || isNaN(num)) return 'N/A';
   return num.toLocaleString();
 }
 

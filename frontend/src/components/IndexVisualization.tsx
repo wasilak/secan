@@ -27,7 +27,7 @@ import {
   type NodePosition,
   type PositioningConfig,
 } from '../utils/nodePositioning';
-import { formatBytes } from '../utils/formatters';
+import { formatBytes, formatPercent } from '../utils/formatters';
 import { sortShards } from '../utils/shardOrdering';
 import type { HealthStatus, ShardInfo } from '../types/api';
 import { useMemo, useState } from 'react';
@@ -519,31 +519,6 @@ function ConnectionLines({
 function NodeCard({ node, onClick, nodeMetrics, onShardClick }: NodeCardProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
-  
-  /**
-   * Format bytes to human-readable size
-   * 
-   * @param bytes - Size in bytes
-   * @returns Formatted size string
-   */
-  const formatBytes = (bytes?: number): string => {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-  };
-  
-  /**
-   * Format percentage value
-   * 
-   * @param value - Percentage value (0-100)
-   * @returns Formatted percentage string
-   */
-  const formatPercent = (value?: number): string => {
-    if (value === undefined || value === null) return 'N/A';
-    return `${value.toFixed(1)}%`;
-  };
   
   /**
    * Tooltip content with node details

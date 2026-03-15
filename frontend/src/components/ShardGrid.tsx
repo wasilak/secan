@@ -25,6 +25,7 @@ import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
 import { parseShardGridData } from '../utils/shard-grid-parser';
 import { apiClient } from '../api/client';
+import { formatNumberWithCommas, formatBytes } from '../utils/formatters';
 
 /**
  * Props for ShardGrid component
@@ -411,26 +412,12 @@ export function ShardGrid({
 
   // Handle select for relocation - Requirements: 4.4, 5.1, 5.2, 5.3
   const handleSelectForRelocation = (shard: ShardInfo) => {
-    console.log('[handleSelectForRelocation] Called with shard:', shard);
-    console.log('[handleSelectForRelocation] Current nodes:', nodes);
-    console.log('[handleSelectForRelocation] Current relocationMode:', relocationMode);
-
     // Enter relocation mode
     // This will:
     // 1. Set relocationMode to true
     // 2. Store selected shard
     // 3. Calculate valid destinations
     enterRelocationMode(shard);
-
-    console.log('[handleSelectForRelocation] After enterRelocationMode');
-    console.log(
-      '[handleSelectForRelocation] New relocationMode:',
-      useShardGridStore.getState().relocationMode
-    );
-    console.log(
-      '[handleSelectForRelocation] New destinationIndicators:',
-      useShardGridStore.getState().destinationIndicators
-    );
 
     handleContextMenuClose();
   };
@@ -526,20 +513,6 @@ export function ShardGrid({
   const formatLoad = useCallback((load?: number): string => {
     if (load === undefined) return 'N/A';
     return load.toFixed(2);
-  }, []);
-
-  // Format number with commas - Requirements: 9.3
-  const formatNumber = useCallback((value: number): string => {
-    return value.toLocaleString();
-  }, []);
-
-  // Format size in bytes to human-readable format - Requirements: 9.3
-  const formatSize = useCallback((bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   }, []);
 
   // Toggle node stats collapse - Requirements: 11.6
@@ -786,8 +759,8 @@ export function ShardGrid({
                         }}
                       >
                         <div>{index.shardCount} shards</div>
-                        <div>{formatNumber(index.docsCount)} docs</div>
-                        <div>{formatSize(index.storeSize)}</div>
+                        <div>{formatNumberWithCommas(index.docsCount)} docs</div>
+                        <div>{formatBytes(index.storeSize)}</div>
                       </Box>
                     </Stack>
                   </div>
@@ -1099,8 +1072,8 @@ export function ShardGrid({
                             }}
                           >
                             <div>{index.shardCount} shards</div>
-                            <div>{formatNumber(index.docsCount)} docs</div>
-                            <div>{formatSize(index.storeSize)}</div>
+                            <div>{formatNumberWithCommas(index.docsCount)} docs</div>
+                            <div>{formatBytes(index.storeSize)}</div>
                           </Box>
                         </Collapse>
                       ) : (
@@ -1112,8 +1085,8 @@ export function ShardGrid({
                           }}
                         >
                           <div>{index.shardCount} shards</div>
-                          <div>{formatNumber(index.docsCount)} docs</div>
-                          <div>{formatSize(index.storeSize)}</div>
+                          <div>{formatNumberWithCommas(index.docsCount)} docs</div>
+                          <div>{formatBytes(index.storeSize)}</div>
                         </Box>
                       )}
                     </Stack>

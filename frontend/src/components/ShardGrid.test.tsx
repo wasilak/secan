@@ -284,7 +284,7 @@ describe('ShardGrid', () => {
     expect(screen.getByText(/1,?000 docs/i)).toBeInTheDocument();
 
     // Check for size (1024000 bytes = 1000 KB)
-    expect(screen.getByText(/1000\.0 KB/i)).toBeInTheDocument();
+    expect(screen.getByText(/1000\.00 KB/i)).toBeInTheDocument();
   });
 
   it('renders shard cells', async () => {

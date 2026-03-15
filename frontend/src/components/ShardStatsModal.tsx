@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
 import { DURATIONS, EASINGS } from '../lib/transitions';
+import { formatNumberWithCommas } from '../utils/formatters';
 
 /**
  * Props for ShardStatsModal component
@@ -184,12 +185,6 @@ export function ShardStatsModal({
     return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
   };
 
-  // Format number with commas
-  const formatNumber = (value?: number): string => {
-    if (value === undefined) return 'N/A';
-    return value.toLocaleString();
-  };
-
   // Get shard type label
   const getShardTypeLabel = (primary: boolean): string => {
     return primary ? 'Primary' : 'Replica';
@@ -332,7 +327,7 @@ export function ShardStatsModal({
                   Document Count
                 </Table.Td>
                 <Table.Td>
-                  <Text>{formatNumber(shard.docs)}</Text>
+                  <Text>{formatNumberWithCommas(shard.docs)}</Text>
                 </Table.Td>
               </Table.Tr>
 
@@ -344,7 +339,7 @@ export function ShardStatsModal({
                     <Text>{formatSize(shard.store)}</Text>
                     {shard.store !== undefined && (
                       <Text size="xs" c="dimmed">
-                        ({formatNumber(shard.store)} bytes)
+                        ({formatNumberWithCommas(shard.store)} bytes)
                       </Text>
                     )}
                   </Group>
@@ -385,7 +380,7 @@ export function ShardStatsModal({
                       Segments
                     </Table.Td>
                     <Table.Td>
-                      <Text>{formatNumber(detailedStats.segments)}</Text>
+                      <Text>{formatNumberWithCommas(detailedStats.segments)}</Text>
                     </Table.Td>
                   </Table.Tr>
 
@@ -393,7 +388,7 @@ export function ShardStatsModal({
                   <Table.Tr>
                     <Table.Td fw={500}>Merges (current)</Table.Td>
                     <Table.Td>
-                      <Text>{formatNumber(detailedStats.merges)}</Text>
+                      <Text>{formatNumberWithCommas(detailedStats.merges)}</Text>
                     </Table.Td>
                   </Table.Tr>
 
@@ -401,7 +396,7 @@ export function ShardStatsModal({
                   <Table.Tr>
                     <Table.Td fw={500}>Refreshes (total)</Table.Td>
                     <Table.Td>
-                      <Text>{formatNumber(detailedStats.refreshes)}</Text>
+                      <Text>{formatNumberWithCommas(detailedStats.refreshes)}</Text>
                     </Table.Td>
                   </Table.Tr>
 
@@ -409,7 +404,7 @@ export function ShardStatsModal({
                   <Table.Tr>
                     <Table.Td fw={500}>Flushes (total)</Table.Td>
                     <Table.Td>
-                      <Text>{formatNumber(detailedStats.flushes)}</Text>
+                      <Text>{formatNumberWithCommas(detailedStats.flushes)}</Text>
                     </Table.Td>
                   </Table.Tr>
                 </Table.Tbody>
