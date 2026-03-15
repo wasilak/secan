@@ -32,6 +32,7 @@ const sidebars = {
       items: [
         'features/dashboard',
         'features/cluster-details',
+        'features/cluster-tasks',
         'features/index-management',
         'features/shard-management',
         'features/rest-console',

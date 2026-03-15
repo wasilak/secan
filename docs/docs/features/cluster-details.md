@@ -28,6 +28,17 @@ The Overview tab displays cluster health and key statistics:
 - **Cluster Settings**: Access to cluster-level configuration
 - **Cluster Info**: Version information and cluster metadata
 - **Prometheus Metrics**: Historical metrics with time range selection
+- **Allocation Lock**: Visual indicator of cluster allocation status
+
+### Cluster Change Notifications
+
+Secan monitors your cluster for changes and displays notifications when:
+
+- **Nodes Added/Removed**: New nodes join or leave the cluster
+- **Indices Created/Deleted**: Index lifecycle events
+- **Cluster Settings Modified**: Allocation or other settings changed
+
+Notifications appear in the top-right corner with a violet accent color and automatically dismiss after a few seconds. Click the notification to see more details.
 
 ### Prometheus Metrics Integration
 
@@ -127,6 +138,33 @@ The Tasks tab provides real-time monitoring of cluster operations:
 - **Bulk Operations**: Select and manage multiple tasks
 
 See [Cluster Tasks Management](../features/cluster-tasks) for detailed information.
+
+## Allocation Lock Indicator
+
+The cluster header includes an **Allocation Lock Indicator** that shows the current shard allocation state:
+
+### States
+
+- **🟢 All Enabled**: Full allocation enabled (primaries and replicas)
+- **🟡 Primaries Only**: Only primary shards are being allocated
+- **🔴 All Disabled**: No new shard allocations
+
+### Managing Allocation
+
+Click the allocation indicator to open a context menu with options:
+
+- **Enable All**: Enable allocation for both primaries and replicas
+- **Primaries Only**: Enable only primary shard allocation
+- **Disable All**: Disable all shard allocation
+- **Enable Replicas**: Re-enable replica allocation
+
+These controls affect cluster-wide allocation settings and are useful during:
+
+- **Maintenance Windows**: Disable allocation before maintenance
+- **Recovery Operations**: Control allocation during cluster recovery
+- **Rolling Restarts**: Manage allocation during node restarts
+
+Changes are applied immediately and the indicator updates to reflect the new state.
 
 ## Topology Tab
 
