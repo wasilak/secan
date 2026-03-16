@@ -225,7 +225,7 @@ impl ElasticsearchClient for Client {
     }
 
     async fn info(&self) -> Result<Value> {
-        let url = format!("{}/_cluster/info", self.base_url);
+        let url = format!("{}/", self.base_url);
         let mut req = self.http_client.get(&url);
 
         // Add authentication if configured
