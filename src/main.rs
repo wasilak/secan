@@ -81,14 +81,14 @@ async fn main() -> anyhow::Result<()> {
     // This handles both OTel tracing and JSON logging configuration
     let _telemetry_guard = telemetry::init_telemetry();
 
-    // If telemetry is disabled, initialize JSON logging manually
+    // If telemetry is disabled, we still need to initialize the tracing subscriber
     if _telemetry_guard.is_none() {
+        let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+
         tracing_subscriber::fmt()
             .json()
-            .with_env_filter(
-                tracing_subscriber::EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-            )
+            .with_env_filter(env_filter)
             .with_target(true)
             .with_thread_ids(true)
             .with_line_number(true)

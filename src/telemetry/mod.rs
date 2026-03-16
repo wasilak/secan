@@ -116,8 +116,11 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     let otel_layer = tracing_opentelemetry::layer().with_tracer(provider.tracer("secan"));
 
     // Initialize the tracing subscriber with the OTel layer and JSON formatting
+    // Default to INFO level if RUST_LOG is not set
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
+        .with(env_filter)
         .with(otel_layer)
         .with(
             tracing_subscriber::fmt::layer()
@@ -137,8 +140,10 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
 
 /// Initialize tracing subscriber without OpenTelemetry (console mode)
 fn init_tracing_subscriber_only() -> Result<()> {
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     tracing_subscriber::registry()
-        .with(EnvFilter::from_default_env())
+        .with(env_filter)
         .with(
             tracing_subscriber::fmt::layer()
                 .json()
