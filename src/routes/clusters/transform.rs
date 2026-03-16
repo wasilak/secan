@@ -1114,7 +1114,7 @@ pub struct NodeDetailStatsResponse {
 }
 
 /// Thread pool statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ThreadPoolStats {
     pub threads: u32,
     pub queue: u32,
@@ -1125,7 +1125,7 @@ pub struct ThreadPoolStats {
 }
 
 /// Shard statistics for a node
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ShardStats {
     pub total: u32,
     pub primary: u32,
@@ -1134,7 +1134,7 @@ pub struct ShardStats {
 }
 
 /// Individual shard information
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ShardInfo {
     pub index: String,
     pub shard: u32,
@@ -1147,7 +1147,7 @@ pub struct ShardInfo {
 }
 
 /// Indexing statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct IndexingStats {
     #[serde(rename = "indexTotal")]
     pub index_total: u64,
@@ -1164,7 +1164,7 @@ pub struct IndexingStats {
 }
 
 /// Search statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SearchStats {
     #[serde(rename = "queryTotal")]
     pub query_total: u64,
@@ -1179,7 +1179,7 @@ pub struct SearchStats {
 }
 
 /// Filesystem statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct FileSystemStats {
     pub total: u64,
     pub available: u64,
@@ -1190,7 +1190,7 @@ pub struct FileSystemStats {
 }
 
 /// Network statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NetworkStats {
     #[serde(rename = "rxBytes")]
     pub rx_bytes: u64,
@@ -1199,14 +1199,14 @@ pub struct NetworkStats {
 }
 
 /// JVM statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct JvmStats {
     #[serde(rename = "gcCollectors")]
     pub gc_collectors: std::collections::HashMap<String, GcCollectorStats>,
 }
 
 /// GC collector statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct GcCollectorStats {
     #[serde(rename = "collectionCount")]
     pub collection_count: u64,

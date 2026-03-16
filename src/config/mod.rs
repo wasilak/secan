@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use utoipa::ToSchema;
 
 /// Main configuration structure for the application
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -243,7 +244,7 @@ pub struct RoleConfig {
 }
 
 /// Metrics data source for cluster
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum MetricsSource {
     /// Use live metrics from Elasticsearch internal APIs

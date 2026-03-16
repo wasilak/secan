@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 /// Cluster connection structure maintaining client and metadata
 #[derive(Debug)]
@@ -59,7 +60,7 @@ pub struct ClusterHealth {
 }
 
 /// Cluster information for API responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClusterInfo {
     pub id: String,
     pub name: Option<String>,

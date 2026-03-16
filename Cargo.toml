@@ -19,11 +19,11 @@ serde_json = "1"
 serde_yaml = "0.9"
 
 # OpenAPI documentation
-utoipa = "4"
+utoipa = "5"
 
 # Application metrics
-metrics = "0.13"
-metrics-exporter-prometheus = "0.16"
+metrics = "0.24"
+metrics-exporter-prometheus = "0.18"
 
 # Configuration
 config = { version = "0.15", features = ["yaml", "toml"] }

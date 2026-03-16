@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
+use utoipa::ToSchema;
 
 use crate::cluster::client::ElasticsearchClient;
 use crate::cluster::manager::{
@@ -14,7 +15,7 @@ use crate::prometheus::client::Client as PrometheusClient;
 use crate::prometheus::client::PrometheusConfig;
 
 /// Time range for metrics queries
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TimeRange {
     /// Start timestamp (Unix seconds)
     pub start: i64,

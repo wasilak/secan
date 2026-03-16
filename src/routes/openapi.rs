@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn test_openapi_spec_generates() {
         let json = ApiDoc::openapi().to_json().unwrap();
-        assert!(json.contains("\"openapi\":\"3.0.3\""));
+        assert!(json.contains("\"openapi\":\"3.1.0\""));
         assert!(json.contains("\"/health\""));
         assert!(json.contains("\"/clusters\""));
 
