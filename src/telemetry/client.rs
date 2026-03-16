@@ -4,7 +4,7 @@
 //! by wrapping the existing client with instrumentation.
 
 use crate::cluster::client::{Client, ElasticsearchClient};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::{Method, Response};
 use serde_json::Value;
@@ -14,6 +14,7 @@ use tracing::{field, Instrument};
 ///
 /// This trait provides methods that wrap ES operations with OpenTelemetry spans
 /// and proper trace context propagation.
+#[async_trait]
 pub trait InstrumentedElasticsearchClient: ElasticsearchClient {
     /// Execute an instrumented request against Elasticsearch
     ///

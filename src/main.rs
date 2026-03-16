@@ -2,6 +2,7 @@ use anyhow::Context;
 use secan::auth::{SessionConfig, SessionManager};
 use secan::cluster::Manager as ClusterManager;
 use secan::config::Config;
+use secan::telemetry;
 use secan::Server;
 use std::env;
 use std::sync::Arc;
@@ -76,18 +77,25 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Initialize OpenTelemetry telemetry (must be before tracing subscriber)
+    // This is a no-op if OTEL_SDK_DISABLED is not set to false
+    let _telemetry_guard = telemetry::init_telemetry();
+
     // Initialize tracing with JSON formatting for structured logging
     // Supports configurable log levels via RUST_LOG environment variable
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_line_number(true)
-        .init();
+    // Note: If telemetry is enabled, this is already initialized by telemetry::init_telemetry()
+    if _telemetry_guard.is_none() {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_line_number(true)
+            .init();
+    }
 
     info!("Secan - Elasticsearch Cluster Management Tool");
     info!("Starting backend server...");

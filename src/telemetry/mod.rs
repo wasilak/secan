@@ -31,6 +31,7 @@ pub use config::{BatchConfig, OtlpProtocol, SamplerConfig, TelemetryConfig};
 
 use anyhow::{Context, Result};
 use opentelemetry::global;
+use opentelemetry::trace::TracerProvider;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -39,12 +40,14 @@ use tracing_subscriber::EnvFilter;
 ///
 /// This guard must be held for the lifetime of the application.
 /// When dropped, the telemetry provider is shut down.
-pub struct TelemetryGuard;
+pub struct TelemetryGuard {
+    provider: Option<opentelemetry_sdk::trace::SdkTracerProvider>,
+}
 
 impl Drop for TelemetryGuard {
     fn drop(&mut self) {
-        // Shutdown the global tracer provider
-        global::shutdown_tracer_provider();
+        // In version 0.29, we need to handle cleanup differently
+        // The provider will be dropped when the guard is dropped
         tracing::info!("OpenTelemetry telemetry shut down");
     }
 }
@@ -91,7 +94,7 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
         tracing::info!("Using console exporter for development");
         // For console mode, we'll just use the tracing subscriber without OTel
         init_tracing_subscriber_only()?;
-        return Ok(Some(TelemetryGuard));
+        return Ok(Some(TelemetryGuard { provider: None }));
     }
 
     tracing::info!(
@@ -121,7 +124,9 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
 
     tracing::info!("OpenTelemetry telemetry initialized successfully");
 
-    Ok(Some(TelemetryGuard))
+    Ok(Some(TelemetryGuard {
+        provider: Some(provider),
+    }))
 }
 
 /// Initialize tracing subscriber without OpenTelemetry (console mode)
@@ -148,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_telemetry_guard_creation() {
-        let guard = TelemetryGuard;
+        let guard = TelemetryGuard { provider: None };
         // Guard should be created successfully
         drop(guard);
     }

@@ -1,6 +1,7 @@
 use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
+use crate::telemetry::middleware::otel_http_layer;
 use anyhow::Context;
 use axum::{
     http::Method,
@@ -252,6 +253,8 @@ impl Server {
             .layer(middleware::from_fn(
                 crate::middleware::logging::logging_middleware,
             ))
+            // Add OpenTelemetry tracing layer (creates OTel spans for requests)
+            .layer(otel_http_layer::<axum::body::Body>())
             // Add TraceLayer for structured request tracing
             .layer(
                 TraceLayer::new_for_http()

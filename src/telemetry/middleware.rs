@@ -17,9 +17,9 @@ pub fn otel_http_layer<B>() -> tower_http::trace::TraceLayer<
     OtelMakeSpan,
     tower_http::trace::DefaultOnRequest,
     OtelOnResponse,
-    tower_http::trace::DefaultOnFailure,
     tower_http::trace::DefaultOnBodyChunk,
     tower_http::trace::DefaultOnEos,
+    tower_http::trace::DefaultOnFailure,
 > {
     tower_http::trace::TraceLayer::new_for_http()
         .make_span_with(OtelMakeSpan)

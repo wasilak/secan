@@ -6,6 +6,13 @@
 /// into the binary during compilation using rust-embed.
 pub mod assets;
 
+/// OpenTelemetry telemetry and distributed tracing
+///
+/// Provides distributed tracing capabilities using OpenTelemetry.
+/// Supports OTLP export to collectors (Jaeger, Zipkin, etc.).
+/// Configured via standard OTEL_* environment variables.
+pub mod telemetry;
+
 /// Authentication and authorization system
 ///
 /// Provides multiple authentication modes including:

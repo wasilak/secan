@@ -136,7 +136,7 @@ impl TelemetryConfig {
             .parse::<OtlpProtocol>()?;
 
         let otlp_endpoint = env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
-            .unwrap_or_else(|| default_otlp_endpoint(&otlp_protocol));
+            .unwrap_or_else(|_| default_otlp_endpoint(&otlp_protocol));
 
         let otlp_headers =
             parse_key_value_list(&env::var("OTEL_EXPORTER_OTLP_HEADERS").unwrap_or_default())?;
