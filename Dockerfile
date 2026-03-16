@@ -36,9 +36,8 @@ RUN mkdir src && \
     cargo build --release --bin secan && \
     rm -rf src
 
-# Copy source from root and benches for final build
+# Copy source from root
 COPY src ./src
-COPY benches/ ./benches/
 
 # Copy frontend assets from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
