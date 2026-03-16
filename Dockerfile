@@ -24,17 +24,21 @@ RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconfig
 
 WORKDIR /app
 
-# Copy Cargo files, README, and benches from root (cached layer for dependencies)
-COPY Cargo.toml Cargo.lock README.md benches/ ./
+# Copy Cargo files, README from root (cached layer for dependencies)
+COPY Cargo.toml Cargo.lock README.md ./
+
+# Note: Remove benches section from Cargo.toml for dependency caching
+RUN sed -i '/^\[\[bench\]\]/,/^$/d' Cargo.toml
 
 # Create dummy main.rs to cache dependencies
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
-    cargo build --release --lib && \
+    cargo build --release --bin secan && \
     rm -rf src
 
-# Copy source from root
+# Copy source from root and benches for final build
 COPY src ./src
+COPY benches/ ./benches/
 
 # Copy frontend assets from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
