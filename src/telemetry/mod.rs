@@ -116,11 +116,17 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     // Create the OpenTelemetry layer for tracing
     let otel_layer = tracing_opentelemetry::layer().with_tracer(provider.tracer("secan"));
 
-    // Initialize the tracing subscriber with the OTel layer
+    // Initialize the tracing subscriber with the OTel layer and JSON formatting
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         .with(otel_layer)
-        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_line_number(true),
+        )
         .init();
 
     tracing::info!("OpenTelemetry telemetry initialized successfully");
@@ -134,7 +140,13 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
 fn init_tracing_subscriber_only() -> Result<()> {
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
-        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_target(true)
+                .with_thread_ids(true)
+                .with_line_number(true),
+        )
         .init();
 
     tracing::info!("Tracing initialized (console mode)");

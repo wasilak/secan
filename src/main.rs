@@ -77,13 +77,11 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // Initialize OpenTelemetry telemetry (must be before tracing subscriber)
-    // This is a no-op if OTEL_SDK_DISABLED is not set to false
+    // Initialize OpenTelemetry telemetry and tracing subscriber
+    // This handles both OTel tracing and JSON logging configuration
     let _telemetry_guard = telemetry::init_telemetry();
 
-    // Initialize tracing with JSON formatting for structured logging
-    // Supports configurable log levels via RUST_LOG environment variable
-    // Note: If telemetry is enabled, this is already initialized by telemetry::init_telemetry()
+    // If telemetry is disabled, initialize JSON logging manually
     if _telemetry_guard.is_none() {
         tracing_subscriber::fmt()
             .json()
