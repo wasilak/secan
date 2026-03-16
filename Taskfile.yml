@@ -152,10 +152,12 @@ tasks:
 
   # CI/CD tasks
   ci:
-    desc: Run complete CI/CD pipeline for backend and frontend
+    desc: Run complete CI/CD pipeline for backend, frontend, and docs (in parallel)
     cmds:
       - task: ci:backend
       - task: ci:frontend
+      - task: docs:build
+    parallel: true
 
   ci:backend:
     desc: Run complete backend CI/CD checks
