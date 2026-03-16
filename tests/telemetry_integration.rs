@@ -42,8 +42,8 @@ fn test_telemetry_disabled_by_default() {
     cleanup_env_vars();
 
     let config = TelemetryConfig::from_env().unwrap();
-    // By default (no OTEL_SDK_DISABLED set), telemetry should be enabled
-    assert!(config.enabled);
+    // By default (no OTEL_SDK_DISABLED set), telemetry should be DISABLED
+    assert!(!config.enabled);
 }
 
 #[serial]
@@ -158,6 +158,7 @@ fn test_protocol_case_insensitive() {
         "http/protobuf",
         "Http/Protobuf",
     ] {
+        env::set_var("OTEL_SDK_DISABLED", "false");
         env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", protocol);
         let config = TelemetryConfig::from_env().unwrap();
         // Should not error
@@ -198,8 +199,8 @@ fn test_init_telemetry_disabled() {
 fn test_is_telemetry_enabled() {
     cleanup_env_vars();
 
-    // Default should be enabled
-    assert!(telemetry::is_telemetry_enabled());
+    // Default should be disabled
+    assert!(!telemetry::is_telemetry_enabled());
 
     env::set_var("OTEL_SDK_DISABLED", "true");
     assert!(!telemetry::is_telemetry_enabled());
@@ -218,7 +219,7 @@ fn test_default_configuration_values() {
     let config = TelemetryConfig::from_env().unwrap();
 
     // Check all defaults
-    assert!(config.enabled); // Default is enabled
+    assert!(!config.enabled); // Default is disabled
     assert_eq!(config.service_name, "secan");
     assert_eq!(config.service_version, env!("CARGO_PKG_VERSION"));
     assert!(config.resource_attributes.is_empty());

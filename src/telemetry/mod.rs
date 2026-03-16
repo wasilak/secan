@@ -82,7 +82,6 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     let config = TelemetryConfig::from_env().context("Failed to parse telemetry configuration")?;
 
     if !config.enabled {
-        tracing::info!("Telemetry is disabled via OTEL_SDK_DISABLED");
         return Ok(None);
     }
 

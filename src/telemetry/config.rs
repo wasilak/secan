@@ -112,9 +112,11 @@ impl TelemetryConfig {
     /// - OTEL_BSP_MAX_EXPORT_BATCH_SIZE: Max spans per batch (default: 512)
     /// - OTEL_BSP_EXPORT_TIMEOUT: Export timeout in ms (default: 30000)
     pub fn from_env() -> Result<Self> {
-        // Check if telemetry is disabled
-        let enabled = !env::var("OTEL_SDK_DISABLED")
-            .map(|v| v.to_lowercase() == "true")
+        // Check if telemetry is enabled (default: disabled for zero overhead)
+        // OTEL_SDK_DISABLED is "true" to disable, "false" to enable
+        // If not set, default to disabled
+        let enabled = env::var("OTEL_SDK_DISABLED")
+            .map(|v| v.to_lowercase() == "false")
             .unwrap_or(false);
 
         let service_name = env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "secan".to_string());
