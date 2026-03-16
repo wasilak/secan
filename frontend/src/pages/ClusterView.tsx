@@ -967,8 +967,15 @@ export function ClusterView() {
 
   // Pagination state for nodes, indices, and shards
   const [nodesPage, setNodesPage] = useState(1);
+  const [nodesPerPage, setNodesPerPage] = useState(50);
   const [indicesPage, setIndicesPage] = useState(1);
   const [shardsPage, setShardsPage] = useState(1);
+
+  // Handle nodes page size change
+  const handleNodesPageSizeChange = (size: number) => {
+    setNodesPerPage(size);
+    setNodesPage(1); // Reset to first page when changing page size
+  };
 
   // Fetch nodes with auto-refresh, pagination, and server-side filtering
   // Memoize filters to prevent query key from changing unnecessarily
@@ -982,8 +989,8 @@ export function ClusterView() {
     isLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'nodes', nodesPage, nodesFilters],
-    queryFn: () => apiClient.getNodes(id!, nodesPage, 50, nodesFilters),
+    queryKey: ['cluster', id, 'nodes', nodesPage, nodesPerPage, nodesFilters],
+    queryFn: () => apiClient.getNodes(id!, nodesPage, nodesPerPage, nodesFilters),
     refetchInterval: refreshInterval,
     enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -1729,13 +1736,14 @@ export function ClusterView() {
             setNodesSearch={setNodesSearch}
             availableRoles={availableRoles}
           />
-          {nodesPaginated && nodesPaginated.total_pages > 1 && (
-            <SimplePagination
+          {nodesPaginated && nodesPaginated.total > 0 && (
+            <TablePagination
               currentPage={nodesPage}
               totalPages={nodesPaginated.total_pages}
-              pageSize={50}
+              pageSize={nodesPerPage}
               totalItems={nodesPaginated.total}
               onPageChange={setNodesPage}
+              onPageSizeChange={handleNodesPageSizeChange}
             />
           )}
         </Stack>
