@@ -27,9 +27,6 @@ WORKDIR /app
 # Copy Cargo files, README from root (cached layer for dependencies)
 COPY Cargo.toml Cargo.lock README.md ./
 
-# Note: Remove benches section from Cargo.toml for dependency caching
-RUN sed -i '/^\[\[bench\]\]/,/^$/d' Cargo.toml
-
 # Create dummy main.rs to cache dependencies
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \

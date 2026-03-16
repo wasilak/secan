@@ -94,19 +94,6 @@ wiremock = "0.6"
 tokio-test = "0.4"
 tempfile = "3"
 serial_test = "3"
-criterion = "0.5"
-
-[[bench]]
-name = "cluster"
-harness = false
-
-[[bench]]
-name = "metrics"
-harness = false
-
-[[bench]]
-name = "auth"
-harness = false
 
 [profile.release]
 opt-level = 3
