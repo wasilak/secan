@@ -1714,7 +1714,7 @@ export function ClusterView() {
             unassignedHistory={unassignedHistory as DataPoint[]}
             diskUsageHistory={diskUsageHistory as DataPoint[]}
             stats={stats}
-            nodes={nodes}
+            nodes={allNodesArray}
             prometheusQueries={prometheusQueries}
             showHiddenIndices={showHiddenIndices}
             onToggleHiddenIndices={setShowHiddenIndices}
