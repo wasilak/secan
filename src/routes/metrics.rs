@@ -700,16 +700,20 @@ pub async fn get_node_metrics(
     );
     let disk_size_query = format!("elasticsearch_filesystem_data_size_bytes{{{}}}", all_labels);
 
+    // Calculate optimal step size based on time range to avoid too many data points
+    let step = time_range.recommended_step();
+
     // Fetch metrics in parallel
-    let heap_used_fut = prom_client.query_range(&heap_query, time_range.start, time_range.end, 60);
-    let cpu_fut = prom_client.query_range(&cpu_query, time_range.start, time_range.end, 60);
-    let load1_fut = prom_client.query_range(&load1_query, time_range.start, time_range.end, 60);
-    let load5_fut = prom_client.query_range(&load5_query, time_range.start, time_range.end, 60);
-    let load15_fut = prom_client.query_range(&load15_query, time_range.start, time_range.end, 60);
+    let heap_used_fut =
+        prom_client.query_range(&heap_query, time_range.start, time_range.end, step);
+    let cpu_fut = prom_client.query_range(&cpu_query, time_range.start, time_range.end, step);
+    let load1_fut = prom_client.query_range(&load1_query, time_range.start, time_range.end, step);
+    let load5_fut = prom_client.query_range(&load5_query, time_range.start, time_range.end, step);
+    let load15_fut = prom_client.query_range(&load15_query, time_range.start, time_range.end, step);
     let disk_avail_fut =
-        prom_client.query_range(&disk_avail_query, time_range.start, time_range.end, 60);
+        prom_client.query_range(&disk_avail_query, time_range.start, time_range.end, step);
     let disk_size_fut =
-        prom_client.query_range(&disk_size_query, time_range.start, time_range.end, 60);
+        prom_client.query_range(&disk_size_query, time_range.start, time_range.end, step);
 
     let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size) = tokio::join!(
         heap_used_fut,
