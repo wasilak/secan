@@ -1,4 +1,4 @@
-import { Card, Stack, Text } from '@mantine/core';
+import { Card, Stack, Text, Code, useMantineColorScheme } from '@mantine/core';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import type { MantineColorScheme } from '@mantine/core';
 
@@ -7,6 +7,7 @@ interface DistributionChartProps {
   data: Array<{ name: string; value: number; color: string }>;
   height?: number;
   colorScheme: MantineColorScheme;
+  query?: string | string[];
 }
 
 interface PieTooltipProps {
@@ -55,7 +56,13 @@ export function DistributionChart({
   data,
   height = 200,
   colorScheme,
+  query,
 }: DistributionChartProps) {
+  const { colorScheme: mantineColorScheme } = useMantineColorScheme();
+  const isDark = mantineColorScheme === 'dark';
+  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
+  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
+
   const filteredData = data.filter((item) => item.value > 0);
   const hasData = filteredData.length > 0;
 
@@ -92,6 +99,49 @@ export function DistributionChart({
             <Text size="sm" c="dimmed">
               Data not available
             </Text>
+          </Stack>
+        )}
+
+        {query && (
+          <Stack gap="xs">
+            {Array.isArray(query) ? (
+              query.map((q, i) => (
+                <Code
+                  key={i}
+                  block
+                  style={{
+                    backgroundColor: codeBg,
+                    color: codeColor,
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontFamily: 'monospace',
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {q}
+                </Code>
+              ))
+            ) : (
+              <Code
+                block
+                style={{
+                  backgroundColor: codeBg,
+                  color: codeColor,
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {query}
+              </Code>
+            )}
           </Stack>
         )}
       </Stack>

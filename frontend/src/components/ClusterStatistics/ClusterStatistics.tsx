@@ -393,6 +393,7 @@ export function ClusterStatistics({
             title="Shard Distribution"
             data={shardTypesData}
             colorScheme={colorScheme}
+            query={prometheusQueries?.shards}
           />
         </Grid.Col>
 
@@ -402,6 +403,7 @@ export function ClusterStatistics({
               title="Memory Usage"
               data={memoryUsageData}
               colorScheme={colorScheme}
+              query={prometheusQueries?.jvm_memory_used_bytes}
             />
           ) : (
             <Card shadow="sm" padding="lg">
@@ -415,7 +417,11 @@ export function ClusterStatistics({
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 4 }}>
-          <NodeRolesChart title="Nodes by Role" data={nodeRolesData} />
+          <NodeRolesChart
+            title="Nodes by Role"
+            data={nodeRolesData}
+            query={prometheusQueries?.nodes}
+          />
         </Grid.Col>
       </Grid>
     </Stack>
