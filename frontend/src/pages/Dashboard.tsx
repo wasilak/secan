@@ -141,14 +141,16 @@ export function Dashboard() {
 
   // Fetch stats for all clusters with caching
   const clusterStatsQueries = useQueries({
-    queries: clusters.map((cluster) => ({
-      queryKey: ['cluster', cluster.id, 'stats'],
-      queryFn: () => apiClient.getClusterStats(cluster.id),
-      refetchInterval: refreshInterval,
-      staleTime: cacheDuration,
-      gcTime: cacheDuration * 2,
-      retry: 1,
-    })),
+    queries: clusters
+      .filter((cluster) => cluster.id)
+      .map((cluster) => ({
+        queryKey: ['cluster', cluster.id, 'stats'],
+        queryFn: () => apiClient.getClusterStats(cluster.id),
+        refetchInterval: refreshInterval,
+        staleTime: cacheDuration,
+        gcTime: cacheDuration * 2,
+        retry: 1,
+      })),
   });
 
   // Build cluster summaries from cached stats

@@ -83,6 +83,7 @@ function ClusterDropdownItem({
   const { data: stats } = useQuery({
     queryKey: ['cluster', cluster.id, 'stats'],
     queryFn: () => apiClient.getClusterStats(cluster.id),
+    enabled: !!cluster.id,
     refetchInterval: refreshInterval || undefined,
     staleTime: 30 * 1000,
   });
