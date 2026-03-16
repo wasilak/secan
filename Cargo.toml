@@ -22,7 +22,7 @@ serde_yaml = "0.9"
 utoipa = "4"
 
 # Application metrics
-metrics = "0.13"
+metrics = "0.24"
 metrics-exporter-prometheus = "0.16"
 
 # Configuration
