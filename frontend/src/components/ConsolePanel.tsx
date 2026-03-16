@@ -27,7 +27,6 @@ const customResizerStyles = `
   .mantine-SplitPane-root > div,
   .mantine-SplitPane-pane {
     height: 100% !important;
-    max-height: 100vh !important;
   }
 
   /* Ensure the Split container is full height */
@@ -180,51 +179,53 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
   const showConsole = isOpen && clusterId && !isDetached;
 
+  // When console is not shown, render children directly without height constraints
+  // to allow normal page scrolling
+  if (!showConsole) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       <style>{customResizerStyles}</style>
       <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>
         <Split style={{ height: '100%', width: '100%' }}>
           {/* Main content pane - grows to fill available space */}
-          <SplitPane grow minWidth={200}>
+          <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
             {children}
           </SplitPane>
 
           {/* Resizer handle - only show when console is open */}
-          {showConsole && (
-            <SplitResizer
-              onResizeEnd={handleResizeEnd}
-              onResizing={handleResizing}
-              style={{
-                width: '4px',
-                background: 'var(--mantine-color-gray-4)',
-                cursor: 'col-resize',
-                transition: 'background 0.2s',
-              }}
-            />
-          )}
+          <SplitResizer
+            onResizeEnd={handleResizeEnd}
+            onResizing={handleResizing}
+            style={{
+              width: '4px',
+              background: 'var(--mantine-color-gray-4)',
+              cursor: 'col-resize',
+              transition: 'background 0.2s',
+            }}
+          />
 
           {/* Console panel - fixed width, resizable - only in drawer mode */}
-          {showConsole && (
-            <SplitPane
-              minWidth={MIN_CONSOLE_WIDTH}
-              maxWidth={getMaxWidth()}
-              initialWidth={width}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
+          <SplitPane
+            minWidth={MIN_CONSOLE_WIDTH}
+            maxWidth={getMaxWidth()}
+            initialWidth={width}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              ref={consolePaneRef}
+              className="console-pane-enter console-pane-enter-active"
+              style={{ height: '100%', width: '100%' }}
             >
-              <div
-                ref={consolePaneRef}
-                className="console-pane-enter console-pane-enter-active"
-                style={{ height: '100%', width: '100%' }}
-              >
-                <ConsoleContent clusterId={clusterId} />
-              </div>
-            </SplitPane>
-          )}
+              <ConsoleContent clusterId={clusterId} />
+            </div>
+          </SplitPane>
         </Split>
       </Box>
     </>

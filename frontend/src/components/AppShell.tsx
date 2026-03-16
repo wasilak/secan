@@ -718,7 +718,6 @@ export function AppShell() {
   return (
     <ConsolePanelProvider>
       <MantineAppShell
-        h="100vh"
         header={{ height: { base: 56, sm: 60 } }}
         navbar={
           isPinned
@@ -811,7 +810,7 @@ export function AppShell() {
         <MantineAppShell.Main
           component="main"
           role="main"
-          style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}
         >
           <ConsolePanel>
             <AnimatePresence mode="wait">
@@ -824,7 +823,7 @@ export function AppShell() {
                   duration: DURATIONS.normal,
                   ease: EASINGS.default,
                 }}
-                style={{ height: '100%' }}
+                style={{}}
               >
                 <Outlet />
               </motion.div>
