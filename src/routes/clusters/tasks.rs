@@ -7,6 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashSet;
+use utoipa::{IntoParams, ToSchema};
 
 use super::ClusterState;
 use crate::auth::middleware::AuthenticatedUser;
@@ -15,22 +16,29 @@ use crate::cluster::client::ElasticsearchClient;
 /// Task information from Elasticsearch Tasks API
 ///
 /// Represents a single active task in the cluster
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TaskInfo {
     /// Node ID where the task is running
+    #[schema(example = "node1")]
     pub node: String,
     /// Unique task ID within the node
+    #[schema(example = 123)]
     pub id: i64,
     /// Task type (e.g., "transport", "management", "search")
+    #[schema(example = "transport")]
     #[serde(rename = "type")]
     pub task_type: String,
     /// Task action (e.g., "cluster:monitor/tasks/lists", "indices:data/read/search")
+    #[schema(example = "cluster:monitor/tasks/lists")]
     pub action: String,
     /// Start time in milliseconds since epoch
+    #[schema(example = 1704067200)]
     pub start_time_in_millis: i64,
     /// Whether the task can be cancelled
+    #[schema(example = true)]
     pub cancellable: bool,
     /// Whether the task is already cancelled
+    #[schema(example = false)]
     pub cancelled: bool,
     /// Parent task ID if this is a subtask
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -43,7 +51,7 @@ pub struct TaskInfo {
 /// Detailed task information from Elasticsearch Tasks Get API
 ///
 /// Includes full task details and raw JSON response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TaskDetails {
     #[serde(flatten)]
     pub info: TaskInfo,
@@ -53,31 +61,39 @@ pub struct TaskDetails {
 }
 
 /// Response from list tasks endpoint
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TasksListResponse {
+    #[schema(value_type = Vec<TaskInfo>)]
     pub tasks: Vec<TaskInfo>,
+    #[schema(value_type = Vec<String>)]
     pub unique_types: Vec<String>,
+    #[schema(value_type = Vec<String>)]
     pub unique_actions: Vec<String>,
+    #[schema(example = 1704067200)]
     pub timestamp: i64,
 }
 
 /// Response from get task details endpoint
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TaskDetailsResponse {
     pub task: TaskDetails,
 }
 
 /// Response from cancel task endpoint
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CancelTaskResponse {
+    #[schema(example = true)]
     pub success: bool,
+    #[schema(example = "Task cancelled successfully")]
     pub message: String,
 }
 
 /// Error response for task operations
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct TaskErrorResponse {
+    #[schema(example = "cluster_not_found")]
     pub error: String,
+    #[schema(example = "Failed to get cluster: Connection refused")]
     pub message: String,
 }
 
@@ -88,12 +104,14 @@ impl IntoResponse for TaskErrorResponse {
 }
 
 /// Query parameters for listing tasks
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
 pub struct TasksQueryParams {
     /// Comma-separated list of task types to filter
+    #[param(example = "transport,search")]
     #[serde(default)]
     pub type_filter: Option<String>,
     /// Comma-separated list of task actions to filter
+    #[param(example = "cluster:monitor/tasks/lists")]
     #[serde(default)]
     pub action_filter: Option<String>,
 }
@@ -191,6 +209,21 @@ fn apply_filters(
 /// # Requirements
 ///
 /// Validates: Requirement 1, 2, 3 (Task display with filtering)
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/tasks",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        TasksQueryParams
+    ),
+    responses(
+        (status = 200, body = TasksListResponse),
+        (status = 400, body = TaskErrorResponse),
+        (status = 401, body = TaskErrorResponse),
+        (status = 404, body = TaskErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 pub async fn fetch_cluster_tasks(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
@@ -268,6 +301,21 @@ pub async fn fetch_cluster_tasks(
 /// # Requirements
 ///
 /// Validates: Requirement 4 (Task details modal)
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/tasks/{task_id}",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("task_id" = String, Path, description = "Task ID (format: node_id:task_number)")
+    ),
+    responses(
+        (status = 200, body = TaskDetailsResponse),
+        (status = 400, body = TaskErrorResponse),
+        (status = 401, body = TaskErrorResponse),
+        (status = 404, body = TaskErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 pub async fn get_task_details(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,
@@ -394,6 +442,21 @@ pub async fn get_task_details(
 /// # Requirements
 ///
 /// Validates: Requirement 5 (Cancel task action)
+#[utoipa::path(
+    post,
+    path = "/clusters/{cluster_id}/tasks/{task_id}/cancel",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("task_id" = String, Path, description = "Task ID (format: node_id:task_number)")
+    ),
+    responses(
+        (status = 200, body = CancelTaskResponse),
+        (status = 400, body = TaskErrorResponse),
+        (status = 401, body = TaskErrorResponse),
+        (status = 404, body = TaskErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 pub async fn cancel_cluster_task(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,

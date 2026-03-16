@@ -7,28 +7,33 @@ use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
+use utoipa::ToSchema;
 
 use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 
 /// Health check response
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct HealthResponse {
+    #[schema(example = "healthy")]
     pub status: String,
+    #[schema(example = "Server is running")]
     pub message: String,
 }
 
 /// Readiness check response with dependency status
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ReadinessResponse {
+    #[schema(example = "ready")]
     pub status: String,
+    #[schema(example = "Server is ready to accept requests")]
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dependencies: Option<DependenciesStatus>,
 }
 
 /// Status of external dependencies
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct DependenciesStatus {
     /// Status of Elasticsearch/OpenSearch clusters
     pub clusters: ClusterHealthStatus,
@@ -37,38 +42,47 @@ pub struct DependenciesStatus {
 }
 
 /// Health status of configured clusters
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterHealthStatus {
     /// Total number of configured clusters
+    #[schema(example = 2)]
     pub total: usize,
     /// Number of clusters that are healthy
+    #[schema(example = 1)]
     pub healthy: usize,
     /// Number of clusters that are unhealthy
+    #[schema(example = 1)]
     pub unhealthy: usize,
     /// Details per cluster
     pub details: Vec<ClusterDetail>,
 }
 
 /// Individual cluster health detail
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterDetail {
+    #[schema(example = "prod-1")]
     pub id: String,
+    #[schema(example = "Production")]
     pub name: Option<String>,
+    #[schema(example = "green")]
     pub status: String,
     pub error: Option<String>,
 }
 
 /// Status of a single component
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ComponentStatus {
+    #[schema(example = "healthy")]
     pub status: String,
     pub message: Option<String>,
 }
 
 /// Version response
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct VersionResponse {
+    #[schema(example = "1.2.28")]
     pub version: String,
+    #[schema(example = "v1.2.28-5-g1234567")]
     pub git_info: String,
 }
 
@@ -104,6 +118,14 @@ pub fn health_router(
 /// # Requirements
 ///
 /// Validates: Requirements 39.1, 39.2, 39.5
+#[utoipa::path(
+    get,
+    path = "/health",
+    tag = "Health",
+    responses(
+        (status = 200, description = "Server is healthy", body = HealthResponse)
+    )
+)]
 #[instrument]
 pub async fn health_check() -> (StatusCode, Json<HealthResponse>) {
     tracing::debug!("Health check requested");
@@ -125,6 +147,15 @@ pub async fn health_check() -> (StatusCode, Json<HealthResponse>) {
 /// # Requirements
 ///
 /// Validates: Requirements 39.3, 39.6
+#[utoipa::path(
+    get,
+    path = "/ready",
+    tag = "Health",
+    responses(
+        (status = 200, description = "Server is ready", body = ReadinessResponse),
+        (status = 503, description = "Server is not ready", body = ReadinessResponse)
+    )
+)]
 #[instrument]
 pub async fn readiness_check(state: ExtractState<Arc<RwLock<HealthState>>>) -> impl IntoResponse {
     tracing::debug!("Readiness check requested");
@@ -239,6 +270,14 @@ fn check_session_manager_health(_session_manager: &SessionManager) -> ComponentS
 ///
 /// Returns the current version and git information
 /// This endpoint does not require authentication
+#[utoipa::path(
+    get,
+    path = "/api/version",
+    tag = "Health",
+    responses(
+        (status = 200, description = "Version info", body = VersionResponse)
+    )
+)]
 #[instrument]
 pub async fn get_version() -> (StatusCode, Json<VersionResponse>) {
     tracing::debug!("Version check requested");

@@ -62,6 +62,52 @@ jobs:
       - name: Run backend tests
         run: just test-backend
 
+      - name: Generate OpenAPI spec
+        run: cargo test --lib -- --nocapture 2>&1 | grep -E "OpenAPI spec written" || true
+
+      - name: Validate OpenAPI spec
+        run: |
+          # Check openapi.json exists and is valid JSON
+          if [ ! -f "openapi.json" ]; then
+            echo "ERROR: openapi.json not found"
+            exit 1
+          fi
+          
+          # Validate it's valid JSON
+          if ! python3 -c "import json; json.load(open('openapi.json'))" 2>/dev/null; then
+            echo "ERROR: openapi.json is not valid JSON"
+            exit 1
+          fi
+          
+          # Check required fields
+          python3 << 'EOF'
+          import json
+          with open('openapi.json') as f:
+              spec = json.load(f)
+          
+          # Verify OpenAPI 3.0
+          if spec.get('openapi', '').startswith('3.'):
+              print("✓ Valid OpenAPI version")
+          else:
+              raise ValueError("Not OpenAPI 3.x")
+          
+          # Check paths exist
+          paths = spec.get('paths', {})
+          if len(paths) >= 25:
+              print(f"✓ Found {len(paths)} API paths")
+          else:
+              raise ValueError(f"Expected at least 25 paths, found {len(paths)}")
+          
+          # Check components/schemas
+          schemas = spec.get('components', {}).get('schemas', {})
+          if len(schemas) >= 20:
+              print(f"✓ Found {len(schemas)} schemas")
+          else:
+              raise ValueError(f"Expected at least 20 schemas, found {len(schemas)}")
+          
+          print("✓ OpenAPI spec is valid!")
+          EOF
+
       - name: Run backend linting
         run: just lint-backend
 

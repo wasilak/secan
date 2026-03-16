@@ -11,7 +11,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::instrument;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 /// Shared application state for authentication routes
 #[derive(Clone)]
@@ -41,7 +41,7 @@ pub struct LoginResponse {
 }
 
 /// OIDC callback query parameters
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct OidcCallbackQuery {
     #[schema(example = "auth_code_from_provider")]
     pub code: String,
@@ -50,7 +50,7 @@ pub struct OidcCallbackQuery {
 }
 
 /// OIDC login query parameters
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct OidcLoginQuery {
     #[schema(example = "/clusters")]
     pub redirect_to: Option<String>,
@@ -85,6 +85,16 @@ impl IntoResponse for ErrorResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 29.2
+#[utoipa::path(
+    get,
+    path = "/auth/oidc/login",
+    params(OidcLoginQuery),
+    responses(
+        (status = 302, description = "Redirect to OIDC provider"),
+        (status = 400, body = ErrorResponse)
+    ),
+    tag = "Authentication"
+)]
 #[instrument(skip(state))]
 pub async fn oidc_login(
     State(state): State<AuthState>,
@@ -123,6 +133,16 @@ pub async fn oidc_login(
 /// # Requirements
 ///
 /// Validates: Requirements 29.2, 30.4
+#[utoipa::path(
+    get,
+    path = "/auth/oidc/callback",
+    params(OidcCallbackQuery),
+    responses(
+        (status = 302, description = "Redirect after successful login"),
+        (status = 400, body = ErrorResponse)
+    ),
+    tag = "Authentication"
+)]
 #[instrument(skip(state))]
 pub async fn oidc_callback(
     State(state): State<AuthState>,
@@ -235,6 +255,17 @@ pub async fn oidc_callback(
 /// # Requirements
 ///
 /// Validates: Requirements 29.2, 30.4
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, body = LoginResponse, description = "Login successful"),
+        (status = 400, body = ErrorResponse),
+        (status = 401, body = ErrorResponse)
+    ),
+    tag = "Authentication"
+)]
 #[instrument(skip(state, payload))]
 pub async fn login(
     State(state): State<AuthState>,
@@ -360,6 +391,15 @@ pub async fn login(
 /// Get current user info
 ///
 /// Returns authenticated user information or 401 if not authenticated
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    responses(
+        (status = 200, body = UserInfoResponse),
+        (status = 401, description = "Not authenticated")
+    ),
+    tag = "Authentication"
+)]
 #[instrument(fields(username = %user.0.username))]
 pub async fn get_current_user(
     Extension(user): Extension<AuthenticatedUser>,
@@ -407,6 +447,14 @@ fn create_session_cookie(token: &str) -> http::HeaderValue {
 /// Logout endpoint
 ///
 /// Invalidates the user's session and clears the session cookie
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 302, description = "Redirect to login page")
+    ),
+    tag = "Authentication"
+)]
 #[instrument(skip(state, headers))]
 pub async fn logout(
     State(state): State<AuthState>,
@@ -462,15 +510,26 @@ fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
 }
 
 /// Auth status response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct AuthStatusResponse {
+    #[schema(example = "open")]
     pub mode: String, // "open", "local_users", or "oidc"
+    #[schema(example = false)]
     pub oidc_enabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub oidc_redirect_delay: Option<u64>,
 }
 
 /// Get authentication status
+#[utoipa::path(
+    get,
+    path = "/auth/status",
+    responses(
+        (status = 200, body = AuthStatusResponse),
+        (status = 400, body = ErrorResponse)
+    ),
+    tag = "Authentication"
+)]
 #[instrument(skip(state))]
 pub async fn get_auth_status(
     State(state): State<AuthState>,

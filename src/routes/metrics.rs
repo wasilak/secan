@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, instrument, warn};
+use utoipa::{IntoParams, ToSchema};
 
 /// Shared application state for metrics routes
 #[derive(Clone)]
@@ -34,9 +35,11 @@ pub fn metrics_router() -> Router<MetricsState> {
 }
 
 /// Error response for metrics operations
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct MetricsErrorResponse {
+    #[schema(example = "MetricsError")]
     pub error: String,
+    #[schema(example = "Failed to fetch metrics")]
     pub message: String,
 }
 
@@ -47,7 +50,7 @@ impl IntoResponse for MetricsErrorResponse {
 }
 
 /// Query parameters for metrics requests
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct MetricsQuery {
     /// Start timestamp (Unix seconds). If not provided, defaults to 24 hours ago
     #[serde(default = "default_start")]
@@ -61,11 +64,15 @@ fn default_start() -> Option<i64> {
 }
 
 /// Cluster metrics data point for frontend consumption
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClusterMetricsPoint {
+    #[schema(example = 1704067200)]
     pub timestamp: i64,
+    #[schema(example = "2024-01-01T00:00:00Z")]
     pub date: String,
+    #[schema(example = "green")]
     pub health: String,
+    #[schema(example = 5)]
     pub node_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index_count: Option<u32>,
@@ -88,9 +95,11 @@ pub struct ClusterMetricsPoint {
 }
 
 /// Metric point with optional labels for multi-series support
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LabeledMetricPoint {
+    #[schema(example = 1704067200)]
     pub timestamp: i64,
+    #[schema(example = 75.5)]
     pub value: f64,
     /// Labels in logfmt format (e.g., {"area": "heap", "node": "node-1"})
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,8 +107,9 @@ pub struct LabeledMetricPoint {
 }
 
 /// Cluster metrics history response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClusterMetricsHistoryResponse {
+    #[schema(example = "prod-1")]
     pub cluster_id: String,
     pub time_range: TimeRange,
     pub data: Vec<ClusterMetricsPoint>,
@@ -112,7 +122,7 @@ pub struct ClusterMetricsHistoryResponse {
 }
 
 /// Raw metric data with labels for flexible frontend rendering
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RawMetrics {
     /// Memory usage points with labels (e.g., area=heap, area=non-heap)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,9 +131,10 @@ pub struct RawMetrics {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cpu: Option<Vec<LabeledMetricPoint>>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PrometheusValidationRequest {
     /// Prometheus endpoint URL
+    #[schema(example = "http://prometheus:9090")]
     pub url: String,
     /// Optional job name for metric filtering
     pub job_name: Option<String>,
@@ -132,10 +143,13 @@ pub struct PrometheusValidationRequest {
 }
 
 /// Response for Prometheus validation
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PrometheusValidationResponse {
+    #[schema(example = "success")]
     pub status: String,
+    #[schema(example = "Prometheus endpoint is reachable")]
     pub message: String,
+    #[schema(example = true)]
     pub reachable: bool,
 }
 
@@ -152,6 +166,21 @@ pub struct PrometheusValidationResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 1.0, 1.1
+#[utoipa::path(
+    get,
+    path = "/metrics/{cluster_id}",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        MetricsQuery
+    ),
+    responses(
+        (status = 200, body = ClusterMetricsHistoryResponse),
+        (status = 400, body = MetricsErrorResponse),
+        (status = 401, body = MetricsErrorResponse),
+        (status = 404, body = MetricsErrorResponse)
+    ),
+    tag = "Metrics"
+)]
 #[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_metrics(
     State(state): State<MetricsState>,
@@ -480,9 +509,11 @@ pub async fn get_cluster_metrics(
 }
 
 /// Node metrics data point for frontend consumption
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NodeMetricsPoint {
+    #[schema(example = 1704067200)]
     pub timestamp: i64,
+    #[schema(example = "2024-01-01T00:00:00Z")]
     pub date: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub heap_used_bytes: Option<u64>,
@@ -501,9 +532,11 @@ pub struct NodeMetricsPoint {
 }
 
 /// Node metrics history response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct NodeMetricsHistoryResponse {
+    #[schema(example = "prod-1")]
     pub cluster_id: String,
+    #[schema(example = "node-1")]
     pub node_id: String,
     pub time_range: TimeRange,
     pub data: Vec<NodeMetricsPoint>,
@@ -523,6 +556,22 @@ pub struct NodeMetricsHistoryResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 1.0, 1.1
+#[utoipa::path(
+    get,
+    path = "/metrics/{cluster_id}/nodes/{node_id}",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("node_id" = String, Path, description = "Node ID"),
+        MetricsQuery
+    ),
+    responses(
+        (status = 200, body = NodeMetricsHistoryResponse),
+        (status = 400, body = MetricsErrorResponse),
+        (status = 401, body = MetricsErrorResponse),
+        (status = 404, body = MetricsErrorResponse)
+    ),
+    tag = "Metrics"
+)]
 #[instrument(skip(state, user_ext, params_query, params))]
 pub async fn get_node_metrics(
     State(state): State<MetricsState>,
@@ -785,6 +834,21 @@ pub async fn get_node_metrics(
 /// # Requirements
 ///
 /// Validates: Requirements 3.0
+#[utoipa::path(
+    get,
+    path = "/metrics/{cluster_id}/history",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        MetricsQuery
+    ),
+    responses(
+        (status = 200, description = "Cluster metrics history for heatmap"),
+        (status = 400, body = MetricsErrorResponse),
+        (status = 401, body = MetricsErrorResponse),
+        (status = 404, body = MetricsErrorResponse)
+    ),
+    tag = "Metrics"
+)]
 #[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_metrics_history(
     State(state): State<MetricsState>,
@@ -917,6 +981,17 @@ pub async fn get_cluster_metrics_history(
 /// # Requirements
 ///
 /// Validates: Requirements 2.0, 2.1
+#[utoipa::path(
+    post,
+    path = "/metrics/validate-prometheus",
+    request_body = PrometheusValidationRequest,
+    responses(
+        (status = 200, body = PrometheusValidationResponse),
+        (status = 400, body = MetricsErrorResponse),
+        (status = 401, body = MetricsErrorResponse)
+    ),
+    tag = "Metrics"
+)]
 #[instrument(skip(_state, user_ext, request))]
 pub async fn validate_prometheus_endpoint(
     State(_state): State<MetricsState>,

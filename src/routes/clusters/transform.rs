@@ -641,7 +641,7 @@ pub struct NodeInfoResponse {
 }
 
 /// Index info response for frontend
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IndexInfoResponse {
     pub name: String,
     pub health: String,
@@ -662,7 +662,7 @@ pub struct IndexInfoResponse {
 /// # Requirements
 ///
 /// Validates: Requirements 9.1, 9.2, 9.3
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ShardInfoResponse {
     pub index: String,
     pub shard: u32,
@@ -1065,7 +1065,7 @@ mod tests {
 }
 
 /// Node detail stats response for frontend
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct NodeDetailStatsResponse {
     pub id: String,
     pub name: String,

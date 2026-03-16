@@ -74,6 +74,11 @@ pub mod server;
 /// Manages TLS certificate loading and HTTPS configuration for secure connections.
 pub mod tls;
 
+/// Application metrics for Prometheus
+///
+/// Provides application-level metrics for observability.
+pub mod app_metrics;
+
 // Re-export commonly used types
 pub use config::Config;
 pub use server::Server;

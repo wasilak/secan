@@ -10,11 +10,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::instrument;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 mod pagination;
 pub mod tasks;
-mod transform;
+pub mod transform;
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
@@ -70,7 +70,7 @@ pub struct RelocateShardRequest {
 /// # Requirements
 ///
 /// Validates: Requirements 2.15
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct ClustersQueryParams {
     #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
@@ -89,6 +89,17 @@ pub struct ClustersQueryParams {
     pub version: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/clusters",
+    params(ClustersQueryParams),
+    responses(
+        (status = 200, body = PaginatedResponse<ClusterInfo>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext))]
 pub async fn list_clusters(
     State(state): State<ClusterState>,
@@ -279,6 +290,18 @@ fn check_cluster_access(
 /// # Requirements
 ///
 /// Validates: Requirements 4.1, 4.2, 4.3
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/stats",
+    params(("cluster_id" = String, Path, description = "Cluster ID")),
+    responses(
+        (status = 200, body = ClusterStatsResponse),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_stats(
     State(state): State<ClusterState>,
@@ -664,6 +687,21 @@ pub async fn get_cluster_stats(
 ///
 /// Returns cluster settings in JSON format
 /// Optionally includes default settings with `include_defaults` query parameter
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/settings",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("include_defaults" = bool, Query, description = "Include default settings")
+    ),
+    responses(
+        (status = 200, description = "Cluster settings"),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_settings(
     State(state): State<ClusterState>,
@@ -728,6 +766,19 @@ pub async fn get_cluster_settings(
 ///
 /// Updates persistent and/or transient cluster settings
 /// Only modified settings need to be provided in the request body
+#[utoipa::path(
+    put,
+    path = "/clusters/{cluster_id}/settings",
+    params(("cluster_id" = String, Path, description = "Cluster ID")),
+    request_body = ClusterSettingsUpdateRequest,
+    responses(
+        (status = 200, description = "Settings updated"),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext, request), fields(cluster_id = %cluster_id))]
 pub async fn update_cluster_settings(
     State(state): State<ClusterState>,
@@ -824,11 +875,13 @@ pub async fn update_cluster_settings(
 }
 
 /// Request body for updating cluster settings
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClusterSettingsUpdateRequest {
     /// Persistent settings (survive cluster restarts)
+    #[schema(example = "{\"indices.queries.cache.size\": \"20%\"}")]
     pub persistent: Option<Value>,
     /// Transient settings (do not survive cluster restarts)
+    #[schema(example = "{\"indices.queries.cache.size\": \"30%\"}")]
     pub transient: Option<Value>,
 }
 
@@ -839,17 +892,36 @@ pub struct ClusterSettingsUpdateRequest {
 /// # Requirements
 ///
 /// Validates: Requirements 4.6, 14.1, 14.2
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct NodesQueryParams {
+    #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
     pub page: u32,
+    #[schema(default = 50, example = 50)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
+    #[schema(example = "node-1")]
     #[serde(default)]
     pub search: String,
+    #[schema(example = "master,data")]
     pub roles: Option<String>, // comma-separated: master,data,ingest; None = not set, Some("") = explicitly empty
 }
 
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/nodes",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        NodesQueryParams
+    ),
+    responses(
+        (status = 200, body = PaginatedResponse<NodeInfoResponse>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes(
     State(state): State<ClusterState>,
@@ -1227,6 +1299,21 @@ pub async fn get_nodes(
 /// # Requirements
 ///
 /// Validates: Requirements 14.3, 14.4, 14.5
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/nodes/{node_id}/stats",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("node_id" = String, Path, description = "Node ID")
+    ),
+    responses(
+        (status = 200, body = NodeDetailStatsResponse),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_stats(
     State(state): State<ClusterState>,
@@ -1397,20 +1484,27 @@ pub async fn get_node_stats(
 /// # Requirements
 ///
 /// Validates: Requirements 4.7
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct IndicesQueryParams {
+    #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
     pub page: u32,
+    #[schema(default = 50, example = 50)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
+    #[schema(example = "logs-")]
     #[serde(default)]
     pub search: String,
+    #[schema(example = "green,yellow")]
     #[serde(default)]
     pub health: String, // comma-separated: green,yellow,red
+    #[schema(example = "open,close")]
     #[serde(default)]
     pub status: String, // comma-separated: open,close
+    #[schema(default = false)]
     #[serde(default)]
     pub show_special: bool, // show indices starting with .
+    #[schema(default = false)]
     #[serde(default)]
     pub affected: bool, // show only indices with problems
 }
@@ -1422,6 +1516,21 @@ fn default_page_size() -> u32 {
     50
 }
 
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/indices",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        IndicesQueryParams
+    ),
+    responses(
+        (status = 200, body = PaginatedResponse<IndexInfoResponse>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
 pub async fn get_indices(
     State(state): State<ClusterState>,
@@ -1549,6 +1658,22 @@ pub async fn get_indices(
 /// # Requirements
 ///
 /// Validates: Requirements 4.8
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/indices/{index_name}/shards/{shard_num}",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("index_name" = String, Path, description = "Index name"),
+        ("shard_num" = String, Path, description = "Shard number")
+    ),
+    responses(
+        (status = 200, description = "Shard stats"),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state), fields(cluster_id = %cluster_id, index_name = %index_name, shard_num = %shard_num))]
 pub async fn get_shard_stats(
     State(state): State<ClusterState>,
@@ -1637,22 +1762,43 @@ pub async fn get_shard_stats(
 /// # Requirements
 ///
 /// Validates: Requirements 4.8
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct ShardsQueryParams {
+    #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
     pub page: u32,
+    #[schema(default = 50, example = 50)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
+    #[schema(example = "STARTED,UNASSIGNED")]
     #[serde(default)]
     pub state: String, // comma-separated: UNASSIGNED,STARTED,etc
+    #[schema(example = "logs-")]
     #[serde(default)]
     pub index: String,
+    #[schema(example = "node-1")]
     #[serde(default)]
     pub node: String,
+    #[schema(example = "logs")]
     #[serde(default)]
     pub search: String, // search both index and node (OR logic)
 }
 
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/shards",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ShardsQueryParams
+    ),
+    responses(
+        (status = 200, body = PaginatedResponse<ShardInfoResponse>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_shards(
     State(state): State<ClusterState>,
@@ -1793,6 +1939,21 @@ pub async fn get_shards(
 /// # Requirements
 ///
 /// Validates: Requirements 4.8
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/nodes/{node_id}/shards",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("node_id" = String, Path, description = "Node ID")
+    ),
+    responses(
+        (status = 200, body = Vec<ShardInfoResponse>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_shards(
     State(state): State<ClusterState>,
@@ -1859,6 +2020,21 @@ pub async fn get_node_shards(
 /// # Requirements
 ///
 /// Validates: Requirements 2.16, 29.3
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/proxy/{path}",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID"),
+        ("path" = String, Path, description = "Elasticsearch API path")
+    ),
+    responses(
+        (status = 200, description = "Elasticsearch response"),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, query, body), fields(cluster_id = %cluster_id, http_method = %method))]
 pub async fn proxy_request(
     State(state): State<ClusterState>,
@@ -2092,6 +2268,19 @@ pub async fn proxy_request(
 /// # Requirements
 ///
 /// Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.11, 8.1, 8.2, 8.3, 8.4
+#[utoipa::path(
+    post,
+    path = "/clusters/{cluster_id}/relocate",
+    params(("cluster_id" = String, Path, description = "Cluster ID")),
+    request_body = RelocateShardRequest,
+    responses(
+        (status = 200, description = "Shard relocation initiated"),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 #[instrument(skip(state, user_ext, req), fields(cluster_id = %cluster_id, index = %req.index, shard = req.shard))]
 pub async fn relocate_shard(
     State(state): State<ClusterState>,

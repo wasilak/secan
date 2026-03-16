@@ -10,11 +10,7 @@ use axum::{
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tower_http::{
-    compression::CompressionLayer,
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
 use uuid::Uuid;
 
@@ -320,10 +316,10 @@ impl Server {
                     ),
             )
             // Add CORS middleware with proper configuration
-            // Allow specific methods and headers for security
-            .layer(
-                CorsLayer::new()
-                    .allow_origin(Any) // TODO: Configure allowed origins from config
+            // Security: If allowed_origins is configured, restrict to those origins only
+            // This prevents external API access when using embedded frontend
+            .layer({
+                let mut cors = CorsLayer::new()
                     .allow_methods([
                         Method::GET,
                         Method::POST,
@@ -336,8 +332,30 @@ impl Server {
                         axum::http::header::CONTENT_TYPE,
                         axum::http::header::AUTHORIZATION,
                         axum::http::header::ACCEPT,
-                    ]),
-            )
+                    ]);
+
+                if self.config.server.allowed_origins.is_empty() {
+                    tracing::warn!(
+                        "No allowed_origins configured - CORS allows any origin (development mode)"
+                    );
+                    cors = cors.allow_origin(tower_http::cors::Any);
+                } else {
+                    tracing::info!(
+                        origins = ?self.config.server.allowed_origins,
+                        "CORS restricted to configured origins (production mode)"
+                    );
+                    // Convert string origins to HeaderValue
+                    let origins: Vec<axum::http::HeaderValue> = self
+                        .config
+                        .server
+                        .allowed_origins
+                        .iter()
+                        .filter_map(|s| s.parse().ok())
+                        .collect();
+                    cors = cors.allow_origin(origins);
+                }
+                cors
+            })
             // Add compression middleware
             .layer(CompressionLayer::new())
     }
@@ -421,6 +439,7 @@ mod tests {
                 host: "127.0.0.1".to_string(),
                 port: 27182,
                 tls: None,
+                allowed_origins: vec![],
             },
             auth: AuthConfig {
                 mode: AuthMode::Open,

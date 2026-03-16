@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Pagination query parameters
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -52,7 +53,7 @@ impl PaginationParams {
 }
 
 /// Generic paginated response wrapper
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, ToSchema)]
 pub struct PaginatedResponse<T> {
     /// Items for the current page
     pub items: Vec<T>,

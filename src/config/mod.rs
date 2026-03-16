@@ -22,6 +22,11 @@ pub struct ServerConfig {
     #[serde(default = "default_port")]
     pub port: u16,
     pub tls: Option<TlsServerConfig>,
+    /// Allowed origins for CORS (for embedded mode, restrict to same origin)
+    /// If empty, allows any origin (for development/public API mode)
+    /// For embedded frontend, set to the frontend's origin (e.g., "http://localhost:27182")
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
 }
 
 fn default_host() -> String {
@@ -931,6 +936,7 @@ impl Default for ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 27182,
             tls: None,
+            allowed_origins: vec![],
         }
     }
 }
