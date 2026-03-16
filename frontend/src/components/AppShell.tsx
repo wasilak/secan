@@ -401,6 +401,7 @@ function ClusterNavItem({
   const { data: clusterStats } = useQuery({
     queryKey: ['cluster', clusterId, 'stats'],
     queryFn: () => apiClient.getClusterStats(clusterId),
+    enabled: !!clusterId,
     refetchInterval: refreshInterval,
     staleTime: 30 * 1000,
   });
