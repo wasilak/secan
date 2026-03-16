@@ -16,11 +16,13 @@ The telemetry implementation provides:
 
 ### 1. Enable Telemetry
 
-Set the `OTEL_SDK_DISABLED` environment variable:
+By default, telemetry is **disabled** to ensure zero overhead. To enable it:
 
 ```bash
 export OTEL_SDK_DISABLED=false
 ```
+
+**Note**: Unlike standard OpenTelemetry behavior, Secan defaults to `OTEL_SDK_DISABLED=true` (disabled) for production safety. You must explicitly set it to `false` to enable tracing.
 
 ### 2. Configure the Collector
 
@@ -50,7 +52,7 @@ All configuration is done via environment variables following OpenTelemetry stan
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OTEL_SDK_DISABLED` | Set to `true` to disable telemetry | `false` (enabled) |
+| `OTEL_SDK_DISABLED` | Set to `false` to enable telemetry, `true` to disable | `true` (disabled) |
 | `OTEL_SERVICE_NAME` | Service name shown in traces | `secan` |
 | `OTEL_SERVICE_VERSION` | Service version | From `Cargo.toml` |
 | `OTEL_RESOURCE_ATTRIBUTES` | Additional attributes (comma-separated key=value pairs) | (empty) |
@@ -202,12 +204,13 @@ When querying Elasticsearch, Secan injects the trace context so ES can continue 
 
 ### Overhead
 
-When **disabled** (default):
+When **disabled** (default - OTEL_SDK_DISABLED not set or "true"):
 - Zero runtime overhead
 - No allocations
 - No network connections
+- Telemetry code is not initialized
 
-When **enabled**:
+When **enabled** (OTEL_SDK_DISABLED="false"):
 - ~1ms latency added per request (span creation)
 - Async batch export (non-blocking)
 - Memory usage: ~50MB for span buffer

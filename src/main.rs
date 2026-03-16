@@ -95,6 +95,14 @@ async fn main() -> anyhow::Result<()> {
             .init();
     }
 
+    // Test that tracing spans are being captured by OpenTelemetry
+    if _telemetry_guard.is_some() {
+        let test_span = tracing::info_span!("startup_test_span");
+        let _enter = test_span.enter();
+        tracing::info!("This is inside a test span");
+        // _enter dropped here, span should be exported
+    }
+
     info!("Secan - Elasticsearch Cluster Management Tool");
     info!("Starting backend server...");
 

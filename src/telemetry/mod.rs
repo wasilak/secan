@@ -113,7 +113,8 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     global::set_tracer_provider(provider.clone());
 
     // Create the OpenTelemetry layer for tracing
-    let otel_layer = tracing_opentelemetry::layer().with_tracer(provider.tracer("secan"));
+    // Use global tracer provider (set above with global::set_tracer_provider)
+    let otel_layer = tracing_opentelemetry::layer();
 
     // Initialize the tracing subscriber with the OTel layer and JSON formatting
     // Default to INFO level if RUST_LOG is not set
@@ -132,6 +133,15 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
         .init();
 
     tracing::info!("OpenTelemetry telemetry initialized successfully");
+
+    // Create a test span to verify the setup is working
+    {
+        use opentelemetry::trace::Tracer;
+        let tracer = provider.tracer("test");
+        let _span = tracer.start("telemetry_init_test");
+        tracing::info!("Test span created successfully");
+        // _span dropped here, which should export it
+    }
 
     Ok(Some(TelemetryGuard {
         provider: Some(provider),
