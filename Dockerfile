@@ -30,7 +30,7 @@ COPY Cargo.toml Cargo.lock README.md benches/ ./
 # Create dummy main.rs to cache dependencies
 RUN mkdir src && \
     echo "fn main() {}" > src/main.rs && \
-    cargo build --release && \
+    cargo build --release --lib && \
     rm -rf src
 
 # Copy source from root
