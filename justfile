@@ -73,6 +73,22 @@ lint-frontend:
 ci: ci-backend ci-frontend
     # Run complete CI/CD pipeline for backend and frontend
 
+[group('openapi')]
+openapi-generate:
+    # Generate OpenAPI spec by running tests (outputs to openapi.json)
+    cargo test --lib -- --nocapture 2>&1 | grep -E "OpenAPI spec written"
+
+[group('openapi')]
+openapi-validate:
+    # Validate OpenAPI spec exists and is valid JSON
+    test -f openapi.json || (echo "ERROR: openapi.json not found" && exit 1)
+    python3 -c "import json; json.load(open('openapi.json'))" || (echo "ERROR: invalid JSON" && exit 1)
+    @echo "✓ OpenAPI spec valid"
+
+[group('openapi')]
+openapi: openapi-generate openapi-validate
+    # Generate and validate OpenAPI spec
+
 [group('ci')]
 ci-backend:
     # Run complete backend CI/CD checks
@@ -87,6 +103,10 @@ ci-backend:
     echo ""
     echo "3. Cargo test..."
     RUSTFLAGS="-D warnings" cargo test
+    echo "✅ PASSED"
+    echo ""
+    echo "4. OpenAPI validation..."
+    just openapi-validate
     echo "✅ PASSED"
     echo ""
     echo "=== BACKEND CI/CD COMPLETE ==="
