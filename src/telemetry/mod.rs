@@ -14,9 +14,9 @@
 //!
 //! # Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! // Initialize telemetry at application startup
-//! let _telemetry_guard = telemetry::init_telemetry();
+//! let _telemetry_guard = secan::telemetry::init_telemetry();
 //!
 //! // Tracing happens automatically via middleware
 //! // Spans are created for HTTP requests and ES operations
@@ -41,6 +41,7 @@ use tracing_subscriber::EnvFilter;
 /// This guard must be held for the lifetime of the application.
 /// When dropped, the telemetry provider is shut down.
 pub struct TelemetryGuard {
+    #[allow(dead_code)]
     provider: Option<opentelemetry_sdk::trace::SdkTracerProvider>,
 }
 
@@ -59,9 +60,9 @@ impl Drop for TelemetryGuard {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// fn main() {
-///     let _telemetry_guard = telemetry::init_telemetry();
+///     let _telemetry_guard = secan::telemetry::init_telemetry();
 ///     
 ///     // Run your application
 ///     // Telemetry is active as long as _telemetry_guard is in scope

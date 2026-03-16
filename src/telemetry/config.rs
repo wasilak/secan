@@ -3,22 +3,16 @@
 //! This module provides OpenTelemetry tracing support for Secan.
 //! Tracing is opt-in via the OTEL_SDK_DISABLED environment variable.
 
-use anyhow::{Context, Result};
-use std::collections::HashMap;
+use anyhow::Result;
 use std::env;
 use std::time::Duration;
 
 /// Protocol for OTLP export
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum OtlpProtocol {
+    #[default]
     Http,
     Grpc,
-}
-
-impl Default for OtlpProtocol {
-    fn default() -> Self {
-        OtlpProtocol::Http
-    }
 }
 
 impl std::str::FromStr for OtlpProtocol {
@@ -226,6 +220,7 @@ fn default_otlp_endpoint(protocol: &OtlpProtocol) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
 
     #[test]
     fn test_parse_key_value_list() {
@@ -249,6 +244,12 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_key_value_list_invalid() {
+        let result = parse_key_value_list("invalid_pair");
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_otlp_protocol_parsing() {
         assert!(matches!(
             "http/protobuf".parse::<OtlpProtocol>().unwrap(),
@@ -259,5 +260,126 @@ mod tests {
             OtlpProtocol::Grpc
         ));
         assert!("invalid".parse::<OtlpProtocol>().is_err());
+    }
+
+    #[test]
+    fn test_default_otlp_endpoint() {
+        assert_eq!(
+            default_otlp_endpoint(&OtlpProtocol::Http),
+            "http://localhost:4318"
+        );
+        assert_eq!(
+            default_otlp_endpoint(&OtlpProtocol::Grpc),
+            "http://localhost:4317"
+        );
+    }
+
+    #[test]
+    fn test_telemetry_config_from_env_disabled() {
+        // Save original value
+        let original = env::var("OTEL_SDK_DISABLED").ok();
+
+        // Test disabled
+        env::set_var("OTEL_SDK_DISABLED", "true");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert!(!config.enabled);
+
+        // Test enabled (explicit)
+        env::set_var("OTEL_SDK_DISABLED", "false");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert!(config.enabled);
+
+        // Restore original
+        match original {
+            Some(v) => env::set_var("OTEL_SDK_DISABLED", v),
+            None => env::remove_var("OTEL_SDK_DISABLED"),
+        }
+    }
+
+    #[test]
+    fn test_telemetry_config_service_name() {
+        let original = env::var("OTEL_SERVICE_NAME").ok();
+
+        env::set_var("OTEL_SERVICE_NAME", "test-service");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert_eq!(config.service_name, "test-service");
+
+        // Test default
+        env::remove_var("OTEL_SERVICE_NAME");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert_eq!(config.service_name, "secan");
+
+        match original {
+            Some(v) => env::set_var("OTEL_SERVICE_NAME", v),
+            None => env::remove_var("OTEL_SERVICE_NAME"),
+        }
+    }
+
+    #[test]
+    fn test_telemetry_config_resource_attributes() {
+        let original = env::var("OTEL_RESOURCE_ATTRIBUTES").ok();
+
+        env::set_var("OTEL_RESOURCE_ATTRIBUTES", "env=prod,region=us-east");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert_eq!(config.resource_attributes.len(), 2);
+        assert!(config
+            .resource_attributes
+            .contains(&("env".to_string(), "prod".to_string())));
+        assert!(config
+            .resource_attributes
+            .contains(&("region".to_string(), "us-east".to_string())));
+
+        match original {
+            Some(v) => env::set_var("OTEL_RESOURCE_ATTRIBUTES", v),
+            None => env::remove_var("OTEL_RESOURCE_ATTRIBUTES"),
+        }
+    }
+
+    #[test]
+    fn test_telemetry_config_otlp_endpoint() {
+        let original = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
+
+        env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", "http://custom:4318");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert_eq!(config.otlp_endpoint, "http://custom:4318");
+
+        match original {
+            Some(v) => env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", v),
+            None => env::remove_var("OTEL_EXPORTER_OTLP_ENDPOINT"),
+        }
+    }
+
+    #[test]
+    fn test_telemetry_config_otlp_protocol() {
+        let original = env::var("OTEL_EXPORTER_OTLP_PROTOCOL").ok();
+
+        env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert!(matches!(config.otlp_protocol, OtlpProtocol::Grpc));
+
+        env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf");
+        let config = TelemetryConfig::from_env().unwrap();
+        assert!(matches!(config.otlp_protocol, OtlpProtocol::Http));
+
+        match original {
+            Some(v) => env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", v),
+            None => env::remove_var("OTEL_EXPORTER_OTLP_PROTOCOL"),
+        }
+    }
+
+    #[test]
+    fn test_batch_config_default() {
+        let config = BatchConfig::default();
+        assert_eq!(config.max_queue_size, 2048);
+        assert_eq!(config.scheduled_delay, Duration::from_millis(5000));
+        assert_eq!(config.max_export_batch_size, 512);
+        assert_eq!(config.max_export_timeout, Duration::from_millis(30000));
+    }
+
+    #[test]
+    fn test_sampler_config_default() {
+        let config = SamplerConfig::default();
+        assert_eq!(config.sampler, "always_on");
+        assert!(config.sampler_arg.is_none());
     }
 }

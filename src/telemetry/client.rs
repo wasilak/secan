@@ -61,12 +61,12 @@ impl InstrumentedElasticsearchClient for Client {
             // Build the full URL for the attribute
             let base_url = self.base_url();
             let full_url = format!("{}{}", base_url, path);
-            tracing::Span::current().record("http.url", &full_url.as_str());
+            tracing::Span::current().record("http.url", full_url.as_str());
 
             // Record the statement if body is present (truncated)
             if let Some(ref b) = body {
                 let statement = truncate_statement(b);
-                tracing::Span::current().record("db.statement", &statement.as_str());
+                tracing::Span::current().record("db.statement", statement.as_str());
             }
 
             // Execute the request
@@ -86,12 +86,12 @@ impl InstrumentedElasticsearchClient for Client {
                     if status.is_server_error() || status.is_client_error() {
                         tracing::Span::current().record("error.type", "http_error");
                         tracing::Span::current()
-                            .record("error.message", &format!("HTTP {}", status).as_str());
+                            .record("error.message", format!("HTTP {}", status).as_str());
                     }
                 }
                 Err(e) => {
                     tracing::Span::current().record("error.type", "request_failed");
-                    tracing::Span::current().record("error.message", &e.to_string().as_str());
+                    tracing::Span::current().record("error.message", e.to_string().as_str());
                 }
             }
 

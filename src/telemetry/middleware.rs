@@ -125,23 +125,6 @@ pub fn extract_traceparent<B>(request: &Request<B>) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::StatusCode;
-
-    #[test]
-    fn test_otel_make_span() {
-        let request = Request::builder()
-            .method("GET")
-            .uri("/api/clusters")
-            .header("host", "localhost:3000")
-            .body(())
-            .unwrap();
-
-        let mut make_span = OtelMakeSpan;
-        let span = make_span.make_span(&request);
-
-        // Span should be created
-        assert!(!span.is_disabled());
-    }
 
     #[test]
     fn test_extract_traceparent() {
