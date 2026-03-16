@@ -22,27 +22,30 @@
 //! // Spans are created for HTTP requests and ES operations
 //! ```
 
+pub mod client;
 pub mod config;
 pub mod exporter;
 pub mod middleware;
-pub mod client;
 
-pub use config::{TelemetryConfig, OtlpProtocol, BatchConfig, SamplerConfig};
+pub use config::{BatchConfig, OtlpProtocol, SamplerConfig, TelemetryConfig};
 
-use anyhow::Result;
-use std::sync::Arc;
+use anyhow::{Context, Result};
+use opentelemetry::global;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 /// Guard that keeps the telemetry runtime alive
 ///
 /// This guard must be held for the lifetime of the application.
 /// When dropped, the telemetry provider is shut down.
-pub struct TelemetryGuard {
-    _provider: Option<Arc<opentelemetry_sdk::trace::TracerProvider>>,
-}
+pub struct TelemetryGuard;
 
-impl TelemetryGuard {
-    fn new(provider: Option<Arc<opentelemetry_sdk::trace::TracerProvider>>) -> Self {
-        Self { _provider: provider }
+impl Drop for TelemetryGuard {
+    fn drop(&mut self) {
+        // Shutdown the global tracer provider
+        global::shutdown_tracer_provider();
+        tracing::info!("OpenTelemetry telemetry shut down");
     }
 }
 
@@ -72,12 +75,23 @@ pub fn init_telemetry() -> Option<TelemetryGuard> {
 }
 
 fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
-    let config = TelemetryConfig::from_env()
-        .context("Failed to parse telemetry configuration")?;
+    let config = TelemetryConfig::from_env().context("Failed to parse telemetry configuration")?;
 
     if !config.enabled {
         tracing::info!("Telemetry is disabled via OTEL_SDK_DISABLED");
         return Ok(None);
+    }
+
+    // Check for console exporter mode (development)
+    let use_console = std::env::var("OTEL_TRACES_EXPORTER")
+        .map(|v| v == "console")
+        .unwrap_or(false);
+
+    if use_console {
+        tracing::info!("Using console exporter for development");
+        // For console mode, we'll just use the tracing subscriber without OTel
+        init_tracing_subscriber_only()?;
+        return Ok(Some(TelemetryGuard));
     }
 
     tracing::info!(
@@ -89,15 +103,36 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     );
 
     // Initialize tracer provider
-    let provider = exporter::init_tracer_provider(&config)
-        .context("Failed to initialize tracer provider")?;
+    let provider =
+        exporter::init_tracer_provider(&config).context("Failed to initialize tracer provider")?;
 
-    // Create guard to keep provider alive
-    let guard = TelemetryGuard::new(Some(Arc::new(provider)));
+    // Set as global provider
+    global::set_tracer_provider(provider.clone());
+
+    // Create the OpenTelemetry layer for tracing
+    let otel_layer = tracing_opentelemetry::layer().with_tracer(provider.tracer("secan"));
+
+    // Initialize the tracing subscriber with the OTel layer
+    tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env())
+        .with(otel_layer)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     tracing::info!("OpenTelemetry telemetry initialized successfully");
 
-    Ok(Some(guard))
+    Ok(Some(TelemetryGuard))
+}
+
+/// Initialize tracing subscriber without OpenTelemetry (console mode)
+fn init_tracing_subscriber_only() -> Result<()> {
+    tracing_subscriber::registry()
+        .with(EnvFilter::from_default_env())
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    tracing::info!("Tracing initialized (console mode)");
+    Ok(())
 }
 
 /// Check if telemetry is enabled
@@ -113,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_telemetry_guard_creation() {
-        let guard = TelemetryGuard::new(None);
+        let guard = TelemetryGuard;
         // Guard should be created successfully
         drop(guard);
     }
