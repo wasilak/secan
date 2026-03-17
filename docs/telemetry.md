@@ -61,7 +61,7 @@ All configuration is done via environment variables following OpenTelemetry stan
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL | `http://localhost:4318` (HTTP) or `http://localhost:4317` (gRPC) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL | `http://localhost:4318/v1/traces` (HTTP) or `http://localhost:4317` (gRPC) |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | Transport protocol: `http/protobuf` or `grpc` | `http/protobuf` |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Authentication headers (comma-separated key=value pairs) | (empty) |
 

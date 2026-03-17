@@ -214,7 +214,7 @@ fn parse_key_value_list(input: &str) -> Result<Vec<(String, String)>> {
 /// Get the default OTLP endpoint based on protocol
 fn default_otlp_endpoint(protocol: &OtlpProtocol) -> String {
     match protocol {
-        OtlpProtocol::Http => "http://localhost:4318".to_string(),
+        OtlpProtocol::Http => "http://localhost:4318/v1/traces".to_string(),
         OtlpProtocol::Grpc => "http://localhost:4317".to_string(),
     }
 }
@@ -268,7 +268,7 @@ mod tests {
     fn test_default_otlp_endpoint() {
         assert_eq!(
             default_otlp_endpoint(&OtlpProtocol::Http),
-            "http://localhost:4318"
+            "http://localhost:4318/v1/traces"
         );
         assert_eq!(
             default_otlp_endpoint(&OtlpProtocol::Grpc),

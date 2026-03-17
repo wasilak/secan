@@ -223,7 +223,7 @@ fn test_default_configuration_values() {
     assert_eq!(config.service_name, "secan");
     assert_eq!(config.service_version, env!("CARGO_PKG_VERSION"));
     assert!(config.resource_attributes.is_empty());
-    assert_eq!(config.otlp_endpoint, "http://localhost:4318"); // Default HTTP endpoint
+    assert_eq!(config.otlp_endpoint, "http://localhost:4318/v1/traces"); // Default HTTP endpoint
     assert!(matches!(config.otlp_protocol, OtlpProtocol::Http));
     assert!(config.otlp_headers.is_empty());
     assert_eq!(config.sampler.sampler, "always_on");

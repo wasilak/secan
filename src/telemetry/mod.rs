@@ -22,6 +22,7 @@
 //! // Spans are created for HTTP requests and ES operations
 //! ```
 
+pub mod axum_middleware;
 pub mod client;
 pub mod config;
 pub mod exporter;
@@ -31,7 +32,6 @@ pub use config::{BatchConfig, OtlpProtocol, SamplerConfig, TelemetryConfig};
 
 use anyhow::{Context, Result};
 use opentelemetry::global;
-use opentelemetry::trace::TracerProvider;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -47,9 +47,24 @@ pub struct TelemetryGuard {
 
 impl Drop for TelemetryGuard {
     fn drop(&mut self) {
-        // In version 0.29, we need to handle cleanup differently
-        // The provider will be dropped when the guard is dropped
-        tracing::info!("OpenTelemetry telemetry shut down");
+        tracing::info!("Shutting down OpenTelemetry telemetry...");
+
+        // Force flush before shutdown to ensure all spans are exported
+        if let Some(ref provider) = self.provider {
+            if let Err(e) = provider.force_flush() {
+                eprintln!("[telemetry] Error during force flush: {:?}", e);
+            }
+        }
+
+        // Shutdown the provider to flush any remaining spans
+        if let Some(provider) = self.provider.take() {
+            if let Err(e) = provider.shutdown() {
+                eprintln!("[telemetry] Error during shutdown: {:?}", e);
+            } else {
+                tracing::info!("OpenTelemetry provider shut down successfully");
+            }
+        }
+        tracing::info!("OpenTelemetry telemetry shut down complete");
     }
 }
 
@@ -72,7 +87,8 @@ pub fn init_telemetry() -> Option<TelemetryGuard> {
     match init_telemetry_inner() {
         Ok(guard) => guard,
         Err(e) => {
-            tracing::error!("Failed to initialize telemetry: {}", e);
+            // Use eprintln! since tracing subscriber may not be initialized yet
+            eprintln!("[telemetry] ERROR: Failed to initialize telemetry: {}", e);
             None
         }
     }
@@ -91,19 +107,9 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
         .unwrap_or(false);
 
     if use_console {
-        tracing::info!("Using console exporter for development");
-        // For console mode, we'll just use the tracing subscriber without OTel
         init_tracing_subscriber_only()?;
         return Ok(Some(TelemetryGuard { provider: None }));
     }
-
-    tracing::info!(
-        service_name = %config.service_name,
-        service_version = %config.service_version,
-        otlp_endpoint = %config.otlp_endpoint,
-        otlp_protocol = ?config.otlp_protocol,
-        "Initializing OpenTelemetry telemetry"
-    );
 
     // Initialize tracer provider
     let provider =
@@ -113,11 +119,10 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
     global::set_tracer_provider(provider.clone());
 
     // Create the OpenTelemetry layer for tracing
-    // Use global tracer provider (set above with global::set_tracer_provider)
+    // This automatically uses the global tracer provider
     let otel_layer = tracing_opentelemetry::layer();
 
     // Initialize the tracing subscriber with the OTel layer and JSON formatting
-    // Default to INFO level if RUST_LOG is not set
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     tracing_subscriber::registry()
@@ -132,16 +137,12 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
         )
         .init();
 
-    tracing::info!("OpenTelemetry telemetry initialized successfully");
-
-    // Create a test span to verify the setup is working
-    {
-        use opentelemetry::trace::Tracer;
-        let tracer = provider.tracer("test");
-        let _span = tracer.start("telemetry_init_test");
-        tracing::info!("Test span created successfully");
-        // _span dropped here, which should export it
-    }
+    tracing::info!(
+        service_name = %config.service_name,
+        otlp_endpoint = %config.otlp_endpoint,
+        otlp_protocol = ?config.otlp_protocol,
+        "OpenTelemetry telemetry initialized"
+    );
 
     Ok(Some(TelemetryGuard {
         provider: Some(provider),

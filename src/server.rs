@@ -1,7 +1,7 @@
 use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
-use crate::telemetry::middleware::otel_http_layer;
+use crate::telemetry::axum_middleware::OtelTraceLayer;
 use anyhow::Context;
 use axum::{
     http::Method,
@@ -11,9 +11,7 @@ use axum::{
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
-use tracing::Span;
-use uuid::Uuid;
+use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 
 /// Server structure containing application state and configuration
 #[derive(Clone)]
@@ -254,70 +252,7 @@ impl Server {
                 crate::middleware::logging::logging_middleware,
             ))
             // Add OpenTelemetry tracing layer (creates OTel spans for requests)
-            .layer(otel_http_layer::<axum::body::Body>())
-            // Add TraceLayer for structured request tracing
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(|request: &axum::extract::Request| {
-                        let trace_id = Uuid::new_v4().to_string();
-                        let method = request.method();
-                        let path = request.uri().path();
-                        let user_agent = request
-                            .headers()
-                            .get(axum::http::header::USER_AGENT)
-                            .and_then(|v| v.to_str().ok())
-                            .unwrap_or("unknown");
-
-                        tracing::info_span!(
-                            "http_request",
-                            trace_id = %trace_id,
-                            http_method = %method,
-                            path = %path,
-                            user_agent = %user_agent,
-                        )
-                    })
-                    .on_response(
-                        |response: &axum::response::Response,
-                         latency: std::time::Duration,
-                         _span: &Span| {
-                            let status = response.status().as_u16();
-                            let latency_ms = latency.as_millis() as u64;
-
-                            tracing::debug!(
-                                http_status = status,
-                                latency_ms = latency_ms,
-                                "Request completed"
-                            );
-                        },
-                    )
-                    .on_failure(
-                        |error: tower_http::classify::ServerErrorsFailureClass,
-                         latency: std::time::Duration,
-                         _span: &Span| {
-                            let latency_ms = latency.as_millis() as u64;
-                            match error {
-                                tower_http::classify::ServerErrorsFailureClass::StatusCode(
-                                    status,
-                                ) => {
-                                    tracing::error!(
-                                        http_status = status.as_u16(),
-                                        latency_ms = latency_ms,
-                                        error_type = "status_code",
-                                        "Request failed"
-                                    );
-                                }
-                                tower_http::classify::ServerErrorsFailureClass::Error(error) => {
-                                    tracing::error!(
-                                        latency_ms = latency_ms,
-                                        error_type = "error",
-                                        error = %error,
-                                        "Request failed with error"
-                                    );
-                                }
-                            }
-                        },
-                    ),
-            )
+            .layer(OtelTraceLayer)
             // Add CORS middleware with proper configuration
             // Security: If allowed_origins is configured, restrict to those origins only
             // This prevents external API access when using embedded frontend

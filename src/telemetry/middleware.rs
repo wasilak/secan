@@ -39,14 +39,9 @@ impl<B> tower_http::trace::MakeSpan<B> for OtelMakeSpan {
             .map(|mp| mp.as_str())
             .unwrap_or("unknown");
 
-        // Extract trace context from headers if present
-        let traceparent = request
-            .headers()
-            .get("traceparent")
-            .and_then(|v| v.to_str().ok());
-
-        let span = tracing::info_span!(
+        tracing::info_span!(
             "http_request",
+            otel.name = format!("{} {}", request.method(), route),
             http.method = %request.method(),
             http.route = route,
             http.target = %request.uri().path(),
@@ -54,16 +49,8 @@ impl<B> tower_http::trace::MakeSpan<B> for OtelMakeSpan {
             http.host = ?request.headers().get(header::HOST).and_then(|v| v.to_str().ok()),
             http.status_code = field::Empty,
             http.response_content_length = field::Empty,
-            trace_id = field::Empty,
-            span_id = field::Empty,
-        );
-
-        // If traceparent is present, log it for correlation
-        if let Some(tp) = traceparent {
-            tracing::debug!(parent: &span, traceparent = %tp, "Received trace context");
-        }
-
-        span
+            otel.kind = "server",
+        )
     }
 }
 
@@ -85,30 +72,14 @@ impl<B> tower_http::trace::OnResponse<B> for OtelOnResponse {
             span.record("http.response_content_length", content_length);
         }
 
-        // Log the request completion
-        let status = response.status();
-        if status.is_server_error() {
-            tracing::error!(
-                parent: span,
-                latency_ms = latency.as_millis(),
-                status = %status,
-                "Request failed"
-            );
-        } else if status.is_client_error() {
-            tracing::warn!(
-                parent: span,
-                latency_ms = latency.as_millis(),
-                status = %status,
-                "Request resulted in client error"
-            );
-        } else {
-            tracing::info!(
-                parent: span,
-                latency_ms = latency.as_millis(),
-                status = %status,
-                "Request completed"
-            );
-        }
+        // Explicitly log at info level within the span context to ensure it's recorded
+        // This ensures the span gets the proper OTel treatment
+        tracing::info!(
+            parent: span,
+            latency_ms = latency.as_millis(),
+            status = %response.status(),
+            "HTTP request completed"
+        );
     }
 }
 

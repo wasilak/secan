@@ -101,6 +101,16 @@ async fn main() -> anyhow::Result<()> {
         let _enter = test_span.enter();
         tracing::info!("This is inside a test span");
         // _enter dropped here, span should be exported
+        drop(_enter);
+        drop(test_span);
+
+        // Also test using OpenTelemetry API directly
+        use opentelemetry::trace::{Tracer, TracerProvider};
+        let provider = opentelemetry::global::tracer_provider();
+        let tracer = provider.tracer("direct-test");
+        let span = tracer.start("direct_api_test");
+        // BoxedSpan doesn't have set_attribute, just drop it to end
+        drop(span);
     }
 
     info!("Secan - Elasticsearch Cluster Management Tool");
