@@ -1,6 +1,6 @@
 /**
  * Frontend OpenTelemetry Instrumentation
- * 
+ *
  * Initializes the OpenTelemetry Web SDK with automatic instrumentation
  * for fetch/XHR requests and manual span creation capabilities.
  */
@@ -32,7 +32,7 @@ const logger = {
 
 /**
  * Initialize OpenTelemetry for the browser
- * 
+ *
  * This should be called early in the application lifecycle,
  * ideally before any network requests are made.
  */
@@ -44,9 +44,9 @@ export function initializeTelemetry(): void {
 
   try {
     const config = getTelemetryConfig();
-    logger.info('Initializing telemetry...', { 
+    logger.info('Initializing telemetry...', {
       serviceName: config.serviceName,
-      endpoint: config.collectorEndpoint 
+      endpoint: config.collectorEndpoint
     });
 
     // Enable diagnostic logging in development
@@ -104,6 +104,14 @@ export function initializeTelemetry(): void {
             /.*/, // All URLs (same-origin policy will handle CORS)
           ],
           clearTimingResources: true,
+          // Apply custom attributes to fetch spans
+          applyCustomAttributesOnSpan: (span, request, result) => {
+            span.setAttribute('http.request.method', request.method);
+            span.setAttribute('http.request.url', request.url);
+            if (result instanceof Response) {
+              span.setAttribute('http.response.status_code', result.status);
+            }
+          },
         }),
         // Instrument XMLHttpRequest (for legacy code/libraries)
         new XMLHttpRequestInstrumentation({
@@ -131,13 +139,13 @@ export function initializeTelemetry(): void {
 
 /**
  * Shutdown telemetry gracefully
- * 
+ *
  * This should be called when the application is shutting down
  * to ensure all pending spans are exported.
  */
 export async function shutdownTelemetry(): Promise<void> {
   const provider = (window as unknown as { __OTEL_PROVIDER?: WebTracerProvider }).__OTEL_PROVIDER;
-  
+
   if (!provider) {
     return;
   }
@@ -153,7 +161,7 @@ export async function shutdownTelemetry(): Promise<void> {
 
 /**
  * Get the tracer instance for manual span creation
- * 
+ *
  * @param name - Tracer name (typically module/component name)
  */
 export function getTracer(name: string) {
