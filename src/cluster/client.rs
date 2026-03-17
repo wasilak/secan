@@ -2,6 +2,7 @@ use crate::config::{ClusterAuth, ClusterConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::Engine;
+use opentelemetry::trace::{Span, Tracer};
 use reqwest::{Method, Response};
 use serde_json::Value;
 use std::time::Duration;
@@ -139,12 +140,107 @@ impl Client {
             auth: auth_info,
         })
     }
+
+    /// Get the base URL of the Elasticsearch cluster
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    /// Helper method to execute instrumented ES requests
+    async fn instrumented_es_request(
+        &self,
+        path: &str,
+        operation: &str,
+        body: Option<Value>,
+    ) -> Result<Value> {
+        let tracer = opentelemetry::global::tracer("secan-elasticsearch");
+        let mut span = tracer.start(format!("ES {}", operation));
+
+        span.set_attribute(opentelemetry::KeyValue::new("db.system", "elasticsearch"));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "db.operation",
+            operation.to_string(),
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new("http.method", "GET"));
+
+        let url = format!("{}/{}", self.base_url, path);
+        span.set_attribute(opentelemetry::KeyValue::new("http.url", url.clone()));
+
+        let mut req = self.http_client.get(&url);
+
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    let encoded = base64::engine::general_purpose::STANDARD
+                        .encode(format!("{}:{}", id, api_key));
+                    req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+            }
+        }
+
+        let result = req.send().await;
+
+        match &result {
+            Ok(response) => {
+                span.set_attribute(opentelemetry::KeyValue::new(
+                    "http.status_code",
+                    response.status().as_u16() as i64,
+                ));
+                if !response.status().is_success() {
+                    span.set_attribute(opentelemetry::KeyValue::new("error.type", "http_error"));
+                }
+            }
+            Err(e) => {
+                span.set_attribute(opentelemetry::KeyValue::new("error.type", "request_failed"));
+                span.set_attribute(opentelemetry::KeyValue::new("error.message", e.to_string()));
+            }
+        }
+
+        span.end();
+
+        let response = result.context(format!("{} request failed", operation))?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("{} failed with status: {}", operation, response.status());
+        }
+
+        response
+            .json()
+            .await
+            .context(format!("Failed to parse {} response", operation))
+    }
 }
 
 #[async_trait]
 impl ElasticsearchClient for Client {
-    #[instrument(skip(self, body), fields(base_url = %self.base_url, http_method = %method, path = %path))]
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
+        // Create OTel span directly for reliable export
+        let tracer = opentelemetry::global::tracer("secan-elasticsearch");
+        let mut span = tracer.start(format!("ES {}", path));
+
+        // Set span attributes
+        span.set_attribute(opentelemetry::KeyValue::new("db.system", "elasticsearch"));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "http.method",
+            method.to_string(),
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "http.url",
+            format!("{}{}", self.base_url, path),
+        ));
+
+        if let Some(ref b) = body {
+            let statement = if b.to_string().len() > 1000 {
+                format!("{}... [truncated]", &b.to_string()[..1000])
+            } else {
+                b.to_string()
+            };
+            span.set_attribute(opentelemetry::KeyValue::new("db.statement", statement));
+        }
+
         // For arbitrary requests, we need to use reqwest directly since the ES SDK
         // doesn't provide a generic request builder for all paths
         let url = format!("{}{}", self.base_url, path);
@@ -178,50 +274,50 @@ impl ElasticsearchClient for Client {
         }
 
         // Send the request
-        let response = req
+        let result = req
             .send()
             .await
-            .context("Failed to send request to Elasticsearch")?;
+            .context("Failed to send request to Elasticsearch");
+
+        // Record response in span
+        match &result {
+            Ok(response) => {
+                span.set_attribute(opentelemetry::KeyValue::new(
+                    "http.status_code",
+                    response.status().as_u16() as i64,
+                ));
+                if let Some(content_length) = response.content_length() {
+                    span.set_attribute(opentelemetry::KeyValue::new(
+                        "http.response_content_length",
+                        content_length as i64,
+                    ));
+                }
+            }
+            Err(e) => {
+                span.set_attribute(opentelemetry::KeyValue::new("error.type", "request_failed"));
+                span.set_attribute(opentelemetry::KeyValue::new("error.message", e.to_string()));
+            }
+        }
+
+        // End the span (triggers export)
+        span.end();
 
         tracing::trace!(
             "HTTP request to ES completed: {} {} -> status={}",
             method,
             path,
-            response.status()
+            result
+                .as_ref()
+                .map(|r| r.status().to_string())
+                .unwrap_or_else(|_| "error".to_string())
         );
 
-        Ok(response)
+        result
     }
 
-    #[instrument(skip(self), fields(base_url = %self.base_url))]
     async fn health(&self) -> Result<Value> {
-        let url = format!("{}/_cluster/health?level=indices", self.base_url);
-        let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
-
-        let response = req.send().await.context("Health check request failed")?;
-
-        if !response.status().is_success() {
-            anyhow::bail!("Health check failed with status: {}", response.status());
-        }
-
-        response
-            .json()
+        self.instrumented_es_request("_cluster/health", "GET", None)
             .await
-            .context("Failed to parse health response")
     }
 
     async fn info(&self) -> Result<Value> {

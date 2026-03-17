@@ -4,6 +4,7 @@ use crate::cluster::client::{Client, ElasticsearchClient};
 use crate::config::{
     ClusterAuth, ClusterConfig, MetricsSource, PrometheusConfig as ClusterPrometheusConfig,
 };
+use crate::telemetry::client::InstrumentedElasticsearchClient;
 use anyhow::{Context, Result};
 use reqwest::{Method, Response};
 use serde::{Deserialize, Serialize};
@@ -184,7 +185,10 @@ impl ClusterConnection {
         path: &str,
         body: Option<Value>,
     ) -> Result<Response> {
-        self.client.request(method, path, body).await
+        // Use instrumented request for tracing
+        self.client
+            .instrumented_request(method, path, body, &self.id)
+            .await
     }
 
     /// Get cluster health using SDK typed method

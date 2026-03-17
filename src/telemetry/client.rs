@@ -1,14 +1,14 @@
 //! Instrumented Elasticsearch client
 //!
 //! This module provides tracing for Elasticsearch client operations
-//! by wrapping the existing client with instrumentation.
+//! by wrapping the existing client with instrumentation using direct OTel API.
 
 use crate::cluster::client::{Client, ElasticsearchClient};
 use anyhow::Result;
 use async_trait::async_trait;
+use opentelemetry::trace::{Span, Tracer, TracerProvider};
 use reqwest::{Method, Response};
 use serde_json::Value;
-use tracing::{field, Instrument};
 
 /// Extension trait to add instrumentation to ES client operations
 ///
@@ -41,75 +41,73 @@ impl InstrumentedElasticsearchClient for Client {
         // Extract the operation name from the path
         let operation = extract_operation_name(path);
 
-        // Create the span
-        let span = tracing::info_span!(
-            "elasticsearch.query",
-            db.system = "elasticsearch",
-            db.operation = operation,
-            db.statement = field::Empty, // Will be set if body is present
-            elasticsearch.cluster_id = cluster_id,
-            http.method = %method,
-            http.url = field::Empty, // Will be set after building URL
-            http.status_code = field::Empty,
-            http.response_content_length = field::Empty,
-            error.type = field::Empty,
-            error.message = field::Empty,
-        );
+        // Create OTel span directly (reliable export)
+        let tracer = opentelemetry::global::tracer("secan-elasticsearch");
+        let mut span = tracer.start(format!("ES {}", operation));
 
-        // Execute the request within the span
-        async {
-            // Build the full URL for the attribute
-            let base_url = self.base_url();
-            let full_url = format!("{}{}", base_url, path);
-            tracing::Span::current().record("http.url", full_url.as_str());
+        // Set span attributes
+        span.set_attribute(opentelemetry::KeyValue::new("db.system", "elasticsearch"));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "db.operation",
+            operation.clone(),
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "elasticsearch.cluster_id",
+            cluster_id.to_string(),
+        ));
+        span.set_attribute(opentelemetry::KeyValue::new(
+            "http.method",
+            method.to_string(),
+        ));
 
-            // Record the statement if body is present (truncated)
-            if let Some(ref b) = body {
-                let statement = truncate_statement(b);
-                tracing::Span::current().record("db.statement", statement.as_str());
-            }
+        // Build the full URL
+        let base_url = self.base_url();
+        let full_url = format!("{}{}", base_url, path);
+        span.set_attribute(opentelemetry::KeyValue::new("http.url", full_url.clone()));
 
-            // Execute the request
-            let result = self.request(method, path, body).await;
-
-            // Record response attributes or errors
-            match &result {
-                Ok(response) => {
-                    let status = response.status();
-                    tracing::Span::current().record("http.status_code", status.as_u16() as i64);
-
-                    if let Some(content_length) = response.content_length() {
-                        tracing::Span::current()
-                            .record("http.response_content_length", content_length as i64);
-                    }
-
-                    if status.is_server_error() || status.is_client_error() {
-                        tracing::Span::current().record("error.type", "http_error");
-                        tracing::Span::current()
-                            .record("error.message", format!("HTTP {}", status).as_str());
-                    }
-                }
-                Err(e) => {
-                    tracing::Span::current().record("error.type", "request_failed");
-                    tracing::Span::current().record("error.message", e.to_string().as_str());
-                }
-            }
-
-            result
+        // Record the statement if body is present (truncated)
+        if let Some(ref b) = body {
+            let statement = truncate_statement(b);
+            span.set_attribute(opentelemetry::KeyValue::new("db.statement", statement));
         }
-        .instrument(span)
-        .await
-    }
-}
 
-impl Client {
-    /// Get the base URL of the client
-    fn base_url(&self) -> String {
-        // Access the base_url field
-        // Note: This requires the base_url field to be accessible
-        // We need to add a getter or make it accessible
-        // For now, we'll return a placeholder - this needs to be fixed
-        "http://localhost:9200".to_string()
+        // Execute the request
+        let result = self.request(method, path, body).await;
+
+        // Record response attributes or errors
+        match &result {
+            Ok(response) => {
+                let status = response.status();
+                span.set_attribute(opentelemetry::KeyValue::new(
+                    "http.status_code",
+                    status.as_u16() as i64,
+                ));
+
+                if let Some(content_length) = response.content_length() {
+                    span.set_attribute(opentelemetry::KeyValue::new(
+                        "http.response_content_length",
+                        content_length as i64,
+                    ));
+                }
+
+                if status.is_server_error() || status.is_client_error() {
+                    span.set_attribute(opentelemetry::KeyValue::new("error.type", "http_error"));
+                    span.set_attribute(opentelemetry::KeyValue::new(
+                        "error.message",
+                        format!("HTTP {}", status),
+                    ));
+                }
+            }
+            Err(e) => {
+                span.set_attribute(opentelemetry::KeyValue::new("error.type", "request_failed"));
+                span.set_attribute(opentelemetry::KeyValue::new("error.message", e.to_string()));
+            }
+        }
+
+        // End the span (triggers export)
+        span.end();
+
+        result
     }
 }
 
