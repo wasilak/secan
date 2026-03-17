@@ -2,6 +2,7 @@ use crate::auth::SessionManager;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use crate::telemetry::axum_middleware::OtelTraceLayer;
+use crate::telemetry::config::TelemetryConfig;
 use anyhow::Context;
 use axum::{
     http::Method,
@@ -128,6 +129,44 @@ impl Server {
             self.config.auth.mode.clone(),
         ));
 
+        // Create OTLP proxy state if telemetry is enabled
+        let telemetry_config = match TelemetryConfig::from_env() {
+            Ok(config) => config,
+            Err(_) => {
+                // Telemetry disabled or misconfigured - use default disabled config
+                TelemetryConfig {
+                    enabled: false,
+                    service_name: "secan".to_string(),
+                    service_version: env!("CARGO_PKG_VERSION").to_string(),
+                    otlp_endpoint: "http://localhost:4318".to_string(),
+                    otlp_protocol: crate::telemetry::config::OtlpProtocol::Http,
+                    otlp_headers: vec![],
+                    sampler: crate::telemetry::config::SamplerConfig::default(),
+                    resource_attributes: vec![],
+                    batch_config: crate::telemetry::config::BatchConfig::default(),
+                }
+            }
+        };
+        let otel_proxy_state: Option<Arc<crate::routes::telemetry::OtelProxyState>> =
+            if telemetry_config.enabled {
+                let headers: Vec<(String, String)> = telemetry_config
+                    .otlp_headers
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                Some(Arc::new(crate::routes::telemetry::OtelProxyState::new(
+                    telemetry_config.otlp_endpoint,
+                    headers,
+                    matches!(
+                        telemetry_config.otlp_protocol,
+                        crate::telemetry::config::OtlpProtocol::Grpc
+                    ),
+                )))
+            } else {
+                None
+            };
+
         // Create cluster state for cluster routes
         let cluster_state = crate::routes::ClusterState {
             cluster_manager: self.cluster_manager.clone(),
@@ -144,13 +183,24 @@ impl Server {
             session_manager: self.session_manager.clone(),
         };
 
-        Router::new()
+        // Build the router with all routes
+        let mut app = Router::new()
             // Health, readiness, and version endpoints (no auth required)
             // These must come before .with_state() since they use different state
             .route("/health", get(crate::routes::health::health_check))
             .route("/ready", get(crate::routes::health::readiness_check))
             .route("/api/version", get(crate::routes::health::get_version))
-            .with_state(Arc::new(RwLock::new(health_state)))
+            .with_state(Arc::new(RwLock::new(health_state)));
+
+        // Add OTLP proxy endpoint only if telemetry is enabled
+        if let Some(proxy_state) = otel_proxy_state {
+            app = app.route(
+                "/v1/traces",
+                post(crate::routes::telemetry::trace_export_handler).with_state(proxy_state),
+            );
+        }
+
+        app
             // Authentication routes
             .route("/api/auth/login", post(crate::routes::auth::login))
             .route("/api/auth/logout", post(crate::routes::auth::logout))

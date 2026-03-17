@@ -1,4 +1,5 @@
 use crate::assets::Assets;
+use crate::telemetry::config::TelemetryConfig;
 use axum::{
     body::Body,
     http::{header, StatusCode, Uri},
@@ -56,10 +57,15 @@ pub async fn serve_static(uri: Uri) -> Response {
     // SPA fallback: serve index.html for unknown paths
     // This allows React Router to handle client-side routing
     if let Some(index) = Assets::get("index.html") {
+        let html = String::from_utf8_lossy(&index.data);
+
+        // Inject OTEL configuration if telemetry is enabled
+        let html_with_otel = inject_otel_config(&html);
+
         return Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html")
-            .body(Body::from(index.data))
+            .body(Body::from(html_with_otel))
             .map_err(|_| StaticAssetError::ResponseBuildError)
             .unwrap_or_else(|_| {
                 Response::builder()
@@ -77,6 +83,51 @@ pub async fn serve_static(uri: Uri) -> Response {
             // Last resort - if we can't even build a 404, return a minimal response
             Response::new(Body::from("Not Found"))
         })
+}
+
+/// Inject OpenTelemetry configuration into HTML
+///
+/// Adds meta tags or a config script with OTEL_* settings
+/// so the frontend can initialize telemetry correctly.
+fn inject_otel_config(html: &str) -> String {
+    let telemetry_config = TelemetryConfig::from_env().unwrap_or_else(|_| TelemetryConfig {
+        enabled: false,
+        service_name: "secan-frontend".to_string(),
+        service_version: env!("CARGO_PKG_VERSION").to_string(),
+        otlp_endpoint: "/v1/traces".to_string(),
+        otlp_protocol: crate::telemetry::config::OtlpProtocol::Http,
+        otlp_headers: vec![],
+        sampler: crate::telemetry::config::SamplerConfig::default(),
+        resource_attributes: vec![],
+        batch_config: crate::telemetry::config::BatchConfig::default(),
+    });
+
+    // Build the config injection
+    let config_injection = format!(
+        r#"<meta name="otel-sdk-disabled" content="{}">
+<meta name="otel-service-name" content="{}">
+<meta name="otel-service-version" content="{}">
+<meta name="otel-exporter-otlp-endpoint" content="{}">"#,
+        if telemetry_config.enabled {
+            "false"
+        } else {
+            "true"
+        },
+        telemetry_config.service_name,
+        telemetry_config.service_version,
+        telemetry_config.otlp_endpoint
+    );
+
+    // Inject before </head>
+    if let Some(head_pos) = html.find("</head>") {
+        let mut result = html[..head_pos].to_string();
+        result.push_str(&config_injection);
+        result.push_str(&html[head_pos..]);
+        result
+    } else {
+        // Fallback: return original HTML if no </head> found
+        html.to_string()
+    }
 }
 
 #[cfg(test)]

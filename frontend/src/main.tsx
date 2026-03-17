@@ -15,9 +15,19 @@ import { RefreshProvider } from './contexts/RefreshContext';
 import { DrawerProvider } from './contexts/DrawerContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeInitializer } from './components/ThemeInitializer';
+import { initializeTelemetry, shutdownTelemetry } from './telemetry';
 
 // Configure Monaco Editor to use bundled files instead of CDN
 configureMonaco();
+
+// Initialize OpenTelemetry tracing early
+// This must happen before any network requests are made
+initializeTelemetry();
+
+// Handle graceful shutdown
+window.addEventListener('beforeunload', () => {
+  shutdownTelemetry();
+});
 
 // Create custom theme configuration with responsive design
 const theme = createTheme({
