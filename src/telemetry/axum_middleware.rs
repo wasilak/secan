@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::task::{Context as TaskContext, Poll};
 use std::time::Instant;
 use tower::{Layer, Service};
+use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 /// Extract trace context from request headers
@@ -106,16 +107,16 @@ where
         // Call the inner service
         let future = self.inner.call(request);
 
-        Box::pin(async move {
-            // Enter the tracing span - this sets the context for all child operations
-            let _enter = tracing_span.enter();
-
+        // Instrument the async block with the tracing span
+        // This properly handles span context across await points
+        let instrumented_future = async move {
             let result = future.await;
             let latency = start.elapsed();
 
             // Record response info
             if let Ok(response) = &result {
-                tracing_span.record("http.status_code", response.status().as_u16() as i64);
+                tracing::Span::current()
+                    .record("http.status_code", response.status().as_u16() as i64);
             }
 
             // Also log via tracing for local visibility
@@ -140,6 +141,9 @@ where
             }
 
             result
-        })
+        }
+        .instrument(tracing_span);
+
+        Box::pin(instrumented_future)
     }
 }
