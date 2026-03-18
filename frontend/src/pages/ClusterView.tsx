@@ -1090,6 +1090,7 @@ export function ClusterView() {
     allShards,
     isLoading: allShardsLoading,
     isComplete: allShardsComplete,
+    firstError: allShardsError,
   } = usePerNodeShards(id, nodeIdsForShards, !!id && activeTab === 'topology', 4);
 
   // Extract shards array from paginated response (default to empty array while loading)

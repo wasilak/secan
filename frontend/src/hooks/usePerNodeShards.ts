@@ -124,6 +124,9 @@ export function usePerNodeShards(
   const allShards = Object.values(nodeShards).flatMap(n => n.shards);
   const isLoading = Object.values(nodeShards).some(n => n.loading);
   const hasErrors = Object.values(nodeShards).some(n => n.error !== null);
+  
+  // Get first error for error display
+  const firstError = Object.values(nodeShards).find(n => n.error !== null)?.error ?? null;
 
   return {
     nodeShards,
@@ -131,5 +134,6 @@ export function usePerNodeShards(
     isLoading,
     isComplete,
     hasErrors,
+    firstError,
   };
 }
