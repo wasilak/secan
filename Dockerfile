@@ -50,7 +50,7 @@ FROM alpine:3.23
 # Image metadata
 LABEL maintainer="Secan Contributors"
 LABEL description="Elasticsearch cluster management tool"
-LABEL version="1.2.29"
+LABEL version="1.2.30"
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
