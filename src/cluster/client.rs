@@ -2,7 +2,7 @@ use crate::config::{ClusterAuth, ClusterConfig};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::Engine;
-use opentelemetry::trace::{Span, Tracer};
+
 use reqwest::{Method, Response};
 use serde_json::Value;
 use std::time::Duration;
@@ -147,24 +147,18 @@ impl Client {
     }
 
     /// Helper method to execute instrumented ES requests
+    #[tracing::instrument(skip(self, _body), fields(db.system = "elasticsearch", http.method = "GET"))]
     async fn instrumented_es_request(
         &self,
         path: &str,
         operation: &str,
         _body: Option<Value>,
     ) -> Result<Value> {
-        let tracer = opentelemetry::global::tracer("secan-elasticsearch");
-        let mut span = tracer.start(format!("ES {}", operation));
-
-        span.set_attribute(opentelemetry::KeyValue::new("db.system", "elasticsearch"));
-        span.set_attribute(opentelemetry::KeyValue::new(
-            "db.operation",
-            operation.to_string(),
-        ));
-        span.set_attribute(opentelemetry::KeyValue::new("http.method", "GET"));
-
         let url = format!("{}/{}", self.base_url, path);
-        span.set_attribute(opentelemetry::KeyValue::new("http.url", url.clone()));
+
+        // Add span attributes
+        tracing::Span::current().record("db.operation", operation);
+        tracing::Span::current().record("http.url", &url.as_str());
 
         let mut req = self.http_client.get(&url);
 
@@ -185,21 +179,16 @@ impl Client {
 
         match &result {
             Ok(response) => {
-                span.set_attribute(opentelemetry::KeyValue::new(
-                    "http.status_code",
-                    response.status().as_u16() as i64,
-                ));
+                tracing::Span::current()
+                    .record("http.status_code", response.status().as_u16() as i64);
                 if !response.status().is_success() {
-                    span.set_attribute(opentelemetry::KeyValue::new("error.type", "http_error"));
+                    tracing::error!(status = %response.status(), "HTTP error");
                 }
             }
             Err(e) => {
-                span.set_attribute(opentelemetry::KeyValue::new("error.type", "request_failed"));
-                span.set_attribute(opentelemetry::KeyValue::new("error.message", e.to_string()));
+                tracing::error!(error = %e, "Request failed");
             }
         }
-
-        span.end();
 
         let response = result.context(format!("{} request failed", operation))?;
 
@@ -216,21 +205,14 @@ impl Client {
 
 #[async_trait]
 impl ElasticsearchClient for Client {
+    #[tracing::instrument(skip(self, body), fields(db.system = "elasticsearch"))]
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
-        // Create OTel span directly for reliable export
-        let tracer = opentelemetry::global::tracer("secan-elasticsearch");
-        let mut span = tracer.start(format!("ES {}", path));
+        let url = format!("{}{}", self.base_url, path);
 
-        // Set span attributes
-        span.set_attribute(opentelemetry::KeyValue::new("db.system", "elasticsearch"));
-        span.set_attribute(opentelemetry::KeyValue::new(
-            "http.method",
-            method.to_string(),
-        ));
-        span.set_attribute(opentelemetry::KeyValue::new(
-            "http.url",
-            format!("{}{}", self.base_url, path),
-        ));
+        // Record span attributes
+        tracing::Span::current().record("http.method", method.to_string());
+        tracing::Span::current().record("http.url", &url.as_str());
+        tracing::Span::current().record("db.operation", path);
 
         if let Some(ref b) = body {
             let statement = if b.to_string().len() > 1000 {
@@ -238,13 +220,11 @@ impl ElasticsearchClient for Client {
             } else {
                 b.to_string()
             };
-            span.set_attribute(opentelemetry::KeyValue::new("db.statement", statement));
+            tracing::Span::current().record("db.statement", statement);
         }
 
         // For arbitrary requests, we need to use reqwest directly since the ES SDK
         // doesn't provide a generic request builder for all paths
-        let url = format!("{}{}", self.base_url, path);
-
         let mut req = match method {
             Method::GET => self.http_client.get(&url),
             Method::POST => self.http_client.post(&url),
@@ -282,25 +262,17 @@ impl ElasticsearchClient for Client {
         // Record response in span
         match &result {
             Ok(response) => {
-                span.set_attribute(opentelemetry::KeyValue::new(
-                    "http.status_code",
-                    response.status().as_u16() as i64,
-                ));
+                tracing::Span::current()
+                    .record("http.status_code", response.status().as_u16() as i64);
                 if let Some(content_length) = response.content_length() {
-                    span.set_attribute(opentelemetry::KeyValue::new(
-                        "http.response_content_length",
-                        content_length as i64,
-                    ));
+                    tracing::Span::current()
+                        .record("http.response_content_length", content_length as i64);
                 }
             }
             Err(e) => {
-                span.set_attribute(opentelemetry::KeyValue::new("error.type", "request_failed"));
-                span.set_attribute(opentelemetry::KeyValue::new("error.message", e.to_string()));
+                tracing::error!(error = %e, "Request failed");
             }
         }
-
-        // End the span (triggers export)
-        span.end();
 
         tracing::trace!(
             "HTTP request to ES completed: {} {} -> status={}",
