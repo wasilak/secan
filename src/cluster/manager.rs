@@ -670,7 +670,10 @@ impl Manager {
         Ok(health)
     }
 
-    /// Check health of all clusters
+    /// Check health of all clusters concurrently
+    ///
+    /// Uses join_all to run health checks in parallel, reducing latency
+    /// from O(n) to approximately O(1) (limited by slowest check).
     ///
     /// # Returns
     ///
@@ -680,14 +683,21 @@ impl Manager {
     #[instrument(skip(self))]
     pub async fn check_all_health(&self) -> HashMap<String, Result<ClusterHealth>> {
         let clusters = self.clusters.read().await;
-        let mut health_results = HashMap::new();
 
-        for (id, cluster) in clusters.iter() {
-            let health = cluster.check_health().await;
-            health_results.insert(id.clone(), health);
-        }
+        // Collect all health check futures for concurrent execution
+        let health_futures: Vec<_> = clusters
+            .iter()
+            .map(|(id, cluster)| async move {
+                let health = cluster.check_health().await;
+                (id.clone(), health)
+            })
+            .collect();
 
-        health_results
+        // Execute all health checks concurrently
+        let results = futures::future::join_all(health_futures).await;
+
+        // Collect results into HashMap
+        results.into_iter().collect()
     }
 
     /// Get the number of configured clusters
