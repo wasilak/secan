@@ -74,6 +74,7 @@ import { useSparklineData, DataPoint } from '../hooks/useSparklineData';
 import { useMetricsStore } from '../stores/metricsStore';
 import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
+import { usePerNodeShards } from '../hooks/usePerNodeShards';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
 import { IconTerminal2 } from '@tabler/icons-react';
 import { IndexEdit } from './IndexEdit';
@@ -1020,7 +1021,7 @@ export function ClusterView() {
 
   // Use unfiltered nodes for topology view so it always shows all nodes
   // regardless of node role filters applied to the nodes list
-  const allNodesArray: NodeInfo[] = allNodesUnfiltered?.items ?? [];
+  const allNodesArray = useMemo(() => allNodesUnfiltered?.items ?? [], [allNodesUnfiltered]);
 
   // Fetch indices with auto-refresh, pagination, and server-side filtering
   const indicesFilters = {
@@ -1050,7 +1051,7 @@ export function ClusterView() {
     error: allIndicesError,
   } = useQuery({
     queryKey: ['cluster', id, 'indices', 'all'],
-    queryFn: () => apiClient.getIndices(id!, 1, 1000, { showSpecial: true }), // Limit to 1000 indices to prevent OOM
+    queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }), // Fetch all indices (indices are small)
     refetchInterval: refreshInterval,
     enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -1083,24 +1084,16 @@ export function ClusterView() {
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
-  // Fetch shards for topology view (batch size: 1000 to prevent OOM)
+  // Progressive shard loading per node for topology view (prevents OOM)
+  const nodeIdsForShards = useMemo(() => allNodesArray.map(n => n.id), [allNodesArray]);
   const {
-    data: allShardsPaginated,
+    allShards,
     isLoading: allShardsLoading,
-    error: allShardsError,
-  } = useQuery({
-    queryKey: ['cluster', id, 'shards', 'all'],
-    queryFn: () => apiClient.getShards(id!, 1, 1000, {}), // Limit to 1000 shards to prevent OOM
-    refetchInterval: refreshInterval,
-    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
+    isComplete: allShardsComplete,
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeTab === 'topology', 4);
 
   // Extract shards array from paginated response (default to empty array while loading)
   const shards: ShardInfo[] = shardsPaginated?.items ?? [];
-  
-  // Use all shards for topology
-  const allShards: ShardInfo[] = allShardsPaginated?.items ?? [];
 
   // Create shorter aliases for backward compatibility with rest of code
   const nodes = nodesArray;

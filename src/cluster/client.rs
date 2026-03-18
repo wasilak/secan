@@ -783,49 +783,35 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse cat indices response")
     }
 
-    /// Get shard information for a specific node
-    /// Note: This endpoint is deprecated - use get_shards() and filter client-side
-    /// Kept for backward compatibility
-    async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value> {
-        // Fetch all shards and filter by node
-        let all_shards = self
-            .cat_shards()
+    /// Get shard information for a specific node using ES API node filter
+    ///
+    /// Uses _cat/shards API with node parameter to fetch only shards for specific node.
+    /// This is memory-efficient for large clusters as it doesn't require fetching all shards.
+    async fn cat_shards_for_node(&self, node_name: &str) -> Result<Value> {
+        // Use _cat/shards API with node filter - memory efficient for large clusters
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!(
+                    "/_cat/shards?format=json&bytes=b&h=index,shard,prirep,state,node,docs,store&node={}",
+                    node_name
+                ),
+                None,
+            )
             .await
-            .context("Failed to fetch all shards")?;
+            .context("Cat shards for node request failed")?;
 
-        // Filter by node name or ID
-        if let Some(shards_array) = all_shards.as_array() {
-            tracing::debug!(
-                total_shards = shards_array.len(),
-                node_filter = %node_id,
-                "Filtering shards for node"
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Cat shards for node failed with status: {}",
+                response.status()
             );
-            let filtered: Vec<serde_json::Value> = shards_array
-                .iter()
-                .filter(|shard| {
-                    let shard_node = shard.get("node").and_then(|v| v.as_str());
-                    let matches = shard_node == Some(node_id);
-                    if !matches {
-                        tracing::trace!(
-                            shard_node = ?shard_node,
-                            filter = %node_id,
-                            "Shard node doesn't match filter"
-                        );
-                    }
-                    matches
-                })
-                .cloned()
-                .collect();
-            tracing::debug!(
-                filtered_count = filtered.len(),
-                node_filter = %node_id,
-                "Finished filtering shards for node"
-            );
-
-            Ok(serde_json::json!(filtered))
-        } else {
-            Ok(serde_json::json!([]))
         }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cat shards for node response")
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)
