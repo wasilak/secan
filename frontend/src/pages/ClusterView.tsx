@@ -1050,7 +1050,7 @@ export function ClusterView() {
     error: allIndicesError,
   } = useQuery({
     queryKey: ['cluster', id, 'indices', 'all'],
-    queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }), // Fetch all with no filters
+    queryFn: () => apiClient.getIndices(id!, 1, 1000, { showSpecial: true }), // Limit to 1000 indices to prevent OOM
     refetchInterval: refreshInterval,
     enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -1083,14 +1083,14 @@ export function ClusterView() {
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
-  // Fetch ALL shards for topology view (unfiltered, unpaginated)
+  // Fetch shards for topology view (batch size: 1000 to prevent OOM)
   const {
     data: allShardsPaginated,
     isLoading: allShardsLoading,
     error: allShardsError,
   } = useQuery({
     queryKey: ['cluster', id, 'shards', 'all'],
-    queryFn: () => apiClient.getShards(id!, 1, 10000, {}), // Fetch all with no filters
+    queryFn: () => apiClient.getShards(id!, 1, 1000, {}), // Limit to 1000 shards to prevent OOM
     refetchInterval: refreshInterval,
     enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
