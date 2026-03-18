@@ -158,7 +158,7 @@ impl Client {
 
         // Add span attributes
         tracing::Span::current().record("db.operation", operation);
-        tracing::Span::current().record("http.url", &url.as_str());
+        tracing::Span::current().record("http.url", url.as_str());
 
         let mut req = self.http_client.get(&url);
 
@@ -211,7 +211,7 @@ impl ElasticsearchClient for Client {
 
         // Record span attributes
         tracing::Span::current().record("http.method", method.to_string());
-        tracing::Span::current().record("http.url", &url.as_str());
+        tracing::Span::current().record("http.url", url.as_str());
         tracing::Span::current().record("db.operation", path);
 
         if let Some(ref b) = body {
