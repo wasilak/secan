@@ -783,35 +783,37 @@ impl ElasticsearchClient for Client {
             .context("Failed to parse cat indices response")
     }
 
-    /// Get shard information for a specific node using ES API node filter
+    /// Get shard information for a specific node
     ///
-    /// Uses _cat/shards API with node parameter to fetch only shards for specific node.
-    /// This is memory-efficient for large clusters as it doesn't require fetching all shards.
+    /// Note: The _cat/shards API does not support filtering by node parameter.
+    /// This fetches all shards and filters client-side for compatibility.
+    /// For large clusters, consider using pagination at the API level.
     async fn cat_shards_for_node(&self, node_name: &str) -> Result<Value> {
-        // Use _cat/shards API with node filter - memory efficient for large clusters
-        let response = self
-            .request(
-                reqwest::Method::GET,
-                &format!(
-                    "/_cat/shards?format=json&bytes=b&h=index,shard,prirep,state,node,docs,store&node={}",
-                    node_name
-                ),
-                None,
-            )
+        // Fetch all shards and filter by node client-side
+        // The _cat/shards API doesn't support node filtering, so we filter after fetching
+        let all_shards = self
+            .cat_shards()
             .await
-            .context("Cat shards for node request failed")?;
+            .context("Failed to fetch all shards for node filtering")?;
 
-        if !response.status().is_success() {
-            anyhow::bail!(
-                "Cat shards for node failed with status: {}",
-                response.status()
-            );
+        // Filter by node name client-side
+        if let Some(shards_array) = all_shards.as_array() {
+            let filtered: Vec<serde_json::Value> = shards_array
+                .iter()
+                .filter(|shard| {
+                    shard
+                        .get("node")
+                        .and_then(|v| v.as_str())
+                        .map(|n| n == node_name)
+                        .unwrap_or(false)
+                })
+                .cloned()
+                .collect();
+
+            Ok(serde_json::json!(filtered))
+        } else {
+            Ok(serde_json::json!([]))
         }
-
-        response
-            .json()
-            .await
-            .context("Failed to parse cat shards for node response")
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)
