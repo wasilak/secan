@@ -37,17 +37,21 @@ const logger = {
  * ideally before any network requests are made.
  */
 export function initializeTelemetry(): void {
-  if (!isTelemetryEnabled()) {
-    logger.info('Telemetry disabled');
+  // Log config for debugging
+  const config = getTelemetryConfig();
+  logger.info('Telemetry config:', {
+    enabled: config.enabled,
+    serviceName: config.serviceName,
+    endpoint: config.collectorEndpoint
+  });
+
+  if (!config.enabled) {
+    logger.info('Telemetry disabled - skipping initialization');
     return;
   }
 
   try {
-    const config = getTelemetryConfig();
-    logger.info('Initializing telemetry...', {
-      serviceName: config.serviceName,
-      endpoint: config.collectorEndpoint
-    });
+    logger.info('Initializing telemetry...');
 
     // Enable diagnostic logging in development
     if (process.env.NODE_ENV === 'development') {
@@ -65,7 +69,7 @@ export function initializeTelemetry(): void {
       ...config.resourceAttributes,
     });
 
-    // Create the OTLP exporter
+    // Create the OTLP exporter with debug logging
     // The backend proxy will forward these traces to the OTLP collector
     const exporter = new OTLPTraceExporter({
       url: config.collectorEndpoint,
@@ -74,30 +78,28 @@ export function initializeTelemetry(): void {
       },
     });
 
-    // Create the tracer provider
-    const provider = new WebTracerProvider({
-      resource,
-      spanProcessors: [
-        new BatchSpanProcessor(exporter, {
-          // Buffer spans and export in batches
-          maxQueueSize: 2048,
-          maxExportBatchSize: 512,
-          scheduledDelayMillis: 5000,
-          exportTimeoutMillis: 30000,
-        }),
-      ],
-    });
+    // Wrap the exporter to log success/failure
+    const originalExport = exporter.export.bind(exporter);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    exporter.export = (items: any, resultCallback: any) => {
+      logger.info(`Exporting ${items.length} span(s) to ${config.collectorEndpoint}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return originalExport(items, (result: any) => {
+        if (result.error) {
+          logger.error('Export failed:', result.error);
+        } else {
+          logger.info(`Successfully exported ${items.length} span(s)`);
+        }
+        resultCallback(result);
+      });
+    };
 
-    // Register the provider
-    provider.register({
-      contextManager: new ZoneContextManager(),
-      propagator: new W3CTraceContextPropagator(),
-    });
-
-    // Register auto-instrumentations
+    // Register auto-instrumentations BEFORE creating provider
+    // This is critical - instrumentations must be registered first
     registerInstrumentations({
       instrumentations: [
         // Instrument fetch API (for modern browsers)
+        // Each fetch creates its own root span (separate trace) - this is correct for SPAs
         new FetchInstrumentation({
           propagateTraceHeaderCorsUrls: [
             // Propagate trace context to same-origin requests
@@ -106,8 +108,13 @@ export function initializeTelemetry(): void {
           clearTimingResources: true,
           // Apply custom attributes to fetch spans
           applyCustomAttributesOnSpan: (span, request, result) => {
-            span.setAttribute('http.request.method', request.method);
-            span.setAttribute('http.request.url', request.url);
+            if (request.method) {
+              span.setAttribute('http.request.method', request.method);
+            }
+            // request can be Request or RequestInit, url only exists on Request
+            if ('url' in request && request.url) {
+              span.setAttribute('http.request.url', request.url);
+            }
             if (result instanceof Response) {
               span.setAttribute('http.response.status_code', result.status);
             }
@@ -121,6 +128,51 @@ export function initializeTelemetry(): void {
         }),
       ],
     });
+
+    // Create the tracer provider
+    const provider = new WebTracerProvider({
+      resource,
+      spanProcessors: [
+        new BatchSpanProcessor(exporter, {
+          // Buffer spans and export in batches
+          maxQueueSize: 2048,
+          maxExportBatchSize: 512,
+          scheduledDelayMillis: 1000, // Export every 1s for quicker visibility
+          exportTimeoutMillis: 30000,
+        }),
+      ],
+    });
+
+    // Flush spans on page unload to ensure they're exported
+    const flushSpans = () => {
+      provider.forceFlush().catch((err) => {
+        logger.error('Failed to flush spans:', err);
+      });
+    };
+
+    // Flush on page visibility change (user switches tabs)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushSpans();
+      }
+    });
+
+    // Flush before page unload
+    window.addEventListener('beforeunload', flushSpans);
+    window.addEventListener('pagehide', flushSpans);
+
+    // Register the provider (instrumentations are already registered above)
+    provider.register({
+      contextManager: new ZoneContextManager(),
+      propagator: new W3CTraceContextPropagator(),
+    });
+
+    // DEBUG: Force export a test span to verify the pipeline
+    const tracer = provider.getTracer('secan-frontend', '1.2.28');
+    const testSpan = tracer.startSpan('test-initialization');
+    testSpan.setAttribute('test', true);
+    testSpan.end();
+    logger.info('Sent test span to verify pipeline');
 
     // Store provider globally for shutdown
     (window as unknown as { __OTEL_PROVIDER?: WebTracerProvider }).__OTEL_PROVIDER = provider;

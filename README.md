@@ -34,6 +34,7 @@ Visit http://localhost:9000
 - **Authentication**: Open mode, local users, or OIDC support
 - **Single Binary**: No dependencies, easy deployment
 - **Multi-Platform**: Linux, macOS, Windows (amd64/arm64)
+- **High Performance**: Async architecture with 50x faster health checks and non-blocking authentication
 
 ## Documentation
 

@@ -106,11 +106,12 @@ impl ClusterConnection {
     ///
     /// # Returns
     ///
-    /// ClusterHealth information or an error if the health check fails
+    /// Cluster health status and shard information
     ///
     /// # Requirements
     ///
     /// Validates: Requirements 2.10, 2.14
+    #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn check_health(&self) -> Result<ClusterHealth> {
         let health_json = self
             .client
@@ -179,6 +180,7 @@ impl ClusterConnection {
     /// # Returns
     ///
     /// Response from Elasticsearch or an error
+    #[instrument(skip(self, body), fields(cluster_id = %self.id, method = %method, path = %path))]
     pub async fn request(
         &self,
         method: Method,
@@ -197,8 +199,14 @@ impl ClusterConnection {
     }
 
     /// Get cluster stats using SDK typed method
+    #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cluster_stats(&self) -> Result<Value> {
-        self.client.cluster_stats().await
+        // Use instrumented request for tracing
+        let response = self
+            .client
+            .instrumented_request(Method::GET, "_cluster/stats", None::<Value>, &self.id)
+            .await?;
+        Ok(response.json().await?)
     }
 
     /// Get nodes info using SDK typed method
@@ -257,8 +265,15 @@ impl ClusterConnection {
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)
+    #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cat_master(&self) -> Result<String> {
-        self.client.cat_master().await
+        let response = self
+            .client
+            .cat_master()
+            .await
+            .context("Failed to get master node info")?;
+
+        Ok(response)
     }
 }
 
@@ -503,6 +518,7 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 23.3, 23.5
+    #[instrument(skip(self, user), fields(user = %user.username))]
     pub async fn list_accessible_clusters(&self, user: &AuthUser) -> Vec<ClusterInfo> {
         let all_clusters = self.list_clusters().await;
 
@@ -654,25 +670,34 @@ impl Manager {
         Ok(health)
     }
 
-    /// Check health of all clusters
+    /// Check health of all clusters concurrently
+    ///
+    /// Uses join_all to run health checks in parallel, reducing latency
+    /// from O(n) to approximately O(1) (limited by slowest check).
     ///
     /// # Returns
     ///
     /// A HashMap mapping cluster IDs to their health status (or error message)
     ///
     /// # Requirements
-    ///
-    /// Validates: Requirements 2.14, 2.18
+    #[instrument(skip(self))]
     pub async fn check_all_health(&self) -> HashMap<String, Result<ClusterHealth>> {
         let clusters = self.clusters.read().await;
-        let mut health_results = HashMap::new();
 
-        for (id, cluster) in clusters.iter() {
-            let health = cluster.check_health().await;
-            health_results.insert(id.clone(), health);
-        }
+        // Collect all health check futures for concurrent execution
+        let health_futures: Vec<_> = clusters
+            .iter()
+            .map(|(id, cluster)| async move {
+                let health = cluster.check_health().await;
+                (id.clone(), health)
+            })
+            .collect();
 
-        health_results
+        // Execute all health checks concurrently
+        let results = futures::future::join_all(health_futures).await;
+
+        // Collect results into HashMap
+        results.into_iter().collect()
     }
 
     /// Get the number of configured clusters
@@ -680,6 +705,7 @@ impl Manager {
     /// # Returns
     ///
     /// The number of clusters
+    #[instrument(skip(self))]
     pub async fn cluster_count(&self) -> usize {
         let clusters = self.clusters.read().await;
         clusters.len()
@@ -694,6 +720,7 @@ impl Manager {
     /// # Returns
     ///
     /// true if the cluster exists, false otherwise
+    #[instrument(skip(self), fields(cluster_id = %cluster_id))]
     pub async fn has_cluster(&self, cluster_id: &str) -> bool {
         let clusters = self.clusters.read().await;
         clusters.contains_key(cluster_id)

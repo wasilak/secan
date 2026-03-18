@@ -63,8 +63,8 @@ impl LocalAuthProvider {
 
         match user {
             Some(user) => {
-                // Verify password against stored hash
-                let password_valid = verify_password(password, &user.password_hash)?;
+                // Verify password against stored hash (async to avoid blocking runtime)
+                let password_valid = verify_password_async(password, &user.password_hash).await?;
 
                 if password_valid {
                     // Record successful authentication (clears rate limit)
@@ -160,8 +160,8 @@ impl LocalAuthProvider {
 
         match user {
             Some(user) => {
-                // Verify password against stored hash
-                let password_valid = verify_password(password, &user.password_hash)?;
+                // Verify password against stored hash (async to avoid blocking runtime)
+                let password_valid = verify_password_async(password, &user.password_hash).await?;
 
                 if password_valid {
                     // Record successful authentication (clears rate limits)
@@ -261,6 +261,48 @@ pub fn verify_password(password: &str, hash: &str) -> Result<bool> {
     verify(password, hash).context("Failed to verify password")
 }
 
+/// Verify a password asynchronously using spawn_blocking
+///
+/// This prevents blocking the async runtime during bcrypt verification,
+/// which is CPU-intensive and can take 100-500ms per verification.
+///
+/// # Arguments
+///
+/// * `password` - The plaintext password to verify
+/// * `hash` - The bcrypt hash to verify against
+///
+/// # Returns
+///
+/// Returns `Ok(true)` if password matches, `Ok(false)` if it doesn't,
+/// or an error if verification fails.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The hash format is invalid
+/// - bcrypt internal error occurs
+/// - spawn_blocking fails (falls back to sync verification with warning)
+pub async fn verify_password_async(password: &str, hash: &str) -> Result<bool> {
+    // Clone data for the blocking task and fallback
+    let password_owned = password.to_string();
+    let hash_owned = hash.to_string();
+
+    // Use spawn_blocking to offload CPU-intensive bcrypt to dedicated thread pool
+    match tokio::task::spawn_blocking(move || verify_password(&password_owned, &hash_owned)).await {
+        Ok(result) => result,
+        Err(e) => {
+            // spawn_blocking failed (e.g., pool shut down) - fall back to sync
+            // Note: we can't use the owned values here as they were moved into the closure,
+            // so we fall back to using the original references
+            tracing::warn!(
+                error = %e,
+                "spawn_blocking failed for password verification, falling back to synchronous"
+            );
+            verify_password(password, hash)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +342,49 @@ mod tests {
 
         assert!(verify_password(password, &hash).unwrap());
         assert!(!verify_password("wrong_password", &hash).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_verify_password_async() {
+        let password = "test_password";
+        let hash = hash_password(password).unwrap();
+
+        // Test correct password
+        assert!(verify_password_async(password, &hash).await.unwrap());
+
+        // Test wrong password
+        assert!(!verify_password_async("wrong_password", &hash)
+            .await
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_verify_password_async_non_blocking() {
+        let password = "test_password";
+        let hash = hash_password(password).unwrap();
+
+        // Spawn multiple concurrent verifications to ensure they don't block each other
+        let handles: Vec<_> = (0..5)
+            .map(|i| {
+                let pwd = if i % 2 == 0 {
+                    password.to_string()
+                } else {
+                    "wrong_password".to_string()
+                };
+                let hash = hash.clone();
+                tokio::spawn(async move { verify_password_async(&pwd, &hash).await })
+            })
+            .collect();
+
+        // All should complete successfully
+        for (i, handle) in handles.into_iter().enumerate() {
+            let result = handle.await.unwrap().unwrap();
+            if i % 2 == 0 {
+                assert!(result, "Even-indexed tasks should verify successfully");
+            } else {
+                assert!(!result, "Odd-indexed tasks should fail verification");
+            }
+        }
     }
 
     #[tokio::test]

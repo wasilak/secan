@@ -3175,6 +3175,7 @@ dependencies = [
  "bcrypt",
  "chrono",
  "config",
+ "futures",
  "http",
  "jsonwebtoken",
  "ldap3",
