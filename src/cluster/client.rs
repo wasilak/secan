@@ -151,7 +151,7 @@ impl Client {
         &self,
         path: &str,
         operation: &str,
-        body: Option<Value>,
+        _body: Option<Value>,
     ) -> Result<Value> {
         let tracer = opentelemetry::global::tracer("secan-elasticsearch");
         let mut span = tracer.start(format!("ES {}", operation));

@@ -15,9 +15,11 @@ export interface TelemetryConfig {
 }
 
 // Default configuration
+// NOTE: serviceName should be consistent with backend - the backend injects
+// its service name via meta tag, so we default to 'secan' to match
 const DEFAULT_CONFIG: TelemetryConfig = {
-  enabled: false,
-  serviceName: 'secan-frontend',
+  enabled: true, // Enable by default in development
+  serviceName: 'secan',
   serviceVersion: '1.2.28',
   collectorEndpoint: '/v1/traces', // Same-origin proxy endpoint
   resourceAttributes: {},

@@ -14,6 +14,13 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
+      onwarn(warning, warn) {
+        // Suppress eval warning from @protobufjs dependency (not our code)
+        if (warning.message && warning.message.includes('eval')) {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         manualChunks: (id) => {
           // Vendor chunk: React ecosystem

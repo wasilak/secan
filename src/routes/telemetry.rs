@@ -39,17 +39,11 @@ pub struct OtelProxyState {
     collector_headers: Vec<(String, String)>,
     /// HTTP client for forwarding requests
     http_client: reqwest::Client,
-    /// Whether to use gRPC (currently always HTTP for simplicity)
-    use_grpc: bool,
 }
 
 impl OtelProxyState {
     /// Create new proxy state from telemetry configuration
-    pub fn new(
-        collector_endpoint: String,
-        collector_headers: Vec<(String, String)>,
-        use_grpc: bool,
-    ) -> Self {
+    pub fn new(collector_endpoint: String, collector_headers: Vec<(String, String)>) -> Self {
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
@@ -68,7 +62,6 @@ impl OtelProxyState {
             collector_endpoint,
             collector_headers,
             http_client,
-            use_grpc,
         }
     }
 }
@@ -158,13 +151,8 @@ async fn forward_to_collector(
 pub fn create_otlp_proxy_router(
     collector_endpoint: String,
     collector_headers: Vec<(String, String)>,
-    use_grpc: bool,
 ) -> Router {
-    let state = Arc::new(OtelProxyState::new(
-        collector_endpoint,
-        collector_headers,
-        use_grpc,
-    ));
+    let state = Arc::new(OtelProxyState::new(collector_endpoint, collector_headers));
 
     Router::new()
         .route("/v1/traces", post(trace_export_handler))
@@ -178,14 +166,13 @@ mod tests {
     #[test]
     fn test_otel_proxy_state_new() {
         // Test endpoint normalization
-        let state1 = OtelProxyState::new("http://localhost:4318".to_string(), vec![], false);
+        let state1 = OtelProxyState::new("http://localhost:4318".to_string(), vec![]);
         assert_eq!(state1.collector_endpoint, "http://localhost:4318/v1/traces");
 
-        let state2 = OtelProxyState::new("http://localhost:4318/".to_string(), vec![], false);
+        let state2 = OtelProxyState::new("http://localhost:4318/".to_string(), vec![]);
         assert_eq!(state2.collector_endpoint, "http://localhost:4318/v1/traces");
 
-        let state3 =
-            OtelProxyState::new("http://localhost:4318/v1/traces".to_string(), vec![], false);
+        let state3 = OtelProxyState::new("http://localhost:4318/v1/traces".to_string(), vec![]);
         assert_eq!(state3.collector_endpoint, "http://localhost:4318/v1/traces");
     }
 }

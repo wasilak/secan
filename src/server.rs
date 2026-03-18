@@ -158,10 +158,6 @@ impl Server {
                 Some(Arc::new(crate::routes::telemetry::OtelProxyState::new(
                     telemetry_config.otlp_endpoint,
                     headers,
-                    matches!(
-                        telemetry_config.otlp_protocol,
-                        crate::telemetry::config::OtlpProtocol::Grpc
-                    ),
                 )))
             } else {
                 None

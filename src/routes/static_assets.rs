@@ -87,12 +87,15 @@ pub async fn serve_static(uri: Uri) -> Response {
 
 /// Inject OpenTelemetry configuration into HTML
 ///
-/// Adds meta tags or a config script with OTEL_* settings
-/// so the frontend can initialize telemetry correctly.
+/// Adds meta tags with OTEL_* settings for frontend telemetry.
+///
+/// The frontend sends traces to the backend's /v1/traces proxy endpoint,
+/// which then forwards them to the OTLP collector. This avoids CORS issues
+/// and allows the backend to handle authentication.
 fn inject_otel_config(html: &str) -> String {
     let telemetry_config = TelemetryConfig::from_env().unwrap_or_else(|_| TelemetryConfig {
         enabled: false,
-        service_name: "secan-frontend".to_string(),
+        service_name: "secan".to_string(), // Match backend default
         service_version: env!("CARGO_PKG_VERSION").to_string(),
         otlp_endpoint: "/v1/traces".to_string(),
         otlp_protocol: crate::telemetry::config::OtlpProtocol::Http,
@@ -101,6 +104,10 @@ fn inject_otel_config(html: &str) -> String {
         resource_attributes: vec![],
         batch_config: crate::telemetry::config::BatchConfig::default(),
     });
+
+    // Frontend sends traces to backend proxy endpoint, not directly to collector
+    // The backend's /v1/traces endpoint proxies to the actual OTLP collector
+    let frontend_endpoint = "/v1/traces";
 
     // Build the config injection
     let config_injection = format!(
@@ -115,7 +122,7 @@ fn inject_otel_config(html: &str) -> String {
         },
         telemetry_config.service_name,
         telemetry_config.service_version,
-        telemetry_config.otlp_endpoint
+        frontend_endpoint
     );
 
     // Inject before </head>

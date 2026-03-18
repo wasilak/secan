@@ -81,6 +81,16 @@ All configuration is done via environment variables following OpenTelemetry stan
 | `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Maximum spans per batch | `512` |
 | `OTEL_BSP_EXPORT_TIMEOUT` | Export timeout in milliseconds | `30000` (30 seconds) |
 
+### Frontend Configuration
+
+No additional configuration needed! The frontend automatically generates W3C traceparent headers for every API request. The backend uses these headers to create properly-rooted traces.
+
+Benefits of this approach:
+- **No CORS issues** - headers are standard HTTP headers
+- **Zero frontend dependencies** - no OpenTelemetry SDK to load
+- **Clean traces** - each user action is a separate trace
+- **Automatic** - works out of the box with no configuration
+
 ## Example Configurations
 
 ### Local Development with Jaeger
@@ -311,6 +321,8 @@ Secan uses standard OTLP, so it works with any OpenTelemetry-compatible collecto
 
 ## Architecture
 
+### Backend-Only Tracing
+
 ```
 ┌─────────────┐     HTTP      ┌─────────────┐    OTLP/HTTP    ┌─────────────┐
 │   Client    │ ────────────► │   Secan     │ ──────────────► │   Jaeger    │
@@ -326,12 +338,77 @@ Secan uses standard OTLP, so it works with any OpenTelemetry-compatible collecto
                           └─────────────────────┘
 ```
 
+### End-to-End Trace Context (Frontend + Backend)
+
+```
+┌───────────────┐   HTTP +        ┌───────────────┐   OTLP/HTTP   ┌───────────────┐
+│    Browser    │  traceparent    │    Secan      │──────────────►│ OTLP Collector│
+│  (Headers     │  header         │  (Traces)     │               │(Jaeger/Zipkin)│
+│   only)       │                 │               │               │               │
+└───────────────┘                 └───────────────┘               └─────────────┘
+                                         │
+                                         │ Internal
+                                         ▼
+                               ┌─────────────────────┐
+                               │  ES Cluster Client  │
+                               │   (Child Spans)     │
+                               └─────────────────────┘
+```
+
+## Frontend Trace Context
+
+Secan uses a lightweight approach for frontend-to-backend trace correlation: **W3C Trace Context headers only**, without the complexity of a full frontend OpenTelemetry SDK.
+
+### How It Works
+
+1. **Frontend** generates a fresh `traceparent` header for each API request using a lightweight W3C-compliant generator
+2. **Backend** extracts the `traceparent` header and creates a root span for the HTTP request
+3. **Backend** ES operations become child spans of that HTTP request
+4. **Result**: Each user action (clicking pagination, sorting, etc.) creates a clean trace with backend operations properly nested
+
+### Why No Frontend Spans?
+
+We intentionally **do not** use the OpenTelemetry Web SDK because:
+
+- **SPAs don't have "page loads"** - a never-ending page-level span is an anti-pattern
+- **User interactions are independent** - clicking pagination should be a separate trace, not nested under the initial page load
+- **Simpler architecture** - no frontend span export, batching, or flush complexity
+- **Same result** - you get full visibility into backend operations triggered by user actions
+
+### Traceparent Generation
+
+The frontend API client automatically injects W3C-compliant `traceparent` headers:
+
+```typescript
+// Automatically injected on every API request
+traceparent: 00-<32-char-trace-id>-<16-char-span-id>-01
+```
+
+This is done via an Axios interceptor in `frontend/src/api/client.ts`.
+
+### Example Trace Flow
+
+```
+User clicks "Next Page" in UI
+    ↓
+Frontend generates: traceparent: 00-abc123...-def456...-01
+    ↓
+GET /api/clusters/{id}/indices?page=2 (with traceparent header)
+    ↓
+Backend creates root span: "GET /api/clusters/{id}/indices"
+    ↓
+Backend queries ES → child span: "ES /_cat/indices"
+    ↓
+Single trace in Jaeger:
+    Trace abc123...
+    ├── GET /api/clusters/{id}/indices (root)
+    └── ES /_cat/indices (child)
+```
+
 ## Future Enhancements
 
-Phase 2 will add:
+Planned enhancements:
 
-- **Frontend Tracing**: Browser-side OpenTelemetry instrumentation
-- **End-to-End Traces**: Full request lifecycle from browser through backend to ES
 - **Metrics**: OpenTelemetry metrics (counters, histograms)
 - **Logs**: Structured log correlation with traces
 

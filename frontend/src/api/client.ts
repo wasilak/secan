@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
+import { getTraceparent } from '../utils/traceparent';
 import {
   PaginatedResponse,
   ClusterInfo,
@@ -84,6 +85,13 @@ export class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+    });
+
+    // Add request interceptor to inject traceparent header
+    // This links frontend requests with backend traces (no frontend spans created)
+    this.client.interceptors.request.use((config) => {
+      config.headers['traceparent'] = getTraceparent();
+      return config;
     });
 
     // Add response interceptor for error handling

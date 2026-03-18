@@ -15,19 +15,17 @@ import { RefreshProvider } from './contexts/RefreshContext';
 import { DrawerProvider } from './contexts/DrawerContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeInitializer } from './components/ThemeInitializer';
-import { initializeTelemetry, shutdownTelemetry } from './telemetry';
+// NOTE: Frontend OpenTelemetry disabled - using manual traceparent header injection instead
+// Trace context is propagated via W3C traceparent header in API client (see api/client.ts)
+// Backend creates spans and links ES operations as children
+// import { initializeTelemetry, shutdownTelemetry } from './telemetry';
 
 // Configure Monaco Editor to use bundled files instead of CDN
 configureMonaco();
 
-// Initialize OpenTelemetry tracing early
-// This must happen before any network requests are made
-initializeTelemetry();
-
-// Handle graceful shutdown
-window.addEventListener('beforeunload', () => {
-  shutdownTelemetry();
-});
+// Frontend telemetry disabled - traceparent headers are injected manually in API client
+// initializeTelemetry();
+// window.addEventListener('beforeunload', () => { shutdownTelemetry(); });
 
 // Create custom theme configuration with responsive design
 const theme = createTheme({
@@ -111,20 +109,24 @@ const theme = createTheme({
   },
 });
 
+// Disable StrictMode in production to prevent duplicate requests
+// StrictMode intentionally double-mounts components in development
+const App = (
+  <QueryClientProvider client={queryClient}>
+    <MantineProvider theme={theme} defaultColorScheme="auto">
+      <ThemeInitializer />
+      <AuthProvider>
+        <DrawerProvider>
+          <RefreshProvider>
+            <Notifications />
+            <RouterProvider router={router} />
+          </RefreshProvider>
+        </DrawerProvider>
+      </AuthProvider>
+    </MantineProvider>
+  </QueryClientProvider>
+);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme} defaultColorScheme="auto">
-        <ThemeInitializer />
-        <AuthProvider>
-          <DrawerProvider>
-            <RefreshProvider>
-              <Notifications />
-              <RouterProvider router={router} />
-            </RefreshProvider>
-          </DrawerProvider>
-        </AuthProvider>
-      </MantineProvider>
-    </QueryClientProvider>
-  </React.StrictMode>
+  process.env.NODE_ENV === 'development' ? <React.StrictMode>{App}</React.StrictMode> : App
 );
