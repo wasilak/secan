@@ -44,12 +44,8 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Setup Just
-        # FIXME: setup-just@v3 uses setup-crate@v1.4.0 which runs on Node.js 20
-        # This will be deprecated by June 2026. Track: https://github.com/extractions/setup-just/issues
-        uses: extractions/setup-just@v3
-        with:
-          just-version: 1.46.0
+      - name: Install Task
+        uses: go-task/setup-task@v1
 
       - name: Install frontend dependencies
         working-directory: frontend
@@ -60,7 +56,7 @@ jobs:
         run: npm run build
 
       - name: Run backend tests
-        run: just test-backend
+        run: task backend:test
 
       - name: Generate OpenAPI spec
         run: cargo test --lib -- --nocapture 2>&1 | grep -E "OpenAPI spec written" || true
@@ -109,13 +105,13 @@ jobs:
           EOF
 
       - name: Run backend linting
-        run: just lint-backend
+        run: task backend:lint
 
       - name: Run frontend tests
-        run: just test-frontend
+        run: task frontend:test
 
       - name: Run frontend linting
-        run: just lint-frontend
+        run: task frontend:lint
 
   # Stage 2a: Build release binaries
   build-binaries:
@@ -181,11 +177,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-cargo-build-
 
       - name: Setup Just
-        # FIXME: setup-just@v3 uses setup-crate@v1.4.0 which runs on Node.js 20
-        # This will be deprecated by June 2026. Track: https://github.com/extractions/setup-just/issues
-        uses: extractions/setup-just@v3
-        with:
-          just-version: 1.46.0
+        uses: go-task/setup-task@v1
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -200,19 +192,19 @@ jobs:
 
       - name: Install cross (for cross-compilation)
         if: matrix.use_cross
-        run: just cross-install
+        run: task cross:install
 
       - name: Build backend (native)
         if: ${{ !matrix.use_cross }}
         env:
           TARGET: ${{ matrix.target }}
-        run: just release-backend-target
+        run: task release:backend:target
 
       - name: Build backend (cross)
         if: matrix.use_cross
         env:
           TARGET: ${{ matrix.target }}
-        run: just cross-build
+        run: task cross:build
 
       - name: Prepare binary
         run: |

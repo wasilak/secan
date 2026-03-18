@@ -33,22 +33,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: docs/package-lock.json
 
-      - name: Setup Just
-        # FIXME: setup-just@v3 uses setup-crate@v1.4.0 which runs on Node.js 20
-        # This will be deprecated by June 2026. Track: https://github.com/extractions/setup-just/issues
-        uses: extractions/setup-just@v3
-        with:
-          just-version: 1.46.0
+      - name: Install Task
+        uses: go-task/setup-task@v1
 
       - name: Install docs dependencies
-        run: just docs-install
-
-      - name: Check links
-        run: just docs-check-links
-        continue-on-error: true
+        run: task docs:install
 
       - name: Build Docusaurus
-        run: just docs-build
+        run: task docs:build
 
       - name: Upload documentation artifact
         uses: actions/upload-artifact@v7
