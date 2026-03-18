@@ -264,6 +264,15 @@ impl ClusterConnection {
         self.client.cat_shards_for_node(node_id).await
     }
 
+    /// Get cluster state with routing_nodes metric for paginated shard listing
+    #[instrument(skip(self), fields(cluster_id = %self.id))]
+    pub async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value> {
+        self.client
+            .cluster_state_routing_nodes(indices)
+            .await
+            .context("Failed to get cluster state with routing nodes")
+    }
+
     /// Get master node ID using _cat/master API (memory-efficient)
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cat_master(&self) -> Result<String> {

@@ -513,7 +513,7 @@ export class ApiClient {
   async getShards(
     clusterId: string,
     page: number = 1,
-    pageSize: number = 50,
+    pageSize: number = 10,
     filters?: {
       state?: string; // comma-separated: 'UNASSIGNED,STARTED'
       search?: string; // search both index and node (OR logic)

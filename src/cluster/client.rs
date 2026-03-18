@@ -76,6 +76,10 @@ pub trait ElasticsearchClient: Send + Sync {
 
     /// Get master node ID using _cat/master API (memory-efficient)
     async fn cat_master(&self) -> Result<String>;
+
+    /// Get cluster state with routing_nodes metric
+    /// Used for efficient shard listing with pagination
+    async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value>;
 }
 
 impl Client {
@@ -841,6 +845,42 @@ impl ElasticsearchClient for Client {
             .ok_or_else(|| anyhow::anyhow!("No master node found in response"))?;
 
         Ok(master_id)
+    }
+
+    /// Get cluster state with routing_nodes metric
+    ///
+    /// Used for efficient shard listing with pagination.
+    /// The routing_nodes metric returns shard allocation information in native JSON format.
+    ///
+    /// # Arguments
+    /// * `indices` - Optional list of indices to filter. If None, returns all shards.
+    async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value> {
+        let path = if let Some(idx) = indices {
+            if idx.is_empty() {
+                "/_cluster/state/routing_nodes".to_string()
+            } else {
+                format!("/_cluster/state/routing_nodes/{}", idx.join(","))
+            }
+        } else {
+            "/_cluster/state/routing_nodes".to_string()
+        };
+
+        let response = self
+            .request(reqwest::Method::GET, &path, None)
+            .await
+            .context("Cluster state routing_nodes request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Cluster state routing_nodes failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cluster state routing_nodes response")
     }
 }
 

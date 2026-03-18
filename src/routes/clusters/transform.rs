@@ -562,6 +562,132 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
     result
 }
 
+/// Parse a single shard entry from routing_nodes structure
+fn parse_routing_node_shard(entry: &Value, node: Option<String>) -> Option<ShardInfoResponse> {
+    let index = entry.get("index")?.as_str()?.to_string();
+    let shard = entry.get("shard")?.as_u64()? as u32;
+    let primary = entry.get("primary")?.as_bool().unwrap_or(false);
+    let state = entry
+        .get("state")?
+        .as_str()
+        .unwrap_or("UNASSIGNED")
+        .to_string();
+
+    // Node from routing_nodes has node_id, we use the passed node name if available
+    let node_name = node.or_else(|| {
+        entry
+            .get("node")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    });
+
+    // docs and store are not available in routing_nodes, set to 0
+    Some(ShardInfoResponse {
+        index,
+        shard,
+        primary,
+        state,
+        node: node_name,
+        docs: 0,
+        store: 0,
+    })
+}
+
+/// Transform _cluster/state/routing_nodes API response to flat shard list
+///
+/// Parses the nested routing_nodes structure into a flat Vec<ShardInfoResponse>.
+/// Used for paginated shards list endpoint.
+///
+/// # Arguments
+/// * `state` - The JSON response from _cluster/state/routing_nodes API
+///
+/// # Returns
+/// Flat vector of ShardInfoResponse sorted by index, shard, primary
+pub fn transform_routing_nodes_to_shards(state: &Value) -> Vec<ShardInfoResponse> {
+    let mut shards = Vec::new();
+
+    let routing_nodes = match state.get("routing_nodes") {
+        Some(v) => v,
+        None => return shards,
+    };
+
+    // Process unassigned shards
+    if let Some(unassigned) = routing_nodes.get("unassigned").and_then(|v| v.as_array()) {
+        for shard_entry in unassigned {
+            if let Some(shard) = parse_routing_node_shard(shard_entry, None) {
+                shards.push(shard);
+            }
+        }
+    }
+
+    // Process assigned shards (grouped by node)
+    if let Some(nodes) = routing_nodes.get("nodes").and_then(|v| v.as_object()) {
+        for (_node_id, node_shards) in nodes {
+            if let Some(shards_array) = node_shards.as_array() {
+                for shard_entry in shards_array {
+                    let node_name = node_shards
+                        .get("node")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+                    if let Some(shard) = parse_routing_node_shard(shard_entry, node_name) {
+                        shards.push(shard);
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by index, shard, primary (primary first within same index/shard)
+    shards.sort_by(|a, b| {
+        match a.index.cmp(&b.index) {
+            std::cmp::Ordering::Equal => match a.shard.cmp(&b.shard) {
+                std::cmp::Ordering::Equal => b.primary.cmp(&a.primary), // primary first
+                other => other,
+            },
+            other => other,
+        }
+    });
+
+    shards
+}
+
+/// Paginated shards response for API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedShardsResponse {
+    pub items: Vec<ShardInfoResponse>,
+    pub total: usize,
+    pub page: usize,
+    pub page_size: usize,
+    pub total_pages: usize,
+}
+
+impl PaginatedShardsResponse {
+    pub fn new(shards: Vec<ShardInfoResponse>, page: usize, page_size: usize) -> Self {
+        let total = shards.len();
+        let total_pages = total.div_ceil(page_size);
+
+        // Clamp page to valid range
+        let page = page.max(1).min(total_pages.max(1));
+
+        let start = (page - 1) * page_size;
+        let end = (start + page_size).min(total);
+
+        let items = if start < total {
+            shards[start..end].to_vec()
+        } else {
+            Vec::new()
+        };
+
+        Self {
+            items,
+            total,
+            page,
+            page_size,
+            total_pages,
+        }
+    }
+}
+
 /// Cluster stats response for frontend
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterStatsResponse {
@@ -1061,6 +1187,172 @@ mod tests {
         assert_eq!(result[2].node, None);
         assert_eq!(result[2].docs, 0);
         assert_eq!(result[2].store, 0);
+    }
+
+    #[test]
+    fn test_transform_routing_nodes_to_shards() {
+        let state = json!({
+            "routing_nodes": {
+                "unassigned": [
+                    {
+                        "state": "UNASSIGNED",
+                        "primary": true,
+                        "index": "logs-2024.01",
+                        "shard": 2,
+                        "unassigned_info": {
+                            "reason": "NODE_LEFT"
+                        }
+                    }
+                ],
+                "nodes": {
+                    "node1": [
+                        {
+                            "state": "STARTED",
+                            "primary": true,
+                            "index": "logs-2024.01",
+                            "shard": 0,
+                            "node": "node1"
+                        },
+                        {
+                            "state": "STARTED",
+                            "primary": false,
+                            "index": "logs-2024.01",
+                            "shard": 0,
+                            "node": "node1"
+                        }
+                    ],
+                    "node2": [
+                        {
+                            "state": "STARTED",
+                            "primary": true,
+                            "index": "logs-2024.01",
+                            "shard": 1,
+                            "node": "node2"
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = transform_routing_nodes_to_shards(&state);
+
+        assert_eq!(result.len(), 4);
+
+        // Should be sorted: index, shard, primary DESC
+        // Primary shards first for same index/shard
+        assert_eq!(result[0].index, "logs-2024.01");
+        assert_eq!(result[0].shard, 0);
+        assert!(result[0].primary);
+        assert_eq!(result[0].state, "STARTED");
+        assert_eq!(result[0].node, Some("node1".to_string()));
+
+        // Replica for same shard
+        assert_eq!(result[1].shard, 0);
+        assert!(!result[1].primary);
+
+        // Next shard on node2
+        assert_eq!(result[2].shard, 1);
+        assert!(result[2].primary);
+
+        // Unassigned last
+        assert_eq!(result[3].state, "UNASSIGNED");
+        assert_eq!(result[3].node, None);
+
+        // docs and store should be 0 (not available in routing_nodes)
+        assert_eq!(result[0].docs, 0);
+        assert_eq!(result[0].store, 0);
+    }
+
+    #[test]
+    fn test_transform_routing_nodes_empty() {
+        let state = json!({
+            "routing_nodes": {
+                "unassigned": [],
+                "nodes": {}
+            }
+        });
+
+        let result = transform_routing_nodes_to_shards(&state);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_transform_routing_nodes_no_routing_nodes() {
+        let state = json!({
+            "cluster_name": "test"
+        });
+
+        let result = transform_routing_nodes_to_shards(&state);
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_paginated_shards_response_basic() {
+        let shards = vec![
+            ShardInfoResponse {
+                index: "idx-a".to_string(),
+                shard: 0,
+                primary: true,
+                state: "STARTED".to_string(),
+                node: Some("node1".to_string()),
+                docs: 0,
+                store: 0,
+            },
+            ShardInfoResponse {
+                index: "idx-b".to_string(),
+                shard: 0,
+                primary: true,
+                state: "STARTED".to_string(),
+                node: Some("node1".to_string()),
+                docs: 0,
+                store: 0,
+            },
+            ShardInfoResponse {
+                index: "idx-c".to_string(),
+                shard: 0,
+                primary: true,
+                state: "STARTED".to_string(),
+                node: Some("node1".to_string()),
+                docs: 0,
+                store: 0,
+            },
+        ];
+
+        let response = PaginatedShardsResponse::new(shards, 1, 2);
+
+        assert_eq!(response.total, 3);
+        assert_eq!(response.page, 1);
+        assert_eq!(response.page_size, 2);
+        assert_eq!(response.total_pages, 2);
+        assert_eq!(response.items.len(), 2);
+    }
+
+    #[test]
+    fn test_paginated_shards_response_clamp_page() {
+        let shards = vec![ShardInfoResponse {
+            index: "idx-a".to_string(),
+            shard: 0,
+            primary: true,
+            state: "STARTED".to_string(),
+            node: None,
+            docs: 0,
+            store: 0,
+        }];
+
+        // Page 100 should be clamped to page 1 (since there's only 1 page)
+        let response = PaginatedShardsResponse::new(shards, 100, 10);
+        assert_eq!(response.page, 1);
+    }
+
+    #[test]
+    fn test_paginated_shards_response_empty() {
+        let shards: Vec<ShardInfoResponse> = vec![];
+        let response = PaginatedShardsResponse::new(shards, 1, 10);
+
+        assert_eq!(response.total, 0);
+        assert_eq!(response.page, 1);
+        assert_eq!(response.total_pages, 0); // 0 items = 0 pages
+        assert_eq!(response.items.len(), 0);
     }
 }
 

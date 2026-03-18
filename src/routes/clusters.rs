@@ -19,7 +19,7 @@ pub mod transform;
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
     transform_cluster_stats, transform_indices_from_cat, transform_node_detail_stats,
-    transform_nodes, transform_shards, ClusterStatsResponse, IndexInfoResponse,
+    transform_nodes, transform_routing_nodes_to_shards, ClusterStatsResponse, IndexInfoResponse,
     NodeDetailStatsResponse, NodeInfoResponse, ShardInfoResponse,
 };
 
@@ -1513,7 +1513,7 @@ fn default_page() -> u32 {
     1
 }
 fn default_page_size() -> u32 {
-    50
+    10
 }
 
 #[utoipa::path(
@@ -1767,7 +1767,7 @@ pub struct ShardsQueryParams {
     #[schema(default = 1, example = 1)]
     #[serde(default = "default_page")]
     pub page: u32,
-    #[schema(default = 50, example = 50)]
+    #[schema(default = 10, example = 10)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
     #[schema(example = "STARTED,UNASSIGNED")]
@@ -1837,21 +1837,24 @@ pub async fn get_shards(
             }
         })?;
 
-    // Use _cat/shards API for memory-efficient shard retrieval
-    let cat_shards = cluster.cat_shards().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to get shard information"
-        );
-        ClusterErrorResponse {
-            error: "shards_failed".to_string(),
-            message: format!("Failed to get shard information: {}", e),
-        }
-    })?;
+    // Use _cluster/state/routing_nodes API for native JSON pagination support
+    let state_response = cluster
+        .cluster_state_routing_nodes(None)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to get cluster state with routing nodes"
+            );
+            ClusterErrorResponse {
+                error: "shards_failed".to_string(),
+                message: format!("Failed to get shard information: {}", e),
+            }
+        })?;
 
-    // Transform to frontend format
-    let all_shards = transform_shards(&cat_shards);
+    // Transform to flat shard list
+    let all_shards = transform_routing_nodes_to_shards(&state_response);
 
     // Apply filters
     let state_filter: Vec<&str> = params.state.split(',').filter(|s| !s.is_empty()).collect();
@@ -1986,22 +1989,38 @@ pub async fn get_node_shards(
             }
         })?;
 
-    // Use _cat/shards API with node filter for efficient retrieval
-    let cat_shards = cluster.cat_shards_for_node(&node_id).await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            node_id = %node_id,
-            error = %e,
-            "Failed to get shard information for node"
-        );
-        ClusterErrorResponse {
-            error: "shards_failed".to_string(),
-            message: format!("Failed to get shard information: {}", e),
-        }
-    })?;
+    // Use _cluster/state/routing_nodes for native JSON API
+    let state_response = cluster
+        .cluster_state_routing_nodes(None)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                node_id = %node_id,
+                error = %e,
+                "Failed to get cluster state with routing nodes"
+            );
+            ClusterErrorResponse {
+                error: "shards_failed".to_string(),
+                message: format!("Failed to get shard information: {}", e),
+            }
+        })?;
 
-    // Transform to frontend format
-    let shards = transform_shards(&cat_shards);
+    // Transform to flat shard list
+    let all_shards = transform_routing_nodes_to_shards(&state_response);
+
+    // Filter by node name (node_id in path is node name)
+    let node_lower = node_id.to_lowercase();
+    let shards: Vec<ShardInfoResponse> = all_shards
+        .into_iter()
+        .filter(|shard| {
+            shard
+                .node
+                .as_ref()
+                .map(|n| n.to_lowercase() == node_lower)
+                .unwrap_or(false)
+        })
+        .collect();
 
     tracing::debug!(
         cluster_id = %cluster_id,
