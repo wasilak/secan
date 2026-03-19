@@ -1,4 +1,4 @@
-import { Paper, Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton, Grid, Wrap } from '@mantine/core';
+import { Paper, Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton, Grid } from '@mantine/core';
 import { NodeInfo, ShardInfo } from '../../types/api';
 import { RoleIcons } from '../RoleIcons';
 import { formatBytes } from '../../utils/formatters';
@@ -100,7 +100,7 @@ export function NodeCard({
         </Group>
 
         {/* IP and Stats - single row with wrapping */}
-        <Wrap gap="xs" mb="xs">
+        <Flex gap="xs" mb="xs" wrap="wrap">
           {node?.ip && (
             <Text size="xs" c="dimmed">
               IP: {node.ip}
@@ -141,7 +141,7 @@ export function NodeCard({
               Load: {node.loadAverage[0].toFixed(2)}
             </Text>
           )}
-        </Wrap>
+        </Flex>
 
         <Divider mb="xs" />
 
