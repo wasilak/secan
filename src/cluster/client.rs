@@ -74,6 +74,10 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get shard information for a specific node using _cat/shards API (memory-efficient)
     async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value>;
 
+    /// Get shard information for a specific index using _cat/shards API
+    /// Returns full shard details including docs and store
+    async fn cat_shards_for_index(&self, index: &str) -> Result<Value>;
+
     /// Get master node ID using _cat/master API (memory-efficient)
     async fn cat_master(&self) -> Result<String>;
 
@@ -829,6 +833,41 @@ impl ElasticsearchClient for Client {
         } else {
             Ok(serde_json::json!([]))
         }
+    }
+
+    /// Get shard information for a specific index using _cat/shards API
+    /// Returns full shard details including docs and store
+    async fn cat_shards_for_index(&self, index: &str) -> Result<Value> {
+        let encoded_index = urlencoding::encode(index);
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!("/_cat/shards/{}?format=json&bytes=b&h=index,shard,prirep,state,node,docs,store", encoded_index),
+                None,
+            )
+            .await
+            .context("Cat shards for index request failed")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                status = %status,
+                body = %body,
+                index = %index,
+                "Cat shards for index API returned error"
+            );
+            anyhow::bail!(
+                "Cat shards for index failed with status: {} - {}",
+                status,
+                body
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse cat shards for index response")
     }
 
     /// Get master node ID using _cat/master API (memory-efficient)

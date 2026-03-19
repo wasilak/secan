@@ -264,6 +264,12 @@ impl ClusterConnection {
         self.client.cat_shards_for_node(node_id).await
     }
 
+    /// Get shard information for a specific index
+    /// Returns full shard details including docs and store
+    pub async fn cat_shards_for_index(&self, index: &str) -> Result<Value> {
+        self.client.cat_shards_for_index(index).await
+    }
+
     /// Get cluster state with routing_nodes metric for paginated shard listing
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value> {

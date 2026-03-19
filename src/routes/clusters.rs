@@ -1837,21 +1837,24 @@ pub async fn get_shards(
             }
         })?;
 
-    // Use _cat/shards API for full shard information including docs and store
-    let cat_shards = cluster.cat_shards().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to get shard information"
-        );
-        ClusterErrorResponse {
-            error: "shards_failed".to_string(),
-            message: format!("Failed to get shard information: {}", e),
-        }
-    })?;
+    // Phase 1: Get all shards from routing_nodes (minimal fields for pagination/filtering)
+    let state_response = cluster
+        .cluster_state_routing_nodes(None)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Failed to get cluster state with routing nodes"
+            );
+            ClusterErrorResponse {
+                error: "shards_failed".to_string(),
+                message: format!("Failed to get shard information: {}", e),
+            }
+        })?;
 
-    // Transform to frontend format (includes docs and store)
-    let all_shards = transform_shards(&cat_shards);
+    // Transform to flat shard list (minimal fields: index, shard, primary, state, node)
+    let all_shards = transform_routing_nodes_to_shards(&state_response);
 
     // Apply filters
     let state_filter: Vec<&str> = params.state.split(',').filter(|s| !s.is_empty()).collect();
@@ -1912,23 +1915,78 @@ pub async fn get_shards(
         "Shards filtered"
     );
 
-    // Apply pagination
-    let response = paginate_vec(
+    // Apply pagination to get page indices
+    let paginated = paginate_vec(
         filtered_shards,
         params.page as usize,
         params.page_size as usize,
     );
 
+    // Phase 2: For the current page, fetch full details (docs, store) per-index
+    // Get unique indices for shards on this page
+    let page_indices: Vec<&str> = paginated
+        .items
+        .iter()
+        .map(|s| s.index.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    // Fetch full details for each index on this page
+    let mut index_details: std::collections::HashMap<String, Vec<ShardInfoResponse>> =
+        std::collections::HashMap::new();
+
+    for index_name in &page_indices {
+        match cluster.cat_shards_for_index(index_name).await {
+            Ok(shards_data) => {
+                let shards = transform_shards(&shards_data);
+                index_details.insert(index_name.to_string(), shards);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    cluster_id = %cluster_id,
+                    index = index_name,
+                    error = %e,
+                    "Failed to get full details for index"
+                );
+            }
+        }
+    }
+
+    // Merge details into paginated items
+    let items_with_details: Vec<ShardInfoResponse> = paginated
+        .items
+        .into_iter()
+        .map(|mut shard| {
+            if let Some(index_shards) = index_details.get(&shard.index) {
+                // Find matching shard in index details
+                if let Some(detail) = index_shards.iter().find(|s| {
+                    s.index == shard.index && s.shard == shard.shard && s.primary == shard.primary
+                }) {
+                    shard.docs = detail.docs;
+                    shard.store = detail.store;
+                }
+            }
+            shard
+        })
+        .collect();
+
     tracing::debug!(
         cluster_id = %cluster_id,
-        total_shards = response.total,
-        page_shards = response.items.len(),
+        total_shards = paginated.total,
+        page_shards = items_with_details.len(),
         page = params.page,
         page_size = params.page_size,
         "Shards retrieved successfully"
     );
 
-    Ok(Json(response))
+    Ok(Json(PaginatedResponse {
+        items: items_with_details,
+        total: paginated.total,
+        page: paginated.page,
+        page_size: paginated.page_size,
+        total_pages: paginated.total_pages,
+    }))
 }
 
 /// Get shards allocated on a specific node
