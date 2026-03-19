@@ -622,10 +622,10 @@ pub fn transform_routing_nodes_to_shards(state: &Value) -> Vec<ShardInfoResponse
 
     // Process assigned shards (grouped by node)
     if let Some(nodes) = routing_nodes.get("nodes").and_then(|v| v.as_object()) {
-        for (_node_id, node_shards) in nodes {
-            if let Some(shards_array) = node_shards.as_array() {
+        for (_node_id, shards_array) in nodes {
+            if let Some(shards_array) = shards_array.as_array() {
                 for shard_entry in shards_array {
-                    let node_name = node_shards
+                    let node_name = shard_entry
                         .get("node")
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
