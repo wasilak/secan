@@ -19,8 +19,8 @@ pub mod transform;
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
     transform_cluster_stats, transform_indices_from_cat, transform_node_detail_stats,
-    transform_nodes, transform_routing_nodes_to_shards, ClusterStatsResponse, IndexInfoResponse,
-    NodeDetailStatsResponse, NodeInfoResponse, ShardInfoResponse,
+    transform_nodes, transform_routing_nodes_to_shards, transform_shards, ClusterStatsResponse,
+    IndexInfoResponse, NodeDetailStatsResponse, NodeInfoResponse, ShardInfoResponse,
 };
 
 /// Shared application state for cluster routes
@@ -1837,24 +1837,21 @@ pub async fn get_shards(
             }
         })?;
 
-    // Use _cluster/state/routing_nodes API for native JSON pagination support
-    let state_response = cluster
-        .cluster_state_routing_nodes(None)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Failed to get cluster state with routing nodes"
-            );
-            ClusterErrorResponse {
-                error: "shards_failed".to_string(),
-                message: format!("Failed to get shard information: {}", e),
-            }
-        })?;
+    // Use _cat/shards API for full shard information including docs and store
+    let cat_shards = cluster.cat_shards().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to get shard information"
+        );
+        ClusterErrorResponse {
+            error: "shards_failed".to_string(),
+            message: format!("Failed to get shard information: {}", e),
+        }
+    })?;
 
-    // Transform to flat shard list
-    let all_shards = transform_routing_nodes_to_shards(&state_response);
+    // Transform to frontend format (includes docs and store)
+    let all_shards = transform_shards(&cat_shards);
 
     // Apply filters
     let state_filter: Vec<&str> = params.state.split(',').filter(|s| !s.is_empty()).collect();
