@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
-import { Grid, Text, Box, Divider } from '@mantine/core';
+import { Grid, Text, Box, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { NodeCard } from './NodeCard';
@@ -36,6 +36,7 @@ interface DotBasedTopologyViewProps {
   _topologyRetryCount?: number;
   groupBy?: GroupingAttribute;
   groupValue?: string;
+  isLoading?: boolean;
 }
 
 /**
@@ -72,6 +73,7 @@ export function DotBasedTopologyView({
   _topologyRetryCount = 0,
   groupBy,
   groupValue,
+  isLoading = false,
 }: DotBasedTopologyViewProps) {
   // Grouping state management
   const [groupingConfig, setGroupingConfig] = useState<GroupingConfig>(() => {
@@ -378,6 +380,11 @@ export function DotBasedTopologyView({
     });
   };
 
+  // Separate master and data nodes for rendering
+  const sortedNodes = sortNodesWithMasterFirst(filteredNodes);
+  const masterNodes = sortedNodes.filter(n => n.roles?.includes('master'));
+  const dataNodes = sortedNodes.filter(n => !n.roles?.includes('master'));
+
   return (
     <div>
       {/* Grouping Control - wrapped in error boundary */}
@@ -392,17 +399,54 @@ export function DotBasedTopologyView({
         </GroupingErrorBoundary>
       </Box>
 
-      {/* Nodes Grid - with or without grouping */}
-      {groupingConfig.attribute === 'none' ? (
-        // No grouping - render ALL nodes (including those without shards)
-        // Sort to show master nodes first
+      {/* Initial Loading Skeleton */}
+      {isLoading && (
         <Grid gutter="md">
-          {sortNodesWithMasterFirst(filteredNodes).map((node) => {
-            const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
-            return renderNodeCard(node, nodeShards);
-          })}
+          {[1, 2, 3, 4].map((i) => (
+            <Grid.Col key={i} span={{ base: 12, sm: 6, lg: 4, xl: 3 }}>
+              <Box p="md" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                <Skeleton height={20} width="60%" mb="xs" />
+                <Skeleton height={14} width="40%" mb="xs" />
+                <Skeleton height={14} width="80%" mb="md" />
+                <Skeleton height={100} mb="xs" />
+                <Skeleton height={20} width="50%" />
+              </Box>
+            </Grid.Col>
+          ))}
         </Grid>
-      ) : (
+      )}
+
+      {/* Nodes Grid - with or without grouping */}
+      {!isLoading && groupingConfig.attribute === 'none' ? (
+        // No grouping - render ALL nodes with masters in separate row
+        <>
+          {/* Master Nodes */}
+          {masterNodes.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb="xs" fw={500}>Master Nodes</Text>
+              <Grid gutter="md" mb="md">
+                {masterNodes.map((node) => {
+                  const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+                  return renderNodeCard(node, nodeShards);
+                })}
+              </Grid>
+            </>
+          )}
+          
+          {/* Data Nodes */}
+          {dataNodes.length > 0 && (
+            <>
+              <Text size="xs" c="dimmed" mb="xs" fw={500}>Data Nodes</Text>
+              <Grid gutter="md">
+                {dataNodes.map((node) => {
+                  const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+                  return renderNodeCard(node, nodeShards);
+                })}
+              </Grid>
+            </>
+          )}
+        </>
+      ) : !isLoading ? (
         // With grouping - render one GroupRenderer per group
         // Filter out empty groups before rendering
         <GroupingErrorBoundary
@@ -451,10 +495,10 @@ export function DotBasedTopologyView({
             .filter(Boolean) /* Remove null entries from empty groups */
           }
         </GroupingErrorBoundary>
-      )}
+      ) : null}
 
       {/* Unassigned Shards */}
-      {unassignedShards.length > 0 && (
+      {!isLoading && unassignedShards.length > 0 && (
         <>
           <Divider my="md" />
           <UnassignedShardsRow

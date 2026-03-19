@@ -1535,6 +1535,7 @@ export function ClusterView() {
                 clusterId={id}
                 topologyBatchSize={4}
                 _topologyRetryCount={0}
+                isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
               />
             ) : (
               <ShardAllocationGrid

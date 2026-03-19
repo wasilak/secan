@@ -1,4 +1,4 @@
-import { Paper, Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton, Grid } from '@mantine/core';
+import { Paper, Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton, Grid, Wrap } from '@mantine/core';
 import { NodeInfo, ShardInfo } from '../../types/api';
 import { RoleIcons } from '../RoleIcons';
 import { formatBytes } from '../../utils/formatters';
@@ -31,6 +31,10 @@ export function NodeCard({
 }) {
   // Node card is clickable if onNodeClick is provided OR if it's a valid destination
   const isClickable = !!onNodeClick || isValidDestination;
+
+  // Calculate shard counts
+  const primaryCount = shards.filter(s => s.primary).length;
+  const replicaCount = shards.filter(s => !s.primary).length;
 
   return (
     <Grid.Col span={{ base: 12, sm: 6, lg: 4, xl: 3 }} key={node.name}>
@@ -79,9 +83,9 @@ export function NodeCard({
             <Text fw={600} size="sm">
               {node.name}
             </Text>
-            {node?.ip && (
+            {node?.version && (
               <Text size="xs" c="dimmed">
-                {node.ip}
+                v{node.version}
               </Text>
             )}
           </Group>
@@ -95,8 +99,13 @@ export function NodeCard({
           </Group>
         </Group>
 
-        {/* Node Stats - CPU and Load */}
-        <Group gap="xs" mb="xs" wrap="nowrap">
+        {/* IP and Stats - single row with wrapping */}
+        <Wrap gap="xs" mb="xs">
+          {node?.ip && (
+            <Text size="xs" c="dimmed">
+              IP: {node.ip}
+            </Text>
+          )}
           {node?.cpuPercent !== undefined && (
             <Text 
               size="xs" 
@@ -105,18 +114,6 @@ export function NodeCard({
               CPU: {node.cpuPercent.toFixed(1)}%
             </Text>
           )}
-          {node?.loadAverage && node.loadAverage.length > 0 && (
-            <Text 
-              size="xs" 
-              c={node.loadAverage[0] < 4 ? 'green' : node.loadAverage[0] < 6 ? 'yellow' : 'red'}
-            >
-              Load: {node.loadAverage[0].toFixed(2)}
-            </Text>
-          )}
-        </Group>
-
-        {/* Node Stats - Heap and Disk */}
-        <Group gap="xs" mb="xs" wrap="nowrap">
           {node?.heapUsed && node?.heapMax && (
             <Text 
               size="xs" 
@@ -136,14 +133,15 @@ export function NodeCard({
               Disk: {formatBytes(node.diskUsed)}
             </Text>
           )}
-        </Group>
-
-        {/* Elasticsearch Version */}
-        {node?.version && (
-          <Text size="xs" c="dimmed" mb="xs">
-            ES: {node.version}
-          </Text>
-        )}
+          {node?.loadAverage && node.loadAverage.length > 0 && (
+            <Text 
+              size="xs" 
+              c={node.loadAverage[0] < 4 ? 'green' : node.loadAverage[0] < 6 ? 'yellow' : 'red'}
+            >
+              Load: {node.loadAverage[0].toFixed(2)}
+            </Text>
+          )}
+        </Wrap>
 
         <Divider mb="xs" />
 
@@ -192,14 +190,19 @@ export function NodeCard({
           </Flex>
         )}
 
-        {/* Shard Count Badge */}
+        {/* Shard Count Badges */}
         <Group gap="xs" mt="xs" wrap="nowrap">
           <Badge size="xs" variant="light">
             {isLoading ? '...' : shards.length} shards
           </Badge>
-          {shards.filter(s => s.primary).length > 0 && (
-            <Badge size="xs" variant="light">
-              {shards.filter(s => s.primary).length} primary
+          {primaryCount > 0 && (
+            <Badge size="xs" variant="light" color="blue">
+              {primaryCount} primary
+            </Badge>
+          )}
+          {replicaCount > 0 && (
+            <Badge size="xs" variant="light" color="gray">
+              {replicaCount} replica
             </Badge>
           )}
         </Group>
