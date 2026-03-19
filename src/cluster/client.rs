@@ -211,7 +211,11 @@ impl Client {
 impl ElasticsearchClient for Client {
     #[tracing::instrument(skip(self, body), fields(db.system = "elasticsearch"))]
     async fn request(&self, method: Method, path: &str, body: Option<Value>) -> Result<Response> {
-        let url = format!("{}/{}", self.base_url, path);
+        let url = if path.starts_with('/') {
+            format!("{}{}", self.base_url, path)
+        } else {
+            format!("{}/{}", self.base_url, path)
+        };
 
         // Record span attributes
         tracing::Span::current().record("http.method", method.to_string());
