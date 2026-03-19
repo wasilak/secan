@@ -6,7 +6,7 @@ use anyhow::{anyhow, Context, Result};
 use ldap3::{Ldap, LdapConnAsync, LdapConnSettings};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 /// LDAP authentication provider
 pub struct LdapAuthProvider {
@@ -175,6 +175,11 @@ impl LdapAuthProvider {
     /// disclosure to potential attackers.
     #[allow(dead_code)] // Will be used in task 13
     async fn bind_service_account(&self, ldap: &mut Ldap) -> Result<()> {
+        debug!(
+            bind_dn = %self.config.bind_dn,
+            "Attempting LDAP service account bind"
+        );
+
         ldap.simple_bind(&self.config.bind_dn, &self.config.bind_password)
             .await
             .map_err(|e| {
@@ -194,6 +199,11 @@ impl LdapAuthProvider {
                 );
                 anyhow!("LDAP connection failed")
             })?;
+
+        debug!(
+            bind_dn = %self.config.bind_dn,
+            "LDAP service account bind successful"
+        );
 
         Ok(())
     }
@@ -324,6 +334,12 @@ impl LdapAuthProvider {
                 .into_iter()
                 .next()
                 .ok_or_else(|| anyhow!("LDAP search returned no entries after verification"))?,
+        );
+
+        debug!(
+            username = %username,
+            user_dn = %entry.dn,
+            "User search completed successfully"
         );
 
         Ok(entry)
@@ -765,6 +781,11 @@ impl LdapAuthProvider {
     /// `Ok(None)` if rate limited or authentication fails,
     /// or an error if an unexpected error occurs.
     pub async fn authenticate(&self, username: &str, password: &str) -> Result<Option<String>> {
+        debug!(
+            server_url = %self.config.server_url,
+            "Establishing LDAP connection for authentication"
+        );
+
         // Check rate limit to prevent brute force attacks
         if let Some(rate_limiter) = &self.rate_limiter {
             if rate_limiter.is_rate_limited(username).await {
@@ -794,6 +815,11 @@ impl LdapAuthProvider {
         ldap3::drive!(conn);
 
         // Bind with service account
+        debug!(
+            bind_dn = %self.config.bind_dn,
+            "Binding with LDAP service account"
+        );
+
         if let Err(e) = self.bind_service_account(&mut ldap).await {
             error!(
                 username = %username,
@@ -810,6 +836,11 @@ impl LdapAuthProvider {
 
             return Ok(None);
         }
+
+        debug!(
+            bind_dn = %self.config.bind_dn,
+            "Service account bind successful"
+        );
 
         // Search for user
         let user_entry = match self.search_user(&mut ldap, username).await {
@@ -833,6 +864,12 @@ impl LdapAuthProvider {
         };
 
         let user_dn = user_entry.dn.clone();
+
+        debug!(
+            username = %username,
+            user_dn = %user_dn,
+            "User found in LDAP directory, attempting authentication"
+        );
 
         // Authenticate user by binding with their credentials
         let auth_success = match self.authenticate_user(&mut ldap, &user_dn, password).await {
@@ -874,6 +911,8 @@ impl LdapAuthProvider {
         }
 
         // Re-bind with service account for group queries
+        debug!("Re-binding with service account for group queries");
+
         if let Err(e) = self.bind_service_account(&mut ldap).await {
             error!(
                 username = %username,
@@ -892,6 +931,12 @@ impl LdapAuthProvider {
         }
 
         // Query user's group memberships
+        debug!(
+            username = %username,
+            user_dn = %user_dn,
+            "Querying user group memberships"
+        );
+
         let groups = match self.get_user_groups(&mut ldap, &user_dn, &user_entry).await {
             Ok(groups) => groups,
             Err(e) => {
@@ -913,7 +958,24 @@ impl LdapAuthProvider {
             }
         };
 
+        debug!(
+            username = %username,
+            user_dn = %user_dn,
+            groups_count = groups.len(),
+            "User groups resolved"
+        );
+
         // Validate required groups
+        if self.config.required_groups.is_empty() {
+            debug!("No required groups configured, allowing all authenticated users");
+        } else {
+            debug!(
+                required_groups = ?self.config.required_groups,
+                user_groups = ?groups,
+                "Validating required group membership"
+            );
+        }
+
         if let Err(e) = self.validate_required_groups(&groups) {
             error!(
                 username = %username,
@@ -932,6 +994,12 @@ impl LdapAuthProvider {
 
             return Ok(None);
         }
+
+        debug!(
+            username = %username,
+            user_dn = %user_dn,
+            "Required group validation passed"
+        );
 
         // Extract user information
         let auth_user = self.extract_user_info(user_dn.clone(), &user_entry, groups.clone());
@@ -952,6 +1020,12 @@ impl LdapAuthProvider {
         }
 
         // Resolve accessible clusters based on user's groups
+        debug!(
+            username = %username,
+            groups = ?groups,
+            "Resolving cluster access for user"
+        );
+
         let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
 
         // Create AuthUser with accessible clusters

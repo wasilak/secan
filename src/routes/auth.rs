@@ -283,6 +283,50 @@ pub async fn login(
         });
     }
 
+    // Handle LDAP authentication
+    if let Some(ldap_provider) = &state.ldap_provider {
+        let session_token = ldap_provider
+            .authenticate(&payload.username, &payload.password)
+            .await
+            .map_err(|e| {
+                tracing::warn!(username = %payload.username, error = %e, "LDAP authentication failed");
+                ErrorResponse {
+                    error: "invalid_credentials".to_string(),
+                    message: "Invalid username or password".to_string(),
+                }
+            })?
+            .ok_or_else(|| ErrorResponse {
+                error: "invalid_credentials".to_string(),
+                message: "Invalid username or password".to_string(),
+            })?;
+
+        tracing::info!(username = %payload.username, "LDAP user authenticated successfully");
+
+        let body = serde_json::to_string(&LoginResponse {
+            success: true,
+            message: "Login successful".to_string(),
+            session_token: Some(session_token.clone()),
+        })
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to serialize login response");
+            ErrorResponse {
+                error: "internal_error".to_string(),
+                message: "Failed to create login response".to_string(),
+            }
+        })?;
+
+        let mut response = axum::response::Response::new(axum::body::Body::from(body));
+        response.headers_mut().insert(
+            http::header::SET_COOKIE,
+            create_session_cookie(&session_token),
+        );
+        response.headers_mut().insert(
+            http::header::CONTENT_TYPE,
+            http::HeaderValue::from_static("application/json"),
+        );
+        return Ok(response);
+    }
+
     // Find user in config
     let users = state
         .config
