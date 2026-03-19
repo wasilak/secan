@@ -207,6 +207,14 @@ pub struct LdapConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_group_attribute: Option<String>,
 
+    /// Resolve nested group memberships using LDAP_MATCHING_RULE_IN_CHAIN.
+    /// When enabled (and user_group_attribute is set), performs recursive group resolution
+    /// by querying groups with (member:1.2.840.113556.1.4.1941:=user_dn) filter.
+    /// This expands group-of-group-of-group relationships but can be slow on large directories.
+    /// Defaults to false (uses only user_group_attribute for efficiency).
+    #[serde(default)]
+    pub resolve_nested_groups: bool,
+
     /// Required groups for access (empty = allow all authenticated users)
     #[serde(default)]
     pub required_groups: Vec<String>,
@@ -1112,6 +1120,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1134,6 +1143,7 @@ mod tests {
             group_search_filter: Some("(member={user_dn})".to_string()),
             group_member_attribute: Some("member".to_string()),
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: vec!["app-users".to_string()],
             connection_timeout_seconds: 30,
             tls_mode: TlsMode::Ldaps,
@@ -1158,6 +1168,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1197,6 +1208,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1227,6 +1239,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1257,6 +1270,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 0,
             tls_mode: TlsMode::None,
@@ -1287,6 +1301,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1318,6 +1333,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1346,6 +1362,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1377,6 +1394,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1405,6 +1423,7 @@ mod tests {
             group_search_filter: Some("(member={user_dn})".to_string()),
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,
@@ -1449,6 +1468,7 @@ mod tests {
             group_search_filter: None,
             group_member_attribute: None,
             user_group_attribute: None,
+            resolve_nested_groups: false,
             required_groups: Vec::new(),
             connection_timeout_seconds: 10,
             tls_mode: TlsMode::None,

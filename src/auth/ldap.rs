@@ -57,6 +57,7 @@ impl LdapAuthProvider {
     /// #   group_search_filter: None,
     /// #   group_member_attribute: None,
     /// #   user_group_attribute: None,
+    /// #   resolve_nested_groups: false,
     /// #   required_groups: Vec::new(),
     /// #   connection_timeout_seconds: 10,
     /// #   tls_mode: secan::config::TlsMode::None,
@@ -456,6 +457,12 @@ impl LdapAuthProvider {
     /// - **Reverse query**: Requires `user_group_attribute` to be configured (e.g., "memberOf").
     ///
     /// If neither is configured, returns an empty vector.
+    ///
+    /// **Priority**:
+    /// 1. If `user_group_attribute` is configured: extract groups from user entry (fast, no query)
+    /// 2. If `resolve_nested_groups` is true AND `group_search_filter` is configured: additionally
+    ///    run recursive nested group resolution via LDAP_MATCHING_RULE_IN_CHAIN (slow)
+    /// 3. Fall back to `group_search_filter` only if `user_group_attribute` is not configured
     #[allow(dead_code)] // Will be used in task 13
     async fn get_user_groups(
         &self,
@@ -469,106 +476,30 @@ impl LdapAuthProvider {
 
         let mut groups = HashSet::new();
 
-        // 1. Direct group membership query (search groups where user is member)
-        if let (Some(group_search_base), Some(group_search_filter)) = (
-            &self.config.group_search_base,
-            &self.config.group_search_filter,
-        ) {
-            debug!(
-                user_dn = %user_dn,
-                group_search_base = %group_search_base,
-                group_search_filter = %group_search_filter,
-                "Performing direct group membership query"
-            );
-
-            // Replace {user_dn} placeholder in group search filter
-            let search_filter = group_search_filter.replace("{user_dn}", user_dn);
-
-            // Apply connection timeout to search operation
-            let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
-            let search_result = tokio::time::timeout(
-                timeout,
-                ldap.search(
-                    group_search_base,
-                    Scope::Subtree,
-                    &search_filter,
-                    vec!["cn"], // Request CN attribute
-                ),
-            )
-            .await
-            .map_err(|_| {
-                error!(
-                    user_dn = %user_dn,
-                    timeout_seconds = self.config.connection_timeout_seconds,
-                    "LDAP group search timeout"
-                );
-                anyhow!("LDAP group search timed out")
-            })?
-            .map_err(|e| {
-                error!(
-                    user_dn = %user_dn,
-                    group_search_base = %group_search_base,
-                    search_filter = %search_filter,
-                    error = %e,
-                    "LDAP group search failed"
-                );
-                anyhow!("LDAP group search failed")
-            })?;
-
-            // Get search results
-            let (entries, _result) = search_result.success().map_err(|e| {
-                error!(
-                    user_dn = %user_dn,
-                    error = %e,
-                    "LDAP group search returned error"
-                );
-                anyhow!("LDAP group search failed")
-            })?;
-
-            debug!(
-                user_dn = %user_dn,
-                group_count = entries.len(),
-                "Direct group membership query returned {} groups",
-                entries.len()
-            );
-
-            // Extract group names (CN) from group entries
-            for entry in entries {
-                let group_entry = SearchEntry::construct(entry);
-
-                // Try to get CN from attributes first
-                if let Some(cn_values) = group_entry.attrs.get("cn") {
-                    if let Some(cn) = cn_values.first() {
-                        groups.insert(cn.clone());
-                        continue;
-                    }
-                }
-
-                // Fallback: extract CN from group DN
-                let group_name = extract_cn_from_dn(&group_entry.dn);
-                groups.insert(group_name);
-            }
-        }
-
-        // 2. Reverse group membership query (user entry contains group DNs)
         if let Some(user_group_attribute) = &self.config.user_group_attribute {
             debug!(
                 user_dn = %user_dn,
                 user_group_attribute = %user_group_attribute,
-                "Performing reverse group membership query"
+                resolve_nested_groups = self.config.resolve_nested_groups,
+                "Starting group resolution: extracting from user entry"
             );
 
-            // Extract group DNs from user entry
             if let Some(group_dns) = user_entry.attrs.get(user_group_attribute) {
                 debug!(
                     user_dn = %user_dn,
-                    group_count = group_dns.len(),
-                    "Reverse group membership query found {} group DNs",
+                    direct_groups_count = group_dns.len(),
+                    "Extracted {} direct group memberships from user entry",
                     group_dns.len()
                 );
 
-                // Parse CNs from group DNs
-                for group_dn in group_dns {
+                for (i, group_dn) in group_dns.iter().enumerate() {
+                    debug!(
+                        user_dn = %user_dn,
+                        group_index = i,
+                        group_dn = %group_dn,
+                        "  └── Direct membership: {}",
+                        extract_cn_from_dn(group_dn)
+                    );
                     let group_name = extract_cn_from_dn(group_dn);
                     groups.insert(group_name);
                 }
@@ -579,17 +510,196 @@ impl LdapAuthProvider {
                     "User entry does not contain group attribute"
                 );
             }
+
+            if self.config.resolve_nested_groups {
+                if let (Some(group_search_base), Some(group_search_filter)) = (
+                    &self.config.group_search_base,
+                    &self.config.group_search_filter,
+                ) {
+                    debug!(
+                        user_dn = %user_dn,
+                        group_search_base = %group_search_base,
+                        resolve_nested_groups = true,
+                        "resolve_nested_groups enabled: running recursive group traversal"
+                    );
+
+                    let search_filter = group_search_filter.replace("{user_dn}", user_dn);
+                    debug!(
+                        user_dn = %user_dn,
+                        "Executing LDAP_MATCHING_RULE_IN_CHAIN filter: {}",
+                        search_filter
+                    );
+
+                    let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
+                    let search_result = tokio::time::timeout(
+                        timeout,
+                        ldap.search(
+                            group_search_base,
+                            Scope::Subtree,
+                            &search_filter,
+                            vec!["cn"],
+                        ),
+                    )
+                    .await
+                    .map_err(|_| {
+                        error!(
+                            user_dn = %user_dn,
+                            timeout_seconds = self.config.connection_timeout_seconds,
+                            "Nested group resolution timed out (slow on large directories)"
+                        );
+                        anyhow!("LDAP operation timed out")
+                    })?
+                    .map_err(|e| {
+                        error!(
+                            user_dn = %user_dn,
+                            error = %e,
+                            "Nested group resolution query failed"
+                        );
+                        anyhow!("LDAP search failed")
+                    })?;
+
+                    let (entries, _result) = search_result.success().map_err(|e| {
+                        error!(
+                            user_dn = %user_dn,
+                            error = %e,
+                            "Nested group resolution returned error"
+                        );
+                        anyhow!("LDAP search failed")
+                    })?;
+
+                    let nested_groups_count = entries.len();
+                    debug!(
+                        user_dn = %user_dn,
+                        nested_groups_count = nested_groups_count,
+                        "Nested group resolution returned {} total group memberships",
+                        nested_groups_count
+                    );
+
+                    for entry in entries {
+                        let group_entry = SearchEntry::construct(entry);
+                        let group_dn = &group_entry.dn;
+                        let group_name = if let Some(cn_values) = group_entry.attrs.get("cn") {
+                            cn_values
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| extract_cn_from_dn(group_dn))
+                        } else {
+                            extract_cn_from_dn(group_dn)
+                        };
+
+                        if groups.insert(group_name.clone()) {
+                            debug!(
+                                user_dn = %user_dn,
+                                nested_group = %group_name,
+                                "  └── Nested membership discovered: {}",
+                                group_name
+                            );
+                        }
+                    }
+
+                    let new_groups_count = groups.len();
+                    debug!(
+                        user_dn = %user_dn,
+                        direct_groups = ?(new_groups_count - nested_groups_count),
+                        nested_groups = nested_groups_count,
+                        total_unique = new_groups_count,
+                        "Group resolution complete: {} direct + {} nested = {} unique groups",
+                        new_groups_count - nested_groups_count,
+                        nested_groups_count,
+                        new_groups_count
+                    );
+                } else {
+                    debug!(
+                        user_dn = %user_dn,
+                        resolve_nested_groups = true,
+                        "resolve_nested_groups enabled but group_search_filter not configured, skipping nested resolution"
+                    );
+                }
+            } else {
+                debug!(
+                    user_dn = %user_dn,
+                    resolve_nested_groups = false,
+                    "Skipping nested group resolution (not enabled)"
+                );
+            }
+        } else if let (Some(group_search_base), Some(group_search_filter)) = (
+            &self.config.group_search_base,
+            &self.config.group_search_filter,
+        ) {
+            debug!(
+                user_dn = %user_dn,
+                group_search_base = %group_search_base,
+                group_search_filter = %group_search_filter,
+                "user_group_attribute not configured: falling back to direct group search"
+            );
+
+            let search_filter = group_search_filter.replace("{user_dn}", user_dn);
+            let timeout = Duration::from_secs(self.config.connection_timeout_seconds);
+            let search_result = tokio::time::timeout(
+                timeout,
+                ldap.search(
+                    group_search_base,
+                    Scope::Subtree,
+                    &search_filter,
+                    vec!["cn"],
+                ),
+            )
+            .await
+            .map_err(|_| {
+                error!(
+                    user_dn = %user_dn,
+                    timeout_seconds = self.config.connection_timeout_seconds,
+                    "LDAP group search timeout"
+                );
+                anyhow!("LDAP operation timed out")
+            })?
+            .map_err(|e| {
+                error!(
+                    user_dn = %user_dn,
+                    error = %e,
+                    "LDAP group search failed"
+                );
+                anyhow!("LDAP search failed")
+            })?;
+
+            let (entries, _result) = search_result.success().map_err(|e| {
+                error!(
+                    user_dn = %user_dn,
+                    error = %e,
+                    "LDAP group search returned error"
+                );
+                anyhow!("LDAP search failed")
+            })?;
+
+            debug!(
+                user_dn = %user_dn,
+                group_count = entries.len(),
+                "Group search returned {} groups",
+                entries.len()
+            );
+
+            for entry in entries {
+                let group_entry = SearchEntry::construct(entry);
+                let group_name = if let Some(cn_values) = group_entry.attrs.get("cn") {
+                    cn_values
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| extract_cn_from_dn(&group_entry.dn))
+                } else {
+                    extract_cn_from_dn(&group_entry.dn)
+                };
+                groups.insert(group_name);
+            }
         }
 
-        // Convert HashSet to Vec and sort for consistent ordering
         let mut group_list: Vec<String> = groups.into_iter().collect();
         group_list.sort();
 
         debug!(
             user_dn = %user_dn,
+            final_group_count = group_list.len(),
             groups = ?group_list,
-            "Combined group membership query results: {} groups",
-            group_list.len()
+            "Group membership resolution complete"
         );
 
         Ok(group_list)
