@@ -122,7 +122,7 @@ where
             // Also log via tracing for local visibility
             match &result {
                 Ok(response) => {
-                    tracing::info!(
+                    tracing::debug!(
                         latency_ms = latency.as_millis(),
                         status = %response.status(),
                         "HTTP {} {} completed",
