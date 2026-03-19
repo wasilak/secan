@@ -215,7 +215,8 @@ impl SessionManager {
 
     /// Create a new session for a user
     pub async fn create_session(&self, user: AuthUser) -> anyhow::Result<String> {
-        self.create_session_with_clusters(user, Vec::new()).await
+        let clusters = user.accessible_clusters.clone();
+        self.create_session_with_clusters(user, clusters).await
     }
 
     /// Create a new session for a user with accessible clusters
