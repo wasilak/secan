@@ -236,7 +236,7 @@ export function ClusterView() {
   // This supports both /cluster/:id and /cluster/:id/:section URL formats
   // Also checks for bg query param for modal background section
   const activeSection = getCurrentSection() || defaultSection;
-  const activeTab = activeSection; // Use activeSection as activeTab for backward compatibility with existing code
+  const activeView = activeSection;
 
   // Topology view type from URL path (for direct linking)
   const topologyViewFromPath = location.pathname.includes('/topology/dot') ? 'dot' :
@@ -263,11 +263,12 @@ export function ClusterView() {
   const { data: clusterSettings } = useQuery({
     queryKey: ['cluster', id, 'settings'],
     queryFn: () => apiClient.proxyRequest(id!, 'GET', '/_cluster/settings'),
-    enabled: !!id,
-    refetchInterval: refreshInterval, // Use same refresh interval as other queries
-    staleTime: 0, // Don't cache - always refetch when invalidated
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    refetchOnMount: true, // Always refetch on mount
+    enabled: !!id && (activeView === 'overview' || activeView === 'topology'),
+    refetchInterval: refreshInterval,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const shardAllocationEnabled = (() => {
@@ -575,8 +576,9 @@ export function ClusterView() {
       const clustersResponse = await apiClient.getClusters(1, 100);
       return clustersResponse.items.find((c: ClusterInfo) => c.id === id);
     },
-    enabled: !!id,
+    enabled: !!id && activeView === 'statistics',
     staleTime: 60000,
+    placeholderData: (previousData) => previousData,
   });
 
   // Fetch cluster statistics with auto-refresh
@@ -589,8 +591,9 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'stats'],
     queryFn: () => apiClient.getClusterStats(id!),
     refetchInterval: refreshInterval,
-    enabled: !!id,
-    refetchOnMount: 'always', // Always refetch when component mounts
+    enabled: !!id && (activeView === 'overview' || activeView === 'statistics'),
+    refetchOnMount: 'always',
+    placeholderData: (previousData) => previousData,
   });
 
   // Update favicon based on cluster health
@@ -600,10 +603,10 @@ export function ClusterView() {
   // Trigger immediate stats refetch when switching to statistics tab
   // This ensures graphs are populated immediately instead of waiting for the next refresh interval
   useEffect(() => {
-    if (activeTab === 'statistics' && id) {
+    if (activeView === 'statistics' && id) {
       refetchStats();
     }
-  }, [activeTab, id, refetchStats]);
+  }, [activeView, id, refetchStats]);
 
   // Get selected time range from URL params (for Prometheus metrics)
   // Default to 24h if not specified
@@ -628,9 +631,10 @@ export function ClusterView() {
       const start = now - timeRangeMinutes * 60;
       return apiClient.getClusterMetrics(id, { start, end: now });
     },
-    enabled: activeTab === 'statistics' && !!id,
-    refetchInterval: refreshInterval, // Use global refresh interval
-    staleTime: 30000, // Consider data fresh for 30 seconds
+    enabled: !!id && (activeView === 'overview' || activeView === 'statistics'),
+    refetchInterval: refreshInterval,
+    staleTime: 30000,
+    placeholderData: (previousData) => previousData,
   });
 
   // Detect if we're using internal metrics (single data point) vs Prometheus (time series)
@@ -659,50 +663,50 @@ export function ClusterView() {
   const nodesHistoryInternal = useSparklineData(
     currentInternalMetrics?.nodes,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   
   const indicesHistoryInternal = useSparklineData(
     currentInternalMetrics?.indices,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const documentsHistoryInternal = useSparklineData(
     currentInternalMetrics?.documents,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const shardsHistoryInternal = useSparklineData(
     currentInternalMetrics?.shards,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const unassignedHistoryInternal = useSparklineData(
     currentInternalMetrics?.unassigned,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const cpuHistoryInternal = useSparklineData(
     currentInternalMetrics?.cpu,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const memoryHistoryInternal = useSparklineData(
     currentInternalMetrics?.memory,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
   const diskHistoryInternal = useSparklineData(
     currentInternalMetrics?.disk,
     50,
-    activeTab,
+    activeView,
     true
   ) as DataPoint[];
 
@@ -713,35 +717,35 @@ export function ClusterView() {
   const prometheusQueries = metricsHistory?.prometheus_queries;
 
   // Track historical data for sparklines (fallback when not in statistics tab)
-  // Pass activeTab as resetKey so data resets when switching to statistics tab
+  // Pass activeView as resetKey so data resets when switching to statistics tab
   const nodesHistorySparkline = useSparklineData(
     stats?.numberOfNodes,
     20,
-    activeTab,
+    activeView,
     false // Return number[] for sparklines
   ) as number[];
   const indicesHistorySparkline = useSparklineData(
     stats?.numberOfIndices,
     20,
-    activeTab,
+    activeView,
     false
   ) as number[];
   const documentsHistorySparkline = useSparklineData(
     stats?.numberOfDocuments,
     20,
-    activeTab,
+    activeView,
     false
   ) as number[];
   const shardsHistorySparkline = useSparklineData(
     stats?.activeShards,
     20,
-    activeTab,
+    activeView,
     false
   ) as number[];
   const unassignedHistorySparkline = useSparklineData(
     stats?.unassignedShards,
     20,
-    activeTab,
+    activeView,
     false
   ) as number[];
 
@@ -750,7 +754,7 @@ export function ClusterView() {
   // Internal metrics (single point): use accumulated history
   // Prometheus metrics (time series): use data directly
   const nodesHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? nodesHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -760,7 +764,7 @@ export function ClusterView() {
       : nodesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const indicesHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? indicesHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -770,7 +774,7 @@ export function ClusterView() {
       : indicesHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const documentsHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? documentsHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -780,7 +784,7 @@ export function ClusterView() {
       : documentsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const shardsHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? shardsHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -790,7 +794,7 @@ export function ClusterView() {
       : shardsHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const unassignedHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? unassignedHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -800,7 +804,7 @@ export function ClusterView() {
       : unassignedHistorySparkline.map((v) => ({ value: v, timestamp: Date.now() }));
 
   const diskUsageHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? diskHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -812,7 +816,7 @@ export function ClusterView() {
   // For internal metrics, use accumulated history directly (no cpuSeries/memorySeries)
   // For Prometheus metrics, use data from metricsHistory
   const cpuHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? cpuHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -822,7 +826,7 @@ export function ClusterView() {
       : [];
 
   const memoryHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? isInternalMetrics
         ? memoryHistoryInternal
         : metricsHistory.data.map((d) => ({
@@ -837,7 +841,7 @@ export function ClusterView() {
   const memorySeries = useMemo(() => {
     const memorySeriesMap = new Map<string, DataPoint[]>();
     
-    if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
+    if (activeView === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
       for (const point of metricsHistory.raw_metrics.memory) {
         // Create a series key from labels in logfmt format (e.g., "area=heap")
         const seriesKey = point.labels
@@ -878,7 +882,7 @@ export function ClusterView() {
         labels,
       };
     });
-  }, [activeTab, isInternalMetrics, metricsHistory?.raw_metrics?.memory]);
+  }, [activeView, isInternalMetrics, metricsHistory?.raw_metrics?.memory]);
 
   // Group raw CPU metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like avg by (node) (elasticsearch_process_cpu_percent)
@@ -886,7 +890,7 @@ export function ClusterView() {
   const cpuSeries = useMemo(() => {
     const cpuSeriesMap = new Map<string, DataPoint[]>();
     
-    if (activeTab === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
+    if (activeView === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
       for (const point of metricsHistory.raw_metrics.cpu) {
         // Create a series key from labels in logfmt format (e.g., "node=node-1")
         const seriesKey = point.labels
@@ -929,10 +933,10 @@ export function ClusterView() {
         labels,
       };
     });
-  }, [activeTab, isInternalMetrics, metricsHistory?.raw_metrics?.cpu]);
+  }, [activeView, isInternalMetrics, metricsHistory?.raw_metrics?.cpu]);
 
   const memoryNonHeapHistory: DataPoint[] =
-    activeTab === 'statistics' && metricsHistory?.data
+    activeView === 'statistics' && metricsHistory?.data
       ? metricsHistory.data.map((d) => ({
         value: d.memory_non_heap_bytes || 0,
         timestamp: new Date(d.date).getTime(),
@@ -993,9 +997,9 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'nodes', nodesPage, nodesPerPage, nodesFilters],
     queryFn: () => apiClient.getNodes(id!, nodesPage, nodesPerPage, nodesFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching
+    enabled: !!id && activeView === 'nodes',
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
   });
 
   // Extract nodes array from paginated response (default to empty array while loading)
@@ -1007,10 +1011,11 @@ export function ClusterView() {
     data: allNodesUnfiltered,
   } = useQuery({
     queryKey: ['cluster', id, 'nodes', 'all-roles'],
-    queryFn: () => apiClient.getNodes(id!, 1, 1000, { search: '' }), // No roles filter = get all nodes
+    queryFn: () => apiClient.getNodes(id!, 1, 1000, { search: '' }),
     refetchInterval: refreshInterval,
-    enabled: !!id,
+    enabled: !!id && (activeView === 'topology' || activeView === 'nodes' || activeView === 'statistics'),
     staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
   });
 
   // Get all available roles from unfiltered nodes - used for filter UI
@@ -1040,7 +1045,7 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'indices', indicesPage, indicesFilters],
     queryFn: () => apiClient.getIndices(id!, indicesPage, 50, indicesFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id && activeTab === 'indices', // Only fetch when in indices tab
+    enabled: !!id && activeView === 'indices', // Only fetch when in indices tab
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
@@ -1051,10 +1056,11 @@ export function ClusterView() {
     error: allIndicesError,
   } = useQuery({
     queryKey: ['cluster', id, 'indices', 'all'],
-    queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }), // Fetch all indices (indices are small)
+    queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }),
     refetchInterval: refreshInterval,
-    enabled: !!id, // Always fetch when cluster ID exists (needed for topology)
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!id && (activeView === 'topology' || activeView === 'indices' || activeView === 'statistics'),
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
   });
 
   // Extract indices array from paginated response (default to empty array while loading)
@@ -1068,6 +1074,9 @@ export function ClusterView() {
 
   // Fetch shards with auto-refresh, pagination, and server-side filtering
   const shardsFilters = useMemo(() => ({
+    hide_special: searchParams.get('showSpecial') !== 'true', // default: hide special indices
+    show_primaries: searchParams.get('showPrimaries') !== 'false', // default: true
+    show_replicas: searchParams.get('showReplicas') !== 'false', // default: true
     state: searchParams.get('shardStates') || '', // comma-separated states
     search: searchParams.get('shardsSearch') || '', // search both index and node (OR logic)
   }), [searchParams]);
@@ -1080,7 +1089,7 @@ export function ClusterView() {
     queryKey: ['cluster', id, 'shards', shardsPage, shardsFilters],
     queryFn: () => apiClient.getShards(id!, shardsPage, 50, shardsFilters),
     refetchInterval: refreshInterval,
-    enabled: !!id && activeTab === 'shards', // Only fetch when in shards tab
+    enabled: !!id && activeView === 'shards', // Only fetch when in shards tab
     placeholderData: (previousData) => previousData, // Keep previous data while fetching
   });
 
@@ -1091,7 +1100,7 @@ export function ClusterView() {
     isLoading: allShardsLoading,
     isComplete: allShardsComplete,
     firstError: allShardsError,
-  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeTab === 'topology', 4);
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology', 4);
 
   // Extract shards array from paginated response (default to empty array while loading)
   const shards: ShardInfo[] = shardsPaginated?.items ?? [];
@@ -1196,7 +1205,7 @@ export function ClusterView() {
 
       {/* Section Navigation - conditional rendering instead of Tabs */}
       {/* Overview Section */}
-      {activeTab === 'overview' && (
+      {activeView === 'overview' && (
         <Stack gap="md">
           {/* First Row: Nodes, Indices, Shards */}
           <Grid>
@@ -1459,7 +1468,7 @@ export function ClusterView() {
       )}
 
       {/* Topology Section */}
-      {activeTab === 'topology' && (
+      {activeView === 'topology' && (
         <Stack gap="md">
           {/* Shared Filter Bar */}
           <Card shadow="sm" padding="xs">
@@ -1628,7 +1637,7 @@ export function ClusterView() {
       )}
 
       {/* Statistics Section */}
-      {activeTab === 'statistics' && (
+      {activeView === 'statistics' && (
         <Stack gap="md">
           {/* Time Range Dropdown - Top Right */}
           <Group justify="space-between" mb="md">
@@ -1720,7 +1729,7 @@ export function ClusterView() {
       )}
 
       {/* Nodes Section */}
-      {activeTab === 'nodes' && (
+      {activeView === 'nodes' && (
         <Stack gap="md" style={{ width: '100%' }}>
           <NodesList
             nodes={nodes}
@@ -1745,7 +1754,7 @@ export function ClusterView() {
       )}
 
       {/* Indices Section */}
-      {activeTab === 'indices' && (
+      {activeView === 'indices' && (
         <Stack gap="md" style={{ width: '100%' }}>
           <IndicesList
              indices={indices}
@@ -1769,7 +1778,7 @@ export function ClusterView() {
       )}
 
       {/* Shards Section */}
-      {activeTab === 'shards' && (
+      {activeView === 'shards' && (
         <Stack gap="md" style={{ width: '100%' }}>
           <ShardsList
             shards={shards}
@@ -1790,10 +1799,10 @@ export function ClusterView() {
       )}
 
       {/* Console Section */}
-      {activeTab === 'console' && <RestConsole />}
+      {activeView === 'console' && <RestConsole />}
 
       {/* Tasks Section */}
-      {activeTab === 'tasks' && <TasksTab clusterId={id!} refreshInterval={refreshInterval || undefined} />}
+      {activeView === 'tasks' && <TasksTab clusterId={id!} isActive={activeView === 'tasks'} />}
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
@@ -1835,7 +1844,7 @@ export function ClusterView() {
         nodeId={nodeIdFromPath || null}
         opened={nodeModalOpen}
         onClose={closeNodeModal}
-        context={activeTab === 'topology' ? 'topology' : activeTab === 'nodes' ? 'nodes' : 'shards'}
+        context={activeView === 'topology' ? 'topology' : activeView === 'nodes' ? 'nodes' : 'shards'}
         clusterInfo={clusterInfo}
       />
 
@@ -4823,7 +4832,7 @@ const ShardsList = memo(function ShardsList({
   ];
   const showPrimaries = searchParams.get('showPrimaries') !== 'false'; // Default to true
   const showReplicas = searchParams.get('showReplicas') !== 'false'; // Default to true
-  const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
+  const showSpecialIndices = searchParams.get('showSpecial') !== 'false'; // Default to true (show all); server-side filtering handles hide_special=false
 
   // Column sorting state for shards
   const shardsSortColumn = (searchParams.get('shardsSortColumn') || 'index') as
@@ -4936,28 +4945,11 @@ const ShardsList = memo(function ShardsList({
     setSearchParams(newParams, { replace: true });
   };
 
-  // Server-side filtering is already applied for state, index, and node
-  // Only need client-side filtering for primary/replica type and special indices
-  const filteredShards = useMemo(() => {
-    if (!shards) return [];
-    
-    return shards.filter((shard) => {
-      // Primary/Replica filter
-      if (!showPrimaries && shard.primary) return false;
-      if (!showReplicas && !shard.primary) return false;
-
-      // Special indices filter
-      if (!showSpecialIndices && shard.index.startsWith('.')) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [shards, showPrimaries, showReplicas, showSpecialIndices]);
-
+  // All filtering is server-side; no client-side filtering needed
   // Sort shards by selected column (client-side sorting only)
   const sortedShards = useMemo(() => {
-    const sorted = [...filteredShards];
+    const filtered = shards ?? [];
+    const sorted = [...filtered];
     
     sorted.sort((a, b) => {
       let compareResult: number;
@@ -4994,7 +4986,7 @@ const ShardsList = memo(function ShardsList({
     });
     
     return sorted;
-  }, [filteredShards, shardsSortColumn, shardsSortDirection]);
+  }, [shards, shardsSortColumn, shardsSortDirection]);
 
   if (loading) {
     return (
@@ -5153,8 +5145,8 @@ const ShardsList = memo(function ShardsList({
           }}
           onClick={() => {
             const params = new URLSearchParams(searchParams);
-            if (!showSpecialIndices) {
-              params.set('showSpecial', 'true');
+            if (showSpecialIndices) {
+              params.set('showSpecial', 'false');
             } else {
               params.delete('showSpecial');
             }
@@ -5166,8 +5158,8 @@ const ShardsList = memo(function ShardsList({
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               const params = new URLSearchParams(searchParams);
-              if (!showSpecialIndices) {
-                params.set('showSpecial', 'true');
+              if (showSpecialIndices) {
+                params.set('showSpecial', 'false');
               } else {
                 params.delete('showSpecial');
               }

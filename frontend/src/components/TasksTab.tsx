@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TaskInfo } from '../types/api';
 import { useBulkSelection } from '../hooks/useBulkSelection';
+import { useRefreshInterval } from '../contexts/RefreshContext';
 import { TasksFilters } from './TasksFilters';
 import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
@@ -30,10 +31,10 @@ import { apiClient } from '../api/client';
  */
 interface TasksTabProps {
   clusterId: string;
-  refreshInterval?: number;
+  isActive: boolean;
 }
 
-export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactElement {
+export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedTask, setSelectedTask] = useState<TaskInfo | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -61,6 +62,7 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   }), [selectedTypes, selectedActions]);
 
   // Fetch tasks with auto-refresh and server-side filtering
+  const refreshInterval = useRefreshInterval();
   const {
     data: tasksResponse,
     isLoading,
@@ -68,8 +70,9 @@ export function TasksTab({ clusterId, refreshInterval }: TasksTabProps): ReactEl
   } = useQuery({
     queryKey: ['cluster', clusterId, 'tasks', filters],
     queryFn: () => apiClient.getTasks(clusterId, filters),
+    enabled: isActive,
     refetchInterval: refreshInterval,
-    placeholderData: (previousData) => previousData, // Keep previous data while fetching
+    placeholderData: (previousData) => previousData,
   });
 
   // Memoize tasks to prevent dependency issues in other useMemo hooks

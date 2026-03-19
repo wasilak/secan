@@ -515,6 +515,9 @@ export class ApiClient {
     page: number = 1,
     pageSize: number = 10,
     filters?: {
+      hide_special?: boolean; // exclude indices starting with '.' (default: false)
+      show_primaries?: boolean; // include primary shards (default: true)
+      show_replicas?: boolean; // include replica shards (default: true)
       state?: string; // comma-separated: 'UNASSIGNED,STARTED'
       search?: string; // search both index and node (OR logic)
       index?: string; // specific index filter (AND logic with node)
@@ -528,6 +531,9 @@ export class ApiClient {
           params: {
             page,
             page_size: pageSize,
+            hide_special: filters?.hide_special ?? false,
+            show_primaries: filters?.show_primaries ?? true,
+            show_replicas: filters?.show_replicas ?? true,
             state: filters?.state || '',
             search: filters?.search || '',
             index: filters?.index || '',

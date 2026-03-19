@@ -1770,6 +1770,15 @@ pub struct ShardsQueryParams {
     #[schema(default = 10, example = 10)]
     #[serde(default = "default_page_size")]
     pub page_size: u32,
+    #[schema(example = true)]
+    #[serde(default)]
+    pub hide_special: bool, // exclude indices starting with '.' (default: false)
+    #[schema(example = true)]
+    #[serde(default)]
+    pub show_primaries: bool, // include primary shards (default: true)
+    #[schema(example = true)]
+    #[serde(default)]
+    pub show_replicas: bool, // include replica shards (default: true)
     #[schema(example = "STARTED,UNASSIGNED")]
     #[serde(default)]
     pub state: String, // comma-separated: UNASSIGNED,STARTED,etc
@@ -1862,6 +1871,19 @@ pub async fn get_shards(
     let filtered_shards: Vec<ShardInfoResponse> = all_shards
         .into_iter()
         .filter(|shard| {
+            // Hide special indices filter (indices starting with '.')
+            if params.hide_special && shard.index.starts_with('.') {
+                return false;
+            }
+
+            // Primary/Replica filter
+            if !params.show_primaries && shard.primary {
+                return false;
+            }
+            if !params.show_replicas && !shard.primary {
+                return false;
+            }
+
             // State filter
             if !state_filter.is_empty() && !state_filter.contains(&shard.state.as_str()) {
                 return false;
