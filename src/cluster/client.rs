@@ -754,7 +754,14 @@ impl ElasticsearchClient for Client {
             .context("Cat shards request failed")?;
 
         if !response.status().is_success() {
-            anyhow::bail!("Cat shards failed with status: {}", response.status());
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                status = %status,
+                body = %body,
+                "Cat shards API returned error"
+            );
+            anyhow::bail!("Cat shards failed with status: {} - {}", status, body);
         }
 
         response
@@ -865,15 +872,26 @@ impl ElasticsearchClient for Client {
             "/_cluster/state/routing_nodes".to_string()
         };
 
+        tracing::debug!(path = %path, "Fetching cluster state routing_nodes");
+
         let response = self
             .request(reqwest::Method::GET, &path, None)
             .await
             .context("Cluster state routing_nodes request failed")?;
 
         if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                status = %status,
+                body = %body,
+                path = %path,
+                "Cluster state routing_nodes API returned error"
+            );
             anyhow::bail!(
-                "Cluster state routing_nodes failed with status: {}",
-                response.status()
+                "Cluster state routing_nodes failed with status: {} - {}",
+                status,
+                body
             );
         }
 
