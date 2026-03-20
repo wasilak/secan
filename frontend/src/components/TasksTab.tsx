@@ -188,7 +188,7 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
   }
 
   return (
-    <Grid gutter="md" p="md">
+    <Grid gutter="md" p="md" overflow="hidden">
       <Grid.Col span={12}>
         <TaskStatsCards stats={stats} />
       </Grid.Col>

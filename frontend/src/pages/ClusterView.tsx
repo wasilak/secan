@@ -1660,7 +1660,7 @@ export function ClusterView() {
 
       {/* Topology Section */}
       {activeView === 'topology' && (
-        <Grid gutter="md">
+        <Grid gutter="md" overflow="hidden">
           {/* Stats Row */}
           <Grid.Col span={12}>
             <TopologyStatsCards
@@ -1984,7 +1984,7 @@ export function ClusterView() {
 
       {/* Nodes Section */}
       {activeView === 'nodes' && (
-        <Grid gutter="md">
+        <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <NodeStatsCards nodes={nodes || []} />
           </Grid.Col>
@@ -2042,7 +2042,7 @@ export function ClusterView() {
 
       {/* Indices Section */}
       {activeView === 'indices' && (
-        <Grid gutter="md">
+        <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <IndexStatsCards
               stats={{
@@ -2128,7 +2128,7 @@ export function ClusterView() {
 
       {/* Shards Section */}
       {activeView === 'shards' && (
-        <Grid gutter="md">
+        <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <ShardStatsCards
               stats={{
@@ -2537,7 +2537,7 @@ const NodesList = memo(function NodesList({
             No nodes match your filters
           </Text>
         ) : (
-          <ScrollArea>
+          <ScrollArea w="100%">
             <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
@@ -3335,7 +3335,7 @@ const IndicesList = memo(function IndicesList({
 
       {/* Always show table with filters - even if no indices match */}
       <Card shadow="sm" padding="lg">
-        <ScrollArea>
+        <ScrollArea w="100%">
           <Table striped highlightOnHover>
           <Table.Thead>
               <Table.Tr>
@@ -4307,58 +4307,55 @@ function ShardAllocationGrid({
       )}
 
       {/* Shard allocation grid */}
-      <ScrollArea>
-        <div style={{ tableLayout: 'fixed', width: '100%' }}>
-          <Table striped withTableBorder withColumnBorders>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th
-                  style={{
-                    width: '180px',
-                    position: 'sticky',
-                    left: 0,
-                    backgroundColor: 'var(--mantine-color-body)',
-                    zIndex: 1,
-                  }}
-                >
-                  Node
-                </Table.Th>
-                {displayIndices.map((index) => (
-                  <Table.Th key={index.name} style={{ width: '120px', textAlign: 'center' }}>
-                    <Stack gap={4}>
-                      <Text
-                        size="xs"
-                        fw={500}
-                        truncate="end"
-                        title={index.name}
-                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openIndexModal(index.name);
-                        }}
-                      >
-                        {index.name}
+      <Table.ScrollContainer minWidth={600}>
+        <Table striped withTableBorder withColumnBorders style={{ tableLayout: 'fixed' }}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th
+                style={{
+                  position: 'sticky',
+                  left: 0,
+                  backgroundColor: 'var(--mantine-color-body)',
+                  zIndex: 1,
+                }}
+              >
+                Node
+              </Table.Th>
+              {displayIndices.map((index) => (
+                <Table.Th key={index.name} style={{ textAlign: 'center' }}>
+                  <Stack gap={4}>
+                    <Text
+                      size="xs"
+                      fw={500}
+                      truncate="end"
+                      title={index.name}
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openIndexModal(index.name);
+                      }}
+                    >
+                      {index.name}
+                    </Text>
+                    <Group gap={4} justify="center">
+                      <Badge size="xs" color={getHealthColor(index.health)} variant="dot">
+                        {index.primaryShards}×{index.replicaShards + 1}
+                      </Badge>
+                      <Text size="xs" c="dimmed">
+                        {formatBytes(index.storeSize)}
                       </Text>
-                      <Group gap={4} justify="center">
-                        <Badge size="xs" color={getHealthColor(index.health)} variant="dot">
-                          {index.primaryShards}×{index.replicaShards + 1}
-                        </Badge>
-                        <Text size="xs" c="dimmed">
-                          {formatBytes(index.storeSize)}
-                        </Text>
-                      </Group>
-                    </Stack>
-                  </Table.Th>
-                ))}
-              </Table.Tr>
-            </Table.Thead>
+                    </Group>
+                  </Stack>
+                </Table.Th>
+              ))}
+            </Table.Tr>
+          </Table.Thead>
             <Table.Tbody>
               {/* Unassigned shards row */}
               {unassignedShards.length > 0 && (
                 <Table.Tr>
                   <Table.Td
                     style={{
-                      width: '180px',
                       position: 'sticky',
                       left: 0,
                       zIndex: 1,
@@ -4380,7 +4377,6 @@ function ShardAllocationGrid({
                       <Table.Td
                         key={`unassigned-${index.name}`}
                         style={{
-                          width: '120px',
                           padding: '4px',
                           textAlign: 'center',
                           backgroundColor: getIndexBackgroundColor(index.health),
@@ -4444,7 +4440,6 @@ function ShardAllocationGrid({
                     <Table.Tr key={node.id}>
                       <Table.Td
                         style={{
-                          width: '180px',
                           position: 'sticky',
                           left: 0,
                           backgroundColor: 'var(--mantine-color-body)',
@@ -4542,7 +4537,6 @@ function ShardAllocationGrid({
                           <Table.Td
                             key={`${node.id}-${index.name}`}
                             style={{
-                              width: '120px',
                               padding: '4px',
                               textAlign: 'center',
                               backgroundColor: getIndexBackgroundColor(index.health),
@@ -4682,8 +4676,7 @@ function ShardAllocationGrid({
                 })}
             </Table.Tbody>
           </Table>
-        </div>
-      </ScrollArea>
+      </Table.ScrollContainer>
 
       {/* Pagination */}
       {filteredIndicesData.length > pageSize && (
@@ -5147,7 +5140,7 @@ const ShardsList = memo(function ShardsList({
             No shards match your filters
           </Text>
         ) : (
-          <ScrollArea>
+          <ScrollArea w="100%">
             <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>

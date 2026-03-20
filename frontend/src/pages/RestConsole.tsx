@@ -508,7 +508,7 @@ export function RestConsole() {
         Keyboard shortcuts: Ctrl+Enter (Execute) • Ctrl+L (Clear) • Ctrl+H (Toggle History)
       </Text>
 
-      <Grid gutter="md">
+      <Grid gutter="md" overflow="hidden">
         {/* Main editor area */}
         <Grid.Col span={{ base: 12, md: showHistory ? 8 : 12 }}>
           <Stack gap="md">
@@ -688,7 +688,7 @@ export function RestConsole() {
                 </Group>
               </Group>
 
-              <ScrollArea h={600}>
+              <ScrollArea w="100%" h={600}>
                 <Stack gap="xs">
                   {history.length === 0 ? (
                     <Text size="sm" c="dimmed" ta="center" py="xl">

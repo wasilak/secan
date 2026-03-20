@@ -29,7 +29,7 @@ export function ShardList({ shards, loading }: ShardListProps) {
   }
 
   return (
-    <ScrollArea>
+    <ScrollArea w="100%">
       <Table striped highlightOnHover>
         <Table.Thead>
           <Table.Tr>

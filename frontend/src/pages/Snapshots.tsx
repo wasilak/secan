@@ -210,7 +210,7 @@ export function Snapshots() {
             </Button>
           </Stack>
         ) : (
-          <ScrollArea>
+          <ScrollArea w="100%">
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>

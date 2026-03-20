@@ -266,7 +266,7 @@ export function CatApiPage() {
                   </Accordion.Control>
                   <Accordion.Panel>
                     {helpText ? (
-                      <ScrollArea h={200}>
+                      <ScrollArea w="100%" h={200}>
                         <Code block>{helpText}</Code>
                       </ScrollArea>
                     ) : (
@@ -304,7 +304,7 @@ export function CatApiPage() {
               </Group>
 
               {/* Results Table */}
-              <ScrollArea>
+              <ScrollArea w="100%">
                 <Table striped highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>

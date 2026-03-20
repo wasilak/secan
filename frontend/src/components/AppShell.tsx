@@ -812,7 +812,7 @@ export function AppShell() {
         <MantineAppShell.Main
           component="main"
           role="main"
-          style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}
+          style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         >
           <ConsolePanel>
             <AnimatePresence mode="wait">
@@ -825,7 +825,7 @@ export function AppShell() {
                   duration: DURATIONS.normal,
                   ease: EASINGS.default,
                 }}
-                style={{}}
+                style={{ overflow: 'hidden' }}
               >
                 <Outlet />
               </motion.div>

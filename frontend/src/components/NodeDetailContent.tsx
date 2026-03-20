@@ -679,7 +679,7 @@ export function NodeDetailContent({
           </Text>
 
           {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
-            <ScrollArea>
+            <ScrollArea w="100%">
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
