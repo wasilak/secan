@@ -376,13 +376,25 @@ export function ClusterView() {
   const activeSection = getCurrentSection() || defaultSection;
   const activeView = activeSection;
 
-  // Topology view type from URL path (for direct linking)
-  const topologyViewFromPath = location.pathname.includes('/topology/node') ? 'node' :
-                               location.pathname.includes('/topology/index') ? 'index' : null;
-  const topologyViewType = topologyViewFromPath || (searchParams.get('topologyView') as 'node' | 'index') || 'node';
+  // Topology view type state
+  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index'>(
+    location.pathname.includes('/topology/index') ? 'index' : 'node'
+  );
+
+  // Sync topology view type with URL search params
+  useEffect(() => {
+    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | null;
+    if (urlParam && urlParam !== topologyViewType) {
+      setTopologyViewTypeState(urlParam);
+    }
+  }, [searchParams.get('topologyView')]);
+
   const setTopologyViewType = (value: 'node' | 'index') => {
-    // Navigate to path-based URL for direct linking
-    navigate(`/cluster/${id}/topology/${value}`, { replace: true });
+    // Update state and URL search params
+    setTopologyViewTypeState(value);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('topologyView', value);
+    setSearchParams(newParams, { replace: true });
   };
 
   // Topology grouping state
