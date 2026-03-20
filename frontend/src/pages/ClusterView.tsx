@@ -25,6 +25,7 @@ import {
   useMantineColorScheme,
   SegmentedControl as SegmentedControlType,
   Tabs,
+  Select,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { CodeEditor } from '../components/CodeEditor';
@@ -107,7 +108,7 @@ import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor, getShardTypeColor, SHARD_STATE_COLORS, SHARD_TYPE_COLORS } from '../utils/colors';
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { FilterSidebar, FilterCategory } from '../components/FacetedFilter';
+import { FilterSidebar } from '../components/FacetedFilter';
 import { TopologyStatsCards } from '../components/TopologyStatsCards';
 import type { GroupingAttribute, GroupingConfig } from '../utils/topologyGrouping';
 import { hasCustomLabels, extractLabelFromTag } from '../utils/topologyGrouping';
@@ -1702,16 +1703,17 @@ export function ClusterView() {
                   {
                     visible: topologyViewType === 'node',
                     content: (
-                      <FilterCategory
-                        title="Group By"
-                        options={groupingOptions}
-                        selected={[topologyGroupingConfig.attribute]}
-                        onChange={(selected: string[]) => {
-                          const value = selected[0] as GroupingAttribute;
-                          const tagValue = value.startsWith('label:') ? value.substring(6) : undefined;
-                          handleTopologyGroupingChange(value, tagValue);
+                      <Select
+                        label="Group By"
+                        data={groupingOptions}
+                        value={topologyGroupingConfig.attribute}
+                        onChange={(value) => {
+                          if (value) {
+                            const tagValue = value.startsWith('label:') ? value.substring(6) : undefined;
+                            handleTopologyGroupingChange(value as GroupingAttribute, tagValue);
+                          }
                         }}
-                        allValues={['none', 'role', 'type', ...availableLabelsForTopology.map(l => `label:${l.tag}`)]}
+                        size="xs"
                       />
                     ),
                   },
