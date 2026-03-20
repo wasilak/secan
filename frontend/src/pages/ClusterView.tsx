@@ -3165,10 +3165,9 @@ const IndicesList = memo(function IndicesList({
   const filteredIndices = useMemo(() => indices || [], [indices]);
 
   // Sort indices by selected column (client-side sorting only)
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const sortedIndices = useMemo(() => {
-    const sorted = [...filteredIndices];
-    
-    sorted.sort((a, b) => {
+    return [...filteredIndices].sort((a, b) => {
       let compareResult: number;
 
       switch (indicesSortColumn) {
@@ -3193,19 +3192,7 @@ const IndicesList = memo(function IndicesList({
 
       return indicesSortDirection === 'asc' ? compareResult : -compareResult;
     });
-    
-    return sorted;
   }, [filteredIndices, indicesSortColumn, indicesSortDirection]);
-
-  // Memoize stats calculation to prevent unnecessary re-renders
-  const indexStats = useMemo(() => ({
-    totalIndices: sortedIndices?.length || 0,
-    greenIndices: sortedIndices?.filter((idx) => idx.health === 'green').length || 0,
-    yellowIndices: sortedIndices?.filter((idx) => idx.health === 'yellow').length || 0,
-    redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
-    openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
-    closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
-  }), [sortedIndices]);
 
   if (loading && !indices) {
     return (
