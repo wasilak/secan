@@ -387,7 +387,7 @@ export function ClusterView() {
     if (urlParam && urlParam !== topologyViewType) {
       setTopologyViewTypeState(urlParam);
     }
-  }, [searchParams.get('topologyView')]);
+  }, [searchParams, topologyViewType]);
 
   const setTopologyViewType = (value: 'node' | 'index') => {
     // Update state and URL search params
