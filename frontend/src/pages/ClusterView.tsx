@@ -4288,7 +4288,7 @@ function ShardAllocationGrid({
   });
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" style={{ minWidth: 0 }}>
       {/* Context menu for shard actions */}
       {contextMenuShard && (
         <ShardContextMenu
