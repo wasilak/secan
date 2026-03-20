@@ -62,7 +62,8 @@ export function getHealthColorValue(health: HealthStatus | 'unreachable'): strin
  * Requirements: 1.5
  * - Green for STARTED (healthy)
  * - Red for UNASSIGNED (critical)
- * - Yellow for INITIALIZING and RELOCATING (transitional)
+ * - Yellow for INITIALIZING (transitional)
+ * - Violet for RELOCATING (transitional, distinct from INITIALIZING)
  *
  * @param state - The state of the shard
  * @returns Mantine color name for the badge
@@ -74,8 +75,9 @@ export function getShardStateColor(state: ShardInfo['state']): string {
     case 'UNASSIGNED':
       return 'red';
     case 'INITIALIZING':
-    case 'RELOCATING':
       return 'yellow';
+    case 'RELOCATING':
+      return 'violet';
     default:
       return 'gray';
   }
@@ -87,8 +89,8 @@ export function getShardStateColor(state: ShardInfo['state']): string {
  * Requirements: 5.1, 5.2, 5.6, 16.1
  * - Uses CSS variables for theme compatibility
  * - Green border for STARTED (healthy)
- * - Blue-4 border for INITIALIZING (light blue)
- * - Orange-6 border for RELOCATING (yellow-orange)
+ * - Yellow-6 border for INITIALIZING (transitional)
+ * - Violet-6 border for RELOCATING (distinct transitional)
  * - Transparent (no border) for UNASSIGNED
  *
  * @param state - The state of the shard
@@ -99,9 +101,9 @@ export function getShardBorderColor(state: ShardInfo['state']): string {
     case 'STARTED':
       return 'var(--mantine-color-green-6)';
     case 'INITIALIZING':
-      return 'var(--mantine-color-blue-4)';
+      return 'var(--mantine-color-yellow-6)';
     case 'RELOCATING':
-      return 'var(--mantine-color-orange-6)';
+      return 'var(--mantine-color-violet-6)';
     case 'UNASSIGNED':
       return 'transparent'; // No border for unassigned shards
     default:
@@ -131,7 +133,7 @@ export function getUnassignedShardColor(isPrimary: boolean): string {
  * Requirements: 1.5
  * - Green for STARTED
  * - Yellow for INITIALIZING
- * - Orange for RELOCATING
+ * - Violet for RELOCATING (distinct from INITIALIZING)
  * - Red for UNASSIGNED
  *
  * @param state - The state of the shard
@@ -144,10 +146,39 @@ export function getShardDotColor(state: ShardInfo['state']): string {
     case 'INITIALIZING':
       return 'var(--mantine-color-yellow-6)';
     case 'RELOCATING':
-      return 'var(--mantine-color-orange-6)';
+      return 'var(--mantine-color-violet-6)';
     case 'UNASSIGNED':
       return 'var(--mantine-color-red-6)';
     default:
       return 'var(--mantine-color-gray-6)';
   }
 }
+
+/**
+ * Get badge color for shard type (primary/replica)
+ *
+ * @param isPrimary - Whether the shard is a primary shard
+ * @returns Mantine color name for the badge
+ */
+export function getShardTypeColor(isPrimary: boolean): string {
+  return isPrimary ? 'blue' : 'gray';
+}
+
+/**
+ * Centralized shard state colors for filter options
+ * Use these constants to ensure consistent colors across all filter UIs
+ */
+export const SHARD_STATE_COLORS: Record<string, string> = {
+  STARTED: 'var(--mantine-color-green-6)',
+  INITIALIZING: 'var(--mantine-color-yellow-6)',
+  RELOCATING: 'var(--mantine-color-violet-6)',
+  UNASSIGNED: 'var(--mantine-color-red-6)',
+};
+
+/**
+ * Centralized shard type colors for filter options
+ */
+export const SHARD_TYPE_COLORS: Record<string, string> = {
+  primaries: 'var(--mantine-color-blue-6)',
+  replicas: 'var(--mantine-color-gray-6)',
+};

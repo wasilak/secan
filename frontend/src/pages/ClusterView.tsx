@@ -106,7 +106,7 @@ import { AllocationLockIndicator, AllocationState } from '../components/Topology
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
-import { getHealthColor, getShardStateColor } from '../utils/colors';
+import { getHealthColor, getShardStateColor, getShardTypeColor, SHARD_STATE_COLORS, SHARD_TYPE_COLORS } from '../utils/colors';
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { FilterSidebar, type FilterCategory as FilterCategoryConfig } from '../components/FacetedFilter';
 
@@ -1759,7 +1759,7 @@ export function ClusterView() {
                   </Group>
                   <Group justify="space-between">
                     <Text size="sm" c="dimmed">Shard Type:</Text>
-                    <Badge size="sm" color={relocationShard?.primary ? 'blue' : 'gray'}>
+                    <Badge size="sm" color={getShardTypeColor(relocationShard?.primary ?? false)}>
                       {relocationShard?.primary ? 'Primary' : 'Replica'}
                     </Badge>
                   </Group>
@@ -2048,10 +2048,10 @@ export function ClusterView() {
                   {
                     title: 'State',
                     options: [
-                      { label: 'Started', value: 'STARTED', color: 'var(--mantine-color-green-6)' },
-                      { label: 'Initializing', value: 'INITIALIZING', color: 'var(--mantine-color-yellow-6)' },
-                      { label: 'Relocating', value: 'RELOCATING', color: 'var(--mantine-color-orange-6)' },
-                      { label: 'Unassigned', value: 'UNASSIGNED', color: 'var(--mantine-color-red-6)' },
+                      { label: 'Started', value: 'STARTED', color: SHARD_STATE_COLORS.STARTED },
+                      { label: 'Initializing', value: 'INITIALIZING', color: SHARD_STATE_COLORS.INITIALIZING },
+                      { label: 'Relocating', value: 'RELOCATING', color: SHARD_STATE_COLORS.RELOCATING },
+                      { label: 'Unassigned', value: 'UNASSIGNED', color: SHARD_STATE_COLORS.UNASSIGNED },
                     ],
                     selected: selectedShardStates,
                     onChange: (newStates) => updateShardsFilters(newStates, undefined, undefined),
@@ -2059,8 +2059,8 @@ export function ClusterView() {
                   {
                     title: 'Type',
                     options: [
-                      { label: 'Primaries', value: 'primaries', color: 'var(--mantine-color-yellow-6)' },
-                      { label: 'Replicas', value: 'replicas', color: 'var(--mantine-color-blue-6)' },
+                      { label: 'Primaries', value: 'primaries', color: SHARD_TYPE_COLORS.primaries },
+                      { label: 'Replicas', value: 'replicas', color: SHARD_TYPE_COLORS.replicas },
                     ],
                     selected: [...(showShardPrimaries ? ['primaries'] : []), ...(showShardReplicas ? ['replicas'] : [])],
                     onChange: (selected) => {
@@ -4636,7 +4636,7 @@ function ShardAllocationGrid({
                 <Text size="sm" c="dimmed">
                   Shard Type:
                 </Text>
-                <Badge size="sm" color={selectedShard?.primary ? 'blue' : 'gray'}>
+                <Badge size="sm" color={getShardTypeColor(selectedShard?.primary ?? false)}>
                   {selectedShard?.primary ? 'Primary' : 'Replica'}
                 </Badge>
               </Group>
@@ -5138,13 +5138,10 @@ const ShardsList = memo(function ShardsList({
                       <Text size="sm">{shard.shard}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Badge size="sm" variant="light" color={shard.primary ? 'blue' : 'gray'}>
-                        {shard.primary ? 'Primary' : 'Replica'}
-                      </Badge>
+                      <ShardTypeBadge primary={shard.primary} />
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">
-                        <ShardTypeBadge primary={shard.primary} />
                         <Badge size="sm" color={getShardStateColor(shard.state)}>
                           {shard.state}
                         </Badge>

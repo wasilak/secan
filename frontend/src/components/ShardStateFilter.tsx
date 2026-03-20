@@ -16,7 +16,7 @@ const SHARD_STATE_CONFIG: Record<
   STARTED: { icon: IconCircleCheckFilled, color: 'green', label: 'started' },
   UNASSIGNED: { icon: IconHourglass, color: 'red', label: 'unassigned' },
   INITIALIZING: { icon: IconProgress, color: 'yellow', label: 'initializing' },
-  RELOCATING: { icon: IconAlertCircle, color: 'orange', label: 'relocating' },
+  RELOCATING: { icon: IconAlertCircle, color: 'violet', label: 'relocating' },
 };
 
 export function getShardStateConfig(state: string) {

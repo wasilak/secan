@@ -1,6 +1,7 @@
 import { Badge, ScrollArea, Skeleton, Table, Text } from '@mantine/core';
 import type { ShardInfo } from '../types/api';
 import { formatBytes } from '../utils/formatters';
+import { getShardStateColor, getShardTypeColor } from '../utils/colors';
 
 /**
  * ShardList component displays a table of shards allocated to a node
@@ -12,24 +13,6 @@ import { formatBytes } from '../utils/formatters';
 interface ShardListProps {
   shards: ShardInfo[];
   loading: boolean;
-}
-
-/**
- * Get badge color based on shard state
- */
-function getStateColor(state: ShardInfo['state']): string {
-  switch (state) {
-    case 'STARTED':
-      return 'green';
-    case 'INITIALIZING':
-      return 'blue';
-    case 'RELOCATING':
-      return 'yellow';
-    case 'UNASSIGNED':
-      return 'red';
-    default:
-      return 'gray';
-  }
 }
 
 export function ShardList({ shards, loading }: ShardListProps) {
@@ -64,12 +47,12 @@ export function ShardList({ shards, loading }: ShardListProps) {
               <Table.Td>{shard.index}</Table.Td>
               <Table.Td>{shard.shard}</Table.Td>
               <Table.Td>
-                <Badge color={shard.primary ? 'blue' : 'gray'} size="sm">
+                <Badge color={getShardTypeColor(shard.primary)} size="sm">
                   {shard.primary ? 'Primary' : 'Replica'}
                 </Badge>
               </Table.Td>
               <Table.Td>
-                <Badge color={getStateColor(shard.state)} size="sm">
+                <Badge color={getShardStateColor(shard.state)} size="sm">
                   {shard.state}
                 </Badge>
               </Table.Td>

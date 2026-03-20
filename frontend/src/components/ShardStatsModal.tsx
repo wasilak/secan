@@ -6,6 +6,7 @@ import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
 import { DURATIONS, EASINGS } from '../lib/transitions';
 import { formatNumberWithCommas } from '../utils/formatters';
+import { getShardStateColor, getShardTypeColor } from '../utils/colors';
 
 /**
  * Props for ShardStatsModal component
@@ -190,22 +191,6 @@ export function ShardStatsModal({
     return primary ? 'Primary' : 'Replica';
   };
 
-  // Get shard state color
-  const getStateColor = (state: string): string => {
-    switch (state) {
-      case 'STARTED':
-        return 'green';
-      case 'INITIALIZING':
-        return 'yellow';
-      case 'RELOCATING':
-        return 'orange';
-      case 'UNASSIGNED':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-
   if (!shard) {
     return <></>;
   }
@@ -222,7 +207,7 @@ export function ShardStatsModal({
               <Text fw={600} size="lg">
                 Shard Details
               </Text>
-              <Badge color={shard.primary ? 'blue' : 'gray'} variant="light">
+              <Badge color={getShardTypeColor(shard.primary)} variant="light">
                 {getShardTypeLabel(shard.primary)}
               </Badge>
             </Group>
@@ -293,7 +278,7 @@ export function ShardStatsModal({
               <Table.Tr>
                 <Table.Td fw={500}>State</Table.Td>
                 <Table.Td>
-                  <Badge color={getStateColor(shard.state)} variant="light">
+                  <Badge color={getShardStateColor(shard.state)} variant="light">
                     {shard.state}
                   </Badge>
                 </Table.Td>
