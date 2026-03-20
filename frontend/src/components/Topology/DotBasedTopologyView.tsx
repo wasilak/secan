@@ -6,15 +6,10 @@ import { NodeCard } from './NodeCard';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import { sortShards } from '../../utils/shardOrdering';
 import {
-  parseGroupingFromUrl,
   calculateNodeGroups,
-  hasCustomLabels,
   getGroupLabel,
-  extractLabelFromTag,
-  type GroupingAttribute,
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
-import { GroupingControl } from './GroupingControl';
 import { GroupRenderer } from './GroupRenderer';
 import { GroupingErrorBoundary } from './GroupingErrorBoundary';
 
@@ -34,8 +29,7 @@ interface DotBasedTopologyViewProps {
   clusterId?: string;
   topologyBatchSize?: number;
   _topologyRetryCount?: number;
-  groupBy?: GroupingAttribute;
-  groupValue?: string;
+  groupingConfig?: GroupingConfig;
   isLoading?: boolean;
 }
 
@@ -71,84 +65,13 @@ export function DotBasedTopologyView({
   clusterId,
   topologyBatchSize = 4,
   _topologyRetryCount = 0,
-  groupBy,
-  groupValue,
+  groupingConfig = { attribute: 'none', value: undefined },
   isLoading = false,
 }: DotBasedTopologyViewProps) {
-  // Grouping state management
-  const [groupingConfig, setGroupingConfig] = useState<GroupingConfig>(() => {
-    // Parse grouping from URL on component mount
-    // Priority: props > URL params
-    if (groupBy) {
-      return { attribute: groupBy, value: groupValue };
-    }
-    return parseGroupingFromUrl(searchParams);
-  });
-
-  // Update URL when grouping changes
-  useEffect(() => {
-    // Only update URL if grouping is controlled by component (not props)
-    if (!groupBy && typeof window !== 'undefined') {
-      const currentUrl = new URL(window.location.href);
-      const params = new URLSearchParams(currentUrl.search);
-      
-      // Remove old grouping params
-      params.delete('groupBy');
-      params.delete('groupValue');
-      
-      // Add new grouping params if not 'none'
-      if (groupingConfig.attribute !== 'none') {
-        params.set('groupBy', groupingConfig.attribute);
-        if (groupingConfig.value) {
-          params.set('groupValue', groupingConfig.value);
-        }
-      }
-      
-      // Update URL without page reload
-      const newUrl = `${currentUrl.pathname}?${params.toString()}`;
-      window.history.replaceState({}, '', newUrl);
-    }
-  }, [groupingConfig, groupBy]);
-
   // Calculate node groups based on grouping configuration
-  // Memoized to avoid unnecessary recalculations
-  // Recalculates when nodes or grouping config changes
   const nodeGroups = useMemo(() => {
     return calculateNodeGroups(nodes, groupingConfig);
   }, [nodes, groupingConfig]);
-
-  // Check if nodes have custom labels for GroupingControl
-  // Extract unique label names from all node tags
-  const availableLabels = useMemo(() => {
-    if (!hasCustomLabels(nodes)) {
-      return [];
-    }
-    
-    // Extract unique label names from all nodes
-    // Group tags by label name to show one option per label
-    const labelMap = new Map<string, string>(); // name -> first full tag
-    
-    nodes.forEach(node => {
-      if (node.tags && node.tags.length > 0) {
-        node.tags.forEach(tag => {
-          const { name } = extractLabelFromTag(tag);
-          if (!labelMap.has(name)) {
-            labelMap.set(name, tag); // Store first occurrence of this label name
-          }
-        });
-      }
-    });
-    
-    // Return array of { name, tag } objects sorted by name
-    return Array.from(labelMap.entries())
-      .map(([name, tag]) => ({ name, tag }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [nodes]);
-
-  // Handler for grouping changes
-  const handleGroupingChange = useCallback((attribute: GroupingAttribute, value?: string) => {
-    setGroupingConfig({ attribute, value });
-  }, []);
 
   // Progressive loading state
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
@@ -387,18 +310,6 @@ export function DotBasedTopologyView({
 
   return (
     <div>
-      {/* Grouping Control - wrapped in error boundary */}
-      <Box mb="md">
-        <GroupingErrorBoundary>
-          <GroupingControl
-            currentGrouping={groupingConfig.attribute}
-            currentGroupingValue={groupingConfig.value}
-            availableLabels={availableLabels}
-            onGroupingChange={handleGroupingChange}
-          />
-        </GroupingErrorBoundary>
-      </Box>
-
       {/* Initial Loading Skeleton */}
       {isLoading && (
         <Grid gutter="md">

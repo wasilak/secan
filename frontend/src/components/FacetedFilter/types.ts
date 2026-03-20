@@ -35,9 +35,15 @@ export interface ActionConfig {
   variant?: 'filled' | 'outline' | 'subtle';
 }
 
+export interface ConditionalSectionConfig {
+  visible: boolean;
+  content: ReactNode;
+}
+
 export interface FilterSidebarProps {
-  textFilter?: TextFilterConfig;
-  categories: FilterCategory[];
+  textFilters?: TextFilterConfig[];
+  categories?: FilterCategory[];
+  conditionalSections?: ConditionalSectionConfig[];
   toggles?: ToggleConfig[];
   actions?: ActionConfig[];
   defaultExpanded?: boolean;

@@ -36,7 +36,6 @@ import {
 } from '../utils/urlBuilders';
 import { useClusterNavigation } from '../hooks/useClusterNavigation';
 import { DotBasedTopologyView } from '../components/Topology/DotBasedTopologyView';
-import { ShardAllocationGridFilters } from '../components/ShardAllocationGridFilters';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   IconAlertCircle,
@@ -108,7 +107,10 @@ import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor, getShardTypeColor, SHARD_STATE_COLORS, SHARD_TYPE_COLORS } from '../utils/colors';
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { FilterSidebar, type FilterCategory as FilterCategoryConfig } from '../components/FacetedFilter';
+import { FilterSidebar, FilterCategory } from '../components/FacetedFilter';
+import { TopologyStatsCards } from '../components/TopologyStatsCards';
+import type { GroupingAttribute, GroupingConfig } from '../utils/topologyGrouping';
+import { hasCustomLabels, extractLabelFromTag } from '../utils/topologyGrouping';
 
 /**
  * Get background color for index health in shard allocation grid
@@ -374,13 +376,19 @@ export function ClusterView() {
   const activeView = activeSection;
 
   // Topology view type from URL path (for direct linking)
-  const topologyViewFromPath = location.pathname.includes('/topology/dot') ? 'dot' :
+  const topologyViewFromPath = location.pathname.includes('/topology/node') ? 'node' :
                                location.pathname.includes('/topology/index') ? 'index' : null;
-  const topologyViewType = topologyViewFromPath || (searchParams.get('topologyView') as 'dot' | 'index') || 'dot';
-  const setTopologyViewType = (value: 'dot' | 'index') => {
+  const topologyViewType = topologyViewFromPath || (searchParams.get('topologyView') as 'node' | 'index') || 'node';
+  const setTopologyViewType = (value: 'node' | 'index') => {
     // Navigate to path-based URL for direct linking
     navigate(`/cluster/${id}/topology/${value}`, { replace: true });
   };
+
+  // Topology grouping state
+  const [topologyGroupingConfig, setTopologyGroupingConfig] = useState<GroupingConfig>({
+    attribute: 'none',
+    value: undefined,
+  });
 
   // Shared relocation state
   const [relocationMode, setRelocationMode] = useState(false);
@@ -1177,6 +1185,39 @@ export function ClusterView() {
   // regardless of node role filters applied to the nodes list
   const allNodesArray = useMemo(() => allNodesUnfiltered?.items ?? [], [allNodesUnfiltered]);
 
+  // Topology grouping derived values (must be after allNodesArray definition)
+  const availableLabelsForTopology = useMemo(() => {
+    if (!hasCustomLabels(allNodesArray)) return [];
+    const labelMap = new Map<string, string>();
+    allNodesArray.forEach((node) => {
+      if (node.tags && node.tags.length > 0) {
+        node.tags.forEach((tag) => {
+          const { name } = extractLabelFromTag(tag);
+          if (!labelMap.has(name)) {
+            labelMap.set(name, tag);
+          }
+        });
+      }
+    });
+    return Array.from(labelMap.entries())
+      .map(([name, tag]) => ({ name, tag }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allNodesArray]);
+
+  const groupingOptions = [
+    { value: 'none', label: 'None' },
+    { value: 'role', label: 'By Role' },
+    { value: 'type', label: 'By Type' },
+    ...availableLabelsForTopology.map(({ name, tag }) => ({
+      value: `label:${tag}`,
+      label: name,
+    })),
+  ];
+
+  const handleTopologyGroupingChange = useCallback((attribute: GroupingAttribute, value?: string) => {
+    setTopologyGroupingConfig({ attribute, value });
+  }, []);
+
   // Fetch indices with auto-refresh, pagination, and server-side filtering
   const indicesFilters = {
     search: searchParams.get('indicesSearch') || '',
@@ -1618,105 +1659,167 @@ export function ClusterView() {
 
       {/* Topology Section */}
       {activeView === 'topology' && (
-        <Stack gap="md">
-          {/* Shared Filter Bar */}
-          <Card shadow="sm" padding="xs">
-            <ShardAllocationGridFilters
-              searchParams={searchParams}
-              setSearchParams={setSearchParams}
-              indices={indices}
-              shards={shards}
-              nodes={allNodesArray}
-              indexNameFilter={indexNameFilter}
-              setIndexNameFilter={setIndexNameFilter}
-              nodeNameFilter={nodeNameFilter}
-              setNodeNameFilter={setNodeNameFilter}
+        <Grid gutter="md">
+          {/* Stats Row */}
+          <Grid.Col span={12}>
+            <TopologyStatsCards
+              filteredNodes={allNodesArray}
+              filteredIndices={allIndicesArray || []}
+              filteredShards={allShards || []}
             />
-          </Card>
+          </Grid.Col>
 
-          {/* Relocation Banner */}
-          {relocationMode && relocationShard && (
-            <Alert
-              color="violet"
-              variant="light"
-              icon={<IconArrowsRightLeft size={20} />}
-              title="Relocation Mode"
-            >
-              <Group justify="space-between">
-                <Text size="sm">
-                  <Text component="span" fw={600}>Select destination for shard {relocationShard.shard}</Text>
-                  {relocationShard.primary ? ' (Primary)' : ' (Replica)'} of index "{relocationShard.index}". Purple dashed boxes show valid destinations.
-                </Text>
-                <Button
-                  size="xs"
-                  color="red"
-                  variant="filled"
-                  onClick={handleTopologyCancelRelocation}
-                  disabled={relocationInProgress}
-                >
-                  Cancel Relocation
-                </Button>
-              </Group>
-            </Alert>
-          )}
-
-          {/* Topology View Title and Tabs */}
-          <Group justify="space-between" wrap="nowrap">
-            <Text size="lg" fw={700}>Topology View</Text>
-            <Tabs
-              value={topologyViewType}
-              onChange={(value) => setTopologyViewType(value as 'dot' | 'index')}
-            >
-              <Tabs.List>
-                <Tabs.Tab value="dot">Dot View</Tabs.Tab>
-                <Tabs.Tab value="index">Index View</Tabs.Tab>
-              </Tabs.List>
-            </Tabs>
-          </Group>
-
-          {/* View Content */}
-          <Card shadow="sm" padding="lg">
-            {topologyViewType === 'dot' ? (
-              <DotBasedTopologyView
-                nodes={allNodesArray}
-                shards={allShards || []}
-                indices={allIndicesArray || []}
-                searchParams={searchParams}
-                onShardClick={handleTopologyShardClick}
-                onNodeClick={openNodeModal}
-                relocationMode={relocationMode}
-                validDestinationNodes={validDestinationNodes}
-                onDestinationClick={handleTopologyDestinationClick}
-                indexNameFilter={indexNameFilter}
-                nodeNameFilter={nodeNameFilter}
-                matchesWildcard={matchesWildcard}
-                clusterId={id}
-                topologyBatchSize={4}
-                _topologyRetryCount={0}
-                isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
+          <Grid.Col span={12}>
+            <Group gap="md" wrap="nowrap" align="flex-start">
+              {/* Filter Sidebar */}
+              <FilterSidebar
+                textFilters={[
+                  { value: indexNameFilter, onChange: setIndexNameFilter, placeholder: 'Filter indices...' },
+                  { value: nodeNameFilter, onChange: setNodeNameFilter, placeholder: 'Filter nodes...' },
+                ]}
+                categories={[
+                  {
+                    title: 'State',
+                    options: [
+                      { label: 'Started', value: 'STARTED', color: SHARD_STATE_COLORS.STARTED },
+                      { label: 'Unassigned', value: 'UNASSIGNED', color: SHARD_STATE_COLORS.UNASSIGNED },
+                      { label: 'Initializing', value: 'INITIALIZING', color: SHARD_STATE_COLORS.INITIALIZING },
+                      { label: 'Relocating', value: 'RELOCATING', color: SHARD_STATE_COLORS.RELOCATING },
+                    ],
+                    selected: selectedShardStates,
+                    onChange: (newStates) => {
+                      const params = new URLSearchParams(searchParams);
+                      if (newStates.length === 4) {
+                        params.delete('shardStates');
+                      } else if (newStates.length > 0) {
+                        params.set('shardStates', newStates.join(','));
+                      }
+                      setSearchParams(params, { replace: true });
+                    },
+                  },
+                ]}
+                conditionalSections={[
+                  {
+                    visible: topologyViewType === 'node',
+                    content: (
+                      <FilterCategory
+                        title="Group By"
+                        options={groupingOptions}
+                        selected={[topologyGroupingConfig.attribute]}
+                        onChange={(selected: string[]) => {
+                          const value = selected[0] as GroupingAttribute;
+                          const tagValue = value.startsWith('label:') ? value.substring(6) : undefined;
+                          handleTopologyGroupingChange(value, tagValue);
+                        }}
+                        allValues={['none', 'role', 'type', ...availableLabelsForTopology.map(l => `label:${l.tag}`)]}
+                      />
+                    ),
+                  },
+                ]}
+                toggles={[
+                  {
+                    label: 'Show special indices',
+                    value: searchParams.get('showSpecial') !== 'false',
+                    onChange: (val) => {
+                      const params = new URLSearchParams(searchParams);
+                      if (val) {
+                        params.delete('showSpecial');
+                      } else {
+                        params.set('showSpecial', 'false');
+                      }
+                      setSearchParams(params, { replace: true });
+                    },
+                    icon: <IconEyeOff size={16} />,
+                  },
+                ]}
               />
-            ) : (
-              <ShardAllocationGrid
-                nodes={allNodesArray}
-                shards={allShards || []}
-                indices={allIndicesArray || []}
-                loading={nodesLoading || allIndicesLoading || allShardsLoading}
-                error={nodesError || allIndicesError || allShardsError}
-                openIndexModal={openIndexModal}
-                openNodeModal={openNodeModal}
-                searchParams={searchParams}
-                setSearchParams={setSearchParams}
-                sharedRelocationMode={relocationMode}
-                sharedValidDestinationNodes={validDestinationNodes}
-                onSharedDestinationClick={handleTopologyDestinationClick}
-                onSharedRelocationCancel={handleTopologyCancelRelocation}
-                onSharedSelectForRelocation={handleTopologySelectForRelocation}
-                indexNameFilter={indexNameFilter}
-                nodeNameFilter={nodeNameFilter}
-                matchesWildcard={matchesWildcard}
-              />
-            )}
-          </Card>
+
+              {/* View Content */}
+              <Stack gap="md" style={{ flex: 1 }}>
+                {/* Tabs */}
+                <Group justify="flex-end">
+                  <Tabs
+                    value={topologyViewType}
+                    onChange={(value) => setTopologyViewType(value as 'node' | 'index')}
+                  >
+                    <Tabs.List>
+                      <Tabs.Tab value="node">Node View</Tabs.Tab>
+                      <Tabs.Tab value="index">Index View</Tabs.Tab>
+                    </Tabs.List>
+                  </Tabs>
+                </Group>
+
+                {/* Relocation Banner */}
+                {relocationMode && relocationShard && (
+                  <Alert
+                    color="violet"
+                    variant="light"
+                    icon={<IconArrowsRightLeft size={20} />}
+                    title="Relocation Mode"
+                  >
+                    <Group justify="space-between">
+                      <Text size="sm">
+                        <Text component="span" fw={600}>Select destination for shard {relocationShard.shard}</Text>
+                        {relocationShard.primary ? ' (Primary)' : ' (Replica)'} of index "{relocationShard.index}". Purple dashed boxes show valid destinations.
+                      </Text>
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="filled"
+                        onClick={handleTopologyCancelRelocation}
+                        disabled={relocationInProgress}
+                      >
+                        Cancel Relocation
+                      </Button>
+                    </Group>
+                  </Alert>
+                )}
+
+                {/* View */}
+                {topologyViewType === 'node' ? (
+                  <DotBasedTopologyView
+                    nodes={allNodesArray}
+                    shards={allShards || []}
+                    indices={allIndicesArray || []}
+                    searchParams={searchParams}
+                    onShardClick={handleTopologyShardClick}
+                    onNodeClick={openNodeModal}
+                    relocationMode={relocationMode}
+                    validDestinationNodes={validDestinationNodes}
+                    onDestinationClick={handleTopologyDestinationClick}
+                    indexNameFilter={indexNameFilter}
+                    nodeNameFilter={nodeNameFilter}
+                    matchesWildcard={matchesWildcard}
+                    clusterId={id}
+                    topologyBatchSize={4}
+                    _topologyRetryCount={0}
+                    isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
+                    groupingConfig={topologyGroupingConfig}
+                  />
+                ) : (
+                  <ShardAllocationGrid
+                    nodes={allNodesArray}
+                    shards={allShards || []}
+                    indices={allIndicesArray || []}
+                    loading={nodesLoading || allIndicesLoading || allShardsLoading}
+                    error={nodesError || allIndicesError || allShardsError}
+                    openIndexModal={openIndexModal}
+                    openNodeModal={openNodeModal}
+                    searchParams={searchParams}
+                    setSearchParams={setSearchParams}
+                    sharedRelocationMode={relocationMode}
+                    sharedValidDestinationNodes={validDestinationNodes}
+                    onSharedDestinationClick={handleTopologyDestinationClick}
+                    onSharedRelocationCancel={handleTopologyCancelRelocation}
+                    onSharedSelectForRelocation={handleTopologySelectForRelocation}
+                    indexNameFilter={indexNameFilter}
+                    nodeNameFilter={nodeNameFilter}
+                    matchesWildcard={matchesWildcard}
+                  />
+                )}
+              </Stack>
+            </Group>
+          </Grid.Col>
 
           {/* Shared Context Menu */}
           {topologyContextMenuShard && (
@@ -1782,7 +1885,7 @@ export function ClusterView() {
               </Group>
             </Stack>
           </Modal>
-        </Stack>
+        </Grid>
       )}
 
       {/* Statistics Section */}
@@ -1886,11 +1989,11 @@ export function ClusterView() {
           <Grid.Col span={12}>
             <Group gap="md" wrap="nowrap" align="flex-start">
               <FilterSidebar
-                textFilter={{
+                textFilters={[{
                   value: localNodesSearch,
                   onChange: setNodesSearch,
                   placeholder: 'Filter nodes...',
-                }}
+                }]}
                 categories={[
                   {
                     title: 'Roles',
@@ -1953,11 +2056,11 @@ export function ClusterView() {
           <Grid.Col span={12}>
             <Group gap="md" wrap="nowrap" align="flex-start">
               <FilterSidebar
-                textFilter={{
+                textFilters={[{
                   value: localIndicesSearch,
                   onChange: setLocalIndicesSearch,
                   placeholder: 'Filter indices...',
-                }}
+                }]}
                 categories={[
                   {
                     title: 'Health',
@@ -2039,11 +2142,11 @@ export function ClusterView() {
           <Grid.Col span={12}>
             <Group gap="md" wrap="nowrap" align="flex-start">
               <FilterSidebar
-                textFilter={{
+                textFilters={[{
                   value: localShardsSearch,
                   onChange: setShardsSearch,
                   placeholder: 'Filter shards...',
-                }}
+                }]}
                 categories={[
                   {
                     title: 'State',

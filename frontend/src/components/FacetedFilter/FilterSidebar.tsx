@@ -10,8 +10,9 @@ const DEFAULT_WIDTH = 280;
 const COLLAPSED_WIDTH = 48;
 
 export function FilterSidebar({
-  textFilter,
-  categories,
+  textFilters,
+  categories = [],
+  conditionalSections = [],
   toggles = [],
   actions = [],
   defaultExpanded = true,
@@ -49,12 +50,17 @@ export function FilterSidebar({
       {isExpanded && (
         <ScrollArea style={{ flex: 1 }} p="xs">
           <Stack gap="md">
-            {textFilter && (
-              <TextSearchInput
-                value={textFilter.value}
-                onChange={textFilter.onChange}
-                placeholder={textFilter.placeholder}
-              />
+            {textFilters && textFilters.length > 0 && (
+              <Stack gap="xs">
+                {textFilters.map((filter, index) => (
+                  <TextSearchInput
+                    key={index}
+                    value={filter.value}
+                    onChange={filter.onChange}
+                    placeholder={filter.placeholder}
+                  />
+                ))}
+              </Stack>
             )}
 
             {categories.length > 0 && (
@@ -70,6 +76,14 @@ export function FilterSidebar({
                   />
                 ))}
               </Accordion>
+            )}
+
+            {conditionalSections.length > 0 && (
+              <Stack gap="xs">
+                {conditionalSections.map((section, index) =>
+                  section.visible ? <Box key={index}>{section.content}</Box> : null
+                )}
+              </Stack>
             )}
 
             {toggles.length > 0 && (
