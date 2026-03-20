@@ -123,7 +123,14 @@ export type NodeRole =
   | 'ingest'
   | 'coordinating'
   | 'ml'
-  | 'remote_cluster_client';
+  | 'remote_cluster_client'
+  | 'voting_only'
+  | 'transform'
+  | 'data_content'
+  | 'data_hot'
+  | 'data_warm'
+  | 'data_cold'
+  | 'data_frozen';
 
 /**
  * Node information

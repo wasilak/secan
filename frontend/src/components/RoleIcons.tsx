@@ -18,6 +18,7 @@ const ROLE_ICONS: Record<string, { icon: typeof IconDatabase; color: string; lab
   data: { icon: IconDatabase, color: 'blue', label: 'data' },
   ingest: { icon: IconTransform, color: 'grape', label: 'ingest' },
   ml: { icon: IconBolt, color: 'orange', label: 'ml' },
+  coordinating: { icon: IconServer, color: 'gray', label: 'coordinating' },
   remote_cluster_client: { icon: IconCloud, color: 'cyan', label: 'remote_cluster_client' },
   transform: { icon: IconTransform, color: 'teal', label: 'transform' },
   data_content: { icon: IconFileText, color: 'indigo', label: 'data_content' },
@@ -155,3 +156,22 @@ export function RoleFilterToggle({
     </Group>
   );
 }
+
+/**
+ * Centralized role colors for use in charts and other components
+ */
+export const ROLE_COLORS: Record<string, string> = {
+  master: 'var(--mantine-color-yellow-6)',
+  data: 'var(--mantine-color-blue-6)',
+  ingest: 'var(--mantine-color-grape-6)',
+  ml: 'var(--mantine-color-orange-6)',
+  coordinating: 'var(--mantine-color-gray-6)',
+  remote_cluster_client: 'var(--mantine-color-cyan-6)',
+  transform: 'var(--mantine-color-teal-6)',
+  data_content: 'var(--mantine-color-indigo-6)',
+  data_hot: 'var(--mantine-color-red-6)',
+  data_warm: 'var(--mantine-color-orange-6)',
+  data_cold: 'var(--mantine-color-blue-6)',
+  data_frozen: 'var(--mantine-color-cyan-6)',
+  voting_only: 'var(--mantine-color-gray-6)',
+};

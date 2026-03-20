@@ -9,6 +9,7 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
 } from 'recharts';
+import { ROLE_COLORS } from '../RoleIcons';
 
 interface NodeRolesChartProps {
   title: string;
@@ -52,13 +53,16 @@ export function NodeRolesChart({
                 domain={[0, 'dataMax']}
                 tick={{ fill: 'var(--mantine-color-gray-6)', fontSize: 10 }}
               />
-              <Radar
-                name="Node Count"
-                dataKey="count"
-                stroke="var(--mantine-color-blue-6)"
-                fill="var(--mantine-color-blue-6)"
-                fillOpacity={0.5}
-              />
+              {data.map((entry) => (
+                <Radar
+                  key={entry.role}
+                  name={entry.role}
+                  dataKey="count"
+                  stroke={ROLE_COLORS[entry.role] || 'var(--mantine-color-gray-6)'}
+                  fill={ROLE_COLORS[entry.role] || 'var(--mantine-color-gray-6)'}
+                  fillOpacity={0.5}
+                />
+              ))}
               <RechartsTooltip
                 contentStyle={{
                   backgroundColor: 'var(--mantine-color-dark-7)',
