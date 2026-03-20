@@ -147,8 +147,14 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
     return preferences.clusterConsoleStates[clusterId] ?? getDefaultClusterState();
   });
 
-  // Panel open state (not persisted - starts closed)
-  const [isOpen, setIsOpen] = useState(false);
+  // Panel open state - if sticky mode is enabled, start open; otherwise starts closed
+  const [isOpen, setIsOpen] = useState(() => {
+    if (!clusterId) {
+      return false;
+    }
+    const savedState = preferences.clusterConsoleStates[clusterId];
+    return savedState?.stickyMode ?? false;
+  });
 
   // Detached mode state (loaded from saved state)
   const [isDetached, setIsDetached] = useState<boolean>(() => {

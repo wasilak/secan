@@ -1,6 +1,6 @@
 import { Tooltip, Box } from '@mantine/core';
 import { ShardInfo } from '../../types/api';
-import { getShardStateColor } from '../../utils/colors';
+import { getShardDotColor } from '../../utils/colors';
 
 /**
  * ShardDot Component
@@ -31,18 +31,16 @@ export function ShardDot({
 }) {
   const sizeMap = { sm: 6, md: 8, lg: 12 };
   const dotSize = sizeMap[size];
-  const stateColor = getShardStateColor(shard.state);
+  const backgroundColor = getShardDotColor(shard.state);
 
   // Determine border color and style for relocating shards
   // Requirements: 3.3, 3.4, 3.6
   const isRelocating = shard.state === 'RELOCATING';
   let borderColor = indexColor;
   let borderStyle: 'solid' | 'dotted' = 'solid';
-  let backgroundColor = `var(--mantine-color-${stateColor}-6)`;
 
   if (isRelocating) {
     // Use orange-6 for relocating shards (Requirement 3.6)
-    backgroundColor = 'var(--mantine-color-orange-6)';
     
     if (isSource) {
       // Source node: solid yellow border (Requirement 3.3)

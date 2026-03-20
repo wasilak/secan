@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Stack, LoadingOverlay, Alert, Button, Group, Modal, Text } from '@mantine/core';
+import { Stack, LoadingOverlay, Alert, Button, Group, Modal, Text, Grid } from '@mantine/core';
 import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TaskInfo } from '../types/api';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useRefreshInterval } from '../contexts/RefreshContext';
-import { TasksFilters } from './TasksFilters';
+import { FilterSidebar } from './FacetedFilter';
 import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import { TaskStatsCards } from './TaskStatsCards';
@@ -188,106 +188,118 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
   }
 
   return (
-    <Stack gap="lg" style={{ width: '100%', padding: '0 1rem' }}>
-      {/* Error Alert */}
-      {error && (
-        <Alert icon={<IconAlertCircle size={16} />} color="red">
-          Failed to load tasks: {error.message}
-        </Alert>
-      )}
-
-      {/* Task Statistics Cards */}
-      <TaskStatsCards stats={stats} />
-
-      {/* Filters */}
-      <TasksFilters
-        uniqueTypes={uniqueTypes}
-        uniqueActions={uniqueActions}
-        selectedTypes={selectedTypes}
-        selectedActions={selectedActions}
-        onTypesChange={handleTypesChange}
-        onActionsChange={handleActionsChange}
-      />
-
-      {/* Bulk Actions Bar */}
-      {count > 0 && (
-        <Group justify="space-between" style={{ padding: '0.75rem 1rem', backgroundColor: '#f0f9ff', borderRadius: '0.5rem', border: '1px solid #bfdbfe' }}>
-          <Text size="sm" fw={500}>
-            {count} task{count !== 1 ? 's' : ''} selected
-          </Text>
-          <Button
-            color="red"
-            variant="light"
-            size="sm"
-            leftSection={<IconTrash size={14} />}
-            onClick={() => setBulkCancelModalOpen(true)}
-            loading={isBulkCancelling}
-          >
-            Cancel Selected
-          </Button>
-        </Group>
-      )}
-
-      {/* Table with Loading Overlay */}
-      <div style={{ position: 'relative' }}>
-        <LoadingOverlay visible={isLoading} zIndex={1000} />
-        {sortedTasks.length === 0 ? (
-          <Text c="dimmed" ta="center" py="xl">
-            No tasks match your filters
-          </Text>
-        ) : (
-          <TasksTable
-            tasks={sortedTasks}
-            sortBy={sortBy}
-            sortOrder={sortOrder}
-            onSort={handleSort}
-            onRowClick={handleTaskClick}
-            selectedTasks={selectedIndices}
-            onToggleSelect={toggleSelection}
-            onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
-            onClearSelection={clearSelection}
+    <Grid gutter="md" p="md">
+      <Grid.Col span={12}>
+        <TaskStatsCards stats={stats} />
+      </Grid.Col>
+      <Grid.Col span={12}>
+        <Group gap="md" wrap="nowrap" align="flex-start">
+          <FilterSidebar
+            categories={[
+              {
+                title: 'Task Type',
+                options: uniqueTypes.map((type) => ({ label: type, value: type })),
+                selected: selectedTypes,
+                onChange: handleTypesChange,
+              },
+              {
+                title: 'Task Action',
+                options: uniqueActions.map((action) => ({ label: action, value: action })),
+                selected: selectedActions,
+                onChange: handleActionsChange,
+              },
+            ]}
           />
-        )}
-      </div>
+          <Stack gap="lg" style={{ flex: 1 }}>
+            {/* Error Alert */}
+            {error && (
+              <Alert icon={<IconAlertCircle size={16} />} color="red">
+                Failed to load tasks: {error.message}
+              </Alert>
+            )}
 
-      {/* Task Details Modal */}
-      <TaskDetailsModal
-        task={selectedTask}
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedTask(null);
-          setCancelError(null);
-        }}
-        clusterId={clusterId}
-      />
+            {/* Bulk Actions Bar */}
+            {count > 0 && (
+              <Group justify="space-between" style={{ padding: '0.75rem 1rem', backgroundColor: '#f0f9ff', borderRadius: '0.5rem', border: '1px solid #bfdbfe' }}>
+                <Text size="sm" fw={500}>
+                  {count} task{count !== 1 ? 's' : ''} selected
+                </Text>
+                <Button
+                  color="red"
+                  variant="light"
+                  size="sm"
+                  leftSection={<IconTrash size={14} />}
+                  onClick={() => setBulkCancelModalOpen(true)}
+                  loading={isBulkCancelling}
+                >
+                  Cancel Selected
+                </Button>
+              </Group>
+            )}
 
-      {/* Bulk Cancel Confirmation Modal */}
-      <Modal
-        opened={bulkCancelModalOpen}
-        onClose={() => setBulkCancelModalOpen(false)}
-        title="Cancel Tasks"
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm">
-            Are you sure you want to cancel {count} task{count !== 1 ? 's' : ''}?
-          </Text>
-          {cancelError && (
-            <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light">
-              {cancelError}
-            </Alert>
-          )}
-          <Group justify="flex-end">
-            <Button variant="light" onClick={() => setBulkCancelModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={handleBulkCancel} loading={isBulkCancelling}>
-              Confirm
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Stack>
+            {/* Table with Loading Overlay */}
+            <div style={{ position: 'relative' }}>
+              <LoadingOverlay visible={isLoading} zIndex={1000} />
+              {sortedTasks.length === 0 ? (
+                <Text c="dimmed" ta="center" py="xl">
+                  No tasks match your filters
+                </Text>
+              ) : (
+                <TasksTable
+                  tasks={sortedTasks}
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSort={handleSort}
+                  onRowClick={handleTaskClick}
+                  selectedTasks={selectedIndices}
+                  onToggleSelect={toggleSelection}
+                  onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
+                  onClearSelection={clearSelection}
+                />
+              )}
+            </div>
+
+            {/* Task Details Modal */}
+            <TaskDetailsModal
+              task={selectedTask}
+              isOpen={isDetailModalOpen}
+              onClose={() => {
+                setIsDetailModalOpen(false);
+                setSelectedTask(null);
+                setCancelError(null);
+              }}
+              clusterId={clusterId}
+            />
+
+            {/* Bulk Cancel Confirmation Modal */}
+            <Modal
+              opened={bulkCancelModalOpen}
+              onClose={() => setBulkCancelModalOpen(false)}
+              title="Cancel Tasks"
+              centered
+            >
+              <Stack gap="md">
+                <Text size="sm">
+                  Are you sure you want to cancel {count} task{count !== 1 ? 's' : ''}?
+                </Text>
+                {cancelError && (
+                  <Alert icon={<IconAlertCircle size={16} />} color="red" variant="light">
+                    {cancelError}
+                  </Alert>
+                )}
+                <Group justify="flex-end">
+                  <Button variant="light" onClick={() => setBulkCancelModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button color="red" onClick={handleBulkCancel} loading={isBulkCancelling}>
+                    Confirm
+                  </Button>
+                </Group>
+              </Stack>
+            </Modal>
+          </Stack>
+        </Group>
+      </Grid.Col>
+    </Grid>
   );
 }

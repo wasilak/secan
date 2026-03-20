@@ -594,7 +594,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
                       <Menu.Dropdown>
                         <Menu.Label>Common Operations</Menu.Label>
                         {EXAMPLE_REQUESTS.map((example) => (
-                          <Menu.Item key={example.label} onClick={() => loadExample(example.request)}>
+                          <Menu.Item key={example.label} onClick={(e) => { e.stopPropagation(); loadExample(example.request); }}>
                             {example.label}
                           </Menu.Item>
                         ))}

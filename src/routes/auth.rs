@@ -232,11 +232,14 @@ pub async fn oidc_callback(
     // Default to home page if no redirect or invalid redirect
     let redirect_path = redirect_to.unwrap_or_else(|| "/".to_string());
 
+    // Get session timeout from config
+    let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
+
     // Set session token as HTTP-only cookie and redirect
     let mut response = Response::new(Body::empty());
     response.headers_mut().insert(
         http::header::SET_COOKIE,
-        create_session_cookie(&session_token),
+        create_session_cookie(&session_token, max_age_seconds),
     );
     response.headers_mut().insert(
         http::header::LOCATION,
@@ -315,10 +318,11 @@ pub async fn login(
             }
         })?;
 
+        let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
         let mut response = axum::response::Response::new(axum::body::Body::from(body));
         response.headers_mut().insert(
             http::header::SET_COOKIE,
-            create_session_cookie(&session_token),
+            create_session_cookie(&session_token, max_age_seconds),
         );
         response.headers_mut().insert(
             http::header::CONTENT_TYPE,
@@ -420,10 +424,12 @@ pub async fn login(
         }
     };
     let mut response = axum::response::Response::new(body);
+    let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
 
-    response
-        .headers_mut()
-        .insert(http::header::SET_COOKIE, create_session_cookie(&token));
+    response.headers_mut().insert(
+        http::header::SET_COOKIE,
+        create_session_cookie(&token, max_age_seconds),
+    );
     response.headers_mut().insert(
         http::header::CONTENT_TYPE,
         http::HeaderValue::from_static("application/json"),
@@ -459,7 +465,9 @@ pub async fn get_current_user(
 /// The Secure flag is only set when explicitly enabled via environment variable.
 /// In production behind an HTTPS reverse proxy, set SECAN_SECURE_COOKIES=true
 /// For local development over HTTP, leave it unset or set to false
-fn create_session_cookie(token: &str) -> http::HeaderValue {
+///
+/// The Max-Age is set based on the configured session timeout.
+fn create_session_cookie(token: &str, max_age_seconds: u64) -> http::HeaderValue {
     // Only set Secure flag if explicitly enabled via environment variable
     // Default to false to allow local HTTP development
     // In production, use SECAN_SECURE_COOKIES=true when behind HTTPS reverse proxy
@@ -469,13 +477,13 @@ fn create_session_cookie(token: &str) -> http::HeaderValue {
 
     let cookie_value = if secure_flag {
         format!(
-            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=3600",
-            token
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age={}",
+            token, max_age_seconds
         )
     } else {
         format!(
-            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
-            token
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+            token, max_age_seconds
         )
     };
     match http::HeaderValue::from_str(&cookie_value) {

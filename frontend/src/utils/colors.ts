@@ -124,3 +124,30 @@ export function getUnassignedShardColor(isPrimary: boolean): string {
     ? 'var(--mantine-color-red-6)' // Bright red for primaries
     : 'var(--mantine-color-red-4)'; // Dimmed red for replicas
 }
+
+/**
+ * Get color for shard dots in topology view
+ *
+ * Requirements: 1.5
+ * - Green for STARTED
+ * - Yellow for INITIALIZING
+ * - Orange for RELOCATING
+ * - Red for UNASSIGNED
+ *
+ * @param state - The state of the shard
+ * @returns CSS color variable for the dot background
+ */
+export function getShardDotColor(state: ShardInfo['state']): string {
+  switch (state) {
+    case 'STARTED':
+      return 'var(--mantine-color-green-6)';
+    case 'INITIALIZING':
+      return 'var(--mantine-color-yellow-6)';
+    case 'RELOCATING':
+      return 'var(--mantine-color-orange-6)';
+    case 'UNASSIGNED':
+      return 'var(--mantine-color-red-6)';
+    default:
+      return 'var(--mantine-color-gray-6)';
+  }
+}

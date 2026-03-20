@@ -108,6 +108,7 @@ import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
 import { getHealthColor, getShardStateColor } from '../utils/colors';
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
+import { FilterSidebar, type FilterCategory as FilterCategoryConfig } from '../components/FacetedFilter';
 
 /**
  * Get background color for index health in shard allocation grid
@@ -141,7 +142,12 @@ function getIndexBackgroundColor(health: string): string {
  * Shows alongside cluster name and lock indicator
  */
 function ConsoleToggleClusterHeader() {
-  const { isOpen, togglePanel } = useConsolePanel();
+  const { isOpen, isSticky, togglePanel } = useConsolePanel();
+
+  // Hide button when pinned and open - console stays visible
+  if (isOpen && isSticky) {
+    return null;
+  }
 
   return (
     <Tooltip label={isOpen ? 'Close console' : 'Open console'}>
@@ -197,6 +203,56 @@ export function ClusterView() {
     setLocalIndicesSearch(value);
   };
 
+  // Indices filter state (read from URL)
+  const selectedHealth = searchParams.get('health')?.split(',').filter(Boolean) || [
+    'green',
+    'yellow',
+    'red',
+    'unknown',
+  ];
+  const selectedStatus = searchParams.get('status')?.split(',').filter(Boolean) || [
+    'open',
+    'close',
+  ];
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
+
+  // Update URL when indices filters change
+  const updateIndicesFilters = (newHealth?: string[], newStatus?: string[]) => {
+    const params = new URLSearchParams(searchParams);
+
+    if (newHealth !== undefined) {
+      if (newHealth.length === 4) {
+        params.delete('health');
+      } else if (newHealth.length > 0) {
+        params.set('health', newHealth.join(','));
+      } else {
+        params.delete('health');
+      }
+    }
+
+    if (newStatus !== undefined) {
+      if (newStatus.length === 2) {
+        params.delete('status');
+      } else if (newStatus.length > 0) {
+        params.set('status', newStatus.join(','));
+      } else {
+        params.delete('status');
+      }
+    }
+
+    setSearchParams(params, { replace: true });
+  };
+
+  const updateIndicesParam = (key: string, value: boolean) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set(key, 'true');
+    } else {
+      newParams.delete(key);
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
   // Nodes search filter (handled at parent level to prevent re-renders and focus loss)
   const nodesSearch = searchParams.get('nodesSearch') || '';
   const [localNodesSearch, setLocalNodesSearch] = useState(nodesSearch);
@@ -224,6 +280,85 @@ export function ClusterView() {
 
   const setNodesSearch = (value: string) => {
     setLocalNodesSearch(value);
+  };
+
+  // Shards filter state (read from URL)
+  const shardsSearch = searchParams.get('shardsSearch') || '';
+  const [localShardsSearch, setLocalShardsSearch] = useState(shardsSearch);
+
+  // Sync local input with URL when it changes externally
+  useEffect(() => {
+    setLocalShardsSearch(searchParams.get('shardsSearch') || '');
+  }, [searchParams]);
+
+  // Debounce: update URL after 300ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localShardsSearch !== searchParams.get('shardsSearch')) {
+        const newParams = new URLSearchParams(searchParams);
+        if (localShardsSearch) {
+          newParams.set('shardsSearch', localShardsSearch);
+        } else {
+          newParams.delete('shardsSearch');
+        }
+        setSearchParams(newParams, { replace: true });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localShardsSearch, searchParams, setSearchParams]);
+
+  const setShardsSearch = (value: string) => {
+    setLocalShardsSearch(value);
+  };
+
+  const selectedShardStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [
+    'STARTED',
+    'INITIALIZING',
+    'RELOCATING',
+    'UNASSIGNED',
+  ];
+  const showShardPrimaries = searchParams.get('showPrimaries') !== 'false';
+  const showShardReplicas = searchParams.get('showReplicas') !== 'false';
+  const showShardSpecial = searchParams.get('showSpecial') !== 'false';
+
+  const updateShardsFilters = (newStates?: string[], newShowPrimaries?: boolean, newShowReplicas?: boolean) => {
+    const params = new URLSearchParams(searchParams);
+
+    if (newStates !== undefined) {
+      if (newStates.length > 0) {
+        params.set('shardStates', newStates.join(','));
+      } else {
+        params.delete('shardStates');
+      }
+    }
+
+    if (newShowPrimaries !== undefined) {
+      if (newShowPrimaries) {
+        params.delete('showPrimaries');
+      } else {
+        params.set('showPrimaries', 'false');
+      }
+    }
+
+    if (newShowReplicas !== undefined) {
+      if (newShowReplicas) {
+        params.delete('showReplicas');
+      } else {
+        params.set('showReplicas', 'false');
+      }
+    }
+
+    setSearchParams(params, { replace: true });
+  };
+
+  const updateShardsParam = (key: string, value: boolean) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set(key, 'true');
+    } else {
+      newParams.delete(key);
+    }
+    setSearchParams(newParams, { replace: true });
   };
 
   // Fetch watermark thresholds for disk/memory coloring
@@ -1024,6 +1159,20 @@ export function ClusterView() {
     return Array.from(new Set(roles));
   }, [allNodesUnfiltered]);
 
+  // Node roles filter state (read from URL)
+  const nodeRolesParam = searchParams.get('nodeRoles') || '';
+  const selectedNodeRoles = nodeRolesParam.split(',').filter(Boolean);
+
+  const updateNodeRoles = (newRoles: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    if (newRoles.length > 0) {
+      params.set('nodeRoles', newRoles.join(','));
+    } else {
+      params.set('nodeRoles', '');
+    }
+    setSearchParams(params, { replace: true });
+  };
+
   // Use unfiltered nodes for topology view so it always shows all nodes
   // regardless of node role filters applied to the nodes list
   const allNodesArray = useMemo(() => allNodesUnfiltered?.items ?? [], [allNodesUnfiltered]);
@@ -1119,7 +1268,7 @@ export function ClusterView() {
     );
   }
 
-  if (statsLoading) {
+  if (statsLoading && !stats) {
     return (
       <Stack p="md" gap="md">
         <Skeleton height={40} radius="sm" />
@@ -1730,72 +1879,225 @@ export function ClusterView() {
 
       {/* Nodes Section */}
       {activeView === 'nodes' && (
-        <Stack gap="md" style={{ width: '100%' }}>
-          <NodesList
-            nodes={nodes}
-            loading={nodesLoading}
-            error={nodesError}
-            openNodeModal={openNodeModal}
-            nodesSearch={localNodesSearch}
-            setNodesSearch={setNodesSearch}
-            availableRoles={availableRoles}
-          />
-          {nodesPaginated && nodesPaginated.total > 0 && (
-            <TablePagination
-              currentPage={nodesPage}
-              totalPages={nodesPaginated.total_pages}
-              pageSize={nodesPerPage}
-              totalItems={nodesPaginated.total}
-              onPageChange={setNodesPage}
-              onPageSizeChange={handleNodesPageSizeChange}
-            />
-          )}
-        </Stack>
+        <Grid gutter="md">
+          <Grid.Col span={12}>
+            <NodeStatsCards nodes={nodes || []} />
+          </Grid.Col>
+          <Grid.Col span={12}>
+            <Group gap="md" wrap="nowrap" align="flex-start">
+              <FilterSidebar
+                textFilter={{
+                  value: localNodesSearch,
+                  onChange: setNodesSearch,
+                  placeholder: 'Filter nodes...',
+                }}
+                categories={[
+                  {
+                    title: 'Roles',
+                    options: availableRoles.map((role) => {
+                      const roleInfo = getRoleIcon(role);
+                      const Icon = roleInfo.icon;
+                      return {
+                        label: roleInfo.label,
+                        value: role,
+                        icon: <Icon size={14} color={`var(--mantine-color-${roleInfo.color}-6)`} />,
+                      };
+                    }),
+                    selected: selectedNodeRoles,
+                    onChange: updateNodeRoles,
+                  },
+                ]}
+              />
+              <Stack gap="md" style={{ flex: 1 }}>
+                <NodesList
+                  nodes={nodes}
+                  loading={nodesLoading}
+                  error={nodesError}
+                  openNodeModal={openNodeModal}
+                  nodesSearch={localNodesSearch}
+                  setNodesSearch={setNodesSearch}
+                  availableRoles={availableRoles}
+                  hideStats
+                />
+                {nodesPaginated && nodesPaginated.total > 0 && (
+                  <TablePagination
+                    currentPage={nodesPage}
+                    totalPages={nodesPaginated.total_pages}
+                    pageSize={nodesPerPage}
+                    totalItems={nodesPaginated.total}
+                    onPageChange={setNodesPage}
+                    onPageSizeChange={handleNodesPageSizeChange}
+                  />
+                )}
+              </Stack>
+            </Group>
+          </Grid.Col>
+        </Grid>
       )}
 
       {/* Indices Section */}
       {activeView === 'indices' && (
-        <Stack gap="md" style={{ width: '100%' }}>
-          <IndicesList
-             indices={indices}
-             indicesPaginated={indicesPaginated}
-             loading={indicesLoading}
-             error={indicesError}
-             openIndexModal={openIndexModal}
-             indicesSearch={localIndicesSearch}
-             setIndicesSearch={setIndicesSearch}
-           />
-          {indicesPaginated && indicesPaginated.total_pages > 1 && (
-            <SimplePagination
-              currentPage={indicesPage}
-              totalPages={indicesPaginated.total_pages}
-              pageSize={50}
-              totalItems={indicesPaginated.total}
-              onPageChange={setIndicesPage}
+        <Grid gutter="md">
+          <Grid.Col span={12}>
+            <IndexStatsCards
+              stats={{
+                totalIndices: indicesPaginated?.total ?? 0,
+                greenIndices: indices?.filter((idx) => idx.health === 'green').length ?? 0,
+                yellowIndices: indices?.filter((idx) => idx.health === 'yellow').length ?? 0,
+                redIndices: indices?.filter((idx) => idx.health === 'red').length ?? 0,
+                openIndices: indices?.filter((idx) => idx.status === 'open').length ?? 0,
+                closedIndices: indices?.filter((idx) => idx.status === 'close').length ?? 0,
+              }}
             />
-          )}
-        </Stack>
+          </Grid.Col>
+          <Grid.Col span={12}>
+            <Group gap="md" wrap="nowrap" align="flex-start">
+              <FilterSidebar
+                textFilter={{
+                  value: localIndicesSearch,
+                  onChange: setLocalIndicesSearch,
+                  placeholder: 'Filter indices...',
+                }}
+                categories={[
+                  {
+                    title: 'Health',
+                    options: [
+                      { label: 'green', value: 'green', color: 'var(--mantine-color-green-6)' },
+                      { label: 'yellow', value: 'yellow', color: 'var(--mantine-color-yellow-6)' },
+                      { label: 'red', value: 'red', color: 'var(--mantine-color-red-6)' },
+                      { label: 'unknown', value: 'unknown', color: 'var(--mantine-color-gray-6)' },
+                    ],
+                    selected: selectedHealth,
+                    onChange: (newHealth) => updateIndicesFilters(newHealth, undefined),
+                  },
+                  {
+                    title: 'Status',
+                    options: [
+                      { label: 'open', value: 'open', color: 'var(--mantine-color-blue-6)' },
+                      { label: 'closed', value: 'close', color: 'var(--mantine-color-gray-6)' },
+                    ],
+                    selected: selectedStatus,
+                    onChange: (newStatus) => updateIndicesFilters(undefined, newStatus),
+                  },
+                ]}
+                toggles={[
+                  {
+                    label: 'Show special indices',
+                    value: showSpecialIndices,
+                    onChange: (val) => updateIndicesParam('showSpecial', val),
+                    icon: <IconEyeOff size={16} />,
+                  },
+                ]}
+                actions={[
+                  {
+                    label: 'Create Index',
+                    onClick: () => navigate(`/cluster/${id}/indices/create`),
+                    icon: <IconPlus size={16} />,
+                  },
+                ]}
+              />
+              <Stack gap="md" style={{ flex: 1 }}>
+                <IndicesList
+                  indices={indices}
+                  indicesPaginated={indicesPaginated}
+                  loading={indicesLoading}
+                  error={indicesError}
+                  openIndexModal={openIndexModal}
+                  indicesSearch={localIndicesSearch}
+                  setIndicesSearch={setLocalIndicesSearch}
+                />
+                {indicesPaginated && indicesPaginated.total_pages > 1 && (
+                  <SimplePagination
+                    currentPage={indicesPage}
+                    totalPages={indicesPaginated.total_pages}
+                    pageSize={50}
+                    totalItems={indicesPaginated.total}
+                    onPageChange={setIndicesPage}
+                  />
+                )}
+              </Stack>
+            </Group>
+          </Grid.Col>
+        </Grid>
       )}
 
       {/* Shards Section */}
       {activeView === 'shards' && (
-        <Stack gap="md" style={{ width: '100%' }}>
-          <ShardsList
-            shards={shards}
-            loading={shardsLoading}
-            error={shardsError}
-            openNodeModal={openNodeModal}
-          />
-          {shardsPaginated && shardsPaginated.total_pages > 1 && (
-            <SimplePagination
-              currentPage={shardsPage}
-              totalPages={shardsPaginated.total_pages}
-              pageSize={50}
-              totalItems={shardsPaginated.total}
-              onPageChange={setShardsPage}
+        <Grid gutter="md">
+          <Grid.Col span={12}>
+            <ShardStatsCards
+              stats={{
+                totalShards: shards?.length ?? 0,
+                primaryShards: shards?.filter((s) => s.primary).length ?? 0,
+                replicaShards: shards?.filter((s) => !s.primary).length ?? 0,
+                unassignedShards: shards?.filter((s) => s.state === 'UNASSIGNED').length ?? 0,
+                relocatingShards: shards?.filter((s) => s.state === 'RELOCATING').length ?? 0,
+                initializingShards: shards?.filter((s) => s.state === 'INITIALIZING').length ?? 0,
+              }}
             />
-          )}
-        </Stack>
+          </Grid.Col>
+          <Grid.Col span={12}>
+            <Group gap="md" wrap="nowrap" align="flex-start">
+              <FilterSidebar
+                textFilter={{
+                  value: localShardsSearch,
+                  onChange: setShardsSearch,
+                  placeholder: 'Filter shards...',
+                }}
+                categories={[
+                  {
+                    title: 'State',
+                    options: [
+                      { label: 'Started', value: 'STARTED', color: 'var(--mantine-color-green-6)' },
+                      { label: 'Initializing', value: 'INITIALIZING', color: 'var(--mantine-color-yellow-6)' },
+                      { label: 'Relocating', value: 'RELOCATING', color: 'var(--mantine-color-orange-6)' },
+                      { label: 'Unassigned', value: 'UNASSIGNED', color: 'var(--mantine-color-red-6)' },
+                    ],
+                    selected: selectedShardStates,
+                    onChange: (newStates) => updateShardsFilters(newStates, undefined, undefined),
+                  },
+                  {
+                    title: 'Type',
+                    options: [
+                      { label: 'Primaries', value: 'primaries', color: 'var(--mantine-color-yellow-6)' },
+                      { label: 'Replicas', value: 'replicas', color: 'var(--mantine-color-blue-6)' },
+                    ],
+                    selected: [...(showShardPrimaries ? ['primaries'] : []), ...(showShardReplicas ? ['replicas'] : [])],
+                    onChange: (selected) => {
+                      updateShardsFilters(undefined, selected.includes('primaries'), selected.includes('replicas'));
+                    },
+                  },
+                ]}
+                toggles={[
+                  {
+                    label: 'Show special indices',
+                    value: searchParams.get('showSpecial') === 'true',
+                    onChange: (val) => updateShardsParam('showSpecial', val),
+                    icon: <IconEyeOff size={16} />,
+                  },
+                ]}
+              />
+              <Stack gap="md" style={{ flex: 1 }}>
+                <ShardsList
+                  shards={shards}
+                  loading={shardsLoading}
+                  error={shardsError}
+                  openNodeModal={openNodeModal}
+                  hideStats
+                />
+                {shardsPaginated && shardsPaginated.total_pages > 1 && (
+                  <SimplePagination
+                    currentPage={shardsPage}
+                    totalPages={shardsPaginated.total_pages}
+                    pageSize={50}
+                    totalItems={shardsPaginated.total}
+                    onPageChange={setShardsPage}
+                  />
+                )}
+              </Stack>
+            </Group>
+          </Grid.Col>
+        </Grid>
       )}
 
       {/* Console Section */}
@@ -1939,6 +2241,7 @@ const NodesList = memo(function NodesList({
   nodesSearch,
   setNodesSearch,
   availableRoles,
+  hideStats = false,
 }: {
   nodes?: NodeInfo[];
   loading: boolean;
@@ -1947,6 +2250,7 @@ const NodesList = memo(function NodesList({
   nodesSearch: string;
   setNodesSearch: (value: string) => void;
   availableRoles: string[];
+  hideStats?: boolean;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -2092,7 +2396,7 @@ const NodesList = memo(function NodesList({
     return sorted;
   }, [filteredNodes, nodesSortColumn, nodesSortDirection]);
 
-  if (loading) {
+  if (loading && !nodes) {
     return (
       <Stack gap="xs">
         <Skeleton height={60} radius="sm" />
@@ -2120,37 +2424,7 @@ const NodesList = memo(function NodesList({
 
   return (
     <Stack gap="md">
-      <NodeStatsCards nodes={sortedNodes || []} />
-
-      <Group justify="space-between" align="center" wrap="wrap">
-        <Group gap="md" wrap="wrap" style={{ flex: 1 }}>
-          <TextInput
-            placeholder="Search nodes..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => setNodesSearch(e.currentTarget.value)}
-            style={{ minWidth: 200 }}
-          />
-          {availableRoles.length > 0 && (
-            <RoleFilterToggle
-              roles={availableRoles.sort()}
-              selectedRoles={selectedRoles}
-              onToggle={toggleRole}
-            />
-          )}
-        </Group>
-
-        <Tooltip label={expandedView ? 'Collapse view' : 'Expand view'}>
-          <ActionIcon
-            variant="subtle"
-            size="md"
-            onClick={() => updateFilters(undefined, !expandedView)}
-            aria-label={expandedView ? 'Collapse view' : 'Expand view'}
-          >
-            {expandedView ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
-          </ActionIcon>
-        </Tooltip>
-      </Group>
+      {!hideStats && <NodeStatsCards nodes={sortedNodes || []} />}
 
       <Card shadow="sm" padding="lg">
         {sortedNodes && sortedNodes.length === 0 ? (
@@ -2468,9 +2742,6 @@ const IndicesList = memo(function IndicesList({
     'open',
     'close',
   ];
-  const expandedView = searchParams.get('expanded') === 'true';
-  const sortAscending = searchParams.get('sort') !== 'desc';
-  const showOnlyAffected = searchParams.get('affected') === 'true';
   const showSpecialIndices = searchParams.get('showSpecial') === 'true'; // Default to false (hidden)
 
   // Column sorting state
@@ -2894,7 +3165,6 @@ const IndicesList = memo(function IndicesList({
   const filteredIndices = useMemo(() => indices || [], [indices]);
 
   // Sort indices by selected column (client-side sorting only)
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const sortedIndices = useMemo(() => {
     const sorted = [...filteredIndices];
     
@@ -2935,10 +3205,9 @@ const IndicesList = memo(function IndicesList({
     redIndices: sortedIndices?.filter((idx) => idx.health === 'red').length || 0,
     openIndices: sortedIndices?.filter((idx) => idx.status === 'open').length || 0,
     closedIndices: sortedIndices?.filter((idx) => idx.status === 'close').length || 0,
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }), [sortedIndices]);
 
-  if (loading) {
+  if (loading && !indices) {
     return (
       <Stack gap="xs">
         <Skeleton height={60} radius="sm" />
@@ -2956,282 +3225,21 @@ const IndicesList = memo(function IndicesList({
     );
   }
 
-  const hasAnyProblems = unassignedShards.length > 0;
-
   return (
     <Stack gap="md">
-      {/* Index statistics cards */}
-      <IndexStatsCards stats={indexStats} />
-
-      {/* Toolbar with convenience actions */}
-      <Group justify="space-between" wrap="wrap">
-        <Group>
-          {/* Shard allocation lock/unlock */}
-          {shardAllocationEnabled ? (
-            <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Tooltip label="Disable shard allocation">
-                  <ActionIcon
-                    size="lg"
-                    variant="subtle"
-                    color="green"
-                    loading={disableAllocationMutation.isPending}
-                  >
-                    <IconLockOpen size={20} />
-                  </ActionIcon>
-                </Tooltip>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Disable Allocation</Menu.Label>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">None (default)</Text>
-                  </Group>
-                </Menu.Item>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">Primaries only</Text>
-                  </Group>
-                </Menu.Item>
-                <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
-                  <Group gap="xs">
-                    <IconLock size={14} />
-                    <Text size="sm">New primaries only</Text>
-                  </Group>
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          ) : (
-            <Tooltip label="Enable shard allocation">
-              <ActionIcon
-                size="lg"
-                variant="subtle"
-                color="red"
-                onClick={() => enableAllocationMutation.mutate()}
-                loading={enableAllocationMutation.isPending}
-              >
-                <IconLock size={20} />
-              </ActionIcon>
-            </Tooltip>
-          )}
-
-          {/* Expand/compress view */}
-          <Tooltip label={expandedView ? 'Compress view' : 'Expand view'}>
-            <ActionIcon
-              size="lg"
-              variant="subtle"
-              onClick={() => updateParam('expanded', !expandedView)}
-            >
-              {expandedView ? <IconMinimize size={20} /> : <IconMaximize size={20} />}
-            </ActionIcon>
-          </Tooltip>
-
-          {/* Sort ascending/descending */}
-          <Tooltip label={sortAscending ? 'Sort descending' : 'Sort ascending'}>
-            <ActionIcon
-              size="lg"
-              variant="subtle"
-              onClick={() => updateParam('sort', sortAscending ? 'desc' : 'asc')}
-            >
-              {sortAscending ? <IconSortAscending size={20} /> : <IconSortDescending size={20} />}
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-
-        <Group style={{ flex: 1 }}>
-           <TextInput
-             placeholder="Search indices..."
-             leftSection={<IconSearch size={16} />}
-             value={indicesSearch}
-             onChange={(e) => setIndicesSearch(e.currentTarget.value)}
-             style={{ flex: 1, maxWidth: 300 }}
-           />
-
-          {/* Health filter toggles */}
-          <Group gap="md" wrap="wrap">
-            {['green', 'yellow', 'red', 'unknown'].map((health) => {
-              const isSelected = selectedHealth.includes(health);
-              const healthColor =
-                health === 'green'
-                  ? 'green'
-                  : health === 'yellow'
-                    ? 'yellow'
-                    : health === 'red'
-                      ? 'red'
-                      : 'gray';
-              return (
-                <Group
-                  key={health}
-                  gap={4}
-                  style={{
-                    cursor: 'pointer',
-                    opacity: isSelected ? 1 : 0.5,
-                    transition: 'opacity 150ms ease',
-                  }}
-                  onClick={() => {
-                    const newHealth = isSelected
-                      ? selectedHealth.filter((h) => h !== health)
-                      : [...selectedHealth, health];
-                    // If unchecking the last health color, reset to all health colors
-                    if (newHealth.length === 0) {
-                      updateFilters(undefined, ['green', 'yellow', 'red', 'unknown'], undefined);
-                      return;
-                    }
-                    updateFilters(undefined, newHealth, undefined);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      const newHealth = isSelected
-                        ? selectedHealth.filter((h) => h !== health)
-                        : [...selectedHealth, health];
-                      // If unchecking the last health color, reset to all health colors
-                      if (newHealth.length === 0) {
-                        updateFilters(undefined, ['green', 'yellow', 'red', 'unknown'], undefined);
-                        return;
-                      }
-                      updateFilters(undefined, newHealth, undefined);
-                    }
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: `var(--mantine-color-${healthColor}-6)`,
-                    }}
-                  />
-                  <Text size="xs" style={{ textTransform: 'capitalize' }}>
-                    {health}
-                  </Text>
-                </Group>
-              );
-            })}
-          </Group>
-
-          {/* Status filter toggles */}
-          <Group gap="md" wrap="wrap">
-            {[
-              { value: 'open', label: 'open', icon: IconFolderOpen, color: 'green' },
-              { value: 'close', label: 'closed', icon: IconFolderX, color: 'red' },
-            ].map(({ value, label, icon: Icon, color }) => {
-              const isSelected = selectedStatus.includes(value);
-              return (
-                <Group
-                  key={value}
-                  gap={4}
-                  style={{
-                    cursor: 'pointer',
-                    opacity: isSelected ? 1 : 0.5,
-                    transition: 'opacity 150ms ease',
-                  }}
-                  onClick={() => {
-                    const newStatus = isSelected
-                      ? selectedStatus.filter((s) => s !== value)
-                      : [...selectedStatus, value];
-                    // If unchecking the last status, reset to all statuses
-                    if (newStatus.length === 0) {
-                      updateFilters(undefined, undefined, ['open', 'close']);
-                      return;
-                    }
-                    updateFilters(undefined, undefined, newStatus);
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      const newStatus = isSelected
-                        ? selectedStatus.filter((s) => s !== value)
-                        : [...selectedStatus, value];
-                      // If unchecking the last status, reset to all statuses
-                      if (newStatus.length === 0) {
-                        updateFilters(undefined, undefined, ['open', 'close']);
-                        return;
-                      }
-                      updateFilters(undefined, undefined, newStatus);
-                    }
-                  }}
-                >
-                  <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
-                  <Text size="xs">{label}</Text>
-                </Group>
-              );
-            })}
-          </Group>
-
-          {/* Show only affected toggle */}
-          {hasAnyProblems && (
-            <Group
-              gap={4}
-              style={{
-                cursor: 'pointer',
-                opacity: showOnlyAffected ? 1 : 0.5,
-                transition: 'opacity 150ms ease',
-              }}
-              onClick={() => updateParam('affected', !showOnlyAffected)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  updateParam('affected', !showOnlyAffected);
-                }
-              }}
-            >
-              <IconAlertCircle size={16} color="var(--mantine-color-red-6)" />
-              <Text size="xs">affected</Text>
-            </Group>
-          )}
-
-          {/* Show special indices toggle */}
-          <Group
-            gap={4}
-            style={{
-              cursor: 'pointer',
-              opacity: showSpecialIndices ? 1 : 0.5,
-              transition: 'opacity 150ms ease',
-            }}
-            onClick={() => updateParam('showSpecial', !showSpecialIndices)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                updateParam('showSpecial', !showSpecialIndices);
-              }
-            }}
-          >
-            <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-            <Text size="xs">special</Text>
-          </Group>
-        </Group>
-
-        {/* Bulk operations menu */}
-        {count > 0 && (
+      {/* Bulk operations bar - shown when indices are selected */}
+      {count > 0 && (
+        <Group justify="space-between" p="md" style={{ backgroundColor: 'var(--mantine-color-blue-light)', borderRadius: '0.5rem' }}>
+          <Text size="sm" fw={500}>
+            {count} index{count !== 1 ? 's' : ''} selected
+          </Text>
           <BulkOperationsMenu
             selectedIndices={selectedIndices}
             indices={indices || []}
             onOperationSelect={handleBulkOperationSelect}
           />
-        )}
-
-        {id && (
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => navigate(`/cluster/${id}/indices/create`)}
-          >
-            Create Index
-          </Button>
-        )}
-      </Group>
-
-      {/* Unassigned shards section - REMOVED, now shown in table column */}
+        </Group>
+      )}
 
       {/* Always show table with filters - even if no indices match */}
       <Card shadow="sm" padding="lg">
@@ -3294,8 +3302,8 @@ const IndicesList = memo(function IndicesList({
                   />
                 </Table.Th>
                 <Table.Th>Shards</Table.Th>
-                {expandedView && <Table.Th>Primaries</Table.Th>}
-                {expandedView && <Table.Th>Replicas</Table.Th>}
+                <Table.Th>Primaries</Table.Th>
+                <Table.Th>Replicas</Table.Th>
                 <Table.Th>Unassigned</Table.Th>
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
@@ -3341,7 +3349,7 @@ const IndicesList = memo(function IndicesList({
                           >
                             {index.name}
                           </Text>
-                          {expandedView && hasProblems(index.name) && (
+                          {hasProblems(index.name) && (
                             <Badge size="xs" color="yellow" variant="light">
                               Has Issues
                             </Badge>
@@ -3386,21 +3394,15 @@ const IndicesList = memo(function IndicesList({
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm">
-                        {expandedView
-                          ? `${index.primaryShards + index.replicaShards}`
-                          : `${index.primaryShards}p / ${index.replicaShards}r`}
+                        {`${index.primaryShards}p / ${index.replicaShards}r`}
                       </Text>
                     </Table.Td>
-                    {expandedView && (
-                      <Table.Td>
-                        <Text size="sm">{index.primaryShards}</Text>
-                      </Table.Td>
-                    )}
-                    {expandedView && (
-                      <Table.Td>
-                        <Text size="sm">{index.replicaShards}</Text>
-                      </Table.Td>
-                    )}
+                    <Table.Td>
+                      <Text size="sm">{index.primaryShards}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm">{index.replicaShards}</Text>
+                    </Table.Td>
                     <Table.Td>
                       {unassignedCount > 0 ? (
                         <Tooltip
@@ -4810,11 +4812,13 @@ const ShardsList = memo(function ShardsList({
   loading,
   error,
   openNodeModal,
+  hideStats = false,
 }: {
   shards?: ShardInfo[];
   loading: boolean;
   error: Error | null;
   openNodeModal?: (nodeId: string) => void;
+  hideStats?: boolean;
 }) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -4988,7 +4992,7 @@ const ShardsList = memo(function ShardsList({
     return sorted;
   }, [shards, shardsSortColumn, shardsSortDirection]);
 
-  if (loading) {
+  if (loading && !shards) {
     return (
       <Stack gap="xs">
         <Skeleton height={40} radius="sm" />
@@ -5036,141 +5040,18 @@ const ShardsList = memo(function ShardsList({
 
   return (
     <Stack gap="md">
-      {/* Shard statistics cards */}
-      <ShardStatsCards
-        stats={{
-          totalShards: sortedShards?.length || 0,
-          primaryShards: sortedShards?.filter((s) => s.primary).length || 0,
-          replicaShards: sortedShards?.filter((s) => !s.primary).length || 0,
-          unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
-          relocatingShards: shardsByState['RELOCATING']?.length || 0,
-          initializingShards: shardsByState['INITIALIZING']?.length || 0,
-        }}
-      />
-
-      {/* Filters */}
-      <Group wrap="wrap">
-        <TextInput
-          placeholder="Search by index or node..."
-          leftSection={<IconSearch size={16} />}
-          value={searchQuery}
-          onChange={(e) => updateFilters(e.currentTarget.value, undefined, undefined, undefined)}
-          style={{ flex: 1, maxWidth: 300 }}
-        />
-
-        <ShardStateFilterToggle
-          states={['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED']}
-          selectedStates={selectedStates}
-          onToggle={(state) => {
-            const newStates = selectedStates.includes(state)
-              ? selectedStates.filter((s) => s !== state)
-              : [...selectedStates, state];
-            // If unchecking the last state, reset to all states
-            if (newStates.length === 0) {
-              updateFilters(
-                undefined,
-                ['STARTED', 'INITIALIZING', 'RELOCATING', 'UNASSIGNED'],
-                undefined,
-                undefined
-              );
-              return;
-            }
-            updateFilters(undefined, newStates, undefined, undefined);
+      {!hideStats && (
+        <ShardStatsCards
+          stats={{
+            totalShards: sortedShards?.length || 0,
+            primaryShards: sortedShards?.filter((s) => s.primary).length || 0,
+            replicaShards: sortedShards?.filter((s) => !s.primary).length || 0,
+            unassignedShards: shardsByState['UNASSIGNED']?.length || 0,
+            relocatingShards: shardsByState['RELOCATING']?.length || 0,
+            initializingShards: shardsByState['INITIALIZING']?.length || 0,
           }}
         />
-
-        {/* Shard type filter toggles */}
-        <Group gap="md" wrap="wrap">
-          {[
-            { label: 'primaries', icon: IconStar, color: 'yellow', isShown: showPrimaries },
-            { label: 'replicas', icon: IconCopy, color: 'blue', isShown: showReplicas },
-          ].map(({ label, icon: Icon, color, isShown }) => {
-            const isPrimary = label === 'primaries';
-            return (
-              <Group
-                key={label}
-                gap={4}
-                style={{
-                  cursor: 'pointer',
-                  opacity: isShown ? 1 : 0.5,
-                  transition: 'opacity 150ms ease',
-                }}
-                onClick={() => {
-                  const newShowPrimaries = isPrimary ? !showPrimaries : showPrimaries;
-                  const newShowReplicas = isPrimary ? showReplicas : !showReplicas;
-                  // Prevent unchecking both primaries and replicas
-                  if (!newShowPrimaries && !newShowReplicas) {
-                    return; // Keep at least one type selected
-                  }
-                  updateFilters(
-                    undefined,
-                    undefined,
-                    isPrimary ? newShowPrimaries : undefined,
-                    isPrimary ? undefined : newShowReplicas
-                  );
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    const newShowPrimaries = isPrimary ? !showPrimaries : showPrimaries;
-                    const newShowReplicas = isPrimary ? showReplicas : !showReplicas;
-                    // Prevent unchecking both primaries and replicas
-                    if (!newShowPrimaries && !newShowReplicas) {
-                      return; // Keep at least one type selected
-                    }
-                    updateFilters(
-                      undefined,
-                      undefined,
-                      isPrimary ? newShowPrimaries : undefined,
-                      isPrimary ? undefined : newShowReplicas
-                    );
-                  }
-                }}
-              >
-                <Icon size={16} color={`var(--mantine-color-${color}-6)`} />
-                <Text size="xs">{label}</Text>
-              </Group>
-            );
-          })}
-        </Group>
-
-        <Group
-          gap={4}
-          style={{
-            cursor: 'pointer',
-            opacity: showSpecialIndices ? 1 : 0.5,
-            transition: 'opacity 150ms ease',
-          }}
-          onClick={() => {
-            const params = new URLSearchParams(searchParams);
-            if (showSpecialIndices) {
-              params.set('showSpecial', 'false');
-            } else {
-              params.delete('showSpecial');
-            }
-            setSearchParams(params, { replace: true });
-          }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              const params = new URLSearchParams(searchParams);
-              if (showSpecialIndices) {
-                params.set('showSpecial', 'false');
-              } else {
-                params.delete('showSpecial');
-              }
-              setSearchParams(params, { replace: true });
-            }
-          }}
-        >
-          <IconEyeOff size={16} color="var(--mantine-color-violet-6)" />
-          <Text size="xs">special</Text>
-        </Group>
-      </Group>
+      )}
 
       <Card shadow="sm" padding="lg">
         {sortedShards && sortedShards.length === 0 ? (
