@@ -1721,13 +1721,13 @@ export function ClusterView() {
                 toggles={[
                   {
                     label: 'Show special indices',
-                    value: searchParams.get('showSpecial') !== 'false',
+                    value: searchParams.get('showSpecial') === 'true',
                     onChange: (val) => {
                       const params = new URLSearchParams(searchParams);
                       if (val) {
-                        params.delete('showSpecial');
+                        params.set('showSpecial', 'true');
                       } else {
-                        params.set('showSpecial', 'false');
+                        params.delete('showSpecial');
                       }
                       setSearchParams(params, { replace: true });
                     },
