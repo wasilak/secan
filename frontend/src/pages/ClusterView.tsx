@@ -4308,15 +4308,13 @@ function ShardAllocationGrid({
 
       {/* Shard allocation grid */}
       <ScrollArea>
-        <div style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}>
+        <div style={{ tableLayout: 'fixed', width: '100%' }}>
           <Table striped withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th
                   style={{
                     width: '180px',
-                    minWidth: '180px',
-                    maxWidth: '180px',
                     position: 'sticky',
                     left: 0,
                     backgroundColor: 'var(--mantine-color-body)',
@@ -4326,7 +4324,7 @@ function ShardAllocationGrid({
                   Node
                 </Table.Th>
                 {displayIndices.map((index) => (
-                  <Table.Th key={index.name} style={{ minWidth: '120px', textAlign: 'center' }}>
+                  <Table.Th key={index.name} style={{ width: '120px', textAlign: 'center' }}>
                     <Stack gap={4}>
                       <Text
                         size="xs"
@@ -4361,8 +4359,6 @@ function ShardAllocationGrid({
                   <Table.Td
                     style={{
                       width: '180px',
-                      minWidth: '180px',
-                      maxWidth: '180px',
                       position: 'sticky',
                       left: 0,
                       zIndex: 1,
@@ -4384,6 +4380,7 @@ function ShardAllocationGrid({
                       <Table.Td
                         key={`unassigned-${index.name}`}
                         style={{
+                          width: '120px',
                           padding: '4px',
                           textAlign: 'center',
                           backgroundColor: getIndexBackgroundColor(index.health),
@@ -4448,8 +4445,6 @@ function ShardAllocationGrid({
                       <Table.Td
                         style={{
                           width: '180px',
-                          minWidth: '180px',
-                          maxWidth: '180px',
                           position: 'sticky',
                           left: 0,
                           backgroundColor: 'var(--mantine-color-body)',
@@ -4547,6 +4542,7 @@ function ShardAllocationGrid({
                           <Table.Td
                             key={`${node.id}-${index.name}`}
                             style={{
+                              width: '120px',
                               padding: '4px',
                               textAlign: 'center',
                               backgroundColor: getIndexBackgroundColor(index.health),
