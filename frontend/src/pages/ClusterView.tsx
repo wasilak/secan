@@ -4308,7 +4308,8 @@ function ShardAllocationGrid({
 
       {/* Shard allocation grid */}
       <ScrollArea>
-        <Table striped withTableBorder withColumnBorders style={{ tableLayout: 'fixed', width: '100%' }}>
+        <div style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}>
+          <Table striped withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th
@@ -4685,6 +4686,7 @@ function ShardAllocationGrid({
                 })}
             </Table.Tbody>
           </Table>
+        </div>
       </ScrollArea>
 
       {/* Pagination */}
