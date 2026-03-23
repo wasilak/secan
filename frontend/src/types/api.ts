@@ -71,6 +71,11 @@ export interface LoginRequest {
  * API error response
  */
 export interface ApiError {
+   data?: {
+     reason?: string;
+     root_cause?: Array<{ reason: string }>;
+   };
+   status?: number;
   error: string;
   message: string;
   details?: unknown;
@@ -84,7 +89,9 @@ export class ApiClientError extends Error {
   constructor(
     message: string,
     public statusCode: number,
-    public error?: ApiError
+    public error?: ApiError,
+public response?: ApiError,
+public status?: number
   ) {
     super(message);
     this.name = 'ApiClientError';

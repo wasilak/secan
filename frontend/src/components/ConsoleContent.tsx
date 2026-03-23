@@ -303,7 +303,9 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
     const executeRequest = useCallback(async () => {
       const parsed = parseRequest(request);
       if (!parsed) {
-        setError('Invalid request format. Use: METHOD endpoint');
+        setResponse(JSON.stringify({ error: 'Invalid request format. Use: METHOD endpoint' }, null, 2));
+        setResponseLanguage('json');
+        setStatusCode(400);
         return;
       }
 
@@ -322,7 +324,9 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
           try {
             bodyData = JSON.parse(parsed.body);
           } catch {
-            setError('Invalid JSON in request body');
+            setResponse(JSON.stringify({ error: 'Invalid JSON in request body' }, null, 2));
+            setResponseLanguage('json');
+            setStatusCode(400);
             setLoading(false);
             return;
           }
@@ -361,18 +365,17 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
         const timeTaken = endTime - startTime;
 
         const error = err as { message?: string; status?: number };
-        const errorMessage = error.message || 'Request failed';
-        setError(errorMessage);
+        const errorResponse = {
+          error: error.message || 'Request failed',
+          statusCode: error.status || 500,
+        };
+        setResponse(JSON.stringify(errorResponse, null, 2));
+        setResponseLanguage('json');
         setStatusCode(error.status || 0);
-        setResponse(errorMessage);
-        setResponseLanguage('plaintext');
+
         setExecutionTime(timeTaken);
 
-        notifications.show({
-          title: 'Error',
-          message: errorMessage,
-          color: 'red',
-        });
+
       } finally {
         setLoading(false);
       }
@@ -634,18 +637,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
               </Paper>
 
               {/* Error display */}
-              {error && (
-                <Alert
-                  icon={<IconAlertCircle size={16} />}
-                  title="Error"
-                  color="red"
-                  withCloseButton
-                  onClose={() => setError(null)}
-                  py="xs"
-                >
-                  {error}
-                </Alert>
-              )}
+
 
               {/* Response section */}
               <Paper shadow="sm" p="xs" withBorder style={{ flex: 1, minHeight: '300px' }}>

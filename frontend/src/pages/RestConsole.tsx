@@ -1,20 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+  import { useState, useCallback, useEffect } from 'react';
+  import { Title, Menu, FileButton, ScrollArea } from '@mantine/core';
 import {
-  Title,
-  Grid,
-  Paper,
-  Button,
   Group,
-  Text,
+  Paper,
   Stack,
-  ScrollArea,
-  ActionIcon,
-  Tooltip,
+  Text,
   Badge,
-  FileButton,
-  Alert,
-  Menu,
+  Grid,
   CopyButton,
+  Tooltip,
+  ActionIcon,
+  Button,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -24,7 +20,7 @@ import {
   IconDownload,
   IconUpload,
   IconClock,
-  IconAlertCircle,
+
   IconBook,
   IconEraser,
   IconCopy,
@@ -32,6 +28,7 @@ import {
 } from '@tabler/icons-react';
 import { CodeEditor } from '../components/CodeEditor';
 import { apiClient } from '../api/client';
+import type { ApiError, ApiClientError } from '../types/api';
 import { useConsoleHistory } from '../hooks/useConsoleHistory';
 import { RequestHistoryItem } from '../types/preferences';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -171,6 +168,19 @@ function formatResponse(
   const looksLikeJson = typeof data === 'object' && data !== null;
 
   if (isJson || looksLikeJson) {
+    // Enhance error handling: check for an `error` field likely indicating an Elasticsearch error
+    if (data && typeof data === 'object' && 'error' in data) {
+      const errorData = (data as ApiError['data']);
+      if (errorData && typeof errorData.reason === 'string') {
+        return {
+          text: JSON.stringify({
+            reason: errorData.reason,
+            root_cause: errorData.root_cause?.map((cause) => cause.reason ?? ''),
+          }, null, 2),
+          language: 'json',
+        };
+      }
+    }
     try {
       return {
         text: JSON.stringify(data, null, 2),
@@ -222,7 +232,7 @@ export function RestConsole() {
   const [statusCode, setStatusCode] = useState<number | null>(null);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
   const [showHistory, setShowHistory] = useState(true);
 
   // Get history from the hook
@@ -238,7 +248,7 @@ export function RestConsole() {
     setResponse('');
     setStatusCode(null);
     setExecutionTime(null);
-    setError(null);
+
   }, []);
 
   /**
@@ -260,7 +270,7 @@ export function RestConsole() {
     setResponse('');
     setStatusCode(null);
     setExecutionTime(null);
-    setError(null);
+
   }, []);
 
   /**
@@ -273,12 +283,12 @@ export function RestConsole() {
 
     const parsed = parseRequest(request);
     if (!parsed) {
-      setError('Invalid request format. Use: METHOD endpoint');
+
       return;
     }
 
     setLoading(true);
-    setError(null);
+
     setResponse('');
     setResponseLanguage('json');
     setStatusCode(null);
@@ -291,16 +301,16 @@ export function RestConsole() {
       let bodyData: unknown = undefined;
       if (parsed.body) {
         try {
-          bodyData = JSON.parse(parsed.body);
+          bodyData = JSON.parse(parsed.body) as Record<string, unknown>;
         } catch {
-          setError('Invalid JSON in request body');
+
           setLoading(false);
           return;
         }
       }
 
       // Execute request via proxy - now returns data and contentType
-      const result = await apiClient.proxyRequest(
+      const result = await apiClient.proxyRequest<ApiError | Record<string, unknown>>(
         id,
         parsed.method as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD' | 'PATCH',
         parsed.path,
@@ -326,28 +336,31 @@ export function RestConsole() {
         response: formatted.text,
       });
 
-      notifications.show({
-        title: 'Success',
-        message: `Request executed in ${timeTaken.toFixed(0)}ms`,
-        color: 'green',
-      });
+        // Success notifications remain for general feedback
+        notifications.show({
+          title: 'Success',
+          message: `Request executed in ${timeTaken.toFixed(0)}ms`,
+          color: 'green',
+        });
     } catch (err) {
       const endTime = performance.now();
       const timeTaken = endTime - startTime;
 
-      const error = err as { message?: string; status?: number };
-      const errorMessage = error.message || 'Request failed';
-      setError(errorMessage);
-      setStatusCode(error.status || 0);
-      setResponse(errorMessage);
-      setResponseLanguage('plaintext');
+      const error = err as ApiClientError;
+
+      // Display raw Elasticsearch error data
+      const errorResponse = error.response?.data || {
+        error: 'An unknown error occurred',
+      };
+
+      setResponse(JSON.stringify(errorResponse, null, 2));
+      setResponseLanguage('json'); // Ensure proper JSON syntax highlighting
+      setStatusCode(error.response?.status || 500);
+      setResponseLanguage('json'); // Set appropriate syntax highlighting
+      setStatusCode(error.status || 500); // Correctly display the actual status code (400, 500, etc.)
       setExecutionTime(timeTaken);
 
-      notifications.show({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-      });
+      // Ensuring no error notifications are shown to focus on Response feedback above.
     } finally {
       setLoading(false);
     }
@@ -581,17 +594,7 @@ export function RestConsole() {
             </Paper>
 
             {/* Error display */}
-            {error && (
-              <Alert
-                icon={<IconAlertCircle size={16} />}
-                title="Error"
-                color="red"
-                withCloseButton
-                onClose={() => setError(null)}
-              >
-                {error}
-              </Alert>
-            )}
+            
 
             {/* Response display */}
             <Paper shadow="sm" p="md" withBorder>

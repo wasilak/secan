@@ -149,24 +149,14 @@ export function parseError(error: unknown): ErrorDetails {
  * @returns Elasticsearch error message if found, null otherwise
  */
 function extractElasticsearchError(data: ApiError | Record<string, unknown>): string | null {
-  // Cast to a generic object to check for error structure
   const errorData = data as Record<string, unknown>;
 
-  // Check if this is directly an Elasticsearch error response
-  // Elasticsearch error structure: { error: { type: string, reason: string, root_cause: [...] }, status: number }
   if (errorData.error && typeof errorData.error === 'object') {
     const esError = errorData.error as Record<string, unknown>;
 
-    // Get the main error reason
     if (esError.reason && typeof esError.reason === 'string') {
-      let message = `Elasticsearch: ${esError.reason}`;
+      let message = `Elasticsearch Error: (${esError.type || 'unknown'}) - ${esError.reason}`;
 
-      // Add error type if available
-      if (esError.type && typeof esError.type === 'string') {
-        message = `Elasticsearch (${esError.type}): ${esError.reason}`;
-      }
-
-      // Add root cause if available and different from main reason
       if (
         esError.root_cause &&
         Array.isArray(esError.root_cause) &&
@@ -174,7 +164,7 @@ function extractElasticsearchError(data: ApiError | Record<string, unknown>): st
       ) {
         const rootCause = esError.root_cause[0] as Record<string, unknown>;
         if (rootCause.reason && rootCause.reason !== esError.reason) {
-          message += `\nRoot cause: ${rootCause.reason}`;
+          message += `\nRoot Cause: ${rootCause.reason}`;
         }
       }
 
@@ -182,7 +172,6 @@ function extractElasticsearchError(data: ApiError | Record<string, unknown>): st
     }
   }
 
-  // Check if details contains Elasticsearch error structure (legacy path)
   if ('details' in errorData && errorData.details && typeof errorData.details === 'object') {
     const details = errorData.details as Record<string, unknown>;
 
@@ -190,11 +179,7 @@ function extractElasticsearchError(data: ApiError | Record<string, unknown>): st
       const esError = details.error as Record<string, unknown>;
 
       if (esError.reason && typeof esError.reason === 'string') {
-        let message = `Elasticsearch: ${esError.reason}`;
-
-        if (esError.type && typeof esError.type === 'string') {
-          message = `Elasticsearch (${esError.type}): ${esError.reason}`;
-        }
+        let message = `Elasticsearch Error: (${esError.type || 'unknown'}) - ${esError.reason}`;
 
         if (
           esError.root_cause &&
@@ -203,7 +188,7 @@ function extractElasticsearchError(data: ApiError | Record<string, unknown>): st
         ) {
           const rootCause = esError.root_cause[0] as Record<string, unknown>;
           if (rootCause.reason && rootCause.reason !== esError.reason) {
-            message += `\nRoot cause: ${rootCause.reason}`;
+            message += `\nRoot Cause: ${rootCause.reason}`;
           }
         }
 

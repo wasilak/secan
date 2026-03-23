@@ -2296,6 +2296,10 @@ pub async fn proxy_request(
             response_body = %error_body,
             "Elasticsearch API returned error status"
         );
+        return Err(ClusterErrorResponse {
+            error: "elasticsearch_error".to_string(),
+            message: error_body.to_string(),
+        });
     } else {
         tracing::debug!(
             cluster_id = %cluster_id,
