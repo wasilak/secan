@@ -348,19 +348,35 @@ export function RestConsole() {
 
       const error = err as ApiClientError;
 
-      // Display raw Elasticsearch error data
-      const errorResponse = error.response?.data || {
-        error: 'An unknown error occurred',
-      };
+      // Get the HTTP status code from the error
+      const statusCode = error.statusCode || error.response?.status || 500;
+
+      // Build error response - handle double-encoded ES errors
+      let errorResponse: Record<string, unknown>;
+      
+      const backendError = error.response?.data;
+      if (backendError && typeof backendError === 'object') {
+        const msg = (backendError as { message?: string }).message;
+        // If message is a JSON string, parse it to get the actual ES error
+        if (msg && typeof msg === 'string' && msg.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(msg);
+            errorResponse = parsed;
+          } catch {
+            errorResponse = backendError as Record<string, unknown>;
+          }
+        } else {
+          errorResponse = backendError as Record<string, unknown>;
+        }
+      } else {
+        errorResponse = { error: 'An unknown error occurred' };
+      }
 
       setResponse(JSON.stringify(errorResponse, null, 2));
-      setResponseLanguage('json'); // Ensure proper JSON syntax highlighting
-      setStatusCode(error.response?.status || 500);
-      setResponseLanguage('json'); // Set appropriate syntax highlighting
-      setStatusCode(error.status || 500); // Correctly display the actual status code (400, 500, etc.)
-      setExecutionTime(timeTaken);
+      setResponseLanguage('json');
+      setStatusCode(statusCode);
 
-      // Ensuring no error notifications are shown to focus on Response feedback above.
+      setExecutionTime(timeTaken);
     } finally {
       setLoading(false);
     }

@@ -10,7 +10,6 @@ import {
   Tooltip,
   Badge,
   FileButton,
-  Alert,
   Menu,
   CopyButton,
   Divider,
@@ -23,7 +22,6 @@ import {
   IconDownload,
   IconUpload,
   IconClock,
-  IconAlertCircle,
   IconBook,
   IconEraser,
   IconCopy,
@@ -232,7 +230,6 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
     const [statusCode, setStatusCode] = useState<number | null>(null);
     const [executionTime, setExecutionTime] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -279,7 +276,6 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       setResponse('');
       setStatusCode(null);
       setExecutionTime(null);
-      setError(null);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -293,7 +289,6 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       setResponse('');
       setStatusCode(null);
       setExecutionTime(null);
-      setError(null);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -310,7 +305,6 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       }
 
       setLoading(true);
-      setError(null);
       setResponse('');
       setResponseLanguage('json');
       setStatusCode(null);
