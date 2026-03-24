@@ -361,12 +361,8 @@ export function RestConsole() {
       if (msg && typeof msg === 'string' && msg.startsWith('{')) {
         try {
           const parsed = JSON.parse(msg) as Record<string, unknown>;
-          // If parsed contains status (from ES), use it
-          if (parsed.status && typeof parsed.status === 'number') {
-            errorResponse = { ...parsed, statusCode: parsed.status };
-          } else {
-            errorResponse = parsed;
-          }
+          // Use parsed ES error as-is (contains 'status' field)
+          errorResponse = parsed;
         } catch {
           // If parsing fails, use message as-is
           errorResponse = { error: msg };
