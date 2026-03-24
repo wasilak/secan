@@ -34,6 +34,7 @@ export function usePerNodeShards(
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadedNodesRef = useRef<Set<string>>(new Set());
+  const hasEverCompletedRef = useRef(false);
 
   // Reset when cluster or nodes change
   useEffect(() => {
@@ -57,7 +58,10 @@ export function usePerNodeShards(
     });
     setNodeShards(initialState);
     setIsComplete(false);
-    setIsInitialLoading(true);
+    // Only show skeleton on first load, not on refetches
+    if (!hasEverCompletedRef.current) {
+      setIsInitialLoading(true);
+    }
     loadedNodesRef.current.clear();
 
     // Progressive loading in batches
@@ -108,6 +112,7 @@ export function usePerNodeShards(
       if (!abortControllerRef.current?.signal.aborted) {
         setIsComplete(true);
         setIsInitialLoading(false);
+        hasEverCompletedRef.current = true;
       }
     };
 
