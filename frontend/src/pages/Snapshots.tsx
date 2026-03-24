@@ -32,6 +32,8 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import { getPaginatedItems } from '../types/api';
 import type {
   CreateSnapshotRequest,
@@ -71,7 +73,7 @@ export function Snapshots() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', id, 'snapshots', repository],
+    queryKey: queryKeys.cluster(id!).snapshots(repository!),
     queryFn: () => apiClient.getSnapshots(id!, repository!),
     enabled: !!id && !!repository,
     refetchInterval: (query) => {
@@ -84,7 +86,7 @@ export function Snapshots() {
 
   // Fetch indices for snapshot creation
   const { data: indicesPaginated } = useQuery({
-    queryKey: ['cluster', id, 'indices'],
+    queryKey: queryKeys.cluster(id!).indices(),
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id,
   });
@@ -95,7 +97,7 @@ export function Snapshots() {
   const deleteMutation = useMutation({
     mutationFn: (snapshot: string) => apiClient.deleteSnapshot(id!, repository!, snapshot),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'snapshots', repository] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).snapshots(repository!) });
       notifications.show({
         title: 'Success',
         message: 'Snapshot deleted successfully',
@@ -126,7 +128,7 @@ export function Snapshots() {
   if (error) {
     return (
       <FullWidthContainer>
-        <ErrorAlert message={`Failed to load snapshots: ${(error as Error).message}`} />
+        <ErrorAlert message={`Failed to load snapshots: ${getErrorMessage(error)}`} />
       </FullWidthContainer>
     );
   }
@@ -384,7 +386,7 @@ function CreateSnapshotModal({
     mutationFn: (request: CreateSnapshotRequest) =>
       apiClient.createSnapshot(clusterId, repository, request),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'snapshots', repository] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).snapshots(repository!) });
       notifications.show({
         title: 'Success',
         message: 'Snapshot creation started',
@@ -505,7 +507,7 @@ function RestoreSnapshotModal({
     mutationFn: (request: RestoreSnapshotRequest) =>
       apiClient.restoreSnapshot(clusterId, repository, snapshot.snapshot, request),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).indices() });
       notifications.show({
         title: 'Success',
         message: 'Snapshot restore started',

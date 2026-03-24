@@ -29,6 +29,7 @@ import {
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { FullWidthContainer } from '../components/FullWidthContainer';
+import { queryKeys } from '../utils/queryKeys';
 
 /**
  * Cat API endpoint descriptions
@@ -77,7 +78,7 @@ export function CatApiPage() {
 
   // Fetch available Cat API endpoints
   const { data: endpoints } = useQuery({
-    queryKey: ['cluster', id, 'cat-endpoints'],
+    queryKey: queryKeys.cluster(id!).catEndpoints(),
     queryFn: () => apiClient.getCatEndpoints(id!),
     enabled: !!id,
   });
@@ -96,7 +97,7 @@ export function CatApiPage() {
 
   // Fetch help text for selected endpoint
   const { data: helpText } = useQuery({
-    queryKey: ['cluster', id, 'cat-help', selectedEndpoint],
+    queryKey: queryKeys.cluster(id!).catHelp(selectedEndpoint!),
     queryFn: () => apiClient.getCatApiHelp(id!, selectedEndpoint),
     enabled: !!id && !!selectedEndpoint && showHelp,
   });
@@ -331,7 +332,7 @@ export function CatApiPage() {
                   </Table.Thead>
                   <Table.Tbody>
                     {filteredAndSortedData.map((row, index) => (
-                      <Table.Tr key={index}>
+                      <Table.Tr key={Object.values(row).slice(0, 3).join('-') || String(index)}>
                         {columns.map((column) => (
                           <Table.Td key={column}>
                             {typeof row[column] === 'number' ? (

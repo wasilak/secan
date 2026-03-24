@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import type { ClusterInfo } from '../types/api';
 
 /**
@@ -20,7 +21,7 @@ import type { ClusterInfo } from '../types/api';
 export function useClusterName(clusterId: string): string {
   // Fetch cluster info (contains config name)
   const { data: clusterInfo } = useQuery({
-    queryKey: ['cluster', clusterId, 'info'],
+    queryKey: queryKeys.cluster(clusterId).info(),
     queryFn: async () => {
       const clustersResponse = await apiClient.getClusters(1, 100);
       return clustersResponse.items.find((c: ClusterInfo) => c.id === clusterId);
@@ -30,7 +31,7 @@ export function useClusterName(clusterId: string): string {
 
   // Fetch cluster stats (contains actual cluster name)
   const { data: clusterStats } = useQuery({
-    queryKey: ['cluster', clusterId, 'stats'],
+    queryKey: queryKeys.cluster(clusterId).stats(),
     queryFn: () => apiClient.getClusterStats(clusterId),
     staleTime: 30 * 1000, // Cache for 30 seconds
   });

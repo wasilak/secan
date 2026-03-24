@@ -40,6 +40,10 @@ export function Login() {
 
   // Check auth status and handle redirects, also fetch version
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
     const checkAuthStatus = async () => {
       try {
         // Fetch version from API
@@ -50,6 +54,7 @@ export function Login() {
         try {
           const meResponse = await fetch('/api/auth/me', {
             credentials: 'include',
+            signal,
           });
 
           if (meResponse.ok) {
@@ -58,6 +63,7 @@ export function Login() {
             return;
           }
         } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
           // Continue with status check if /api/auth/me fails
           console.debug('Auth check failed, proceeding with status check:', err);
         }
@@ -71,7 +77,10 @@ export function Login() {
         // Fetch auth status
         const response = await fetch('/api/auth/status', {
           credentials: 'include',
+          signal,
         });
+
+        if (signal.aborted) return;
 
         if (response.ok) {
           const status = await response.json();
@@ -96,31 +105,39 @@ export function Login() {
             setCountdown(delay);
             setOidcEnabled(true);
             
-            // Start countdown timer
-            const timer = setInterval(() => {
+            // Start countdown timer — store ID in closure scope for cleanup
+            intervalId = setInterval(() => {
               setCountdown((prev) => {
                 if (prev <= 1) {
-                  clearInterval(timer);
+                  clearInterval(intervalId!);
+                  intervalId = null;
                   window.location.href = `/api/auth/oidc/login?redirect_to=${encodeURIComponent(redirectPath)}`;
                   return 0;
                 }
                 return prev - 1;
               });
             }, 1000);
-            
-            // Cleanup timer on unmount
-            return () => clearInterval(timer);
           }
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         // Continue to login form on error
         console.error('Failed to check auth status:', err);
       } finally {
-        setAuthChecking(false);
+        if (!signal.aborted) {
+          setAuthChecking(false);
+        }
       }
     };
 
     checkAuthStatus();
+
+    return () => {
+      controller.abort();
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+      }
+    };
   }, [isAuthenticated, navigate, isLoggedOut, redirectPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {

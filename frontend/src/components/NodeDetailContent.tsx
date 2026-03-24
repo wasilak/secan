@@ -13,7 +13,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   IconBrandElastic,
   IconCoffee,
@@ -112,29 +112,68 @@ export function NodeDetailContent({
 
   // Use Prometheus time-series data when available, otherwise fallback to sparkline (fake) data
   // Prometheus data has real timestamps and values from the time range selector
-  const heapHistory: DataPoint[] = isPrometheus && prometheusMetrics?.heapHistory
-    ? prometheusMetrics.heapHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineHeap;
+  const heapHistory: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.heapHistory
+        ? prometheusMetrics.heapHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+        : sparklineHeap,
+    [isPrometheus, prometheusMetrics?.heapHistory, sparklineHeap]
+  );
 
-  const diskHistory: DataPoint[] = isPrometheus && prometheusMetrics?.diskHistory
-    ? prometheusMetrics.diskHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineDisk;
+  const diskHistory: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.diskHistory
+        ? prometheusMetrics.diskHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+        : sparklineDisk,
+    [isPrometheus, prometheusMetrics?.diskHistory, sparklineDisk]
+  );
 
-  const cpuHistory: DataPoint[] = isPrometheus && prometheusMetrics?.cpuHistory
-    ? prometheusMetrics.cpuHistory.map(p => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineCpu;
+  const cpuHistory: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.cpuHistory
+        ? prometheusMetrics.cpuHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+        : sparklineCpu,
+    [isPrometheus, prometheusMetrics?.cpuHistory, sparklineCpu]
+  );
 
-  const loadHistory: DataPoint[] = isPrometheus && prometheusMetrics?.loadHistory
-    ? prometheusMetrics.loadHistory.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineLoad;
+  const loadHistory: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.loadHistory
+        ? prometheusMetrics.loadHistory.map(
+            (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
+          )
+        : sparklineLoad,
+    [isPrometheus, prometheusMetrics?.loadHistory, sparklineLoad]
+  );
 
-  const load5History: DataPoint[] = isPrometheus && prometheusMetrics?.load5History
-    ? prometheusMetrics.load5History.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineLoad;
+  const load5History: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.load5History
+        ? prometheusMetrics.load5History.map(
+            (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
+          )
+        : sparklineLoad,
+    [isPrometheus, prometheusMetrics?.load5History, sparklineLoad]
+  );
 
-  const load15History: DataPoint[] = isPrometheus && prometheusMetrics?.load15History
-    ? prometheusMetrics.load15History.map((p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp }))
-    : sparklineLoad;
+  const load15History: DataPoint[] = useMemo(
+    () =>
+      isPrometheus && prometheusMetrics?.load15History
+        ? prometheusMetrics.load15History.map(
+            (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
+          )
+        : sparklineLoad,
+    [isPrometheus, prometheusMetrics?.load15History, sparklineLoad]
+  );
+
+  // Sort thread pool entries once per nodeStats change (avoids re-sorting every render)
+  const sortedThreadPools = useMemo(
+    () =>
+      nodeStats.threadPools
+        ? Object.entries(nodeStats.threadPools).sort(([a], [b]) => a.localeCompare(b))
+        : [],
+    [nodeStats.threadPools]
+  );
 
   return (
     <Stack gap="md">
@@ -693,11 +732,9 @@ export function NodeDetailContent({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {Object.entries(nodeStats.threadPools)
-                    .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
-                    .map(([poolName, stats]) => (
-                      <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
-                    ))}
+                  {sortedThreadPools.map(([poolName, stats]) => (
+                    <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
+                  ))}
                 </Table.Tbody>
               </Table>
             </ScrollArea>

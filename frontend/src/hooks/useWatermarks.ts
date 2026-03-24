@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 
 /**
  * Watermark thresholds for disk allocation
@@ -101,7 +102,7 @@ export function useWatermarks(clusterId: string | undefined, enabled: boolean = 
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', clusterId, 'watermarks'],
+    queryKey: queryKeys.cluster(clusterId!).watermarks(),
     queryFn: async () => {
       if (!clusterId) throw new Error('Cluster ID is required');
 

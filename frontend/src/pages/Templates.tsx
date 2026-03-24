@@ -23,6 +23,8 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { getErrorMessage } from '../lib/errorHandling';
+import { queryKeys } from '../utils/queryKeys';
 import type { CreateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ListPageSkeleton } from '../components/LoadingSkeleton';
@@ -50,7 +52,7 @@ export function Templates() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', id, 'templates'],
+    queryKey: queryKeys.cluster(id!).templates(),
     queryFn: () => apiClient.getTemplates(id!),
     enabled: !!id,
   });
@@ -60,7 +62,7 @@ export function Templates() {
     mutationFn: ({ name, composable }: { name: string; composable: boolean }) =>
       apiClient.deleteTemplate(id!, name, composable),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'templates'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).templates() });
       notifications.show({
         title: 'Success',
         message: 'Template deleted successfully',
@@ -91,7 +93,7 @@ export function Templates() {
   if (error) {
     return (
       <FullWidthContainer>
-        <ErrorAlert message={`Failed to load templates: ${(error as Error).message}`} />
+        <ErrorAlert message={`Failed to load templates: ${getErrorMessage(error)}`} />
       </FullWidthContainer>
     );
   }
@@ -256,7 +258,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
   const createMutation = useMutation({
     mutationFn: (request: CreateTemplateRequest) => apiClient.createTemplate(clusterId, request),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'templates'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).templates() });
       notifications.show({
         title: 'Success',
         message: 'Template created successfully',
@@ -322,7 +324,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
     } catch (error) {
       notifications.show({
         title: 'Error',
-        message: `Invalid JSON: ${(error as Error).message}`,
+        message: `Invalid JSON: ${getErrorMessage(error)}`,
         color: 'red',
       });
     }

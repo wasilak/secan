@@ -50,6 +50,9 @@ export function ShardStatsModal({
       return;
     }
 
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const fetchDetailedStats = async () => {
       setLoading(true);
       setError(null);
@@ -57,6 +60,8 @@ export function ShardStatsModal({
       try {
         // Call shard stats API - Requirements: 4.6
         const stats = await apiClient.getShardStats(clusterId, shard.index, shard.shard);
+
+        if (signal.aborted) return;
 
         // Parse response and extract relevant metrics
         // The response structure depends on the Elasticsearch version
@@ -71,14 +76,21 @@ export function ShardStatsModal({
 
         setDetailedStats(parsedStats);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Failed to fetch detailed shard stats:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch shard statistics');
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchDetailedStats();
+
+    return () => {
+      controller.abort();
+    };
   }, [opened, shard, clusterId]);
 
   // Helper functions to extract metrics from ES response

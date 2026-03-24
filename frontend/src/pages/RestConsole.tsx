@@ -716,9 +716,9 @@ export function RestConsole() {
                       No history yet
                     </Text>
                   ) : (
-                    history.map((item, index) => (
+                    history.map((item) => (
                       <Paper
-                        key={index}
+                        key={`${item.timestamp}-${item.method}-${item.path}`}
                         p="xs"
                         withBorder
                         onClick={() => loadFromHistory(item)}

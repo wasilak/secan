@@ -54,7 +54,7 @@ export function FilterSidebar({
               <Stack gap="xs">
                 {textFilters.map((filter, index) => (
                   <TextSearchInput
-                    key={index}
+                    key={filter.placeholder ?? String(index)}
                     value={filter.value}
                     onChange={filter.onChange}
                     placeholder={filter.placeholder}
@@ -81,16 +81,16 @@ export function FilterSidebar({
             {conditionalSections.length > 0 && (
               <Stack gap="xs">
                 {conditionalSections.map((section, index) =>
-                  section.visible ? <Box key={index}>{section.content}</Box> : null
+                  section.visible ? <Box key={index /* static section order */}>{section.content}</Box> : null
                 )}
               </Stack>
             )}
 
             {toggles.length > 0 && (
               <Stack gap="xs">
-                {toggles.map((toggle, index) => (
+                {toggles.map((toggle) => (
                   <ToggleFilter
-                    key={`toggle-${index}`}
+                    key={toggle.label}
                     label={toggle.label}
                     checked={toggle.value}
                     onChange={toggle.onChange}
@@ -102,9 +102,9 @@ export function FilterSidebar({
 
             {actions.length > 0 && (
               <Stack gap="xs" mt="sm">
-                {actions.map((action, index) => (
+                {actions.map((action) => (
                   <Button
-                    key={`action-${index}`}
+                    key={action.label}
                     onClick={action.onClick}
                     variant={action.variant ?? 'filled'}
                     size="sm"

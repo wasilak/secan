@@ -16,6 +16,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import { formatBytes, formatTime, formatNumberWithCommas } from '../utils/formatters';
 import { StatsCard } from '../components/charts/StatsCard';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -46,7 +48,7 @@ export function IndexStatistics() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['cluster', clusterId, 'index', indexName, 'stats'],
+    queryKey: queryKeys.cluster(clusterId!).index(indexName!).stats(),
     queryFn: async () => {
       if (!clusterId || !indexName) {
         throw new Error('Cluster ID and index name are required');
@@ -73,7 +75,7 @@ export function IndexStatistics() {
   if (error) {
     return (
       <FullWidthContainer>
-        <ErrorAlert message={`Failed to load index statistics: ${(error as Error).message}`} />
+        <ErrorAlert message={`Failed to load index statistics: ${getErrorMessage(error)}`} />
       </FullWidthContainer>
     );
   }

@@ -21,6 +21,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { IconAlertCircle, IconSearch, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import { getPaginatedItems } from '../types/api';
 import type { AnalyzeTextRequest, AnalysisToken } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -65,7 +66,7 @@ export function TextAnalysisPage() {
 
   // Fetch indices for field-based analysis
   const { data: indicesPaginated } = useQuery({
-    queryKey: ['cluster', id, 'indices'],
+    queryKey: queryKeys.cluster(id!).indices(),
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id && useField,
   });
@@ -74,7 +75,7 @@ export function TextAnalysisPage() {
 
   // Fetch fields for selected index
   const { data: fieldsData } = useQuery({
-    queryKey: ['cluster', id, 'index', selectedIndex, 'fields'],
+    queryKey: queryKeys.cluster(id!).index(selectedIndex!).fields(),
     queryFn: () => apiClient.getIndexFields(id!, selectedIndex),
     enabled: !!id && !!selectedIndex && useField,
   });
@@ -331,8 +332,8 @@ export function TextAnalysisPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {analyzeMutation.data.tokens.map((token: AnalysisToken, index: number) => (
-                    <Table.Tr key={index}>
+                  {analyzeMutation.data.tokens.map((token: AnalysisToken) => (
+                    <Table.Tr key={token.position}>
                       <Table.Td>
                         <Badge variant="light">{token.position}</Badge>
                       </Table.Td>

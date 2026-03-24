@@ -26,6 +26,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { SortableTable, SortableTableColumn } from '../components/SortableTable';
 import { getHealthColor } from '../utils/colors';
 import { formatBytes } from '../utils/formatters';
+import { queryKeys } from '../utils/queryKeys';
 import type { ClusterInfo } from '../types/api';
 import { useQueries } from '@tanstack/react-query';
 
@@ -115,7 +116,7 @@ export function Dashboard() {
     isLoading: clustersLoading,
     error: clustersError,
   } = useQuery({
-    queryKey: ['clusters', 1, 100], // Fetch all with page 1, size 100
+    queryKey: queryKeys.clusters.list(),
     queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
     staleTime: cacheDuration,
@@ -144,7 +145,7 @@ export function Dashboard() {
     queries: clusters
       .filter((cluster) => cluster.id)
       .map((cluster) => ({
-        queryKey: ['cluster', cluster.id, 'stats'],
+        queryKey: queryKeys.cluster(cluster.id).stats(),
         queryFn: () => apiClient.getClusterStats(cluster.id),
         refetchInterval: refreshInterval,
         staleTime: cacheDuration,

@@ -150,12 +150,18 @@ export function initializeTelemetry(): void {
       });
     };
 
-    // Flush on page visibility change (user switches tabs)
-    document.addEventListener('visibilitychange', () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         flushSpans();
       }
-    });
+    };
+
+    // Store references for cleanupTelemetry()
+    _onVisibilityChange = onVisibilityChange;
+    _flushSpans = flushSpans;
+
+    // Flush on page visibility change (user switches tabs)
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     // Flush before page unload
     window.addEventListener('beforeunload', flushSpans);
@@ -223,3 +229,24 @@ export function getTracer(name: string) {
 // Re-export config functions
 export { getTelemetryConfig, isTelemetryEnabled };
 export type { TelemetryConfig };
+
+// Exported listener references for cleanup (populated by initTelemetry).
+// Stored at module scope so cleanupTelemetry() can remove them.
+let _onVisibilityChange: (() => void) | null = null;
+let _flushSpans: (() => void) | null = null;
+
+/**
+ * Remove all global event listeners registered by `initTelemetry`.
+ * Should be called on application teardown (e.g. in test afterEach or HMR).
+ */
+export function cleanupTelemetry(): void {
+  if (_onVisibilityChange) {
+    document.removeEventListener('visibilitychange', _onVisibilityChange);
+    _onVisibilityChange = null;
+  }
+  if (_flushSpans) {
+    window.removeEventListener('beforeunload', _flushSpans);
+    window.removeEventListener('pagehide', _flushSpans);
+    _flushSpans = null;
+  }
+}

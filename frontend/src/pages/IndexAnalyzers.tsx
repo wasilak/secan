@@ -20,6 +20,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconSearch, IconFilter } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import type { AnalyzerInfo, FieldInfo } from '../types/api';
 
 /**
@@ -46,7 +48,7 @@ export function IndexAnalyzersPage() {
     isLoading: analyzersLoading,
     error: analyzersError,
   } = useQuery({
-    queryKey: ['cluster', id, 'index', indexName, 'analyzers'],
+    queryKey: queryKeys.cluster(id!).index(indexName!).analyzers(),
     queryFn: () => apiClient.getIndexAnalyzers(id!, indexName!),
     enabled: !!id && !!indexName,
   });
@@ -57,7 +59,7 @@ export function IndexAnalyzersPage() {
     isLoading: fieldsLoading,
     error: fieldsError,
   } = useQuery({
-    queryKey: ['cluster', id, 'index', indexName, 'fields'],
+    queryKey: queryKeys.cluster(id!).index(indexName!).fields(),
     queryFn: () => apiClient.getIndexFields(id!, indexName!),
     enabled: !!id && !!indexName,
   });
@@ -83,7 +85,7 @@ export function IndexAnalyzersPage() {
     return (
       <FullWidthContainer>
         <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load index analyzers: {(error as Error).message}
+          Failed to load index analyzers: {getErrorMessage(error)}
         </Alert>
       </FullWidthContainer>
     );
@@ -299,8 +301,8 @@ export function IndexAnalyzersPage() {
                                 Character Filters:
                               </Text>
                               <Group gap="xs">
-                                {analyzerInfo.charFilter.map((filter, idx) => (
-                                  <Badge key={idx} variant="light" color="orange">
+                                {analyzerInfo.charFilter.map((filter) => (
+                                  <Badge key={filter} variant="light" color="orange">
                                     {filter}
                                   </Badge>
                                 ))}
@@ -314,8 +316,8 @@ export function IndexAnalyzersPage() {
                                 Token Filters:
                               </Text>
                               <Group gap="xs">
-                                {analyzerInfo.filter.map((filter, idx) => (
-                                  <Badge key={idx} variant="light" color="purple">
+                                {analyzerInfo.filter.map((filter) => (
+                                  <Badge key={filter} variant="light" color="purple">
                                     {filter}
                                   </Badge>
                                 ))}

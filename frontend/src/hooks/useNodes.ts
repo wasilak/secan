@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import { NodeInfo } from '../types/api';
 
 /**
@@ -22,7 +23,7 @@ export function useNodes(
   enabled: boolean = true
 ) {
   return useQuery({
-    queryKey: ['cluster', clusterId, 'nodes'],
+    queryKey: queryKeys.cluster(clusterId!).nodes(),
     queryFn: async (): Promise<NodeInfo[]> => {
       if (!clusterId) throw new Error('Cluster ID is required');
       

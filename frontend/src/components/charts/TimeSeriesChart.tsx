@@ -208,7 +208,7 @@ export function TimeSeriesChart({
             {Array.isArray(query) ? (
               query.map((q, i) => (
                 <Code
-                  key={i}
+                  key={`${i}-${q.slice(0, 20)}`}
                   block
                   style={{
                     backgroundColor: codeBg,

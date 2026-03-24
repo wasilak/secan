@@ -17,13 +17,34 @@ export const REFRESH_INTERVALS = {
 
 export type RefreshInterval = (typeof REFRESH_INTERVALS)[keyof typeof REFRESH_INTERVALS];
 
-interface RefreshContextValue {
-  interval: RefreshInterval;
-  setInterval: (interval: RefreshInterval) => void;
+// ---------------------------------------------------------------------------
+// State context — holds values that change frequently (re-render sensitive)
+// ---------------------------------------------------------------------------
+
+interface RefreshStateContextValue {
   isRefreshing: boolean;
-  refresh: (scope?: string | string[]) => void;
   lastRefreshTime: number | null;
 }
+
+const RefreshStateContext = createContext<RefreshStateContextValue | undefined>(undefined);
+
+// ---------------------------------------------------------------------------
+// Action context — holds stable callbacks and config (rarely re-renders)
+// ---------------------------------------------------------------------------
+
+interface RefreshActionContextValue {
+  interval: RefreshInterval;
+  setInterval: (interval: RefreshInterval) => void;
+  refresh: (scope?: string | string[]) => void;
+}
+
+const RefreshActionContext = createContext<RefreshActionContextValue | undefined>(undefined);
+
+// ---------------------------------------------------------------------------
+// Legacy combined context (kept for backward compatibility)
+// ---------------------------------------------------------------------------
+
+interface RefreshContextValue extends RefreshStateContextValue, RefreshActionContextValue {}
 
 const RefreshContext = createContext<RefreshContextValue | undefined>(undefined);
 
@@ -138,23 +159,50 @@ export function RefreshProvider({
     [queryClient]
   );
 
+  const stateValue: RefreshStateContextValue = { isRefreshing, lastRefreshTime };
+  const actionValue: RefreshActionContextValue = { interval, setInterval, refresh };
+  const combinedValue: RefreshContextValue = { ...stateValue, ...actionValue };
+
   return (
-    <RefreshContext.Provider
-      value={{
-        interval,
-        setInterval,
-        isRefreshing,
-        refresh,
-        lastRefreshTime,
-      }}
-    >
-      {children}
-    </RefreshContext.Provider>
+    <RefreshStateContext.Provider value={stateValue}>
+      <RefreshActionContext.Provider value={actionValue}>
+        <RefreshContext.Provider value={combinedValue}>
+          {children}
+        </RefreshContext.Provider>
+      </RefreshActionContext.Provider>
+    </RefreshStateContext.Provider>
   );
 }
 
 /**
- * Hook to access refresh context
+ * Hook to access only the refresh state (isRefreshing, lastRefreshTime).
+ * Components that only need state should use this to avoid re-rendering when
+ * actions or config change.
+ */
+export function useRefreshState(): RefreshStateContextValue {
+  const context = useContext(RefreshStateContext);
+  if (!context) {
+    throw new Error('useRefreshState must be used within RefreshProvider');
+  }
+  return context;
+}
+
+/**
+ * Hook to access only refresh actions (interval, setInterval, refresh).
+ * Components that only trigger refresh should use this to avoid re-rendering when
+ * isRefreshing or lastRefreshTime change.
+ */
+export function useRefreshActions(): RefreshActionContextValue {
+  const context = useContext(RefreshActionContext);
+  if (!context) {
+    throw new Error('useRefreshActions must be used within RefreshProvider');
+  }
+  return context;
+}
+
+/**
+ * Hook to access refresh context (all fields).
+ * Prefer useRefreshState or useRefreshActions for better performance.
  */
 export function useRefresh() {
   const context = useContext(RefreshContext);
@@ -169,6 +217,6 @@ export function useRefresh() {
  * Returns false when refresh is disabled
  */
 export function useRefreshInterval(): number | false {
-  const { interval } = useRefresh();
+  const { interval } = useRefreshActions();
   return interval === 0 ? false : interval;
 }

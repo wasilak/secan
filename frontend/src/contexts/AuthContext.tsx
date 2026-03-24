@@ -47,34 +47,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Check authentication status on mount
-  const checkAuth = async () => {
-    try {
-      // Use dedicated auth endpoint
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser({
-          username: userData.username,
-          roles: userData.groups || [],
-        });
-      } else {
-        // Not authenticated
-        setUser(null);
-      }
-    } catch {
-      // Network error or not authenticated
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Run auth check on mount
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    const checkAuth = async () => {
+      try {
+        // Use dedicated auth endpoint
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+          signal,
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUser({
+            username: userData.username,
+            roles: userData.groups || [],
+          });
+        } else {
+          // Not authenticated
+          setUser(null);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        // Network error or not authenticated
+        setUser(null);
+      } finally {
+        // Only update loading state if not aborted
+        if (!signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     checkAuth();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   /**
@@ -94,7 +106,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     // After successful login, refetch user to update state
-    await checkAuth();
+    const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
+    if (meResponse.ok) {
+      const userData = await meResponse.json();
+      setUser({ username: userData.username, roles: userData.groups || [] });
+    } else {
+      setUser(null);
+    }
   };
 
   /**

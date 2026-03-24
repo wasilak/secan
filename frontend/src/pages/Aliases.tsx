@@ -22,6 +22,8 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import { getPaginatedItems } from '../types/api';
 import type { AliasInfo, CreateAliasRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -51,14 +53,14 @@ export function Aliases() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', id, 'aliases'],
+    queryKey: queryKeys.cluster(id!).aliases(),
     queryFn: () => apiClient.getAliases(id!),
     enabled: !!id,
   });
 
   // Fetch indices for the multi-select
   const { data: indicesPaginated } = useQuery({
-    queryKey: ['cluster', id, 'indices'],
+    queryKey: queryKeys.cluster(id!).indices(),
     queryFn: () => apiClient.getIndices(id!),
     enabled: !!id,
   });
@@ -70,7 +72,7 @@ export function Aliases() {
     mutationFn: ({ index, alias }: { index: string; alias: string }) =>
       apiClient.deleteAlias(id!, index, alias),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'aliases'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).aliases() });
       notifications.show({
         title: 'Success',
         message: 'Alias deleted successfully',
@@ -101,7 +103,7 @@ export function Aliases() {
   if (error) {
     return (
       <FullWidthContainer>
-        <ErrorAlert message={`Failed to load aliases: ${(error as Error).message}`} />
+        <ErrorAlert message={`Failed to load aliases: ${getErrorMessage(error)}`} />
       </FullWidthContainer>
     );
   }
@@ -282,7 +284,7 @@ function CreateAliasModal({ opened, onClose, clusterId, availableIndices }: Crea
       return apiClient.createAlias(clusterId, finalRequest);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'aliases'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).aliases() });
       notifications.show({
         title: 'Success',
         message: 'Alias created successfully',

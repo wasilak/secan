@@ -37,6 +37,7 @@ import {
   IconRefresh,
 } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import { getPaginatedItems } from '../types/api';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { formatBytes } from '../utils/formatters';
@@ -99,7 +100,7 @@ export function ShardManagement() {
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery({
-    queryKey: ['cluster', id, 'shards'],
+    queryKey: queryKeys.cluster(id!).shards(),
     queryFn: () => apiClient.getShards(id!),
     enabled: !!id,
   });
@@ -109,7 +110,7 @@ export function ShardManagement() {
 
   // Fetch nodes for relocation targets (paginated)
   const { data: nodesPaginated, isLoading: nodesLoading } = useQuery({
-    queryKey: ['cluster', id, 'nodes'],
+    queryKey: queryKeys.cluster(id!).nodes(),
     queryFn: () => apiClient.getNodes(id!),
     enabled: !!id,
   });
@@ -119,7 +120,7 @@ export function ShardManagement() {
 
   // Fetch cluster settings to check allocation status
   const { data: clusterSettings, isLoading: settingsLoading } = useQuery({
-    queryKey: ['cluster', id, 'settings'],
+    queryKey: queryKeys.cluster(id!).settings(),
     queryFn: async () => {
       const response = await apiClient.proxyRequest<Record<string, unknown>>(
         id!,
@@ -164,7 +165,7 @@ export function ShardManagement() {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation enabled',
@@ -189,7 +190,7 @@ export function ShardManagement() {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation disabled',
@@ -231,7 +232,7 @@ export function ShardManagement() {
         ],
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).shards() });
       notifications.show({
         title: 'Success',
         message: 'Shard relocation initiated successfully',
@@ -469,9 +470,9 @@ export function ShardManagement() {
                 size="lg"
                 variant="subtle"
                 onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
-                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).shards() });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).nodes() });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
                 }}
               >
                 <IconRefresh size={20} />

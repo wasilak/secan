@@ -25,6 +25,8 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconPlus, IconTrash, IconFolder } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import type { CreateRepositoryRequest, RepositoryType } from '../types/api';
 import { ErrorAlert } from '../components/ErrorAlert';
 
@@ -50,7 +52,7 @@ export function Repositories() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', id, 'repositories'],
+    queryKey: queryKeys.cluster(id!).repositories(),
     queryFn: () => apiClient.getRepositories(id!),
     enabled: !!id,
   });
@@ -59,7 +61,7 @@ export function Repositories() {
   const deleteMutation = useMutation({
     mutationFn: (name: string) => apiClient.deleteRepository(id!, name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'repositories'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).repositories() });
       notifications.show({
         title: 'Success',
         message: 'Repository deleted successfully',
@@ -90,7 +92,7 @@ export function Repositories() {
   if (error) {
     return (
       <FullWidthContainer>
-        <ErrorAlert message={`Failed to load repositories: ${(error as Error).message}`} />
+        <ErrorAlert message={`Failed to load repositories: ${getErrorMessage(error)}`} />
       </FullWidthContainer>
     );
   }
@@ -237,7 +239,7 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
     mutationFn: (request: CreateRepositoryRequest) =>
       apiClient.createRepository(clusterId, request),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'repositories'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).repositories() });
       notifications.show({
         title: 'Success',
         message: 'Repository created successfully',
@@ -269,7 +271,7 @@ function CreateRepositoryModal({ opened, onClose, clusterId }: CreateRepositoryM
     } catch (error) {
       notifications.show({
         title: 'Error',
-        message: `Invalid JSON: ${(error as Error).message}`,
+        message: `Invalid JSON: ${getErrorMessage(error)}`,
         color: 'red',
       });
     }

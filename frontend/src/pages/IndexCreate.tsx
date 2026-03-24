@@ -16,6 +16,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
 
 /**
@@ -75,7 +77,7 @@ function validateJSON(json: string): string | null {
     JSON.parse(json);
     return null;
   } catch (error) {
-    return (error as Error).message;
+    return getErrorMessage(error);
   }
 }
 
@@ -151,7 +153,7 @@ export function IndexCreate() {
     },
     onSuccess: () => {
       // Invalidate indices query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['cluster', clusterId, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(clusterId!).indices() });
 
       // Show success notification
       notifications.show({

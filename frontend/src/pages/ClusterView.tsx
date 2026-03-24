@@ -36,8 +36,10 @@ import {
   extractIndexNameFromPath,
 } from '../utils/urlBuilders';
 import { useClusterNavigation } from '../hooks/useClusterNavigation';
+import { useClusterSettings } from '../hooks/useClusterSettings';
 import { DotBasedTopologyView } from '../components/Topology/DotBasedTopologyView';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutationWithNotification } from '../hooks/useMutationWithNotification';
 import {
   IconAlertCircle,
   IconPlus,
@@ -65,6 +67,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { showSuccessNotification, showErrorNotification, showSpecialNotification } from '../utils/notifications';
+import { queryKeys } from '../utils/queryKeys';
 import { apiClient } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
@@ -103,6 +106,7 @@ import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useModalStack } from '../hooks/useModalStack';
 import { ClusterChangeNotifier } from '../components/ClusterChangeNotifier';
 import { AllocationLockIndicator, AllocationState } from '../components/Topology/AllocationLockIndicator';
+import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
@@ -416,9 +420,7 @@ export function ClusterView() {
   const [topologyContextMenuOpened, setTopologyContextMenuOpened] = useState(false);
 
   // Shared shard allocation state
-  const { data: clusterSettings } = useQuery({
-    queryKey: ['cluster', id, 'settings'],
-    queryFn: () => apiClient.proxyRequest(id!, 'GET', '/_cluster/settings'),
+  const { data: clusterSettings } = useClusterSettings(id ?? '', {
     enabled: !!id && (activeView === 'overview' || activeView === 'topology'),
     refetchInterval: refreshInterval,
     staleTime: 0,
@@ -429,16 +431,10 @@ export function ClusterView() {
 
   const shardAllocationEnabled = (() => {
     if (!clusterSettings) return true;
-    
-    // The proxy response wraps the actual settings in a 'data' property
-    const wrapper = clusterSettings as Record<string, unknown>;
-    const data = wrapper.data as Record<string, unknown> | undefined;
-    
-    if (!data) return true;
-    
-    const transient = data.transient as Record<string, unknown> | undefined;
-    const persistent = data.persistent as Record<string, unknown> | undefined;
-    
+
+    const transient = clusterSettings.transient as Record<string, unknown> | undefined;
+    const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
+
     // Navigate through nested structure: cluster.routing.allocation.enable
     const transientCluster = transient?.cluster as Record<string, unknown> | undefined;
     const persistentCluster = persistent?.cluster as Record<string, unknown> | undefined;
@@ -446,7 +442,7 @@ export function ClusterView() {
     const persistentRouting = persistentCluster?.routing as Record<string, unknown> | undefined;
     const transientAllocation = transientRouting?.allocation as Record<string, unknown> | undefined;
     const persistentAllocation = persistentRouting?.allocation as Record<string, unknown> | undefined;
-    
+
     // Get enable value (transient takes precedence over persistent)
     const enableValue = (transientAllocation?.enable as string) || (persistentAllocation?.enable as string) || 'all';
     return enableValue === 'all';
@@ -458,18 +454,10 @@ export function ClusterView() {
     if (!clusterSettings) {
       return 'all';
     }
-    
-    // The proxy response wraps the actual settings in a 'data' property
-    const wrapper = clusterSettings as Record<string, unknown>;
-    const data = wrapper.data as Record<string, unknown> | undefined;
-    
-    if (!data) {
-      return 'all';
-    }
-    
-    const transient = data.transient as Record<string, unknown> | undefined;
-    const persistent = data.persistent as Record<string, unknown> | undefined;
-    
+
+    const transient = clusterSettings.transient as Record<string, unknown> | undefined;
+    const persistent = clusterSettings.persistent as Record<string, unknown> | undefined;
+
     // Navigate through nested structure: cluster.routing.allocation.enable
     const transientCluster = transient?.cluster as Record<string, unknown> | undefined;
     const persistentCluster = persistent?.cluster as Record<string, unknown> | undefined;
@@ -477,10 +465,10 @@ export function ClusterView() {
     const persistentRouting = persistentCluster?.routing as Record<string, unknown> | undefined;
     const transientAllocation = transientRouting?.allocation as Record<string, unknown> | undefined;
     const persistentAllocation = persistentRouting?.allocation as Record<string, unknown> | undefined;
-    
+
     // Get enable value (transient takes precedence over persistent)
     const enableValue = (transientAllocation?.enable as string) || (persistentAllocation?.enable as string) || 'all';
-    
+
     // Validate and return allocation state
     if (enableValue === 'all' || enableValue === 'primaries' || enableValue === 'new_primaries' || enableValue === 'none') {
       return enableValue as AllocationState;
@@ -493,7 +481,7 @@ export function ClusterView() {
       transient: { 'cluster.routing.allocation.enable': 'all' },
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({ title: 'Success', message: 'Shard allocation enabled', color: 'green' });
     },
     onError: (error: Error) => {
@@ -506,7 +494,7 @@ export function ClusterView() {
       transient: { 'cluster.routing.allocation.enable': mode },
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({ title: 'Success', message: 'Shard allocation disabled', color: 'green' });
     },
     onError: (error: Error) => {
@@ -676,8 +664,8 @@ export function ClusterView() {
         to_node: relocationDestinationNode.id,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'nodes'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).shards() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).nodes() });
       
       showSuccessNotification({
         title: 'Shard Relocation Started',
@@ -727,7 +715,7 @@ export function ClusterView() {
 
   // Fetch cluster information (including metrics source)
   const { data: clusterInfo } = useQuery({
-    queryKey: ['clusters', id],
+    queryKey: queryKeys.cluster(id!).all(),
     queryFn: async () => {
       const clustersResponse = await apiClient.getClusters(1, 100);
       return clustersResponse.items.find((c: ClusterInfo) => c.id === id);
@@ -742,9 +730,8 @@ export function ClusterView() {
     data: stats,
     isLoading: statsLoading,
     error: statsError,
-    refetch: refetchStats,
   } = useQuery({
-    queryKey: ['cluster', id, 'stats'],
+    queryKey: queryKeys.cluster(id!).stats(),
     queryFn: () => apiClient.getClusterStats(id!),
     refetchInterval: refreshInterval,
     enabled: !!id && (activeView === 'overview' || activeView === 'statistics'),
@@ -760,9 +747,9 @@ export function ClusterView() {
   // This ensures graphs are populated immediately instead of waiting for the next refresh interval
   useEffect(() => {
     if (activeView === 'statistics' && id) {
-      refetchStats();
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id).stats() });
     }
-  }, [activeView, id, refetchStats]);
+  }, [activeView, id, queryClient]);
 
   // Get selected time range from URL params (for Prometheus metrics)
   // Default to 24h if not specified
@@ -780,7 +767,7 @@ export function ClusterView() {
   // Fetch metrics history when in statistics tab
   // Uses global refresh interval to sync with useSparklineData for internal metrics
   const { data: metricsHistory } = useQuery({
-    queryKey: ['cluster', id, 'metrics-history', timeRangeMinutes],
+    queryKey: queryKeys.cluster(id!).metricsHistory(timeRangeMinutes),
     queryFn: async () => {
       if (!id) throw new Error('Cluster ID is required');
       const now = Math.floor(Date.now() / 1000);
@@ -1150,7 +1137,7 @@ export function ClusterView() {
     isInitialLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'nodes', nodesPage, nodesPerPage, nodesFilters],
+    queryKey: queryKeys.cluster(id!).nodes(nodesPage, nodesPerPage, nodesFilters),
     queryFn: () => apiClient.getNodes(id!, nodesPage, nodesPerPage, nodesFilters),
     refetchInterval: refreshInterval,
     enabled: !!id && activeView === 'nodes',
@@ -1166,7 +1153,7 @@ export function ClusterView() {
   const {
     data: allNodesUnfiltered,
   } = useQuery({
-    queryKey: ['cluster', id, 'nodes', 'all-roles'],
+    queryKey: queryKeys.cluster(id!).nodes(undefined, undefined, 'all-roles'),
     queryFn: () => apiClient.getNodes(id!, 1, 1000, { search: '' }),
     refetchInterval: refreshInterval,
     enabled: !!id && (activeView === 'topology' || activeView === 'nodes' || activeView === 'statistics'),
@@ -1245,7 +1232,7 @@ export function ClusterView() {
     isLoading: indicesLoading,
     error: indicesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'indices', indicesPage, indicesFilters],
+    queryKey: queryKeys.cluster(id!).indices(indicesPage, indicesFilters),
     queryFn: () => apiClient.getIndices(id!, indicesPage, 50, indicesFilters),
     refetchInterval: refreshInterval,
     enabled: !!id && activeView === 'indices', // Only fetch when in indices tab
@@ -1258,7 +1245,7 @@ export function ClusterView() {
     isInitialLoading: allIndicesLoading,
     error: allIndicesError,
   } = useQuery({
-    queryKey: ['cluster', id, 'indices', 'all'],
+    queryKey: queryKeys.cluster(id!).indices(undefined, undefined, true),
     queryFn: () => apiClient.getIndices(id!, 1, 10000, { showSpecial: true }),
     refetchInterval: refreshInterval,
     enabled: !!id && (activeView === 'topology' || activeView === 'indices' || activeView === 'statistics'),
@@ -1289,7 +1276,7 @@ export function ClusterView() {
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery({
-    queryKey: ['cluster', id, 'shards', shardsPage, shardsFilters],
+    queryKey: queryKeys.cluster(id!).shards(shardsPage, shardsFilters),
     queryFn: () => apiClient.getShards(id!, shardsPage, 50, shardsFilters),
     refetchInterval: refreshInterval,
     enabled: !!id && activeView === 'shards', // Only fetch when in shards tab
@@ -1311,6 +1298,15 @@ export function ClusterView() {
   // Create shorter aliases for backward compatibility with rest of code
   const nodes = nodesArray;
   const indices = indicesArray;
+
+  // Memoized index health/status counts — avoids re-filtering on every render.
+  const indexStats = useMemo(() => ({
+    greenIndices: indices?.filter((idx) => idx.health === 'green').length ?? 0,
+    yellowIndices: indices?.filter((idx) => idx.health === 'yellow').length ?? 0,
+    redIndices: indices?.filter((idx) => idx.health === 'red').length ?? 0,
+    openIndices: indices?.filter((idx) => idx.status === 'open').length ?? 0,
+    closedIndices: indices?.filter((idx) => idx.status === 'close').length ?? 0,
+  }), [indices]);
 
   if (!id) {
     return (
@@ -1409,6 +1405,7 @@ export function ClusterView() {
       {/* Section Navigation - conditional rendering instead of Tabs */}
       {/* Overview Section */}
       {activeView === 'overview' && (
+        <AppErrorBoundary key="overview" fallbackTitle="Overview failed to load">
         <Stack gap="md">
           {/* First Row: Nodes, Indices, Shards */}
           <Grid>
@@ -1668,11 +1665,13 @@ export function ClusterView() {
             </Grid>
           )}
         </Stack>
+        </AppErrorBoundary>
       )}
 
       {/* Topology Section */}
       {activeView === 'topology' && (
-        <Grid gutter="md" overflow="hidden">
+        <AppErrorBoundary key="topology" fallbackTitle="Topology failed to load">
+          <Grid gutter="md" overflow="hidden">
           {/* Stats Row */}
           <Grid.Col span={12}>
             <TopologyStatsCards
@@ -1899,12 +1898,14 @@ export function ClusterView() {
               </Group>
             </Stack>
           </Modal>
-        </Grid>
+          </Grid>
+        </AppErrorBoundary>
       )}
 
       {/* Statistics Section */}
       {activeView === 'statistics' && (
-        <Stack gap="md">
+        <AppErrorBoundary key="statistics" fallbackTitle="Statistics failed to load">
+          <Stack gap="md">
           {/* Time Range Dropdown - Top Right */}
           <Group justify="space-between" mb="md">
             <Group gap="xs">
@@ -1991,12 +1992,14 @@ export function ClusterView() {
             hiddenIndicesCount={hiddenIndicesCount}
             allIndices={allIndicesArray}
           />
-        </Stack>
+          </Stack>
+        </AppErrorBoundary>
       )}
 
       {/* Nodes Section */}
       {activeView === 'nodes' && (
-        <Grid gutter="md" overflow="hidden">
+        <AppErrorBoundary key="nodes" fallbackTitle="Nodes view failed to load">
+          <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <NodeStatsCards nodes={nodes || []} />
           </Grid.Col>
@@ -2049,21 +2052,19 @@ export function ClusterView() {
               </Stack>
             </Group>
           </Grid.Col>
-        </Grid>
+          </Grid>
+        </AppErrorBoundary>
       )}
 
       {/* Indices Section */}
       {activeView === 'indices' && (
-        <Grid gutter="md" overflow="hidden">
+        <AppErrorBoundary key="indices" fallbackTitle="Indices view failed to load">
+          <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <IndexStatsCards
               stats={{
                 totalIndices: indicesPaginated?.total ?? 0,
-                greenIndices: indices?.filter((idx) => idx.health === 'green').length ?? 0,
-                yellowIndices: indices?.filter((idx) => idx.health === 'yellow').length ?? 0,
-                redIndices: indices?.filter((idx) => idx.health === 'red').length ?? 0,
-                openIndices: indices?.filter((idx) => idx.status === 'open').length ?? 0,
-                closedIndices: indices?.filter((idx) => idx.status === 'close').length ?? 0,
+                ...indexStats,
               }}
             />
           </Grid.Col>
@@ -2135,12 +2136,14 @@ export function ClusterView() {
               </Stack>
             </Group>
           </Grid.Col>
-        </Grid>
+          </Grid>
+        </AppErrorBoundary>
       )}
 
       {/* Shards Section */}
       {activeView === 'shards' && (
-        <Grid gutter="md" overflow="hidden">
+        <AppErrorBoundary key="shards" fallbackTitle="Shards view failed to load">
+          <Grid gutter="md" overflow="hidden">
           <Grid.Col span={12}>
             <ShardStatsCards
               stats={{
@@ -2214,14 +2217,23 @@ export function ClusterView() {
               </Stack>
             </Group>
           </Grid.Col>
-        </Grid>
+          </Grid>
+        </AppErrorBoundary>
       )}
 
       {/* Console Section */}
-      {activeView === 'console' && <RestConsole />}
+      {activeView === 'console' && (
+        <AppErrorBoundary key="console" fallbackTitle="Console failed to load">
+          <RestConsole />
+        </AppErrorBoundary>
+      )}
 
       {/* Tasks Section */}
-      {activeView === 'tasks' && <TasksTab clusterId={id!} isActive={activeView === 'tasks'} />}
+      {activeView === 'tasks' && (
+        <AppErrorBoundary key="tasks" fallbackTitle="Tasks view failed to load">
+          <TasksTab clusterId={id!} isActive={activeView === 'tasks'} />
+        </AppErrorBoundary>
+      )}
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
@@ -2953,7 +2965,7 @@ const IndicesList = memo(function IndicesList({
 
   // Fetch shards to identify unassigned/problem shards (paginated, extract items)
   const { data: shardsPaginatedForIndices } = useQuery({
-    queryKey: ['cluster', id, 'shards'],
+    queryKey: queryKeys.cluster(id!).shards(),
     queryFn: () => apiClient.getShards(id!),
     enabled: !!id,
   });
@@ -2962,18 +2974,7 @@ const IndicesList = memo(function IndicesList({
   const shards: ShardInfo[] = shardsPaginatedForIndices?.items ?? [];
 
   // Fetch cluster settings to check allocation status
-  const { data: clusterSettings } = useQuery({
-    queryKey: ['cluster', id, 'settings'],
-    queryFn: async () => {
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        id!,
-        'GET',
-        '/_cluster/settings'
-      );
-      return response.data;
-    },
-    enabled: !!id,
-  });
+  const { data: clusterSettings } = useClusterSettings(id ?? '', { enabled: !!id });
 
   // Check if shard allocation is enabled
   const shardAllocationEnabled = (() => {
@@ -3008,7 +3009,7 @@ const IndicesList = memo(function IndicesList({
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation enabled',
@@ -3033,7 +3034,7 @@ const IndicesList = memo(function IndicesList({
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation disabled',
@@ -3058,7 +3059,7 @@ const IndicesList = memo(function IndicesList({
         message: `Opened ${selectedIndices.size} indices`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3079,7 +3080,7 @@ const IndicesList = memo(function IndicesList({
         message: `Closed ${selectedIndices.size} indices`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3100,7 +3101,7 @@ const IndicesList = memo(function IndicesList({
         message: `Deleted ${selectedIndices.size} indices`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3121,7 +3122,7 @@ const IndicesList = memo(function IndicesList({
         message: `Refreshed ${selectedIndices.size} indices`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3142,7 +3143,7 @@ const IndicesList = memo(function IndicesList({
         message: `Set ${selectedIndices.size} indices to read-only`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3163,7 +3164,7 @@ const IndicesList = memo(function IndicesList({
         message: `Set ${selectedIndices.size} indices to writable`,
         color: 'green',
       });
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
       setBulkModalOpened(false);
       clearSelection();
     },
@@ -3516,8 +3517,8 @@ const IndicesList = memo(function IndicesList({
                                 Unassigned Shards:
                               </Text>
                               {unassignedByIndex[index.name]?.map(
-                                (shard: ShardInfo, idx: number) => (
-                                  <Group key={idx} gap={4}>
+                                (shard: ShardInfo) => (
+                                  <Group key={`${shard.index}-${shard.shard}-${String(shard.primary)}`} gap={4}>
                                     <Text size="xs">Shard {shard.shard}</Text>
                                     <ShardTypeBadge primary={shard.primary} />
                                   </Group>
@@ -3585,7 +3586,7 @@ const IndicesList = memo(function IndicesList({
                                       color: 'green',
                                     });
                                     queryClient.invalidateQueries({
-                                      queryKey: ['cluster', id, 'indices'],
+                                      queryKey: queryKeys.cluster(id!).indices(),
                                     });
                                   })
                                   .catch((error: Error) => {
@@ -3717,7 +3718,7 @@ const IndicesList = memo(function IndicesList({
                       message: `Index ${confirmationAction.indexName} ${confirmationAction.type === 'close' ? 'closed' : 'deleted'} successfully`,
                       color: 'green',
                     });
-                    queryClient.invalidateQueries({ queryKey: ['cluster', id, 'indices'] });
+                    queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).indices() });
                     setConfirmationModalOpened(false);
                     setConfirmationAction(null);
                   })
@@ -4004,7 +4005,6 @@ function ShardAllocationGrid({
 
   // Handle show shard stats - use path-based navigation
   const handleShowStats = (shard: ShardInfo) => {
-    console.log('Display shard stats clicked for', shard.index, shard.shard);
     setSelectedShard(shard);
     setDetailsModalOpen(true);
     handleContextMenuClose();
@@ -4095,18 +4095,7 @@ function ShardAllocationGrid({
   };
 
   // Fetch cluster settings to check allocation status
-  const { data: clusterSettings } = useQuery({
-    queryKey: ['cluster', id, 'settings'],
-    queryFn: async () => {
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        id!,
-        'GET',
-        '/_cluster/settings'
-      );
-      return response.data;
-    },
-    enabled: !!id,
-  });
+  const { data: clusterSettings } = useClusterSettings(id ?? '', { enabled: !!id });
 
   // Check if shard allocation is enabled
   const shardAllocationEnabled = (() => {
@@ -4141,7 +4130,7 @@ function ShardAllocationGrid({
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation enabled',
@@ -4166,7 +4155,7 @@ function ShardAllocationGrid({
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cluster', id, 'settings'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
       notifications.show({
         title: 'Success',
         message: 'Shard allocation disabled',
@@ -4311,7 +4300,6 @@ function ShardAllocationGrid({
           onShowStats={handleShowStats}
           onSelectForRelocation={handleSelectForRelocation}
           onShowIndexDetails={(shard) => {
-            console.log('Display index details clicked for', shard.index);
             openIndexModal(shard.index);
             handleContextMenuClose();
           }}
@@ -4814,7 +4802,7 @@ function ShardAllocationGrid({
                   setRelocationDestinationNode(null);
 
                   // Invalidate queries to refresh data
-                  queryClient.invalidateQueries({ queryKey: ['cluster', id, 'shards'] });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).shards() });
                 } catch (error) {
                   // Show error notification
                   let errorMessage = 'An unexpected error occurred';

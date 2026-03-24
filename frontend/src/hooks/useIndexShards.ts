@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 import { ShardInfo } from '../types/api';
 
 /**
@@ -24,7 +25,7 @@ export function useIndexShards(
   enabled: boolean = true
 ) {
   return useQuery({
-    queryKey: ['cluster', clusterId, 'shards', 'index', indexName],
+    queryKey: queryKeys.cluster(clusterId!).shards(undefined, undefined, indexName!),
     queryFn: async (): Promise<ShardInfo[]> => {
       if (!clusterId) throw new Error('Cluster ID is required');
       if (!indexName) throw new Error('Index name is required');

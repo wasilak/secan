@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { getPaginatedItems } from '../types/api';
 import { useClusterName } from '../hooks/useClusterName';
+import { queryKeys } from '../utils/queryKeys';
 import { useMemo } from 'react';
 
 /**
@@ -35,7 +36,7 @@ export function SpotlightSearch() {
 
   // Fetch clusters for dynamic actions
   const { data: clusters } = useQuery({
-    queryKey: ['clusters'],
+    queryKey: queryKeys.clusters.list(),
     queryFn: () => apiClient.getClusters(),
   });
 
@@ -50,7 +51,7 @@ export function SpotlightSearch() {
 
   // Fetch nodes for current cluster (only if in cluster view)
   const { data: nodesPaginated } = useQuery({
-    queryKey: ['cluster', currentClusterId, 'nodes'],
+    queryKey: queryKeys.cluster(currentClusterId!).nodes(),
     queryFn: () => apiClient.getNodes(currentClusterId!),
     enabled: !!currentClusterId,
   });
@@ -59,7 +60,7 @@ export function SpotlightSearch() {
 
   // Fetch indices for current cluster (only if in cluster view)
   const { data: indicesPaginated } = useQuery({
-    queryKey: ['cluster', currentClusterId, 'indices'],
+    queryKey: queryKeys.cluster(currentClusterId!).indices(),
     queryFn: () => apiClient.getIndices(currentClusterId!),
     enabled: !!currentClusterId,
   });

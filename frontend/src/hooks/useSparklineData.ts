@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useRefresh } from '../contexts/RefreshContext';
+import { useRefreshState } from '../contexts/RefreshContext';
 
 /**
  * Data point with timestamp for charts
@@ -35,7 +35,7 @@ export function useSparklineData(
 ): number[] | DataPoint[] {
   const [data, setData] = useState<DataPoint[]>([]);
   const initializedRef = useRef(false);
-  const { lastRefreshTime } = useRefresh();
+  const { lastRefreshTime } = useRefreshState();
   const lastResetKeyRef = useRef(resetKey);
   const needsImmediateDataRef = useRef(false);
 

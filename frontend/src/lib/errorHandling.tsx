@@ -216,6 +216,14 @@ function getStatusText(status: number): string {
 }
 
 /**
+ * Convenience wrapper around `parseError` that returns only the human-readable
+ * message string. Handles any value type (Error, string, unknown, null, undefined).
+ */
+export function getErrorMessage(error: unknown): string {
+  return parseError(error).message;
+}
+
+/**
  * Error boundary fallback component props
  */
 export interface ErrorFallbackProps {

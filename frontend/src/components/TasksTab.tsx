@@ -12,6 +12,7 @@ import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import { TaskStatsCards } from './TaskStatsCards';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
 
 /**
  * Tasks tab container component
@@ -68,7 +69,7 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cluster', clusterId, 'tasks', filters],
+    queryKey: queryKeys.cluster(clusterId!).tasks(filters ? JSON.stringify(filters) : undefined),
     queryFn: () => apiClient.getTasks(clusterId, filters),
     enabled: isActive,
     refetchInterval: refreshInterval,

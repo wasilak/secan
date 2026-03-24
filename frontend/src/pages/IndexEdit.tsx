@@ -27,7 +27,8 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { apiClient } from '../api/client';
-import { parseError } from '../lib/errorHandling';
+import { queryKeys } from '../utils/queryKeys';
+import { parseError, getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
 import type { ShardInfo } from '../types/api';
 
@@ -43,7 +44,7 @@ function validateJSON(json: string, fieldName: string): string | null {
     JSON.parse(json);
     return null;
   } catch (error) {
-    return (error as Error).message;
+    return getErrorMessage(error);
   }
 }
 
@@ -196,7 +197,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     isLoading: settingsLoading,
     error: settingsLoadError,
   } = useQuery({
-    queryKey: ['cluster', clusterId, 'index', indexName, 'settings'],
+    queryKey: queryKeys.cluster(clusterId!).index(indexName!).settings(),
     queryFn: async () => {
       if (!clusterId || !indexName) {
         throw new Error('Cluster ID and index name are required');
@@ -228,7 +229,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     isLoading: mappingsLoading,
     error: mappingsLoadError,
   } = useQuery({
-    queryKey: ['cluster', clusterId, 'index', indexName, 'mappings'],
+    queryKey: queryKeys.cluster(clusterId!).index(indexName!).mappings(),
     queryFn: async () => {
       if (!clusterId || !indexName) {
         throw new Error('Cluster ID and index name are required');
@@ -320,10 +321,10 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     onSuccess: () => {
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
-        queryKey: ['cluster', clusterId, 'index', indexName],
+        queryKey: queryKeys.cluster(clusterId!).index(indexName!).all(),
       });
       queryClient.invalidateQueries({
-        queryKey: ['cluster', clusterId, 'indices'],
+        queryKey: queryKeys.cluster(clusterId!).indices(),
       });
 
       // Show success notification

@@ -51,7 +51,7 @@ interface RetryConfig {
  * Default retry configuration
  */
 const DEFAULT_RETRY_CONFIG: RetryConfig = {
-  maxRetries: 3,
+  maxRetries: 0,
   initialDelayMs: 1000,
   maxDelayMs: 10000,
   backoffMultiplier: 2,

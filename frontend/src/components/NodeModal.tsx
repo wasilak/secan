@@ -3,6 +3,8 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiClient } from '../api/client';
+import { queryKeys } from '../utils/queryKeys';
+import { getErrorMessage } from '../lib/errorHandling';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { DURATIONS, EASINGS } from '../lib/transitions';
 import { MasterIndicator } from './MasterIndicator';
@@ -83,7 +85,7 @@ export function NodeModal({
     isLoading,
     error,
   } = useQuery<NodeDetailStats>({
-    queryKey: ['cluster', clusterId, 'node', nodeId, 'stats'],
+    queryKey: queryKeys.cluster(clusterId!).node(nodeId!).stats(),
     queryFn: () => apiClient.getNodeStats(clusterId, nodeId!),
     refetchInterval: refreshInterval,
     enabled: !!nodeId && opened,
@@ -91,7 +93,7 @@ export function NodeModal({
 
   // Fetch Prometheus node metrics when available
   const { data: nodeMetrics } = useQuery<NodeMetricsHistoryResponse>({
-    queryKey: ['cluster', clusterId, 'node', nodeId, 'metrics', selectedTimeRange],
+    queryKey: queryKeys.cluster(clusterId!).node(nodeId!).metrics(selectedTimeRange.minutes),
     queryFn: async () => {
       if (!nodeId) throw new Error('Node ID is required');
       const now = Math.floor(Date.now() / 1000);
@@ -179,7 +181,7 @@ export function NodeModal({
 
                 {error && (
                   <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-                    Failed to load node statistics: {(error as Error).message}
+                    Failed to load node statistics: {getErrorMessage(error)}
                   </Alert>
                 )}
 

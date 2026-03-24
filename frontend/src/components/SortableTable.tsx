@@ -29,6 +29,8 @@ export interface SortableTableProps<T> {
   columns: SortableTableColumn<T>[];
   defaultSort?: SortConfig<T>;
   onRowClick?: (row: T) => void;
+  /** Optional stable key extractor. When not provided, falls back to a JSON-based composite key. */
+  rowKey?: (row: T) => string | number;
 }
 
 /**
@@ -48,6 +50,7 @@ export function SortableTable<T>({
   columns,
   defaultSort,
   onRowClick,
+  rowKey,
 }: SortableTableProps<T>): React.JSX.Element {
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(defaultSort || null);
 
@@ -180,7 +183,7 @@ export function SortableTable<T>({
       <Table.Tbody>
         {sortedData.map((row, index) => (
           <Table.Tr
-            key={index}
+            key={rowKey ? rowKey(row) : JSON.stringify(row) || String(index)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
             style={onRowClick ? { cursor: 'pointer' } : undefined}
           >

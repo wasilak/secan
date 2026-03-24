@@ -57,7 +57,7 @@ export function TablePageSkeleton({ rows = 5 }: { rows?: number }) {
         {/* Table rows */}
         <Stack gap="sm">
           {Array.from({ length: rows }).map((_, index) => (
-            <Group key={index} gap="md">
+            <Group key={index /* static skeleton row */} gap="md">
               <Skeleton height={40} width="20%" />
               <Skeleton height={40} width="15%" />
               <Skeleton height={40} width="15%" />
@@ -82,7 +82,7 @@ export function DashboardSkeleton() {
       <Stack gap="lg">
         {/* Cluster cards */}
         {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index} shadow="sm" padding="lg" radius="md" withBorder>
+          <Card key={index /* static skeleton card */} shadow="sm" padding="lg" radius="md" withBorder>
             <Group justify="space-between" mb="md">
               <div>
                 <Skeleton height={24} width={150} mb="xs" />
@@ -130,7 +130,7 @@ export function DetailPageSkeleton() {
         {/* Stats cards */}
         <Group grow>
           {Array.from({ length: 4 }).map((_, index) => (
-            <Card key={index} shadow="sm" padding="md" radius="md" withBorder>
+            <Card key={index /* static skeleton card */} shadow="sm" padding="md" radius="md" withBorder>
               <Skeleton height={16} width="60%" mb="xs" />
               <Skeleton height={24} width="40%" />
             </Card>
@@ -142,7 +142,7 @@ export function DetailPageSkeleton() {
           <Skeleton height={24} width={150} mb="md" />
           <Stack gap="sm">
             {Array.from({ length: 8 }).map((_, index) => (
-              <Group key={index} justify="space-between">
+              <Group key={index /* static skeleton row */} justify="space-between">
                 <Skeleton height={20} width="30%" />
                 <Skeleton height={20} width="50%" />
               </Group>
@@ -262,7 +262,7 @@ export function ListPageSkeleton({ rows = 5 }: { rows?: number }) {
         {/* Table rows */}
         <Stack gap="sm">
           {Array.from({ length: rows }).map((_, index) => (
-            <Group key={index} gap="md">
+            <Group key={index /* static skeleton row */} gap="md">
               <Skeleton height={40} width="25%" />
               <Skeleton height={40} width="20%" />
               <Skeleton height={40} width="20%" />

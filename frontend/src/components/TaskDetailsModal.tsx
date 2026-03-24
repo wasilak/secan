@@ -58,22 +58,33 @@ export function TaskDetailsModal({
       return;
     }
 
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const fetchDetails = async () => {
       try {
         setIsLoading(true);
         setError(null);
         const taskId = `${task.node}:${task.id}`;
         const response = await apiClient.getTaskDetails(clusterId, taskId);
+        if (signal.aborted) return;
         setTaskDetails(response.task);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to fetch task details';
         setError(message);
       } finally {
-        setIsLoading(false);
+        if (!signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchDetails();
+
+    return () => {
+      controller.abort();
+    };
   }, [task, isOpen, clusterId]);
 
   if (!task) {

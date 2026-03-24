@@ -75,7 +75,11 @@ export function DotBasedTopologyView({
 
   // Progressive loading state
   const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
-  const [allShardsLoaded, setAllShardsLoaded] = useState(false);
+  // Track whether initial progressive render has completed. Using a ref (not
+  // state) so that setting it true does not trigger a re-render, and — crucially —
+  // it does not appear in the effect dependency array, which would prevent
+  // subsequent data-driven re-renders after the first load.
+  const initialRenderDoneRef = useRef(false);
   
   // AbortController for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -98,7 +102,11 @@ export function DotBasedTopologyView({
 
   // Progressive node rendering with pre-loaded shards
   useEffect(() => {
-    if (!clusterId || !nodes.length || allShardsLoaded) return;
+    if (!clusterId || !nodes.length) return;
+
+    // Reset initial-render flag whenever the cluster or node set changes so
+    // the progressive animation plays again with fresh data.
+    initialRenderDoneRef.current = false;
 
     // Cancel previous loading
     if (abortControllerRef.current) {
@@ -135,12 +143,11 @@ export function DotBasedTopologyView({
         });
       }
 
-      setAllShardsLoaded(true);
+      initialRenderDoneRef.current = true;
     };
 
     progressiveRender();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusterId, nodes.length, initialShards.length, topologyBatchSize, allShardsLoaded]);
+  }, [clusterId, nodes.length, initialShards.length, topologyBatchSize]);
 
   // Apply wildcard filters
   const filteredNodes = useMemo(() => {

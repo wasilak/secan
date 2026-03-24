@@ -33,7 +33,7 @@ import {
   IconPlayerPlay,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { SpotlightSearch } from './SpotlightSearch';
 import { RefreshControl } from './RefreshControl';
 import { DrawerControls } from './DrawerControls';
@@ -48,6 +48,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getHealthColorValue } from '../utils/colors';
 import { APP_VERSION, getAppVersion } from '../utils/version';
 import { extractSectionFromPath } from '../utils/urlBuilders';
+import { queryKeys } from '../utils/queryKeys';
 import { DURATIONS, EASINGS } from '../lib/transitions';
 import { defaultSection, isValidClusterSection, type ClusterSection } from '../routes/clusterRoutes';
 import type { ClusterInfo, ClusterStats } from '../types/api';
@@ -68,7 +69,7 @@ const CLUSTER_SECTIONS = [
 /**
  * Individual cluster health display component used in dropdown menu
  */
-function ClusterDropdownItem({
+function ClusterDropdownItemInner({
   cluster,
   isActive,
   refreshInterval,
@@ -77,11 +78,11 @@ function ClusterDropdownItem({
   cluster: ClusterInfo;
   isActive: boolean;
   refreshInterval: number | false;
-  onSelect: () => void;
+  onSelect: (id: string) => void;
 }) {
   // Fetch health stats for this cluster
   const { data: stats } = useQuery({
-    queryKey: ['cluster', cluster.id, 'stats'],
+    queryKey: queryKeys.cluster(cluster.id).stats(),
     queryFn: () => apiClient.getClusterStats(cluster.id),
     enabled: !!cluster.id,
     refetchInterval: refreshInterval || undefined,
@@ -91,7 +92,7 @@ function ClusterDropdownItem({
   const healthColor = stats ? getHealthColorValue(stats.health) : 'var(--mantine-color-gray-5)';
 
   return (
-    <Menu.Item onClick={onSelect}>
+    <Menu.Item onClick={() => onSelect(cluster.id)}>
       <Group gap="xs" justify="space-between" style={{ width: '100%' }}>
         <Group gap="xs" wrap="nowrap">
           <div
@@ -121,6 +122,7 @@ function ClusterDropdownItem({
     </Menu.Item>
   );
 }
+const ClusterDropdownItem = memo(ClusterDropdownItemInner);
 
 /**
  * Cluster selection dropdown component
@@ -183,7 +185,7 @@ function ClusterDropdown({
               cluster={cluster}
               isActive={cluster.id === clusterId}
               refreshInterval={refreshInterval}
-              onSelect={() => onSelectCluster(cluster.id)}
+              onSelect={onSelectCluster}
             />
           ))
         ) : (
@@ -227,7 +229,7 @@ function HeaderTitle() {
 
   // Fetch cluster stats if we're viewing a cluster
   const { data: clusterStats } = useQuery({
-    queryKey: ['cluster', clusterId, 'stats'],
+    queryKey: queryKeys.cluster(clusterId!).stats(),
     queryFn: () => apiClient.getClusterStats(clusterId!),
     enabled: !!clusterId,
     refetchInterval: refreshInterval,
@@ -235,7 +237,7 @@ function HeaderTitle() {
 
   // Fetch list of all clusters for dropdown
   const { data: allClustersResponse } = useQuery({
-    queryKey: ['clusters'],
+    queryKey: queryKeys.clusters.list(),
     queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
   });
@@ -376,7 +378,7 @@ function HeaderTitle() {
  * Cluster navigation item with expandable sections
  * Persists the current tab when switching clusters
  */
-function ClusterNavItem({
+function ClusterNavItemInner({
   clusterId,
   isActive,
   isExpanded,
@@ -388,7 +390,7 @@ function ClusterNavItem({
   clusterId: string;
   isActive: boolean;
   isExpanded: boolean;
-  onToggle: () => void;
+  onToggle: (id: string) => void;
   currentSection: ClusterSection;
   onSectionNavigate: (clusterId: string, section: ClusterSection) => void;
   currentTab?: string;
@@ -400,7 +402,7 @@ function ClusterNavItem({
 
   // Fetch cluster stats for health status (independent of useClusterName to ensure fresh data)
   const { data: clusterStats } = useQuery({
-    queryKey: ['cluster', clusterId, 'stats'],
+    queryKey: queryKeys.cluster(clusterId!).stats(),
     queryFn: () => apiClient.getClusterStats(clusterId),
     enabled: !!clusterId,
     refetchInterval: refreshInterval,
@@ -462,7 +464,7 @@ function ClusterNavItem({
       })}
       onClick={(e) => {
         e.preventDefault();
-        onToggle();
+        onToggle(clusterId);
       }}
       aria-current={isActive ? 'page' : undefined}
       aria-expanded={isExpanded}
@@ -533,6 +535,7 @@ function ClusterNavItem({
     </NavLink>
   );
 }
+const ClusterNavItem = memo(ClusterNavItemInner);
 
 /**
  * Navigation content component - shared between drawer and static navbar
@@ -565,7 +568,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
     isLoading: clustersLoading,
     error: clustersError,
   } = useQuery({
-    queryKey: ['clusters'],
+    queryKey: queryKeys.clusters.list(),
     queryFn: () => apiClient.getClusters(1, 100),
     refetchInterval: refreshInterval,
   });
@@ -589,16 +592,16 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   // Handle cluster expand/collapse toggle
-  const handleClusterToggle = (clickedClusterId: string) => {
-    setExpandedClusterId(expandedClusterId === clickedClusterId ? null : clickedClusterId);
-  };
+  const handleClusterToggle = useCallback((clickedClusterId: string) => {
+    setExpandedClusterId((prev) => (prev === clickedClusterId ? null : clickedClusterId));
+  }, []);
 
   // Handle section navigation within a cluster
-  const handleSectionNavigate = (clusterId: string, section: ClusterSection) => {
+  const handleSectionNavigate = useCallback((clusterId: string, section: ClusterSection) => {
     const url = `/cluster/${clusterId}/${section}`;
     navigate(url);
     onNavigate?.();
-  };
+  }, [navigate, onNavigate]);
 
   return (
     <Stack gap="xs">
@@ -657,7 +660,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
               clusterId={cluster.id}
               isActive={cluster.id === currentClusterId}
               isExpanded={expandedClusterId === cluster.id}
-              onToggle={() => handleClusterToggle(cluster.id)}
+              onToggle={handleClusterToggle}
               currentSection={currentSection}
               onSectionNavigate={handleSectionNavigate}
               currentTab={currentTab}
@@ -668,6 +671,7 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
     </Stack>
   );
 }
+const NavigationContentMemo = memo(NavigationContent);
 
 /**
  * AppShell component provides the main layout structure for the application.
@@ -791,7 +795,7 @@ export function AppShell() {
             </MantineAppShell.Section>
 
             <MantineAppShell.Section grow style={{ overflowY: 'auto' }}>
-              <NavigationContent />
+              <NavigationContentMemo />
             </MantineAppShell.Section>
 
             <MantineAppShell.Section>
@@ -892,7 +896,7 @@ export function AppShell() {
           }}
         >
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            <NavigationContent onNavigate={closeDrawer} />
+            <NavigationContentMemo onNavigate={closeDrawer} />
           </div>
 
           <div

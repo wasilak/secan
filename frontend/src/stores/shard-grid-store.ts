@@ -228,10 +228,7 @@ export const useShardGridStore = create<ShardGridState>((set, get) => ({
   // Requirements: 5.1, 5.2, 5.3
   enterRelocationMode: (shard) => {
     const { nodes } = get();
-    console.log('[enterRelocationMode] Shard:', shard);
-    console.log('[enterRelocationMode] Nodes:', nodes);
     const destinations = calculateValidDestinations(shard, nodes);
-    console.log('[enterRelocationMode] Destinations:', destinations);
 
     set({
       selectedShard: shard,
@@ -259,6 +256,12 @@ export const useShardGridStore = create<ShardGridState>((set, get) => ({
 
   // Polling actions - Requirements: 7.2, 7.3
   startPolling: (intervalId) => {
+    // Clear any existing interval before registering the new one to prevent
+    // concurrent polling if startPolling() is called more than once.
+    const { pollingIntervalId: existing } = get();
+    if (existing !== null) {
+      clearInterval(existing);
+    }
     set({
       isPolling: true,
       pollingIntervalId: intervalId,
