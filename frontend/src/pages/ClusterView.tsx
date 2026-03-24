@@ -106,7 +106,7 @@ import { AllocationLockIndicator, AllocationState } from '../components/Topology
 import type { NodeInfo, IndexInfo, ShardInfo, NodeRole, ClusterInfo, PaginatedResponse } from '../types/api';
 import type { BulkOperationType } from '../types/api';
 import { formatLoadAverage, getLoadColor, formatUptimeDetailed, formatBytes, formatPercentRatio } from '../utils/formatters';
-import { getHealthColor, getShardStateColor, getShardTypeColor, SHARD_STATE_COLORS, SHARD_TYPE_COLORS } from '../utils/colors';
+import { getHealthColor, getShardStateColor, getShardTypeColor, getShardDotColor, SHARD_STATE_COLORS, SHARD_TYPE_COLORS } from '../utils/colors';
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { FilterSidebar } from '../components/FacetedFilter';
 import { TopologyStatsCards } from '../components/TopologyStatsCards';
@@ -4587,14 +4587,7 @@ function ShardAllocationGrid({
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor:
-                                          shard.state === 'STARTED'
-                                            ? shard.primary
-                                              ? 'var(--mantine-color-green-6)'
-                                              : 'var(--mantine-color-green-7)'
-                                            : shard.state === 'RELOCATING'
-                                              ? 'var(--mantine-color-yellow-6)'
-                                              : 'var(--mantine-color-red-6)',
+                                        backgroundColor: getShardDotColor(shard.state),
                                         color: 'white',
                                         fontSize: '10px',
                                         fontWeight: 600,
