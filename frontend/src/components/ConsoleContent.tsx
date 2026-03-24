@@ -33,6 +33,7 @@ import {
 } from '@tabler/icons-react';
 import { CodeEditor } from './CodeEditor';
 import { apiClient } from '../api/client';
+import type { ApiClientError } from '../types/api';
 import { useConsoleHistory } from '../hooks/useConsoleHistory';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
 import { RequestHistoryItem } from '../types/preferences';
@@ -358,14 +359,34 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
         const endTime = performance.now();
         const timeTaken = endTime - startTime;
 
-        const error = err as { message?: string; status?: number };
-        const errorResponse = {
-          error: error.message || 'Request failed',
-          statusCode: error.status || 500,
-        };
+        const error = err as ApiClientError;
+
+        // Extract status code from error (try multiple sources)
+        const statusCode = error.statusCode || 500;
+
+        // Parse nested ES error from message field
+        let errorResponse: Record<string, unknown>;
+        const msg = error.message;
+        
+        if (msg && typeof msg === 'string' && msg.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(msg) as Record<string, unknown>;
+            // If parsed has status, use it
+            if (parsed.status && typeof parsed.status === 'number') {
+              errorResponse = { ...parsed, statusCode: parsed.status };
+            } else {
+              errorResponse = parsed;
+            }
+          } catch {
+            errorResponse = { error: msg };
+          }
+        } else {
+          errorResponse = { error: msg || 'Request failed' };
+        }
+
         setResponse(JSON.stringify(errorResponse, null, 2));
         setResponseLanguage('json');
-        setStatusCode(error.status || 0);
+        setStatusCode(statusCode);
 
         setExecutionTime(timeTaken);
 

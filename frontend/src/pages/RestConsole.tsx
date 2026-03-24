@@ -348,26 +348,32 @@ export function RestConsole() {
 
       const error = err as ApiClientError;
 
-      // Get the HTTP status code from the error
-      const statusCode = error.statusCode || error.response?.status || 500;
+      // Get the HTTP status code from the error (statusCode property)
+      const statusCode = error.statusCode || 500;
 
       // Build error response - handle double-encoded ES errors
+      // error.error contains the full backend response { error, message }
+      // error.message contains just the message field which is the raw ES JSON string
       let errorResponse: Record<string, unknown>;
       
-      const backendError = error.response?.data;
-      if (backendError && typeof backendError === 'object') {
-        const msg = (backendError as { message?: string }).message;
-        // If message is a JSON string, parse it to get the actual ES error
-        if (msg && typeof msg === 'string' && msg.startsWith('{')) {
-          try {
-            const parsed = JSON.parse(msg);
+      // Parse the message field which contains the raw ES error JSON
+      const msg = error.message;
+      if (msg && typeof msg === 'string' && msg.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(msg) as Record<string, unknown>;
+          // If parsed contains status (from ES), use it
+          if (parsed.status && typeof parsed.status === 'number') {
+            errorResponse = { ...parsed, statusCode: parsed.status };
+          } else {
             errorResponse = parsed;
-          } catch {
-            errorResponse = backendError as Record<string, unknown>;
           }
-        } else {
-          errorResponse = backendError as Record<string, unknown>;
+        } catch {
+          // If parsing fails, use message as-is
+          errorResponse = { error: msg };
         }
+      } else if (msg) {
+        // Message is not JSON, use it directly
+        errorResponse = { error: msg };
       } else {
         errorResponse = { error: 'An unknown error occurred' };
       }
