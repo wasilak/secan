@@ -31,6 +31,7 @@ export function usePerNodeShards(
 ) {
   const [nodeShards, setNodeShards] = useState<NodeShardsState>({});
   const [isComplete, setIsComplete] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadedNodesRef = useRef<Set<string>>(new Set());
 
@@ -56,6 +57,7 @@ export function usePerNodeShards(
     });
     setNodeShards(initialState);
     setIsComplete(false);
+    setIsInitialLoading(true);
     loadedNodesRef.current.clear();
 
     // Progressive loading in batches
@@ -105,6 +107,7 @@ export function usePerNodeShards(
 
       if (!abortControllerRef.current?.signal.aborted) {
         setIsComplete(true);
+        setIsInitialLoading(false);
       }
     };
 
@@ -132,6 +135,7 @@ export function usePerNodeShards(
     nodeShards,
     allShards,
     isLoading,
+    isInitialLoading,
     isComplete,
     hasErrors,
     firstError,

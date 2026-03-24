@@ -1147,7 +1147,7 @@ export function ClusterView() {
 
   const {
     data: nodesPaginated,
-    isLoading: nodesLoading,
+    isInitialLoading: nodesLoading,
     error: nodesError,
   } = useQuery({
     queryKey: ['cluster', id, 'nodes', nodesPage, nodesPerPage, nodesFilters],
@@ -1255,7 +1255,7 @@ export function ClusterView() {
   // Fetch ALL indices for topology view (unfiltered, unpaginated)
   const {
     data: allIndicesPaginated,
-    isLoading: allIndicesLoading,
+    isInitialLoading: allIndicesLoading,
     error: allIndicesError,
   } = useQuery({
     queryKey: ['cluster', id, 'indices', 'all'],
@@ -1300,7 +1300,7 @@ export function ClusterView() {
   const nodeIdsForShards = useMemo(() => allNodesArray.map(n => n.id), [allNodesArray]);
   const {
     allShards,
-    isLoading: allShardsLoading,
+    isInitialLoading: allShardsLoading,
     isComplete: allShardsComplete,
     firstError: allShardsError,
   } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology', 4);
