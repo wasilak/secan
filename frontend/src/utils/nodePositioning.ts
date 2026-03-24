@@ -16,7 +16,7 @@ import { sortShards } from './shardOrdering';
 /**
  * Node with shard information for visualization
  */
-export interface NodeWithShards {
+interface NodeWithShards {
   nodeId: string;
   nodeName: string;
   shards: ShardInfo[];
@@ -89,7 +89,7 @@ export const DEFAULT_POSITIONING_CONFIG: PositioningConfig = {
  * // primaryNodes: [{ nodeId: 'node-1', shards: [...], shardCount: 1 }]
  * // replicaNodes: [{ nodeId: 'node-2', shards: [...], shardCount: 1 }]
  */
-export function groupShardsByNode(shards: ShardInfo[]): {
+function groupShardsByNode(shards: ShardInfo[]): {
   primaryNodes: NodeWithShards[];
   replicaNodes: NodeWithShards[];
   unassignedShards: ShardInfo[];
@@ -157,7 +157,7 @@ export function groupShardsByNode(shards: ShardInfo[]): {
  * const yPositions = calculateVerticalPositions(3, config);
  * // Returns: [150, 250, 350] (centered in 600px container)
  */
-export function calculateVerticalPositions(
+function calculateVerticalPositions(
   nodeCount: number,
   config: PositioningConfig
 ): number[] {
@@ -200,7 +200,7 @@ export function calculateVerticalPositions(
  * // Desktop: [{ nodeId: 'node-1', x: 200, y: 260, ... }]
  * // Mobile: [{ nodeId: 'node-1', x: 85, y: 150, ... }]
  */
-export function calculatePrimaryNodePositions(
+function calculatePrimaryNodePositions(
   nodes: NodeWithShards[],
   config: PositioningConfig
 ): NodePosition[] {
@@ -266,7 +266,7 @@ export function calculatePrimaryNodePositions(
  * // Desktop: [{ nodeId: 'node-2', x: 800, y: 260, ... }]
  * // Mobile: [{ nodeId: 'node-2', x: 85, y: 450, ... }]
  */
-export function calculateReplicaNodePositions(
+function calculateReplicaNodePositions(
   nodes: NodeWithShards[],
   config: PositioningConfig
 ): NodePosition[] {

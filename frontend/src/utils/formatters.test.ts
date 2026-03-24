@@ -4,47 +4,11 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  formatUptime,
   formatUptimeDetailed,
   formatLoadAverage,
   getLoadColor,
   formatRate,
 } from './formatters';
-
-describe('formatUptime', () => {
-  it('should format days and hours', () => {
-    const fiveDaysThreeHours = 5 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000;
-    expect(formatUptime(fiveDaysThreeHours)).toBe('5d 3h');
-  });
-
-  it('should format hours and minutes', () => {
-    const twoHoursFortyFiveMinutes = 2 * 60 * 60 * 1000 + 45 * 60 * 1000;
-    expect(formatUptime(twoHoursFortyFiveMinutes)).toBe('2h 45m');
-  });
-
-  it('should format minutes only', () => {
-    const thirtyMinutes = 30 * 60 * 1000;
-    expect(formatUptime(thirtyMinutes)).toBe('30m');
-  });
-
-  it('should format seconds only', () => {
-    const fortyFiveSeconds = 45 * 1000;
-    expect(formatUptime(fortyFiveSeconds)).toBe('45s');
-  });
-
-  it('should handle zero', () => {
-    expect(formatUptime(0)).toBe('0s');
-  });
-
-  it('should handle undefined', () => {
-    expect(formatUptime(NaN)).toBe('0s');
-  });
-
-  it('should handle very large numbers', () => {
-    const oneYear = 365 * 24 * 60 * 60 * 1000;
-    expect(formatUptime(oneYear)).toContain('d');
-  });
-});
 
 describe('formatUptimeDetailed', () => {
   it('should format days, hours, and minutes', () => {

@@ -64,46 +64,6 @@ export function RoleIcons({ roles, size = 16 }: { roles: string[]; size?: number
 }
 
 /**
- * RoleLegend component displays a legend of all role icons
- */
-export function RoleLegend({ roles }: { roles: string[] }) {
-  return (
-    <Group gap="md" wrap="wrap">
-      <Text size="sm" fw={500} c="dimmed">
-        Role Legend:
-      </Text>
-      {roles.map((role) => {
-        const roleInfo = getRoleIcon(role);
-        const Icon = roleInfo.icon;
-        return (
-          <Group key={role} gap={4}>
-            <Icon size={16} color={`var(--mantine-color-${roleInfo.color}-6)`} />
-            <Text size="xs" c="dimmed">
-              {roleInfo.label}
-            </Text>
-          </Group>
-        );
-      })}
-    </Group>
-  );
-}
-
-/**
- * RoleOption component for rendering role options in MultiSelect
- */
-export function RoleOption({ role }: { role: string }) {
-  const roleInfo = getRoleIcon(role);
-  const Icon = roleInfo.icon;
-
-  return (
-    <Group gap="xs">
-      <Icon size={16} color={`var(--mantine-color-${roleInfo.color}-6)`} />
-      <Text size="sm">{roleInfo.label}</Text>
-    </Group>
-  );
-}
-
-/**
  * RoleFilterToggle component - clickable roles that toggle on/off
  * Displays as a legend-style filter with icons and text labels
  */

@@ -51,7 +51,7 @@ function buildNodeIdentifierMap(nodes: NodeInfo[]): Map<string, string> {
  *
  * Requirements: 3.1, 3.2, 3.11
  */
-export function parseNodesWithShards(nodes: NodeInfo[], shards: ShardInfo[]): NodeWithShards[] {
+function parseNodesWithShards(nodes: NodeInfo[], shards: ShardInfo[]): NodeWithShards[] {
   // Build identifier map for matching shards to nodes
   const nodeIdentifierMap = buildNodeIdentifierMap(nodes);
 
@@ -134,7 +134,7 @@ export function parseNodesWithShards(nodes: NodeInfo[], shards: ShardInfo[]): No
  *
  * Requirements: 3.1, 3.3
  */
-export function parseIndexMetadata(indices: IndexInfo[]): IndexMetadata[] {
+function parseIndexMetadata(indices: IndexInfo[]): IndexMetadata[] {
   return indices.map((index) => ({
     ...index,
     shardCount: index.primaryShards * (index.replicaShards + 1),
@@ -151,7 +151,7 @@ export function parseIndexMetadata(indices: IndexInfo[]): IndexMetadata[] {
  *
  * Requirements: 3.1, 3.10
  */
-export function extractUnassignedShards(shards: ShardInfo[]): ShardInfo[] {
+function extractUnassignedShards(shards: ShardInfo[]): ShardInfo[] {
   return shards.filter((shard) => shard.state === 'UNASSIGNED');
 }
 
@@ -185,55 +185,4 @@ export function getShardsForNodeAndIndex(node: NodeWithShards, indexName: string
   return node.shards.get(indexName) || [];
 }
 
-/**
- * Check if an index has any problem shards
- *
- * Problem shards are shards that are:
- * - UNASSIGNED
- * - RELOCATING
- * - INITIALIZING
- *
- * This is useful for highlighting problematic indices in the grid.
- */
-export function indexHasProblems(indexName: string, shards: ShardInfo[]): boolean {
-  const indexShards = shards.filter((s) => s.index === indexName);
-  return indexShards.some(
-    (s) => s.state === 'UNASSIGNED' || s.state === 'RELOCATING' || s.state === 'INITIALIZING'
-  );
-}
 
-/**
- * Group shards by index name
- *
- * Helper function to organize shards by their index.
- * Useful for analyzing shard distribution per index.
- */
-export function groupShardsByIndex(shards: ShardInfo[]): Map<string, ShardInfo[]> {
-  const grouped = new Map<string, ShardInfo[]>();
-
-  for (const shard of shards) {
-    if (!grouped.has(shard.index)) {
-      grouped.set(shard.index, []);
-    }
-    grouped.get(shard.index)!.push(shard);
-  }
-
-  return grouped;
-}
-
-/**
- * Count shards by state
- *
- * Helper function to get statistics about shard states.
- * Returns a map of state -> count.
- */
-export function countShardsByState(shards: ShardInfo[]): Map<string, number> {
-  const counts = new Map<string, number>();
-
-  for (const shard of shards) {
-    const count = counts.get(shard.state) || 0;
-    counts.set(shard.state, count + 1);
-  }
-
-  return counts;
-}

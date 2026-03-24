@@ -5,39 +5,6 @@
  */
 
 /**
- * Format uptime in milliseconds to human-readable short format
- *
- * Examples:
- * - 5 days, 3 hours -> "5d 3h"
- * - 2 hours, 45 minutes -> "2h 45m"
- * - 30 minutes -> "30m"
- * - 45 seconds -> "45s"
- *
- * @param milliseconds - Uptime in milliseconds
- * @returns Human-readable uptime string
- */
-export function formatUptime(milliseconds: number): string {
-  if (milliseconds === 0 || !Number.isFinite(milliseconds)) {
-    return '0s';
-  }
-
-  const seconds = Math.floor(milliseconds / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) {
-    return `${days}d ${hours % 24}h`;
-  } else if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m`;
-  } else {
-    return `${seconds}s`;
-  }
-}
-
-/**
  * Format uptime in milliseconds to detailed human-readable format
  *
  * Examples:

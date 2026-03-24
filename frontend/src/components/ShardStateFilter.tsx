@@ -1,4 +1,4 @@
-import { Group, Text, Tooltip } from '@mantine/core';
+import { Group, Text } from '@mantine/core';
 import {
   IconCircleCheckFilled,
   IconAlertCircle,
@@ -19,27 +19,13 @@ const SHARD_STATE_CONFIG: Record<
   RELOCATING: { icon: IconAlertCircle, color: 'violet', label: 'relocating' },
 };
 
-export function getShardStateConfig(state: string) {
+function getShardStateConfig(state: string) {
   return (
     SHARD_STATE_CONFIG[state] || {
       icon: IconAlertCircle,
       color: 'gray',
       label: state,
     }
-  );
-}
-
-/**
- * ShardStateIcon component - displays a single shard state icon with tooltip
- */
-export function ShardStateIcon({ state, size = 16 }: { state: string; size?: number }) {
-  const config = getShardStateConfig(state);
-  const Icon = config.icon;
-
-  return (
-    <Tooltip label={config.label} withArrow>
-      <Icon size={size} color={`var(--mantine-color-${config.color}-6)`} />
-    </Tooltip>
   );
 }
 
