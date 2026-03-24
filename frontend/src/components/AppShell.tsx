@@ -476,7 +476,7 @@ function ClusterNavItem({
             transition={{ duration: DURATIONS.normal, ease: EASINGS.default }}
           >
             {CLUSTER_SECTIONS.map((section, index) => {
-              const isSectionActive = currentSection === section.value;
+              const isSectionActive = isActive && currentSection === section.value;
               return (
                 <motion.div
                   key={section.value}
