@@ -11,6 +11,7 @@
  */
 
 import type { ShardInfo } from '../types/api';
+import { assertDefined } from './assert';
 import { sortShards } from './shardOrdering';
 
 /**
@@ -109,12 +110,16 @@ function groupShardsByNode(shards: ShardInfo[]): {
       if (!primaryNodeMap.has(nodeId)) {
         primaryNodeMap.set(nodeId, []);
       }
-      primaryNodeMap.get(nodeId)!.push(shard);
+      const primaryShards = primaryNodeMap.get(nodeId);
+      assertDefined(primaryShards, 'Expected primary shard array to be initialised');
+      primaryShards.push(shard);
     } else {
       if (!replicaNodeMap.has(nodeId)) {
         replicaNodeMap.set(nodeId, []);
       }
-      replicaNodeMap.get(nodeId)!.push(shard);
+      const replicaShards = replicaNodeMap.get(nodeId);
+      assertDefined(replicaShards, 'Expected replica shard array to be initialised');
+      replicaShards.push(shard);
     }
   }
   

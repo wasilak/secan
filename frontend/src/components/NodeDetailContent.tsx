@@ -105,65 +105,65 @@ export function NodeDetailContent({
   const { getColor } = useWatermarks(clusterId);
 
   // Generate sparkline data (used as fallback when Prometheus not available)
-  const sparklineHeap = useSparklineData(nodeStats?.heapPercent, 50, resetKey, true) as DataPoint[];
-  const sparklineDisk = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true) as DataPoint[];
-  const sparklineCpu = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true) as DataPoint[];
-  const sparklineLoad = useSparklineData(nodeStats?.loadAverage?.[0], 50, resetKey, true) as DataPoint[];
+  const sparklineHeap = useSparklineData(nodeStats?.heapPercent, 50, resetKey, true);
+  const sparklineDisk = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true);
+  const sparklineCpu = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true);
+  const sparklineLoad = useSparklineData(nodeStats?.loadAverage?.[0], 50, resetKey, true);
 
   // Use Prometheus time-series data when available, otherwise fallback to sparkline (fake) data
   // Prometheus data has real timestamps and values from the time range selector
   const heapHistory: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.heapHistory
-        ? prometheusMetrics.heapHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.heapHistory ?? []).map((p) => ({ value: p.value, timestamp: p.timestamp }))
         : sparklineHeap,
-    [isPrometheus, prometheusMetrics?.heapHistory, sparklineHeap]
+    [isPrometheus, prometheusMetrics, sparklineHeap]
   );
 
   const diskHistory: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.diskHistory
-        ? prometheusMetrics.diskHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.diskHistory ?? []).map((p) => ({ value: p.value, timestamp: p.timestamp }))
         : sparklineDisk,
-    [isPrometheus, prometheusMetrics?.diskHistory, sparklineDisk]
+    [isPrometheus, prometheusMetrics, sparklineDisk]
   );
 
   const cpuHistory: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.cpuHistory
-        ? prometheusMetrics.cpuHistory.map((p) => ({ value: p.value, timestamp: p.timestamp }))
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.cpuHistory ?? []).map((p) => ({ value: p.value, timestamp: p.timestamp }))
         : sparklineCpu,
-    [isPrometheus, prometheusMetrics?.cpuHistory, sparklineCpu]
+    [isPrometheus, prometheusMetrics, sparklineCpu]
   );
 
   const loadHistory: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.loadHistory
-        ? prometheusMetrics.loadHistory.map(
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.loadHistory ?? []).map(
             (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
           )
         : sparklineLoad,
-    [isPrometheus, prometheusMetrics?.loadHistory, sparklineLoad]
+    [isPrometheus, prometheusMetrics, sparklineLoad]
   );
 
   const load5History: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.load5History
-        ? prometheusMetrics.load5History.map(
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.load5History ?? []).map(
             (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
           )
         : sparklineLoad,
-    [isPrometheus, prometheusMetrics?.load5History, sparklineLoad]
+    [isPrometheus, prometheusMetrics, sparklineLoad]
   );
 
   const load15History: DataPoint[] = useMemo(
     () =>
-      isPrometheus && prometheusMetrics?.load15History
-        ? prometheusMetrics.load15History.map(
+      isPrometheus && prometheusMetrics
+        ? (prometheusMetrics.load15History ?? []).map(
             (p: { value: number; timestamp: number }) => ({ value: p.value, timestamp: p.timestamp })
           )
         : sparklineLoad,
-    [isPrometheus, prometheusMetrics?.load15History, sparklineLoad]
+    [isPrometheus, prometheusMetrics, sparklineLoad]
   );
 
   // Sort thread pool entries once per nodeStats change (avoids re-sorting every render)

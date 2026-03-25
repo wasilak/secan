@@ -35,6 +35,7 @@ import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
 import { getPaginatedItems } from '../types/api';
+import { useClusterIndices } from '../hooks/useClusterIndices';
 import type {
   CreateSnapshotRequest,
   RestoreSnapshotRequest,
@@ -42,8 +43,8 @@ import type {
   SnapshotState,
 } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { ListPageSkeleton } from '../components/LoadingSkeleton';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /**
  * Snapshots component displays and manages snapshots in a repository
@@ -85,11 +86,7 @@ export function Snapshots() {
   });
 
   // Fetch indices for snapshot creation
-  const { data: indicesPaginated } = useQuery({
-    queryKey: queryKeys.cluster(id!).indices(),
-    queryFn: () => apiClient.getIndices(id!),
-    enabled: !!id,
-  });
+  const { data: indicesPaginated } = useClusterIndices(id, { enabled: !!id });
 
   const indices = getPaginatedItems(indicesPaginated);
 
@@ -121,17 +118,9 @@ export function Snapshots() {
     );
   }
 
-  if (isLoading) {
-    return <ListPageSkeleton rows={5} />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message={`Failed to load snapshots: ${getErrorMessage(error)}`} />
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load snapshots: ${getErrorMessage(error)}`)
+    : undefined;
 
   const getStateColor = (state: SnapshotState) => {
     switch (state) {
@@ -180,6 +169,7 @@ export function Snapshots() {
 
   return (
     <FullWidthContainer>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
       <Group justify="space-between" mb="md">
         <div>
           <Group gap="xs" mb="xs">
@@ -318,11 +308,11 @@ export function Snapshots() {
       </Card>
 
       <CreateSnapshotModal
-        opened={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        clusterId={id}
-        repository={repository}
-        availableIndices={indices?.map((i) => i.name) || []}
+      opened={createModalOpen}
+      onClose={() => setCreateModalOpen(false)}
+      clusterId={id}
+      repository={repository}
+      availableIndices={indices?.map((i) => i.name) || []}
       />
 
       {selectedSnapshot && (
@@ -334,9 +324,10 @@ export function Snapshots() {
           }}
           clusterId={id}
           repository={repository}
-          snapshot={selectedSnapshot}
-        />
+           snapshot={selectedSnapshot}
+         />
       )}
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

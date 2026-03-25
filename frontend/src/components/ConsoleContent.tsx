@@ -277,21 +277,22 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       setResponse('');
       setStatusCode(null);
       setExecutionTime(null);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [setRequest, setResponse]);
 
 
 
     /**
      * Load an example request
      */
-    const loadExample = useCallback((exampleRequest: string) => {
-      setRequest(exampleRequest);
-      setResponse('');
-      setStatusCode(null);
-      setExecutionTime(null);
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    const loadExample = useCallback(
+      (exampleRequest: string) => {
+        setRequest(exampleRequest);
+        setResponse('');
+        setStatusCode(null);
+        setExecutionTime(null);
+      },
+      [setRequest, setResponse]
+    );
 
     /**
      * Execute the REST request against the cluster
@@ -313,19 +314,19 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
 
       const startTime = performance.now();
 
-      try {
-        let bodyData: unknown = undefined;
-        if (parsed.body) {
-          try {
-            bodyData = JSON.parse(parsed.body);
-          } catch {
-            setResponse(JSON.stringify({ error: 'Invalid JSON in request body' }, null, 2));
-            setResponseLanguage('json');
-            setStatusCode(400);
-            setLoading(false);
-            return;
+        try {
+          let bodyData: unknown = undefined;
+          if (parsed.body) {
+            try {
+              bodyData = JSON.parse(parsed.body);
+            } catch {
+              setResponse(JSON.stringify({ error: 'Invalid JSON in request body' }, null, 2));
+              setResponseLanguage('json');
+              setStatusCode(400);
+              setLoading(false);
+              return;
+            }
           }
-        }
 
         const result = await apiClient.proxyRequest(
           clusterId,
@@ -390,24 +391,34 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
       } finally {
         setLoading(false);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [clusterId, request, addEntry]);
+    }, [
+      addEntry,
+      clusterId,
+      request,
+      setResponse,
+      setResponseLanguage,
+      setStatusCode,
+      setExecutionTime,
+      setLoading,
+    ]);
 
     /**
      * Load a request from history
      */
-    const loadFromHistory = useCallback((item: RequestHistoryItem) => {
-      const requestText = item.body
-        ? `${item.method} ${item.path}\n${item.body}`
-        : `${item.method} ${item.path}`;
+    const loadFromHistory = useCallback(
+      (item: RequestHistoryItem) => {
+        const requestText = item.body
+          ? `${item.method} ${item.path}\n${item.body}`
+          : `${item.method} ${item.path}`;
 
-      setRequest(requestText);
+        setRequest(requestText);
 
-      if (item.response) {
-        setResponse(item.response);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (item.response) {
+          setResponse(item.response);
+        }
+      },
+      [setRequest, setResponse]
+    );
 
     /**
      * Clear request history
@@ -450,9 +461,9 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
 
         const reader = new FileReader();
         reader.onload = (e) => {
-          try {
-            const content = e.target?.result as string;
-            const imported = JSON.parse(content) as RequestHistoryItem[];
+            try {
+              const content = e.target?.result as string;
+              const imported = JSON.parse(content) as RequestHistoryItem[];
 
             if (!Array.isArray(imported)) {
               throw new Error('Invalid format: expected array');

@@ -1,4 +1,3 @@
-export { TimeSeriesChart } from './TimeSeriesChart';
 export { DistributionChart } from './DistributionChart';
 export { NodeRolesChart } from './NodeRolesChart';
 export { ClusterStatistics } from './ClusterStatistics';

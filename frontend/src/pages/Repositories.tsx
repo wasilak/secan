@@ -18,7 +18,6 @@ import {
   Code,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { ListPageSkeleton } from '../components/LoadingSkeleton';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
@@ -29,6 +28,7 @@ import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
 import type { CreateRepositoryRequest, RepositoryType } from '../types/api';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /**
  * Repositories component displays and manages snapshot repositories
@@ -85,20 +85,13 @@ export function Repositories() {
     );
   }
 
-  if (isLoading) {
-    return <ListPageSkeleton rows={5} />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message={`Failed to load repositories: ${getErrorMessage(error)}`} />
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load repositories: ${getErrorMessage(error)}`)
+    : undefined;
 
   return (
     <FullWidthContainer>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
       <Group justify="space-between" mb="md">
         <div>
           <Title order={2}>Snapshot Repositories</Title>
@@ -186,10 +179,11 @@ export function Repositories() {
       </Card>
 
       <CreateRepositoryModal
-        opened={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        clusterId={id}
+      opened={createModalOpen}
+      onClose={() => setCreateModalOpen(false)}
+      clusterId={id}
       />
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

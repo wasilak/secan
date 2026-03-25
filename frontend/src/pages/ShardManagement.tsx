@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Title,
   Text,
@@ -45,6 +45,8 @@ import type { ShardInfo, NodeInfo } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ShardGridSkeleton } from '../components/LoadingSkeleton';
 import { getShardStateColor } from '../utils/colors';
+import { useShardAllocation } from '../hooks/useShardAllocation';
+import { useClusterNodes } from '../hooks/useClusterNodes';
 
 /**
  * ShardManagement component displays and manages shard allocation
@@ -66,8 +68,15 @@ export function ShardManagement() {
   const [relocateModalOpen, setRelocateModalOpen] = useState(false);
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
-  const [shardDetailsData, setShardDetailsData] = useState<unknown>(null);
-  const [shardDetailsLoading, setShardDetailsLoading] = useState(false);
+
+  const {
+    data: shardDetailsData,
+    isLoading: shardDetailsLoading,
+  } = useQuery({
+    queryKey: queryKeys.cluster(id!).shards(undefined, undefined, selectedShard?.index),
+    queryFn: () => apiClient.getShardStats(id!, selectedShard!.index, selectedShard!.shard),
+    enabled: !!id && !!detailsModalOpen && !!selectedShard,
+  });
 
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
@@ -109,9 +118,7 @@ export function ShardManagement() {
   const shards = getPaginatedItems(shardsPaginated);
 
   // Fetch nodes for relocation targets (paginated)
-  const { data: nodesPaginated, isLoading: nodesLoading } = useQuery({
-    queryKey: queryKeys.cluster(id!).nodes(),
-    queryFn: () => apiClient.getNodes(id!),
+  const { data: nodesPaginated, isLoading: nodesLoading } = useClusterNodes(id, {
     enabled: !!id,
   });
 
@@ -156,55 +163,8 @@ export function ShardManagement() {
     return enableValue === 'all';
   }, [clusterSettings]);
 
-  // Enable shard allocation mutation
-  const enableAllocationMutation = useMutation({
-    mutationFn: () =>
-      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
-        transient: {
-          'cluster.routing.allocation.enable': 'all',
-        },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
-      notifications.show({
-        title: 'Success',
-        message: 'Shard allocation enabled',
-        color: 'green',
-      });
-    },
-    onError: (error: Error) => {
-      notifications.show({
-        title: 'Error',
-        message: `Failed to enable shard allocation: ${error.message}`,
-        color: 'red',
-      });
-    },
-  });
-
-  // Disable shard allocation mutation
-  const disableAllocationMutation = useMutation({
-    mutationFn: (mode: string) =>
-      apiClient.proxyRequest(id!, 'PUT', '/_cluster/settings', {
-        transient: {
-          'cluster.routing.allocation.enable': mode,
-        },
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.cluster(id!).settings() });
-      notifications.show({
-        title: 'Success',
-        message: 'Shard allocation disabled',
-        color: 'green',
-      });
-    },
-    onError: (error: Error) => {
-      notifications.show({
-        title: 'Error',
-        message: `Failed to disable shard allocation: ${error.message}`,
-        color: 'red',
-      });
-    },
-  });
+  const { enableAllocation, disableAllocation, isPending: allocationPending } =
+    useShardAllocation(id!);
 
   // Relocate shard mutation
   const relocateMutation = useMutation({
@@ -259,31 +219,6 @@ export function ShardManagement() {
     setSelectedShard(shard);
     setDetailsModalOpen(true);
   };
-
-  // Fetch detailed stats when details modal opens
-  useEffect(() => {
-    if (detailsModalOpen && selectedShard) {
-      setShardDetailsLoading(true);
-      setShardDetailsData(null); // Reset previous data
-
-      apiClient
-        .getShardStats(id!, selectedShard.index, selectedShard.shard)
-        .then((stats) => {
-          setShardDetailsData(stats);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch shard stats:', error);
-          setShardDetailsData(selectedShard); // Fallback to basic shard info
-        })
-        .finally(() => {
-          setShardDetailsLoading(false);
-        });
-    } else if (!detailsModalOpen) {
-      // Reset when modal closes
-      setShardDetailsData(null);
-      setShardDetailsLoading(false);
-    }
-  }, [detailsModalOpen, selectedShard, id]);
 
   // Group shards by index - must be before early returns
   const shardsByIndex = useMemo(() => {
@@ -413,7 +348,7 @@ export function ShardManagement() {
                       size="lg"
                       variant="subtle"
                       color="green"
-                      loading={disableAllocationMutation.isPending}
+                      loading={allocationPending}
                     >
                       <IconLockOpen size={20} />
                     </ActionIcon>
@@ -421,13 +356,13 @@ export function ShardManagement() {
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>Disable Allocation</Menu.Label>
-                  <Menu.Item onClick={() => disableAllocationMutation.mutate('none')}>
+                  <Menu.Item onClick={() => disableAllocation('none')}>
                     <IconLock size={14} /> None (default)
                   </Menu.Item>
-                  <Menu.Item onClick={() => disableAllocationMutation.mutate('primaries')}>
+                  <Menu.Item onClick={() => disableAllocation('primaries')}>
                     <IconLock size={14} /> Primaries only
                   </Menu.Item>
-                  <Menu.Item onClick={() => disableAllocationMutation.mutate('new_primaries')}>
+                  <Menu.Item onClick={() => disableAllocation('new_primaries')}>
                     <IconLock size={14} /> New primaries only
                   </Menu.Item>
                 </Menu.Dropdown>
@@ -438,8 +373,8 @@ export function ShardManagement() {
                   size="lg"
                   variant="subtle"
                   color="red"
-                  onClick={() => enableAllocationMutation.mutate()}
-                  loading={enableAllocationMutation.isPending}
+                  onClick={() => enableAllocation()}
+                  loading={allocationPending}
                 >
                   <IconLock size={20} />
                 </ActionIcon>
@@ -830,7 +765,6 @@ export function ShardManagement() {
             opened={detailsModalOpen}
             onClose={() => {
               setDetailsModalOpen(false);
-              setShardDetailsData(null);
             }}
             title={
               selectedShard ? (

@@ -6,6 +6,7 @@ import type {
   IndexMetadata,
   ShardGridData,
 } from '../types/api';
+import { assertDefined } from './assert';
 
 /**
  * Parse cluster state and build shard grid data structure
@@ -85,17 +86,17 @@ function parseNodesWithShards(nodes: NodeInfo[], shards: ShardInfo[]): NodeWithS
     }
 
     const node = nodesByName.get(nodeName);
-    if (!node) {
-      continue;
-    }
+    assertDefined(node, `Expected node entry for name ${nodeName}`);
 
     // Get or create the shard array for this index
-    if (!node.shards.has(shard.index)) {
-      node.shards.set(shard.index, []);
+    let indexShards = node.shards.get(shard.index);
+    if (!indexShards) {
+      indexShards = [];
+      node.shards.set(shard.index, indexShards);
     }
 
     // Add the shard to the node
-    node.shards.get(shard.index)!.push(shard);
+    indexShards.push(shard);
 
     // Handle relocating shards - create destination indicator
     // Requirements: 3.11
@@ -115,7 +116,9 @@ function parseNodesWithShards(nodes: NodeInfo[], shards: ShardInfo[]): NodeWithS
             destNode.shards.set(shard.index, []);
           }
 
-          destNode.shards.get(shard.index)!.push(destinationShard);
+          const destNodeShards = destNode.shards.get(shard.index);
+          assertDefined(destNodeShards, 'Expected destination shard array to be initialised');
+          destNodeShards.push(destinationShard);
         }
       }
     }
@@ -184,5 +187,3 @@ export function parseShardGridData(
 export function getShardsForNodeAndIndex(node: NodeWithShards, indexName: string): ShardInfo[] {
   return node.shards.get(indexName) || [];
 }
-
-

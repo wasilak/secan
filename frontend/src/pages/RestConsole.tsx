@@ -303,7 +303,11 @@ export function RestConsole() {
         try {
           bodyData = JSON.parse(parsed.body) as Record<string, unknown>;
         } catch {
-
+          notifications.show({
+            title: 'Invalid JSON',
+            message: 'The request body is not valid JSON.',
+            color: 'red',
+          });
           setLoading(false);
           return;
         }

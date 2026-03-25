@@ -29,6 +29,18 @@ export interface DataPoint {
  */
 export function useSparklineData(
   currentValue: number | undefined,
+  maxDataPoints: number,
+  resetKey: string | number,
+  withTimestamps: true
+): DataPoint[];
+export function useSparklineData(
+  currentValue: number | undefined,
+  maxDataPoints?: number,
+  resetKey?: string | number,
+  withTimestamps?: false
+): number[];
+export function useSparklineData(
+  currentValue: number | undefined,
   maxDataPoints: number = 50,
   resetKey?: string | number,
   withTimestamps: boolean = false

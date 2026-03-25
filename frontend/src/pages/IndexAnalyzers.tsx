@@ -7,21 +7,22 @@ import {
   Stack,
   Tabs,
   Table,
-  Alert,
   Badge,
   Code,
   TextInput,
   Select,
   Accordion,
+  Alert,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { SettingsPageSkeleton } from '../components/LoadingSkeleton';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconAlertCircle, IconSearch, IconFilter } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
+import { ErrorAlert } from '../components/ErrorAlert';
+import { PageSkeleton } from '../components/PageSkeleton';
 import type { AnalyzerInfo, FieldInfo } from '../types/api';
 
 /**
@@ -67,9 +68,7 @@ export function IndexAnalyzersPage() {
   if (!id || !indexName) {
     return (
       <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Cluster ID and index name are required
-        </Alert>
+        <ErrorAlert message="Cluster ID and index name are required" />
       </FullWidthContainer>
     );
   }
@@ -77,19 +76,9 @@ export function IndexAnalyzersPage() {
   const isLoading = analyzersLoading || fieldsLoading;
   const error = analyzersError || fieldsError;
 
-  if (isLoading) {
-    return <SettingsPageSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-          Failed to load index analyzers: {getErrorMessage(error)}
-        </Alert>
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load index analyzers: ${getErrorMessage(error)}`)
+    : undefined;
 
   // Filter fields
   const filteredFields =
@@ -107,16 +96,17 @@ export function IndexAnalyzersPage() {
 
   return (
     <FullWidthContainer>
-      <Group justify="space-between" mb="md">
-        <div>
-          <Title order={2}>Index Analyzers & Fields</Title>
-          <Text size="sm" c="dimmed">
-            {indexName}
-          </Text>
-        </div>
-      </Group>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
+        <Group justify="space-between" mb="md">
+          <div>
+            <Title order={2}>Index Analyzers & Fields</Title>
+            <Text size="sm" c="dimmed">
+              {indexName}
+            </Text>
+          </div>
+        </Group>
 
-      <Tabs defaultValue="fields">
+        <Tabs defaultValue="fields">
         <Tabs.List>
           <Tabs.Tab value="fields">
             <Group gap="xs">
@@ -382,6 +372,7 @@ export function IndexAnalyzersPage() {
           </Card>
         </Tabs.Panel>
       </Tabs>
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

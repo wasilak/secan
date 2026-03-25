@@ -23,6 +23,7 @@ import { IconAlertCircle, IconSearch, IconRefresh } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getPaginatedItems } from '../types/api';
+import { useClusterIndices } from '../hooks/useClusterIndices';
 import type { AnalyzeTextRequest, AnalysisToken } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 
@@ -65,9 +66,7 @@ export function TextAnalysisPage() {
   const [customCharFilters, setCustomCharFilters] = useState<string>('');
 
   // Fetch indices for field-based analysis
-  const { data: indicesPaginated } = useQuery({
-    queryKey: queryKeys.cluster(id!).indices(),
-    queryFn: () => apiClient.getIndices(id!),
+  const { data: indicesPaginated } = useClusterIndices(id, {
     enabled: !!id && useField,
   });
 

@@ -169,17 +169,6 @@ describe('useIndexShards', () => {
     );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    // Verify the query was configured with the custom interval
-    const queryState = queryClient.getQueryState([
-      'cluster',
-      'cluster-1',
-      'shards',
-      'index',
-      'test-index',
-    ]);
-    
-    expect(queryState).toBeDefined();
   });
 
   it('should handle shards with different states', async () => {

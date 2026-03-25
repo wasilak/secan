@@ -24,7 +24,7 @@ interface AllocationLockIndicatorProps {
   };
   /** Mutation for disabling allocation */
   disableAllocationMutation: { 
-    mutate: (mode: string, options?: { onSuccess?: () => void }) => void; 
+    mutate: (mode: AllocationState, options?: { onSuccess?: () => void }) => void; 
     isPending: boolean;
   };
 }

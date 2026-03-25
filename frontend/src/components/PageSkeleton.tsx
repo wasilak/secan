@@ -1,5 +1,6 @@
-import { LoadingOverlay } from '@mantine/core';
+import { ListPageSkeleton } from './LoadingSkeleton';
 import { ErrorAlert } from './ErrorAlert';
+import { getErrorMessage } from '../lib/errorHandling';
 
 interface PageSkeletonProps {
   isLoading: boolean;
@@ -10,7 +11,7 @@ interface PageSkeletonProps {
 
 export function PageSkeleton({ isLoading, error, missingId, children }: PageSkeletonProps) {
   if (isLoading) {
-    return <LoadingOverlay visible />;
+    return <ListPageSkeleton />;
   }
 
   if (missingId) {
@@ -18,8 +19,7 @@ export function PageSkeleton({ isLoading, error, missingId, children }: PageSkel
   }
 
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
-    return <ErrorAlert message={errorMessage} />;
+    return <ErrorAlert message={getErrorMessage(error)} />;
   }
 
   return <>{children}</>;

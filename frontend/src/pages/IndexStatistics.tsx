@@ -11,7 +11,7 @@ import {
   Select,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { DetailPageSkeleton } from '../components/LoadingSkeleton';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { IconRefresh } from '@tabler/icons-react';
@@ -68,17 +68,9 @@ export function IndexStatistics() {
     );
   }
 
-  if (isLoading) {
-    return <DetailPageSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message={`Failed to load index statistics: ${getErrorMessage(error)}`} />
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load index statistics: ${getErrorMessage(error)}`)
+    : undefined;
 
   if (!stats) {
     return (
@@ -92,37 +84,41 @@ export function IndexStatistics() {
 
   return (
     <FullWidthContainer>
-      <Group justify="space-between" mb="md">
-        <div>
-          <Title order={1}>Index Statistics</Title>
-          <Text size="sm" c="dimmed">
-            {indexName}
-          </Text>
-        </div>
-        <Group>
-          <Select
-            value={statsLevel}
-            onChange={(value) => setStatsLevel(value as 'total' | 'primaries')}
-            data={[
-              { value: 'total', label: 'Total (All Shards)' },
-              { value: 'primaries', label: 'Primaries Only' },
-            ]}
-            w={200}
-          />
-          <Button
-            variant="default"
-            leftSection={<IconRefresh size={16} />}
-            onClick={() => refetch()}
-          >
-            Refresh
-          </Button>
-          <Button variant="default" onClick={() => navigate(`/cluster/${clusterId}${location.search}`)}>
-            Back to Cluster
-          </Button>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
+        <Group justify="space-between" mb="md">
+          <div>
+            <Title order={1}>Index Statistics</Title>
+            <Text size="sm" c="dimmed">
+              {indexName}
+            </Text>
+          </div>
+          <Group>
+            <Select
+              value={statsLevel}
+              onChange={(value) => setStatsLevel(value as 'total' | 'primaries')}
+              data={[
+                { value: 'total', label: 'Total (All Shards)' },
+                { value: 'primaries', label: 'Primaries Only' },
+              ]}
+              w={200}
+            />
+            <Button
+              variant="default"
+              leftSection={<IconRefresh size={16} />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => navigate(`/cluster/${clusterId}${location.search}`)}
+            >
+              Back to Cluster
+            </Button>
+          </Group>
         </Group>
-      </Group>
 
-      <Stack gap="md">
+        <Stack gap="md">
         {/* Document and Storage Statistics */}
         <Card shadow="sm" padding="lg">
           <Title order={3} mb="md">
@@ -384,6 +380,7 @@ export function IndexStatistics() {
           </Grid>
         </Card>
       </Stack>
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

@@ -125,17 +125,21 @@ export function calculateNodeGroups(
         if (node.roles && node.roles.length > 0) {
           // Add node to ALL role groups it belongs to
           for (const role of node.roles) {
-            if (!groups.has(role)) {
-              groups.set(role, []);
+            let group = groups.get(role);
+            if (!group) {
+              group = [];
+              groups.set(role, group);
             }
-            groups.get(role)!.push(node);
+            group.push(node);
           }
         } else {
           // Node with no roles goes to 'undefined' group
-          if (!groups.has('undefined')) {
-            groups.set('undefined', []);
+          let group = groups.get('undefined');
+          if (!group) {
+            group = [];
+            groups.set('undefined', group);
           }
-          groups.get('undefined')!.push(node);
+          group.push(node);
         }
       }
       break;
@@ -146,26 +150,32 @@ export function calculateNodeGroups(
         if (node.roles && node.roles.length > 0) {
           // Check if node is master-eligible
           if (node.roles.includes('master')) {
-            if (!groups.has('master')) {
-              groups.set('master', []);
+            let masterGroup = groups.get('master');
+            if (!masterGroup) {
+              masterGroup = [];
+              groups.set('master', masterGroup);
             }
-            groups.get('master')!.push(node);
+            masterGroup.push(node);
           }
           
           // Check if node has any non-master roles
           const hasNonMasterRoles = node.roles.some(role => role !== 'master');
           if (hasNonMasterRoles) {
-            if (!groups.has('other')) {
-              groups.set('other', []);
+            let otherGroup = groups.get('other');
+            if (!otherGroup) {
+              otherGroup = [];
+              groups.set('other', otherGroup);
             }
-            groups.get('other')!.push(node);
+            otherGroup.push(node);
           }
         } else {
           // Node with no roles goes to 'undefined' group
-          if (!groups.has('undefined')) {
-            groups.set('undefined', []);
+          let group = groups.get('undefined');
+          if (!group) {
+            group = [];
+            groups.set('undefined', group);
           }
-          groups.get('undefined')!.push(node);
+          group.push(node);
         }
       }
       break;
@@ -183,10 +193,12 @@ export function calculateNodeGroups(
             groupKey = value; // Use extracted value as group key
           }
           
-          if (!groups.has(groupKey)) {
-            groups.set(groupKey, []);
+          let group = groups.get(groupKey);
+          if (!group) {
+            group = [];
+            groups.set(groupKey, group);
           }
-          groups.get(groupKey)!.push(node);
+          group.push(node);
         }
       } else {
         // Group by first label value (extracted)
@@ -198,10 +210,12 @@ export function calculateNodeGroups(
             groupKey = value;
           }
           
-          if (!groups.has(groupKey)) {
-            groups.set(groupKey, []);
+          let group = groups.get(groupKey);
+          if (!group) {
+            group = [];
+            groups.set(groupKey, group);
           }
-          groups.get(groupKey)!.push(node);
+          group.push(node);
         }
       }
       break;

@@ -27,8 +27,8 @@ import { getErrorMessage } from '../lib/errorHandling';
 import { queryKeys } from '../utils/queryKeys';
 import type { CreateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { ListPageSkeleton } from '../components/LoadingSkeleton';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /**
  * Templates component displays and manages index templates
@@ -86,121 +86,115 @@ export function Templates() {
     );
   }
 
-  if (isLoading) {
-    return <ListPageSkeleton rows={5} />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message={`Failed to load templates: ${getErrorMessage(error)}`} />
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load templates: ${getErrorMessage(error)}`)
+    : undefined;
 
   return (
     <FullWidthContainer>
-      <Group justify="space-between" mb="md">
-        <div>
-          <Title order={2}>Index Templates</Title>
-          <Text size="sm" c="dimmed">
-            Manage index templates for consistent settings across indices
-          </Text>
-        </div>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
-          Create Template
-        </Button>
-      </Group>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
+        <Group justify="space-between" mb="md">
+          <div>
+            <Title order={2}>Index Templates</Title>
+            <Text size="sm" c="dimmed">
+              Manage index templates for consistent settings across indices
+            </Text>
+          </div>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
+            Create Template
+          </Button>
+        </Group>
 
-      <Card shadow="sm" padding="lg">
-        {!templates || templates.length === 0 ? (
-          <Stack gap="md" align="center" py="xl">
-            <Text c="dimmed">No templates found</Text>
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
-              Create Template
-            </Button>
-          </Stack>
-        ) : (
-          <ScrollArea>
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Name</Table.Th>
-                  <Table.Th>Type</Table.Th>
-                  <Table.Th>Index Patterns</Table.Th>
-                  <Table.Th>Priority/Order</Table.Th>
-                  <Table.Th>Version</Table.Th>
-                  <Table.Th>Actions</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {templates.map((template) => (
-                  <Table.Tr key={template.name}>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {template.name}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        size="sm"
-                        variant="light"
-                        color={template.composable ? 'blue' : 'gray'}
-                      >
-                        {template.composable ? 'Composable' : 'Legacy'}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {template.indexPatterns.map((pattern) => (
-                          <Badge key={pattern} size="sm" variant="outline">
-                            {pattern}
-                          </Badge>
-                        ))}
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">
-                        {template.priority !== undefined
-                          ? template.priority
-                          : template.order !== undefined
-                            ? template.order
-                            : 'N/A'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{template.version || 'N/A'}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <ActionIcon
-                        color="red"
-                        variant="subtle"
-                        onClick={() => {
-                          if (confirm(`Delete template "${template.name}"?`)) {
-                            deleteMutation.mutate({
-                              name: template.name,
-                              composable: template.composable || false,
-                            });
-                          }
-                        }}
-                        loading={deleteMutation.isPending}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Table.Td>
+        <Card shadow="sm" padding="lg">
+          {!templates || templates.length === 0 ? (
+            <Stack gap="md" align="center" py="xl">
+              <Text c="dimmed">No templates found</Text>
+              <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
+                Create Template
+              </Button>
+            </Stack>
+          ) : (
+            <ScrollArea>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Name</Table.Th>
+                    <Table.Th>Type</Table.Th>
+                    <Table.Th>Index Patterns</Table.Th>
+                    <Table.Th>Priority/Order</Table.Th>
+                    <Table.Th>Version</Table.Th>
+                    <Table.Th>Actions</Table.Th>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        )}
-      </Card>
+                </Table.Thead>
+                <Table.Tbody>
+                  {templates.map((template) => (
+                    <Table.Tr key={template.name}>
+                      <Table.Td>
+                        <Text size="sm" fw={500}>
+                          {template.name}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          size="sm"
+                          variant="light"
+                          color={template.composable ? 'blue' : 'gray'}
+                        >
+                          {template.composable ? 'Composable' : 'Legacy'}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          {template.indexPatterns.map((pattern) => (
+                            <Badge key={pattern} size="sm" variant="outline">
+                              {pattern}
+                            </Badge>
+                          ))}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">
+                          {template.priority !== undefined
+                            ? template.priority
+                            : template.order !== undefined
+                              ? template.order
+                              : 'N/A'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{template.version || 'N/A'}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                          <ActionIcon
+                           color="red"
+                           variant="subtle"
+                           onClick={() => {
+                             if (confirm(`Delete template "${template.name}"?`)) {
+                               deleteMutation.mutate({
+                                 name: template.name,
+                                 composable: template.composable || false,
+                               });
+                             }
+                           }}
+                           loading={deleteMutation.isPending}
+                         >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          )}
+        </Card>
 
-      <CreateTemplateModal
-        opened={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        clusterId={id}
-      />
+        <CreateTemplateModal
+          opened={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          clusterId={id}
+        />
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

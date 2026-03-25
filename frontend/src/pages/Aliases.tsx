@@ -25,10 +25,11 @@ import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
 import { getPaginatedItems } from '../types/api';
+import { useClusterIndices } from '../hooks/useClusterIndices';
 import type { AliasInfo, CreateAliasRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { ListPageSkeleton } from '../components/LoadingSkeleton';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /**
  * Aliases component displays and manages index aliases
@@ -59,13 +60,9 @@ export function Aliases() {
   });
 
   // Fetch indices for the multi-select
-  const { data: indicesPaginated } = useQuery({
-    queryKey: queryKeys.cluster(id!).indices(),
-    queryFn: () => apiClient.getIndices(id!),
-    enabled: !!id,
-  });
+  const { data: indicesPaginated } = useClusterIndices(id, { enabled: !!id });
 
-  const indices = getPaginatedItems(indicesPaginated);
+   const indices = getPaginatedItems(indicesPaginated) ?? [];
 
   // Delete alias mutation
   const deleteMutation = useMutation({
@@ -96,17 +93,9 @@ export function Aliases() {
     );
   }
 
-  if (isLoading) {
-    return <ListPageSkeleton rows={5} />;
-  }
-
-  if (error) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message={`Failed to load aliases: ${getErrorMessage(error)}`} />
-      </FullWidthContainer>
-    );
-  }
+  const loadError = error
+    ? new Error(`Failed to load aliases: ${getErrorMessage(error)}`)
+    : undefined;
 
   // Group aliases by alias name
   const aliasesByName =
@@ -123,108 +112,112 @@ export function Aliases() {
 
   return (
     <FullWidthContainer>
-      <Group justify="space-between" mb="md">
-        <div>
-          <Title order={2}>Index Aliases</Title>
-          <Text size="sm" c="dimmed">
-            Manage index aliases for zero-downtime migrations and logical groupings
-          </Text>
-        </div>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
-          Create Alias
-        </Button>
-      </Group>
+      <PageSkeleton isLoading={isLoading} error={loadError}>
+        <Group justify="space-between" mb="md">
+          <div>
+            <Title order={2}>Index Aliases</Title>
+            <Text size="sm" c="dimmed">
+              Manage index aliases for zero-downtime migrations and logical groupings
+            </Text>
+          </div>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
+            Create Alias
+          </Button>
+        </Group>
 
-      <Card shadow="sm" padding="lg">
-        {Object.keys(aliasesByName).length === 0 ? (
-          <Stack gap="md" align="center" py="xl">
-            <Text c="dimmed">No aliases found</Text>
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
-              Create Alias
-            </Button>
-          </Stack>
-        ) : (
-          <ScrollArea>
-            <Table striped highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Alias</Table.Th>
-                  <Table.Th>Indices</Table.Th>
-                  <Table.Th>Filter</Table.Th>
-                  <Table.Th>Routing</Table.Th>
-                  <Table.Th>Write Index</Table.Th>
-                  <Table.Th>Actions</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {Object.entries(aliasesByName).map(([aliasName, aliasInfos]) => (
-                  <Table.Tr key={aliasName}>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {aliasName}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {aliasInfos.map((info) => (
-                          <Badge key={info.index} size="sm" variant="light">
-                            {info.index}
+        <Card shadow="sm" padding="lg">
+          {Object.keys(aliasesByName).length === 0 ? (
+            <Stack gap="md" align="center" py="xl">
+              <Text c="dimmed">No aliases found</Text>
+              <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
+                Create Alias
+              </Button>
+            </Stack>
+          ) : (
+            <ScrollArea>
+              <Table striped highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Alias</Table.Th>
+                    <Table.Th>Indices</Table.Th>
+                    <Table.Th>Filter</Table.Th>
+                    <Table.Th>Routing</Table.Th>
+                    <Table.Th>Write Index</Table.Th>
+                    <Table.Th>Actions</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {Object.entries(aliasesByName).map(([aliasName, aliasInfos]) => (
+                    <Table.Tr key={aliasName}>
+                      <Table.Td>
+                        <Text size="sm" fw={500}>
+                          {aliasName}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          {aliasInfos.map((info) => (
+                            <Badge key={info.index} size="sm" variant="light">
+                              {info.index}
+                            </Badge>
+                          ))}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" c="dimmed">
+                          {aliasInfos[0].filter || 'None'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" c="dimmed">
+                          {aliasInfos[0].routing || 'None'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        {aliasInfos.some((info) => info.isWriteIndex) && (
+                          <Badge size="sm" color="blue">
+                            Yes
                           </Badge>
-                        ))}
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {aliasInfos[0].filter || 'None'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {aliasInfos[0].routing || 'None'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      {aliasInfos.some((info) => info.isWriteIndex) && (
-                        <Badge size="sm" color="blue">
-                          Yes
-                        </Badge>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        {aliasInfos.map((info) => (
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="xs">
+                          {aliasInfos.map((info) => (
                           <ActionIcon
                             key={info.index}
                             color="red"
                             variant="subtle"
                             onClick={() => {
                               if (
-                                confirm(`Delete alias "${aliasName}" from index "${info.index}"?`)
+                                confirm(
+                                  `Delete alias "${aliasName}" from index "${info.index}"?`,
+                                )
                               ) {
                                 deleteMutation.mutate({ index: info.index, alias: aliasName });
                               }
                             }}
                             loading={deleteMutation.isPending}
                           >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        ))}
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        )}
-      </Card>
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          ))}
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          )}
+        </Card>
 
-      <CreateAliasModal
-        opened={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        clusterId={id}
-        availableIndices={indices?.map((i) => i.name) || []}
-      />
+        <CreateAliasModal
+          opened={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          clusterId={id}
+          availableIndices={indices?.map((i) => i.name) || []}
+        />
+      </PageSkeleton>
     </FullWidthContainer>
   );
 }

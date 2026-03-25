@@ -15,6 +15,7 @@ export function FilterSidebar({
   conditionalSections = [],
   toggles = [],
   actions = [],
+  rightSection,
   defaultExpanded = true,
   width = DEFAULT_WIDTH,
 }: FilterSidebarProps) {
@@ -99,6 +100,8 @@ export function FilterSidebar({
                 ))}
               </Stack>
             )}
+
+            {rightSection}
 
             {actions.length > 0 && (
               <Stack gap="xs" mt="sm">

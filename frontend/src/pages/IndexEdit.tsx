@@ -166,30 +166,27 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
   const [settingsModified, setSettingsModified] = useState(false);
   const [mappingsModified, setMappingsModified] = useState(false);
 
-  // State for stats tab - fetch on demand
-  const [statsData, setStatsData] = useState<unknown>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState<string | null>(null);
+  const {
+    data: statsData,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useQuery({
+    queryKey: queryKeys.cluster(clusterId ?? '').index(indexName ?? '').stats(),
+    queryFn: async () => {
+      if (!clusterId || !indexName) {
+        throw new Error('Cluster ID and index name are required');
+      }
 
-  // Fetch stats when stats tab is opened
-  useEffect(() => {
-    if (activeTab === 'stats' && !statsData && !statsLoading) {
-      setStatsLoading(true);
-      setStatsError(null);
+      const response = await apiClient.proxyRequest<Record<string, unknown>>(
+        clusterId,
+        'GET',
+        `/${indexName}/_stats`
+      );
 
-      apiClient
-        .proxyRequest<Record<string, unknown>>(clusterId!, 'GET', `/${indexName}/_stats`)
-        .then((response) => {
-          setStatsData(response.data);
-        })
-        .catch((error) => {
-          setStatsError(error instanceof Error ? error.message : 'Failed to fetch stats');
-        })
-        .finally(() => {
-          setStatsLoading(false);
-        });
-    }
-  }, [activeTab, clusterId, indexName, statsData, statsLoading]);
+      return response.data;
+    },
+    enabled: !!clusterId && !!indexName && activeTab === 'stats',
+  });
 
   // Fetch current index settings
   const {
@@ -584,17 +581,17 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
                     Index Statistics (Read-only)
                   </Text>
                   <Text size="xs" c="dimmed" mb="sm">
-                    Detailed statistics for this index
-                  </Text>
-                  {statsLoading ? (
-                    <Group justify="center" py="xl">
-                      <Loader />
-                    </Group>
-                  ) : statsError ? (
-                    <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
-                      {statsError}
-                    </Alert>
-                  ) : statsData ? (
+                     Detailed statistics for this index
+                   </Text>
+                   {statsLoading ? (
+                     <Group justify="center" py="xl">
+                       <Loader />
+                     </Group>
+                   ) : statsError ? (
+                     <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+                       {getErrorMessage(statsError)}
+                     </Alert>
+                   ) : statsData ? (
                     <CodeEditor
                       value={JSON.stringify(statsData, null, 2)}
                       language="json"

@@ -46,6 +46,7 @@ export interface FilterSidebarProps {
   conditionalSections?: ConditionalSectionConfig[];
   toggles?: ToggleConfig[];
   actions?: ActionConfig[];
+  rightSection?: ReactNode;
   defaultExpanded?: boolean;
   width?: number;
 }

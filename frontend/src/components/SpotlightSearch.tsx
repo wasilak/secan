@@ -15,6 +15,8 @@ import { apiClient } from '../api/client';
 import { getPaginatedItems } from '../types/api';
 import { useClusterName } from '../hooks/useClusterName';
 import { queryKeys } from '../utils/queryKeys';
+import { useClusterIndices } from '../hooks/useClusterIndices';
+import { useClusterNodes } from '../hooks/useClusterNodes';
 import { useMemo } from 'react';
 
 /**
@@ -50,18 +52,14 @@ export function SpotlightSearch() {
   const currentClusterName = useClusterName(currentClusterId || '');
 
   // Fetch nodes for current cluster (only if in cluster view)
-  const { data: nodesPaginated } = useQuery({
-    queryKey: queryKeys.cluster(currentClusterId!).nodes(),
-    queryFn: () => apiClient.getNodes(currentClusterId!),
+  const { data: nodesPaginated } = useClusterNodes(currentClusterId ?? undefined, {
     enabled: !!currentClusterId,
   });
 
   const nodes = getPaginatedItems(nodesPaginated);
 
   // Fetch indices for current cluster (only if in cluster view)
-  const { data: indicesPaginated } = useQuery({
-    queryKey: queryKeys.cluster(currentClusterId!).indices(),
-    queryFn: () => apiClient.getIndices(currentClusterId!),
+  const { data: indicesPaginated } = useClusterIndices(currentClusterId ?? undefined, {
     enabled: !!currentClusterId,
   });
 

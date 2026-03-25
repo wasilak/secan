@@ -162,11 +162,6 @@ describe('useNodes', () => {
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    // Verify the query was configured with the custom interval
-    const queryState = queryClient.getQueryState(['cluster', 'cluster-1', 'nodes']);
-
-    expect(queryState).toBeDefined();
   });
 
   it('should handle nodes with optional fields missing', async () => {

@@ -57,8 +57,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       // Verify performance requirement: < 500ms
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 nodes grouped in ${duration.toFixed(2)}ms (requirement: <500ms)`);
     });
 
     it('should calculate groups for 100 nodes by type within 500ms', () => {
@@ -73,8 +71,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBeGreaterThan(0);
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 nodes grouped by type in ${duration.toFixed(2)}ms (requirement: <500ms)`);
     });
 
     it('should calculate groups for 100 nodes by label within 500ms', () => {
@@ -89,8 +85,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBeGreaterThan(0);
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 nodes grouped by label in ${duration.toFixed(2)}ms (requirement: <500ms)`);
     });
   });
 
@@ -121,8 +115,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBeGreaterThan(0);
       expect(duration).toBeLessThan(250); // Should be much faster than 100 nodes
-      
-      console.log(`✓ 50 nodes grouped in ${duration.toFixed(2)}ms`);
     });
 
     it('should handle 200 nodes within reasonable time', () => {
@@ -137,8 +129,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBeGreaterThan(0);
       expect(duration).toBeLessThan(1000); // Should scale linearly
-      
-      console.log(`✓ 200 nodes grouped in ${duration.toFixed(2)}ms`);
     });
   });
 
@@ -193,8 +183,6 @@ describe('Performance Tests - Topology Grouping', () => {
       }
       
       const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
-      console.log(`✓ Average grouping switch time: ${avgDuration.toFixed(2)}ms`);
-      console.log(`  Individual times: ${durations.map(d => d.toFixed(2)).join('ms, ')}ms`);
     });
   });
 
@@ -214,8 +202,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBe(1);
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 nodes in single group: ${duration.toFixed(2)}ms`);
     });
 
     it('should handle many small groups efficiently', () => {
@@ -233,8 +219,6 @@ describe('Performance Tests - Topology Grouping', () => {
       
       expect(groups.size).toBe(100); // One group per node
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 groups (1 node each): ${duration.toFixed(2)}ms`);
     });
 
     it('should handle nodes without grouping attributes efficiently', () => {
@@ -254,8 +238,6 @@ describe('Performance Tests - Topology Grouping', () => {
       expect(groups.size).toBe(1);
       expect(groups.get('undefined')).toHaveLength(100);
       expect(duration).toBeLessThan(500);
-      
-      console.log(`✓ 100 nodes without attributes: ${duration.toFixed(2)}ms`);
     });
   });
 });

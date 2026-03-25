@@ -147,7 +147,7 @@ export function DotBasedTopologyView({
     };
 
     progressiveRender();
-  }, [clusterId, nodes.length, initialShards.length, topologyBatchSize]);
+  }, [clusterId, nodes, initialShards.length, topologyBatchSize]);
 
   // Apply wildcard filters
   const filteredNodes = useMemo(() => {
