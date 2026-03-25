@@ -1544,7 +1544,7 @@ export const NodesList = memo(function NodesList({
                         <Text
                           size="sm"
                           fw={500}
-                          style={{ cursor: openNodeModal ? 'pointer' : 'default' }}
+                          className="clickable-name"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (openNodeModal) {
@@ -2254,10 +2254,7 @@ export const IndicesList = memo(function IndicesList({
                           <Text
                             size="sm"
                             fw={500}
-                            style={{
-                              textDecoration: 'underline',
-                              cursor: 'pointer',
-                            }}
+                            className="clickable-name"
                             onClick={(e) => {
                               e.stopPropagation();
                               openIndexModal(index.name);
@@ -2973,9 +2970,9 @@ export const ShardsList = memo(function ShardsList({
                 return (
                   <Table.Tr
                     key={`${shard.index}-${shard.shard}-${idx}`}
+                    className="clickable-row"
                     style={{
                       backgroundColor: isUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
-                      cursor: 'pointer',
                     }}
                     onClick={() => handleShardClick(shard)}
                   >

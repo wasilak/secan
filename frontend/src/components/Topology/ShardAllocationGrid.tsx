@@ -4,7 +4,6 @@ import {
   Alert,
   Badge,
   Box,
-  Button,
   Card,
   Group,
   Loader,
@@ -33,29 +32,12 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
     searchParams,
     sharedRelocationMode,
     sharedValidDestinationNodes,
-    onSharedRelocationCancel,
     indexNameFilter,
     nodeNameFilter,
     matchesWildcard,
     onShardClick,
     onSharedDestinationClick,
   } = props;
-
-  if (loading) {
-    return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert color="red" title="Error">
-        Failed to load shard allocation data.
-      </Alert>
-    );
-  }
 
   const selectedStatesParam = searchParams.get('shardStates');
   const selectedShardStates = selectedStatesParam
@@ -178,7 +160,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
     });
 
     return outer;
-  }, [assignedShards, nodeIdentifierMap, shards]);
+  }, [assignedShards, nodeIdentifierMap]);
 
   const unassignedByIndex = useMemo(
     () =>
@@ -186,7 +168,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
         (acc[shard.index] ||= []).push(shard);
         return acc;
       }, {} as Record<string, typeof shards>),
-    [unassignedShards, shards]
+    [unassignedShards]
   );
 
   const renderShardTile = useCallback(
@@ -268,14 +250,6 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
     [onShardClick, indexHealthMap]
   );
 
-  if (!filteredNodes.length || !filteredIndicesList.length) {
-    return (
-      <Stack gap="md" align="center" py="xl">
-        <Text c="dimmed">No shard allocation data available</Text>
-      </Stack>
-    );
-  }
-
   const renderIndexHeader = useCallback(
     (index: IndexInfo) => {
       const health = indexHealthMap.get(index.name);
@@ -331,6 +305,30 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
     },
     [indexHealthMap, openIndexModal]
   );
+
+  if (loading) {
+    return (
+      <Group justify="center" py="xl">
+        <Loader />
+      </Group>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert color="red" title="Error">
+        Failed to load shard allocation data.
+      </Alert>
+    );
+  }
+
+  if (!filteredNodes.length || !filteredIndicesList.length) {
+    return (
+      <Stack gap="md" align="center" py="xl">
+        <Text c="dimmed">No shard allocation data available</Text>
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="md">

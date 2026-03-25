@@ -137,7 +137,7 @@ export const TasksTable = React.memo(function TasksTable({
           <Table.Tr
             key={taskId}
             onClick={() => onRowClick(task)}
-            style={{ cursor: 'pointer' }}
+            className="clickable-row"
           >
             <Table.Td onClick={(e) => e.stopPropagation()}>
               <Checkbox
