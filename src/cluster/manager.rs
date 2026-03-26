@@ -9,6 +9,7 @@ use anyhow::{Context, Result};
 use reqwest::{Method, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -390,8 +391,8 @@ mod tests {
 /// methods for cluster operations, health checks, and request proxying.
 #[derive(Debug)]
 pub struct Manager {
-    /// Map of cluster ID to cluster connection
-    clusters: Arc<RwLock<HashMap<String, Arc<ClusterConnection>>>>,
+    /// Map of cluster ID to cluster connection (IndexMap preserves config insertion order)
+    clusters: Arc<RwLock<IndexMap<String, Arc<ClusterConnection>>>>,
     /// RBAC manager for access control
     rbac: Option<Arc<RbacManager>>,
     /// Cache for cluster health metadata
@@ -408,7 +409,8 @@ impl Manager {
     ///
     /// # Returns
     ///
-    /// A new Manager instance or an error if any cluster fails to initialize
+    /// A new Manager instance or an error if no clusters are configured.
+    /// Individual cluster init failures are logged as warnings and skipped.
     ///
     /// # Requirements
     ///
@@ -417,20 +419,30 @@ impl Manager {
         cluster_configs: Vec<ClusterConfig>,
         cache_duration: Duration,
     ) -> Result<Self> {
-        let mut clusters = HashMap::new();
+        let mut clusters = IndexMap::new();
+        let total = cluster_configs.len();
 
         for config in cluster_configs {
             let display_name = config.name.as_deref().unwrap_or(&config.id);
             tracing::info!(cluster_id = %config.id, cluster_name = %display_name, "Initializing cluster");
 
-            let connection = ClusterConnection::new(&config)
-                .await
-                .with_context(|| format!("Failed to initialize cluster '{}'", config.id))?;
-
-            clusters.insert(config.id.clone(), Arc::new(connection));
+            match ClusterConnection::new(&config).await {
+                Ok(connection) => {
+                    clusters.insert(config.id.clone(), Arc::new(connection));
+                }
+                Err(e) => {
+                    // A single unreachable/misconfigured cluster must not block startup.
+                    // It will show as inaccessible in the UI.
+                    tracing::warn!(
+                        cluster_id = %config.id,
+                        error = %e,
+                        "Failed to initialise cluster — it will be marked inaccessible"
+                    );
+                }
+            }
         }
 
-        if clusters.is_empty() {
+        if total == 0 {
             anyhow::bail!("No clusters configured");
         }
 

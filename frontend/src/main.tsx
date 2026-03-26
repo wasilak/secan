@@ -14,6 +14,7 @@ import { configureMonaco } from './lib/monacoConfig';
 import { RefreshProvider } from './contexts/RefreshContext';
 import { DrawerProvider } from './contexts/DrawerContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { PreferencesProvider } from './contexts/PreferencesContext';
 import { ThemeInitializer } from './components/ThemeInitializer';
 // NOTE: Frontend OpenTelemetry disabled - using manual traceparent header injection instead
 // Trace context is propagated via W3C traceparent header in API client (see api/client.ts)
@@ -115,6 +116,7 @@ const App = (
   <QueryClientProvider client={queryClient}>
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <ThemeInitializer />
+      <PreferencesProvider>
       <AuthProvider>
         <DrawerProvider>
           <RefreshProvider>
@@ -123,6 +125,7 @@ const App = (
           </RefreshProvider>
         </DrawerProvider>
       </AuthProvider>
+      </PreferencesProvider>
     </MantineProvider>
   </QueryClientProvider>
 );

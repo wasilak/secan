@@ -16,6 +16,7 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
       refetchOnMount: false, // Prevent duplicate requests from StrictMode double-mounting
+      refetchIntervalInBackground: false, // Pause polling when tab/window is not visible
     },
   },
 });

@@ -9,6 +9,7 @@ import { ClusterView } from './pages/ClusterView';
 import { RestConsole } from './pages/RestConsole';
 import { Login } from './pages/Login';
 import { DrawerProvider } from './contexts/DrawerContext';
+import { PreferencesProvider } from './contexts/PreferencesContext';
 import { RefreshProvider } from './contexts/RefreshContext';
 import { AuthProvider } from './contexts/AuthContext';
 
@@ -61,6 +62,7 @@ const renderWithRouter = (initialEntries: string[]) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
+        <PreferencesProvider>
         <AuthProvider>
           <RefreshProvider>
             <DrawerProvider>
@@ -68,6 +70,7 @@ const renderWithRouter = (initialEntries: string[]) => {
             </DrawerProvider>
           </RefreshProvider>
         </AuthProvider>
+        </PreferencesProvider>
       </MantineProvider>
     </QueryClientProvider>
   );

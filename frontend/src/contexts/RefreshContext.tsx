@@ -110,6 +110,7 @@ export function RefreshProvider({
         staleTime: cacheDuration,
         refetchOnWindowFocus: false,
         retry: 1,
+        refetchIntervalInBackground: false, // Pause polling when tab/window is not visible
       },
     });
   }, [queryClient, interval]);

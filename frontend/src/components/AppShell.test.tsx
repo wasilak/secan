@@ -5,6 +5,7 @@ import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppShell } from './AppShell';
 import { DrawerProvider } from '../contexts/DrawerContext';
+import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { RefreshProvider } from '../contexts/RefreshContext';
 import { AuthProvider } from '../contexts/AuthContext';
 import userEvent from '@testing-library/user-event';
@@ -22,6 +23,7 @@ const renderWithProviders = (component: React.ReactElement) => {
   return render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
+        <PreferencesProvider>
         <AuthProvider>
           <RefreshProvider>
             <DrawerProvider>
@@ -29,6 +31,7 @@ const renderWithProviders = (component: React.ReactElement) => {
             </DrawerProvider>
           </RefreshProvider>
         </AuthProvider>
+        </PreferencesProvider>
       </MantineProvider>
     </QueryClientProvider>
   );
@@ -72,6 +75,7 @@ describe('Breadcrumb Navigation', () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MantineProvider>
+          <PreferencesProvider>
           <AuthProvider>
             <RefreshProvider>
               <DrawerProvider>
@@ -81,6 +85,7 @@ describe('Breadcrumb Navigation', () => {
               </DrawerProvider>
             </RefreshProvider>
           </AuthProvider>
+          </PreferencesProvider>
         </MantineProvider>
       </QueryClientProvider>
     );

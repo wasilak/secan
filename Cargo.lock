@@ -3177,6 +3177,7 @@ dependencies = [
  "config",
  "futures",
  "http",
+ "indexmap 2.13.0",
  "jsonwebtoken",
  "ldap3",
  "metrics",

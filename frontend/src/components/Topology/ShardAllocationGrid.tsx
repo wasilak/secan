@@ -12,6 +12,7 @@ import {
   Table,
   Text,
   Tooltip,
+  useMantineColorScheme,
 } from '@mantine/core';
 import type { IndexInfo } from '../../types/api';
 import { sortShards } from '../../utils/shardOrdering';
@@ -80,16 +81,15 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
     return map;
   }, [fullIndices]);
 
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+
   const getIndexBackgroundColor = useCallback(
-    (indexName: string): string => {
-      const health = indexHealthMap.get(indexName);
-      // Use a subtle dark background for all health states to match topology layout
-      if (!health) {
-        return 'var(--mantine-color-dark-7)';
-      }
-      return 'var(--mantine-color-dark-7)';
+    (_indexName: string): string => {
+      // Use a subtle background that works in both light and dark themes
+      return isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)';
     },
-    [indexHealthMap]
+    [isDark]
   );
 
   const filteredIndicesByName = useMemo(
@@ -262,7 +262,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
           case 'red':
             return 'var(--mantine-color-red-5)';
           default:
-            return 'var(--mantine-color-dark-2)';
+            return isDark ? 'var(--mantine-color-dark-2)' : 'var(--mantine-color-gray-5)';
         }
       })();
 
@@ -363,7 +363,6 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
         radius="md"
         shadow="sm"
         p="xs"
-        style={{ backgroundColor: 'var(--mantine-color-dark-8)' }}
       >
         <ScrollArea style={{ width: '100%' }}>
           <Table style={{ minWidth: 'max-content' }}>
@@ -373,7 +372,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                     style={{
                       position: 'sticky',
                       left: 0,
-                      backgroundColor: 'var(--mantine-color-dark-8)',
+                      backgroundColor: isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-0)',
                       zIndex: 2,
                     }}
                   >
@@ -399,14 +398,14 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                 {unassignedShards.length > 0 && (
                   <Table.Tr
                     style={{
-                      backgroundColor: 'var(--mantine-color-dark-7)',
+                      backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)',
                     }}
                   >
                     <Table.Td
                       style={{
                         position: 'sticky',
                         left: 0,
-                        backgroundColor: 'var(--mantine-color-dark-7)',
+                        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)',
                         zIndex: 1,
                       }}
                     >
@@ -463,7 +462,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                       ? {
                           outline: '2px dashed var(--mantine-color-violet-4)',
                           outlineOffset: -2,
-                          backgroundColor: 'var(--mantine-color-dark-7)',
+                          backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)',
                         }
                       : undefined;
 
@@ -476,7 +475,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                           backgroundColor:
                             sharedRelocationMode && isValidDestination
                               ? 'var(--mantine-color-violet-9)'
-                              : 'var(--mantine-color-dark-8)',
+                              : isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-0)',
                           cursor:
                             sharedRelocationMode && isValidDestination
                               ? 'pointer'

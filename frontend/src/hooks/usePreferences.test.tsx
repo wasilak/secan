@@ -1,7 +1,13 @@
+import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePreferences } from './usePreferences';
 import { DEFAULT_PREFERENCES } from '../types/preferences';
+import { PreferencesProvider } from '../contexts/PreferencesContext';
+
+// Wrap every renderHook in PreferencesProvider so the context is available
+const wrapper = ({ children }: { children: React.ReactNode }) =>
+  React.createElement(PreferencesProvider, null, children);
 
 describe('usePreferences', () => {
   beforeEach(() => {
@@ -13,7 +19,7 @@ describe('usePreferences', () => {
 
   describe('initialization', () => {
     it('should return default preferences when localStorage is empty', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences).toEqual(DEFAULT_PREFERENCES);
     });
@@ -30,7 +36,7 @@ describe('usePreferences', () => {
 
       localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences).toEqual(storedPreferences);
     });
@@ -38,7 +44,7 @@ describe('usePreferences', () => {
     it('should handle corrupted localStorage data gracefully', () => {
       localStorage.setItem('secan-preferences', 'invalid json{');
 
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences).toEqual(DEFAULT_PREFERENCES);
     });
@@ -52,7 +58,7 @@ describe('usePreferences', () => {
 
       localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences.theme).toBe(DEFAULT_PREFERENCES.theme);
     });
@@ -66,7 +72,7 @@ describe('usePreferences', () => {
 
       localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences.refreshInterval).toBe(DEFAULT_PREFERENCES.refreshInterval);
     });
@@ -80,7 +86,7 @@ describe('usePreferences', () => {
 
       localStorage.setItem('secan-preferences', JSON.stringify(storedPreferences));
 
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result.current.preferences.restConsoleHistory).toEqual(
         DEFAULT_PREFERENCES.restConsoleHistory
@@ -90,7 +96,7 @@ describe('usePreferences', () => {
 
   describe('updatePreference', () => {
     it('should update theme preference', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       act(() => {
         result.current.updatePreference('theme', 'dark');
@@ -100,7 +106,7 @@ describe('usePreferences', () => {
     });
 
     it('should update refreshInterval preference', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       act(() => {
         result.current.updatePreference('refreshInterval', 60000);
@@ -110,7 +116,7 @@ describe('usePreferences', () => {
     });
 
     it('should update lastSelectedCluster preference', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       act(() => {
         result.current.updatePreference('lastSelectedCluster', 'prod-main');
@@ -120,7 +126,7 @@ describe('usePreferences', () => {
     });
 
     it('should update restConsoleHistory preference', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       const history = [
         {
@@ -138,7 +144,7 @@ describe('usePreferences', () => {
     });
 
     it('should persist updated preferences to localStorage', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       act(() => {
         result.current.updatePreference('theme', 'dark');
@@ -156,7 +162,7 @@ describe('usePreferences', () => {
 
   describe('resetPreferences', () => {
     it('should reset all preferences to defaults', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       // Set some custom preferences
       act(() => {
@@ -174,7 +180,7 @@ describe('usePreferences', () => {
     });
 
     it('should save default preferences to localStorage after reset', () => {
-      const { result } = renderHook(() => usePreferences());
+      const { result } = renderHook(() => usePreferences(), { wrapper });
 
       // Set some preferences
       act(() => {
@@ -198,7 +204,7 @@ describe('usePreferences', () => {
 
   describe('localStorage persistence', () => {
     it('should persist preferences across hook instances', () => {
-      const { result: result1 } = renderHook(() => usePreferences());
+      const { result: result1 } = renderHook(() => usePreferences(), { wrapper });
 
       act(() => {
         result1.current.updatePreference('theme', 'dark');
@@ -206,7 +212,7 @@ describe('usePreferences', () => {
       });
 
       // Create a new hook instance (simulating page refresh)
-      const { result: result2 } = renderHook(() => usePreferences());
+      const { result: result2 } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result2.current.preferences.theme).toBe('dark');
       expect(result2.current.preferences.refreshInterval).toBe(60000);
@@ -231,7 +237,7 @@ describe('usePreferences', () => {
         defaultConsoleWidth: 500,
       };
 
-      const { result: result1 } = renderHook(() => usePreferences());
+      const { result: result1 } = renderHook(() => usePreferences(), { wrapper });
 
       // Set all preferences
       act(() => {
@@ -245,7 +251,7 @@ describe('usePreferences', () => {
       });
 
       // Create new hook instance to load from localStorage
-      const { result: result2 } = renderHook(() => usePreferences());
+      const { result: result2 } = renderHook(() => usePreferences(), { wrapper });
 
       expect(result2.current.preferences).toEqual(testPreferences);
     });
