@@ -138,13 +138,28 @@ export function SpotlightSearch() {
       }
     }
 
-    // Always show all clusters so the user can navigate between them from any view.
-    // In the cluster view, other clusters appear as "Switch to …" groups below the
-    // current cluster's sections.
+    // Always show all other clusters so the user can navigate between them from any view.
+    // When inside a cluster view, other clusters appear as single "Switch to …" entries
+    // (mirroring the sidebar) — no tabs, nodes, or indices for those clusters.
+    // On the dashboard, each cluster gets its full tab group for direct deep-linking.
     if (clusters?.items && clusters.items.length > 0) {
-      clusters.items
-        .filter((c) => c.id !== currentClusterId) // skip current cluster (already shown above)
-        .forEach((cluster) => {
+      const otherClusters = clusters.items.filter((c) => c.id !== currentClusterId);
+
+      if (currentClusterId) {
+        // Cluster context: one entry per other cluster → navigates to its overview
+        otherClusters.forEach((cluster) => {
+          groups.push({
+            id: `switch-cluster-${cluster.id}`,
+            label: cluster.name ?? cluster.id,
+            description: 'Switch to this cluster',
+            onClick: () => navigate(`/cluster/${cluster.id}/overview`),
+            leftSection: <IconDashboard size={20} />,
+            keywords: ['cluster', 'switch', cluster.name ?? cluster.id],
+          });
+        });
+      } else {
+        // Dashboard context: full tab group per cluster for direct deep-linking
+        otherClusters.forEach((cluster) => {
           const clusterActions: SpotlightActionData[] = clusterTabs.map((tab) => ({
             id: `cluster-${cluster.id}-${tab.id}`,
             label: tab.label,
@@ -159,6 +174,7 @@ export function SpotlightSearch() {
             actions: clusterActions,
           });
         });
+      }
     }
 
     return groups;
@@ -174,7 +190,7 @@ export function SpotlightSearch() {
       searchProps={{
         leftSection: <IconSearch size={20} />,
         placeholder: currentClusterId
-          ? 'Search nodes, indices, and tabs...'
+          ? 'Search tabs, nodes, indices, or switch cluster...'
           : 'Search clusters and tabs...',
         'aria-label': 'Search navigation',
       }}
