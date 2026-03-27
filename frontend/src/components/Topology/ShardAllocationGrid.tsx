@@ -303,7 +303,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
         </Stack>
       );
     },
-    [indexHealthMap, openIndexModal]
+    [indexHealthMap, isDark, openIndexModal]
   );
 
   if (loading) {

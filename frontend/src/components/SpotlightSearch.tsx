@@ -19,6 +19,18 @@ import { useClusterIndices } from '../hooks/useClusterIndices';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { useMemo } from 'react';
 
+// Tab definitions shared between cluster-view and dashboard-view groups
+// Defined outside the component so it's stable and doesn't need to be in useMemo deps
+const clusterTabs = [
+  { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
+  { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
+  { id: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
+  { id: 'indices', label: 'Indices', icon: IconDatabase, path: '/indices' },
+  { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
+  { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
+  { id: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
+];
+
 /**
  * SpotlightSearch component provides keyboard-driven navigation
  *
@@ -64,17 +76,6 @@ export function SpotlightSearch() {
   });
 
   const indices = getPaginatedItems(indicesPaginated);
-
-  // Tab definitions shared between cluster-view and dashboard-view groups
-  const clusterTabs = [
-    { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
-    { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
-    { id: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
-    { id: 'indices', label: 'Indices', icon: IconDatabase, path: '/indices' },
-    { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
-    { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
-    { id: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-  ];
 
   // Build actions array with groups based on context
   const actions = useMemo(() => {

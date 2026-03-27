@@ -6,10 +6,10 @@ use crate::config::{
 };
 use crate::telemetry::client::InstrumentedElasticsearchClient;
 use anyhow::{Context, Result};
+use indexmap::IndexMap;
 use reqwest::{Method, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
