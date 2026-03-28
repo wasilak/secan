@@ -25,10 +25,6 @@ import { CopyButton } from '../components/CopyButton';
 import { CodeEditor } from '../components/CodeEditor';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { defaultSection, isValidClusterSection } from '../routes/clusterRoutes';
-import {
-  extractNodeIdFromPath,
-  extractIndexNameFromPath,
-} from '../utils/urlBuilders';
 import { useClusterNavigation } from '../hooks/useClusterNavigation';
 import { useClusterSettings } from '../hooks/useClusterSettings';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -161,20 +157,16 @@ export function ClusterView() {
   const activeView = activeSection;
 
   // Topology view type state
-  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index'>(
-    location.pathname.includes('/topology/index') ? 'index' : 'node'
-  );
+  // Topology view type state — read from searchParam or infer from pathname on first mount
+  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas'>(() => {
+    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | null;
+    if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas') return urlParam;
+    if (location.pathname.includes('/topology/index')) return 'index';
+    if (location.pathname.includes('/topology/canvas')) return 'canvas';
+    return 'node';
+  });
 
-  // Sync topology view type with URL search params
-  useEffect(() => {
-    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | null;
-    if (urlParam && urlParam !== topologyViewType) {
-      setTopologyViewTypeState(urlParam);
-    }
-  }, [searchParams, topologyViewType]);
-
-  const setTopologyViewType = (value: 'node' | 'index') => {
-    // Update state and URL search params
+  const setTopologyViewType = (value: 'node' | 'index' | 'canvas') => {
     setTopologyViewTypeState(value);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('topologyView', value);
@@ -278,9 +270,9 @@ export function ClusterView() {
     return regex.test(text);
   };
 
-  // Extract modal IDs from path
-  const nodeIdFromPath = extractNodeIdFromPath(location.pathname);
-  const indexNameFromPath = extractIndexNameFromPath(location.pathname);
+  // Extract modal IDs from search params (no path change = no remount)
+  const nodeIdFromPath = searchParams.get('nodeModal');
+  const indexNameFromPath = searchParams.get('indexModal');
 
   // Index modal state
   const [indexModalOpen, setIndexModalOpen] = useState(false);
@@ -292,7 +284,7 @@ export function ClusterView() {
   // Open index modal when URL path changes
   useEffect(() => {
     if (indexNameFromPath) {
-      setSelectedIndexName(decodeURIComponent(indexNameFromPath));
+      setSelectedIndexName(indexNameFromPath);
       setIndexModalOpen(true);
     } else {
       setIndexModalOpen(false);
@@ -300,7 +292,7 @@ export function ClusterView() {
     }
   }, [indexNameFromPath]);
 
-  // Handle opening index modal - use path-based navigation
+  // Handle opening index modal
   const openIndexModal = (indexName: string, tab?: string) => {
     navigateToIndex(indexName, tab || 'visualization');
   };
@@ -434,7 +426,7 @@ export function ClusterView() {
     setNodeModalOpen(!!nodeIdFromPath);
   }, [nodeIdFromPath]);
 
-  // Handle opening node modal - use path-based navigation
+  // Handle opening node modal
   const openNodeModal = (nodeId: string) => {
     navigateToNode(nodeId);
   };

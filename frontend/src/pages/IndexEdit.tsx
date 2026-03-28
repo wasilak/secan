@@ -144,14 +144,16 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
   const clusterId = params.id;
 
   // Get index name from URL params (for modal mode) or route params (for standalone mode)
-  const indexName = searchParams.get('index') || params.indexName;
+  // ?indexModal is used by the query-param modal system in ClusterView
+  // ?index is the legacy param name kept for backwards compatibility
+  const indexName = searchParams.get('indexModal') || searchParams.get('index') || params.indexName;
 
   // Get active tab from URL or default to 'visualization'
   const activeTab = searchParams.get('indexTab') || searchParams.get('tab') || 'visualization';
 
   // Ensure tab is set in URL when modal opens
   useEffect(() => {
-    if (searchParams.has('index') && !searchParams.has('indexTab')) {
+    if ((searchParams.has('indexModal') || searchParams.has('index')) && !searchParams.has('indexTab')) {
       const params = new URLSearchParams(searchParams);
       params.set('indexTab', 'visualization');
       setSearchParams(params, { replace: true });

@@ -4,6 +4,7 @@ import { IconArrowsRightLeft, IconEyeOff } from '@tabler/icons-react';
 import { FilterSidebar } from '../../components/FacetedFilter';
 import { TopologyStatsCards } from '../../components/TopologyStatsCards';
 import { DotBasedTopologyView } from '../../components/Topology/DotBasedTopologyView';
+import { CanvasTopologyView } from '../../components/Topology/CanvasTopologyView';
 import { ShardAllocationGrid } from '../../components/Topology/ShardAllocationGrid';
 import { ShardContextMenu } from '../../components/ShardContextMenu';
 import type { GroupingAttribute, GroupingConfig } from '../../utils/topologyGrouping';
@@ -18,8 +19,8 @@ interface TopologyViewProps {
   allShards: ShardInfo[] | undefined;
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams, options?: { replace?: boolean }) => void;
-  topologyViewType: 'node' | 'index';
-  setTopologyViewType: (value: 'node' | 'index') => void;
+  topologyViewType: 'node' | 'index' | 'canvas';
+  setTopologyViewType: (value: 'node' | 'index' | 'canvas') => void;
   topologyGroupingConfig: GroupingConfig;
   handleTopologyGroupingChange: (attribute: GroupingAttribute, tagValue?: string) => void;
   indexNameFilter: string;
@@ -191,11 +192,12 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             <Group justify="space-between" align="flex-end">
               <Tabs
                 value={topologyViewType}
-                onChange={(value) => setTopologyViewType(value as 'node' | 'index')}
+                onChange={(value) => setTopologyViewType(value as 'node' | 'index' | 'canvas')}
               >
                 <Tabs.List>
                   <Tabs.Tab value="node">Node View</Tabs.Tab>
                   <Tabs.Tab value="index">Index View</Tabs.Tab>
+                  <Tabs.Tab value="canvas">Canvas View</Tabs.Tab>
                 </Tabs.List>
               </Tabs>
             </Group>
@@ -246,6 +248,24 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 clusterId={undefined}
                 topologyBatchSize={4}
                 _topologyRetryCount={0}
+                isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
+                groupingConfig={topologyGroupingConfig}
+              />
+            ) : topologyViewType === 'canvas' ? (
+              <CanvasTopologyView
+                nodes={allNodesArray}
+                shards={allShards || []}
+                indices={allIndicesArray || []}
+                searchParams={searchParams}
+                onShardClick={handleTopologyShardClick}
+                onNodeClick={openNodeModal}
+                onPaneClick={handleTopologyContextMenuClose}
+                relocationMode={relocationMode}
+                validDestinationNodes={validDestinationNodes}
+                onDestinationClick={handleTopologyDestinationClick}
+                indexNameFilter={indexNameFilter}
+                nodeNameFilter={nodeNameFilter}
+                matchesWildcard={matchesWildcard}
                 isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
                 groupingConfig={topologyGroupingConfig}
               />

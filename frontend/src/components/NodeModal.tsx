@@ -179,7 +179,7 @@ export function NodeModal({
               <Modal.Body>
                 {isLoading && <NodeDetailSkeleton />}
 
-                {error && (
+                {nodeId && error && (
                   <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
                     Failed to load node statistics: {getErrorMessage(error)}
                   </Alert>
@@ -199,7 +199,7 @@ export function NodeModal({
                   />
                 )}
 
-                {!isLoading && !error && !nodeStats && (
+                {nodeId && !isLoading && !error && !nodeStats && (
                   <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
                     Node statistics not found
                   </Alert>

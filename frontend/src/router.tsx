@@ -80,10 +80,10 @@ const IndexStatistics = lazy(() =>
  * - /cluster/:id/console - REST Console section
  * - /cluster/:id/tasks - Tasks section
  *
- * Modal Routes (modals overlay on sections):
- * - /cluster/:id/nodes/:nodeId - Node details modal
- * - /cluster/:id/indices/:indexName - Index details modal
- * - /cluster/:id/shards/:shardId - Shard details modal
+ * Modals (search-param driven, no path change, no remount):
+ * - ?nodeModal=<nodeId>     - Node details modal
+ * - ?indexModal=<name>      - Index details modal (+ optional ?indexTab=<tab>)
+ * - ?shardModal=<shardId>   - Shard details modal
  *
  * Legacy/Utility Routes:
  * - /cluster/:id/rest - REST console (legacy)
@@ -237,31 +237,9 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      // Modal routes
-      {
-        path: 'cluster/:id/nodes/:nodeId',
-        element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/indices/:indexName',
-        element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/shards/:shardId',
-        element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
-        ),
-      },
+      // Modal routes removed — modals are now driven by search params
+      // (?nodeModal=id, ?indexModal=name, ?indexTab=tab, ?shardModal=id)
+      // ClusterView stays mounted; no remount on modal open/close.
 
       {
         path: 'cluster/:id/indices/create',
