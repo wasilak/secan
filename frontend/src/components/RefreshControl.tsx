@@ -1,6 +1,7 @@
 import { Group, Select, ActionIcon, Text, Tooltip, Progress, Stack } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
 import { useRefresh, REFRESH_INTERVALS, RefreshInterval } from '../contexts/RefreshContext';
+import { IconPlayerPause } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
 /**
@@ -20,12 +21,12 @@ interface RefreshControlProps {
 }
 
 export function RefreshControl({ scope }: RefreshControlProps = {}) {
-  const { interval, setInterval, isRefreshing, refresh, lastRefreshTime } = useRefresh();
+  const { interval, setInterval, isRefreshing, refresh, lastRefreshTime, paused, pausedByDrag } = useRefresh();
   const [timeUntilRefresh, setTimeUntilRefresh] = useState<number | null>(null);
 
   // Calculate time until next refresh
   useEffect(() => {
-    if (interval === 0 || !lastRefreshTime) {
+    if (interval === 0 || !lastRefreshTime || paused) {
       setTimeUntilRefresh(null);
       return;
     }
@@ -71,10 +72,16 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
           }}
         />
 
-        {timeUntilRefresh !== null && interval > 0 && (
-          <Text size="xs" c="dimmed" style={{ minWidth: '30px', textAlign: 'right' }}>
-            {formatTimeRemaining(timeUntilRefresh)}
-          </Text>
+        {paused ? (
+          <Tooltip label={pausedByDrag ? 'Paused (dragging)' : 'Paused'} position="bottom">
+            <IconPlayerPause size={18} color="#888" style={{ minWidth: 30 }} />
+          </Tooltip>
+        ) : (
+          timeUntilRefresh !== null && interval > 0 && (
+            <Text size="xs" c="dimmed" style={{ minWidth: '30px', textAlign: 'right' }}>
+              {formatTimeRemaining(timeUntilRefresh)}
+            </Text>
+          )
         )}
 
         <Tooltip label="Refresh now" position="bottom">
@@ -91,13 +98,23 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
       </Group>
 
       {/* Progress bar showing time until next refresh */}
-      {interval > 0 && timeUntilRefresh !== null && (
+      {interval > 0 && timeUntilRefresh !== null && !paused && (
         <Progress
           value={((interval - timeUntilRefresh) / interval) * 100}
           size="xs"
           radius="xs"
           color="blue"
           animated={false}
+        />
+      )}
+      {interval > 0 && paused && (
+        <Progress
+          value={0}
+          size="xs"
+          radius="xs"
+          color="gray"
+          animated={false}
+          style={{ opacity: 0.5 }}
         />
       )}
     </Stack>

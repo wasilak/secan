@@ -5,6 +5,8 @@ import { FilterSidebar } from '../../components/FacetedFilter';
 import { TopologyStatsCards } from '../../components/TopologyStatsCards';
 import { DotBasedTopologyView } from '../../components/Topology/DotBasedTopologyView';
 import { CanvasTopologyView } from '../../components/Topology/CanvasTopologyView';
+import { useRefreshActions } from '../../contexts/RefreshContext';
+import { useCallback } from 'react';
 import { ShardAllocationGrid } from '../../components/Topology/ShardAllocationGrid';
 import { ShardContextMenu } from '../../components/ShardContextMenu';
 import type { GroupingAttribute, GroupingConfig } from '../../utils/topologyGrouping';
@@ -58,6 +60,11 @@ interface TopologyViewProps {
 }
 
 export function TopologyView(props: TopologyViewProps): ReactElement {
+  const { pausePolling, resumePolling } = useRefreshActions();
+
+  // Use useCallback for stable refs
+  const handleNodeDragStart = useCallback(() => { pausePolling('drag'); }, [pausePolling]);
+  const handleNodeDragStop = useCallback(() => { resumePolling('drag'); }, [resumePolling]);
   const {
     allNodesArray,
     allIndicesArray,
@@ -268,6 +275,8 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 matchesWildcard={matchesWildcard}
                 isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
                 groupingConfig={topologyGroupingConfig}
+                onNodeDragStart={handleNodeDragStart}
+                onNodeDragStop={handleNodeDragStop}
               />
             ) : (
               <ShardAllocationGrid

@@ -1,147 +1,212 @@
 import { memo } from 'react';
-import { Paper, Group, Text, Badge, Flex } from '@mantine/core';
+import { Group, Text, Badge, Divider, Flex, Box, Tooltip } from '@mantine/core';
 import { type NodeProps } from '@xyflow/react';
-import type { NodeInfo } from '../../types/api';
+import type { ClusterGroupNodeDataFlat } from '../../utils/canvasLayout';
 import { RoleIcons } from '../RoleIcons';
 import { formatBytes } from '../../utils/formatters';
+
+// Debug: ensure this module loads in runtime builds
+// eslint-disable-next-line no-console
+console.log('ClusterGroupNode module loaded');
 
 /**
  * Data interface for ClusterGroupNode.
  *
- * Requirements: 1.1, 1.7, 2.2
+ * getIndexHealthColor is passed in from CanvasTopologyView so shard dots use
+ * exactly the same health-based colouring as NodeCard in the list view.
  */
-export interface ClusterGroupNodeData extends Record<string, unknown> {
-  node: NodeInfo;
-  onNodeClick?: (nodeId: string) => void;
-  isValidDestination?: boolean;
-  onDestinationClick?: (nodeId: string) => void;
-  groupLabel?: string;
-}
+// Minimal shallow props only
+// See ClusterGroupNodeDataFlat imported from canvasLayout.ts
 
-/**
- * ClusterGroupNode — RF group-node header for one Elasticsearch cluster node.
- *
- * Renders the node's header area (name, version, roles, metrics).
- * Shards are placed as separate RF child nodes by the layout function.
- *
- * Requirements: 1.1, 1.7, 2.2
- */
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 function ClusterGroupNodeComponent({
   data,
   selected,
-}: NodeProps & { data: ClusterGroupNodeData }) {
-  const { node, onNodeClick, isValidDestination, onDestinationClick, groupLabel } = data;
+}: NodeProps & { data: ClusterGroupNodeDataFlat }) {
+  if (!data) {
+    // Defensive: avoid throwing during render when ReactFlow passes an unexpected node
+    // eslint-disable-next-line no-console
+    console.error('ClusterGroupNode rendered without data prop', { selected, data });
+    return (
+      <div style={{ padding: 8, border: '1px dashed red', background: 'rgba(255,0,0,0.04)' }}>
+        Invalid node data
+      </div>
+    );
+  }
+  const {
+    id,
+    name,
+    version,
+    roles,
+    isMaster,
+    isMasterEligible,
+    ip,
+    heapPercent,
+    heapColor,
+    cpuPercent,
+    cpuColor,
+    diskUsed,
+    diskDisplay,
+    load1m,
+    loadColor,
+    groupLabel,
+    isValidDestination,
+    summaryCounts,
+    badges,
+    dots,
+    onNodeClick,
+    onDestinationClick,
+  } = data;
 
   const isClickable = !!onNodeClick || !!isValidDestination;
 
-  const heapPct =
-    node.heapMax > 0 ? (node.heapUsed / node.heapMax) * 100 : 0;
-  const heapColor =
-    heapPct < 70 ? 'green' : heapPct < 85 ? 'yellow' : 'red';
-
-  const cpuColor =
-    node.cpuPercent === undefined
-      ? 'dimmed'
-      : node.cpuPercent < 70
-      ? 'green'
-      : node.cpuPercent < 85
-      ? 'yellow'
-      : 'red';
-
-  const loadColor =
-    node.loadAverage && node.loadAverage[0] !== undefined
-      ? node.loadAverage[0] < 4
-        ? 'green'
-        : node.loadAverage[0] < 6
-        ? 'yellow'
-        : 'red'
-      : 'dimmed';
-
   return (
-    <Paper
-      shadow="xs"
-      p="xs"
-      withBorder
+    <div
       style={{
         width: '100%',
-        borderColor: isValidDestination
-          ? 'var(--mantine-color-violet-6)'
-          : selected
-          ? 'var(--mantine-color-blue-6)'
-          : undefined,
-        borderStyle: isValidDestination ? 'dashed' : undefined,
-        borderWidth: isValidDestination || selected ? '2px' : undefined,
-        cursor: isClickable ? 'pointer' : 'default',
-        backgroundColor: 'var(--mantine-color-body)',
         boxSizing: 'border-box',
+        borderRadius: 8,
+        padding: '10px 12px 8px',
+        backgroundColor: selected
+          ? 'var(--mantine-color-blue-light)'
+          : 'var(--mantine-color-body)',
+        cursor: isClickable ? 'pointer' : 'default',
       }}
-      onClick={() => {
-        if (isValidDestination && onDestinationClick) {
-          onDestinationClick(node.id);
-        } else if (onNodeClick) {
-          onNodeClick(node.id);
-        }
-      }}
+       onClick={() => {
+         if (isValidDestination && onDestinationClick) {
+           onDestinationClick(id);
+         } else if (onNodeClick) {
+           onNodeClick(id);
+         }
+       }}
     >
-      {/* Row 1: name + version + badges */}
-      <Group gap="xs" wrap="nowrap" justify="space-between" mb={2}>
-        <Group gap="xs" wrap="wrap" style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={700} size="sm" lineClamp={1}>
-            {node.name}
+      {/* ── Row 1: name + version + role icons ─────────────────────────── */}
+      <Group gap="xs" wrap="nowrap" justify="space-between" mb={4}>
+        <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+          <Text fw={700} size="sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {name}
           </Text>
-          {node.version && (
-            <Text size="xs" c="dimmed">
-              v{node.version}
+          {version && (
+            <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+              v{version}
             </Text>
           )}
         </Group>
         <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
-          {node.isMaster && (
-            <Badge size="xs" variant="filled" color="blue">
-              M
-            </Badge>
+          {isMaster && (
+            <Badge size="xs" variant="filled" color="blue">M</Badge>
           )}
-          <RoleIcons roles={node.roles ?? []} size={13} />
+          <RoleIcons roles={roles ?? []} size={13} />
         </Group>
       </Group>
 
-      {/* Optional group label */}
+      {/* optional group label */}
       {groupLabel && (
-        <Text size="xs" c="dimmed" fw={500} mb={2}>
-          {groupLabel}
-        </Text>
+        <Text size="xs" c="dimmed" fw={500} mb={2}>{groupLabel}</Text>
       )}
 
-      {/* Row 2: IP + metrics */}
-      <Flex gap="xs" wrap="wrap">
-        {node.ip && (
-          <Text size="xs" c="dimmed">
-            {node.ip}
-          </Text>
+      {/* ── Row 2: IP + metrics ─────────────────────────────────────────── */}
+      <Flex gap="xs" wrap="wrap" mb={6}>
+        {ip && <Text size="xs" c="dimmed">IP: {ip}</Text>}
+        {cpuPercent !== undefined && (
+          <Text size="xs" c={cpuColor}>CPU: {cpuPercent.toFixed(1)}%</Text>
         )}
-        {node.cpuPercent !== undefined && (
-          <Text size="xs" c={cpuColor}>
-            CPU {node.cpuPercent.toFixed(1)}%
-          </Text>
-        )}
-        {node.heapMax > 0 && (
-          <Text size="xs" c={heapColor}>
-            Heap {heapPct.toFixed(1)}%
-          </Text>
-        )}
-        {node.diskUsed > 0 && (
-          <Text size="xs" c="dimmed">
-            {formatBytes(node.diskUsed)}
-          </Text>
-        )}
-        {node.loadAverage && node.loadAverage[0] !== undefined && (
-          <Text size="xs" c={loadColor}>
-            {node.loadAverage[0].toFixed(2)}
-          </Text>
+        <Text size="xs" c={heapColor}>Heap: {heapPercent.toFixed(1)}%</Text>
+        <Text size="xs" c="dimmed">Disk: {diskDisplay}</Text>
+        {load1m !== undefined && (
+          <Text size="xs" c={loadColor}>Load: {load1m.toFixed(2)}</Text>
         )}
       </Flex>
-    </Paper>
+
+      <Divider mb={6} />
+
+      {/* ── Shard dots ──────────────────────────────────────────────────── */}
+      {dots.length > 0 && (
+        <Flex gap={3} wrap="wrap" mb={6}>
+          {dots.map((dot, idx) => (
+            <Tooltip
+              key={idx}
+              label={dot.tooltip}
+              withArrow
+              withinPortal
+            >
+              <Box
+                style={{
+                  width: 14,
+                  height: 14,
+                  backgroundColor: dot.color,
+                  borderRadius: 2,
+                  opacity: dot.primary ? 1 : 0.5,
+                  boxShadow: dot.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
+                  flexShrink: 0,
+                }}
+              />
+            </Tooltip>
+          ))}
+        </Flex>
+      )}
+
+      {/* ── Shard count badges ──────────────────────────────────────────── */}
+      <Group gap="xs" wrap="nowrap">
+        <Badge size="xs" variant="light">{summaryCounts.total} shards</Badge>
+        {summaryCounts.primary > 0 && (
+          <Badge size="xs" variant="light" color="blue">{summaryCounts.primary} primary</Badge>
+        )}
+        {summaryCounts.replica > 0 && (
+          <Badge size="xs" variant="light" color="gray">{summaryCounts.replica} replica</Badge>
+        )}
+      </Group>
+    </div>
   );
 }
 
-export const ClusterGroupNode = memo(ClusterGroupNodeComponent);
+function shallowArrayEqual(a?: Record<string, any>[], b?: Record<string, any>[]): boolean {
+  const aa = Array.isArray(a) ? a : [];
+  const bb = Array.isArray(b) ? b : [];
+  if (aa === bb) return true;
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i++) {
+    const ak = Object.keys(aa[i] || {});
+    const bk = Object.keys(bb[i] || {});
+    if (ak.length !== bk.length) return false;
+    // Compare all keys shallowly
+    for (const key of ak) {
+      if (aa[i][key] !== bb[i][key]) return false;
+    }
+  }
+  return true;
+}
+
+function arePropsEqual(prev: NodeProps & { data: ClusterGroupNodeDataFlat }, next: NodeProps & { data: ClusterGroupNodeDataFlat }) {
+  // Compare relevant shallow props
+  const pd = prev.data;
+  const nd = next.data;
+  // Fast path: all primitive and string props
+  const keys: (keyof ClusterGroupNodeDataFlat)[] = [
+    'id','name','version','isMaster','isMasterEligible','ip','heapPercent','heapColor',
+    'cpuPercent','cpuColor','diskUsed','diskDisplay','load1m','loadColor','groupLabel','isValidDestination'
+  ];
+  for (const key of keys) {
+    if (pd[key] !== nd[key]) return false;
+  }
+  // Roles can be array, need shallow check (defensive if missing)
+  const pRoles = Array.isArray(pd.roles) ? pd.roles : [];
+  const nRoles = Array.isArray(nd.roles) ? nd.roles : [];
+  if (pRoles.length !== nRoles.length || pRoles.some((r, i) => r !== nRoles[i])) return false;
+  // summaryCounts is small object with numbers
+  const sc = ['primary','replica','total'] as const;
+  for (const key of sc) {
+    if (pd.summaryCounts[key] !== nd.summaryCounts[key]) return false;
+  }
+  // badges and dots are shallow arrays of objects (defensive)
+  if (!shallowArrayEqual(pd.badges as any, nd.badges as any)) return false;
+  if (!shallowArrayEqual(pd.dots as any, nd.dots as any)) return false;
+  if (pd.onNodeClick !== nd.onNodeClick) return false;
+  if (pd.onDestinationClick !== nd.onDestinationClick) return false;
+  if (prev.selected !== next.selected) return false;
+  return true;
+}
+
+export const ClusterGroupNode = memo(ClusterGroupNodeComponent, arePropsEqual);

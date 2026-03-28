@@ -14,9 +14,11 @@ tasks:
   dev:
     desc: Build frontend, build backend, and run the server
     cmds:
-      - task: frontend:build
+      - task: frontend:build:unminified
       - task: backend:build
       - task: backend:run
+    # Run backend (serves embedded frontend) after building unminified frontend assets
+    # Keep sequential to ensure assets are available before backend starts
 
   full-dev:
     desc: Start Elasticsearch, bootstrap data, and run dev server
@@ -33,6 +35,20 @@ tasks:
     cmds:
       - npm ci
       - npm run build
+
+  frontend:dev:
+    desc: Start frontend development server (non-minified Vite dev)
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run dev
+
+  frontend:build:unminified:
+    desc: Build frontend assets unminified for embedding in the backend (dev-friendly)
+    dir: frontend
+    cmds:
+      - npm ci
+      - env VITE_UNMINIFIED=true npm run build
 
   frontend:lint:
     desc: Run TypeScript/React linter

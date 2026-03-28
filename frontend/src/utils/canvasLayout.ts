@@ -3,9 +3,9 @@
  *
  * Pure function — no React imports, no side effects.
  * Converts NodeInfo[] + shardsByNode + GroupingConfig into a flat RF Node[]
- * where every group node (type 'clusterGroup') immediately precedes its shard
- * children (type 'shardNode').  Parent-before-children order is a hard RF
- * requirement.
+ * of group nodes only (type 'clusterGroup').  Shards are rendered as JSX
+ * inside ClusterGroupNode so the group height is content-driven — no fixed
+ * height constant, no shard child nodes.
  *
  * Requirements: 1.2, 1.3, 1.4, 1.6, 1.9, 2.1
  */
@@ -15,16 +15,55 @@ import type { NodeInfo, ShardInfo } from '../types/api';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
-import type { ClusterGroupNodeData } from '../components/Topology/ClusterGroupNode';
-import type { ShardNodeData } from '../components/Topology/ShardNode';
+// Minimal data for ClusterGroupNode — flat, shallow props only for top performance
+export interface ClusterGroupNodeDataFlat {
+  id: string;
+  name: string;
+  version?: string;
+  roles: string[];
+  isMaster: boolean;
+  isMasterEligible: boolean;
+  ip?: string;
+
+  heapPercent: number;
+  heapColor: string;
+  cpuPercent?: number;
+  cpuColor: string;
+  diskUsed: number;
+  diskDisplay: string;
+  load1m?: number;
+  loadColor: string;
+
+  groupLabel?: string;
+  isValidDestination: boolean;
+
+  summaryCounts: {
+    primary: number;
+    replica: number;
+    total: number;
+  };
+  badges: Array<{ label: string; color?: string }>;
+  dots: Array<{
+    color: string;
+    tooltip: string;
+    primary: boolean;
+  }>;
+
+  // Handlers (should be stable and at most one or two, for simple id click)
+  onNodeClick?: (nodeId: string) => void;
+  onDestinationClick?: (nodeId: string) => void;
+}
+
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 export const SHARD_SIZE = 24;
 export const SHARD_GAP = 4;
 export const SHARDS_PER_ROW = 8;
-export const GROUP_HEADER_HEIGHT = 72;
-export const GROUP_PADDING = 8;
-export const GROUP_WIDTH = 280;
+/** Estimated group height used only for inter-node vertical spacing. */
+const ESTIMATED_HEADER_HEIGHT = 80;
+const ESTIMATED_SHARD_ROW_HEIGHT = SHARD_SIZE + SHARD_GAP;
+const GROUP_PADDING_BOTTOM = 12;
+export const GROUP_WIDTH = 360;
 export const HORIZONTAL_GAP = 50;
 export const VERTICAL_GAP = 30;
 
@@ -36,7 +75,8 @@ export interface CanvasLayoutInput {
   shardsByNode: Record<string, ShardInfo[]>;
   groupingConfig: GroupingConfig;
   onNodeClick?: (nodeId: string) => void;
-  onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;  relocationMode?: boolean;
+  onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
+  relocationMode?: boolean;
   validDestinationNodes?: string[];
   onDestinationClick?: (nodeId: string) => void;
   getIndexHealthColor?: (indexName: string) => string;
@@ -44,12 +84,13 @@ export interface CanvasLayoutInput {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function groupHeight(shardCount: number): number {
+/** Estimated group height for layout spacing (not used for actual rendering). */
+function estimatedGroupHeight(shardCount: number): number {
   const rows = Math.ceil(shardCount / SHARDS_PER_ROW);
   return (
-    GROUP_HEADER_HEIGHT +
-    rows * (SHARD_SIZE + SHARD_GAP) +
-    GROUP_PADDING * 2
+    ESTIMATED_HEADER_HEIGHT +
+    rows * ESTIMATED_SHARD_ROW_HEIGHT +
+    GROUP_PADDING_BOTTOM
   );
 }
 
@@ -71,8 +112,10 @@ function columnFor(node: NodeInfo): number {
   return 1;
 }
 
-/** Emit group + child shard nodes for a single cluster node. */
-function emitNodes(
+/** Emit a single group node (shards embedded in data, rendered by ClusterGroupNode). */
+import { formatBytes } from '../utils/formatters';
+
+function emitGroupNode(
   result: Node[],
   node: NodeInfo,
   position: { x: number; y: number },
@@ -86,64 +129,92 @@ function emitNodes(
       (id) => id === node.id || id === node.name,
     );
 
-  const nodeShards = sortShards(shards);
-  const h = groupHeight(nodeShards.length);
+  // Precompute metrics/colors
+  const heapPercent = node.heapMax > 0 ? (node.heapUsed / node.heapMax) * 100 : 0;
+  const heapColor = heapPercent < 70 ? 'green' : heapPercent < 85 ? 'yellow' : 'red';
+  const cpuPercent = node.cpuPercent ?? undefined;
+  const cpuColor =
+    cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
+  const load1m = node.loadAverage?.[0];
+  const loadColor =
+    load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
+  const diskDisplay = formatBytes(node.diskUsed);
 
-  // ── Group (parent) node ───────────────────────────────────────────────────
-  const groupData: ClusterGroupNodeData = {
-    node,
-    onNodeClick: input.onNodeClick,
-    isValidDestination: !!isValidDestination,
-    onDestinationClick: input.onDestinationClick,
+  // Shard dot and badge summaries (precompute all)
+  const sortedShards = sortShards(shards);
+  const primaryCount = sortedShards.filter((s) => s.primary).length;
+  const replicaCount = sortedShards.filter((s) => !s.primary).length;
+  const totalShards = sortedShards.length;
+
+  const badges: Array<{ label: string; color?: string }> = [
+    { label: `${totalShards} shards` },
+  ];
+  if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
+  if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
+
+  const dots = sortedShards.map((shard, idx) => {
+    const color = input.getIndexHealthColor
+      ? input.getIndexHealthColor(shard.index)
+      : 'var(--mantine-color-gray-6)';
+    return {
+      color,
+      tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
+      primary: shard.primary,
+    };
+  });
+
+  const groupData: ClusterGroupNodeDataFlat = {
+    id: node.id,
+    name: node.name,
+    version: node.version,
+    roles: node.roles,
+    isMaster: node.isMaster,
+    isMasterEligible: node.isMasterEligible,
+    ip: node.ip,
+    heapPercent,
+    heapColor,
+    cpuPercent,
+    cpuColor,
+    diskUsed: node.diskUsed,
+    diskDisplay,
+    load1m,
+    loadColor,
     groupLabel,
+    isValidDestination: !!isValidDestination,
+    summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShards },
+    badges,
+    dots,
+    onNodeClick: input.onNodeClick,
+    onDestinationClick: input.onDestinationClick,
   };
 
   result.push({
     id: node.id,
     type: 'clusterGroup',
     position,
-    width: GROUP_WIDTH,
-    height: h,
     draggable: true,
-    style: { transition: 'transform 0.4s ease' },
+    style: {
+      width: GROUP_WIDTH,
+      transition: 'transform 0.4s ease',
+      border: isValidDestination
+        ? '2px dashed var(--mantine-color-violet-6)'
+        : '1px solid var(--mantine-color-default-border)',
+      borderRadius: '8px',
+      backgroundColor: 'var(--mantine-color-body)',
+    },
     data: groupData as unknown as Record<string, unknown>,
   });
-
-  // ── Shard child nodes ────────────────────────────────────────────────────
-  nodeShards.forEach((shard, idx) => {
-    const col = idx % SHARDS_PER_ROW;
-    const row = Math.floor(idx / SHARDS_PER_ROW);
-
-    const shardData: ShardNodeData = {
-      shard,
-      onShardClick: input.onShardClick,
-    };
-
-    result.push({
-      id: `${node.id}__shard__${shard.index}__${shard.shard}__${shard.primary ? 'p' : 'r'}`,
-      type: 'shardNode',
-      parentId: node.id,
-      extent: 'parent',
-      position: {
-        x: GROUP_PADDING + col * (SHARD_SIZE + SHARD_GAP),
-        y: GROUP_HEADER_HEIGHT + GROUP_PADDING + row * (SHARD_SIZE + SHARD_GAP),
-      },
-      width: SHARD_SIZE,
-      height: SHARD_SIZE,
-      draggable: false,
-      selectable: false,
-      data: shardData as unknown as Record<string, unknown>,
-    });
-  });
 }
+
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 /**
- * Calculate the full Canvas RF node array.
+ * Calculate the Canvas RF node array (group nodes only).
  *
- * Returns a flat array where every group node immediately precedes its
- * children (RF hard requirement for sub-flows).
+ * Each node is a 'clusterGroup' with its shards embedded in data.
+ * ClusterGroupNode renders shards as inline JSX so the group height is
+ * driven by content, not a static constant.
  */
 export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
   const { clusterNodes, shardsByNode, groupingConfig } = input;
@@ -161,11 +232,10 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
       const col = columnFor(node);
       const y = colY[col];
       const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-      const h = groupHeight(shards.length);
 
-      emitNodes(result, node, { x: col * COLUMN_WIDTH, y }, shards, input);
+      emitGroupNode(result, node, { x: col * COLUMN_WIDTH, y }, shards, input);
 
-      colY[col] = y + h + VERTICAL_GAP;
+      colY[col] = y + estimatedGroupHeight(shards.length) + VERTICAL_GAP;
     });
   } else {
     // ── Grouped: one column per group ────────────────────────────────────
@@ -179,11 +249,10 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
 
       sorted.forEach((node) => {
         const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-        const h = groupHeight(shards.length);
 
-        emitNodes(result, node, { x: colX, y }, shards, input, label);
+        emitGroupNode(result, node, { x: colX, y }, shards, input, label);
 
-        y += h + VERTICAL_GAP;
+        y += estimatedGroupHeight(shards.length) + VERTICAL_GAP;
       });
 
       colX += COLUMN_WIDTH;

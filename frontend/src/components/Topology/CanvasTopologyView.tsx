@@ -1,30 +1,49 @@
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
   BackgroundVariant,
+  useNodesInitialized,
+  useReactFlow,
   useNodesState,
+  applyNodeChanges,
   type NodeTypes,
+  type Node,
+  type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { ClusterGroupNode } from './ClusterGroupNode';
-import { ShardNode } from './ShardNode';
+// Debug: ensure ClusterGroupNode is imported at runtime
+// eslint-disable-next-line no-console
+console.log('CanvasTopologyView imported ClusterGroupNode', typeof ClusterGroupNode);
 import { calculateCanvasLayout } from '../../utils/canvasLayout';
 import { sortShards } from '../../utils/shardOrdering';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
 
-// nodeTypes must be stable (outside component) so RF doesn't re-register on
-// every render — especially important for the MiniMap renderer.
+// Defensive: if ClusterGroupNode failed to import for any reason, provide a
+// fallback component so React doesn't throw an "Invalid element type" error
+// which surfaces as the minified React error #310 in production.
 const nodeTypes: NodeTypes = {
-  clusterGroup: ClusterGroupNode,
-  shardNode: ShardNode,
+  clusterGroup: ClusterGroupNode || ((props: any) => {
+    // Render a simple placeholder and log the problem for debugging
+    // eslint-disable-next-line no-console
+    console.error('ClusterGroupNode is undefined — rendering fallback node component', props);
+    return (
+      <div style={{ padding: 8, border: '1px dashed red', background: 'rgba(255,0,0,0.04)' }}>
+        Missing node renderer
+      </div>
+    );
+  }),
 };
 
 interface CanvasTopologyViewProps {
+  onNodeDragStart?: () => void;
+  onNodeDragStop?: () => void;
   nodes: NodeInfo[];
   shards: ShardInfo[];
   indices: IndexInfo[];
@@ -42,10 +61,173 @@ interface CanvasTopologyViewProps {
   groupingConfig?: GroupingConfig;
 }
 
+// ── Flow - hybrid controlled: local state + buffered parent sync ─────────────────
+
+interface FlowProps {
+  layoutNodes: Node[];
+  onPaneClick?: () => void;
+  onNodeDragStart?: () => void;
+  onNodeDragStop?: () => void;
+  onNodesPositionChange?: (positions: { [id: string]: { x: number; y: number } }) => void;
+}
+
+function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange }: FlowProps) {
+  const { fitView } = useReactFlow();
+  const initialized = useNodesInitialized();
+  const hasFitViewRun = useRef(false);
+  const isDraggingRef = useRef(false);
+  const pendingLayoutRef = useRef<Node[] | null>(null);
+
+  const [flowNodes, setFlowNodes] = useNodesState(layoutNodes);
+
+  // Defensive: ensure nodeTypes contains only valid React component types.
+  // If some renderer is invalid (e.g. undefined due to import failure), replace
+  // it with a simple fallback to avoid React throwing invalid element type (error #310).
+  const safeNodeTypes = useMemo(() => {
+    const fallback = (props: any) => (
+      <div style={{ padding: 8, border: '1px dashed orange', background: 'rgba(255,165,0,0.04)' }}>
+        Missing renderer for node type
+      </div>
+    );
+    const out: NodeTypes = {} as NodeTypes;
+    Object.keys(nodeTypes).forEach((k) => {
+      // Accept functions or memoized exotic components (objects with $$typeof)
+      const v = (nodeTypes as any)[k];
+      const ok = typeof v === 'function' || (v && typeof v === 'object' && '$$typeof' in v);
+      (out as any)[k] = ok ? v : fallback;
+      if (!ok) {
+        // eslint-disable-next-line no-console
+        console.error(`Invalid node renderer for type ${k}, using fallback`, v);
+      }
+    });
+    // Ensure a default exists
+    (out as any).default = (out as any).default || fallback;
+    return out;
+  }, []);
+
+  // Validate nodes before passing to ReactFlow to avoid invalid element errors
+  const invalidRendererInfo = useMemo(() => {
+    const problems: Array<{ nodeId?: string; nodeType?: string; renderer?: any; reason: string }> = [];
+    // check nodeTypes
+    Object.entries(safeNodeTypes as any).forEach(([k, v]) => {
+      const ok = typeof v === 'function' || (v && typeof v === 'object' && '$$typeof' in v);
+      if (!ok) problems.push({ nodeType: k, renderer: v, reason: 'invalid renderer type' });
+    });
+    // check nodes
+    flowNodes.slice(0, 20).forEach((n: any) => {
+      const t = n.type || 'default';
+      const renderer = (safeNodeTypes as any)[t];
+      const ok = typeof renderer === 'function' || (renderer && typeof renderer === 'object' && '$$typeof' in renderer);
+      if (!ok) problems.push({ nodeId: n.id, nodeType: t, renderer, reason: 'node type maps to invalid renderer' });
+    });
+    return problems.length ? problems : null;
+  }, [safeNodeTypes, flowNodes]);
+
+  if (invalidRendererInfo) {
+    // eslint-disable-next-line no-console
+    console.error('Topology Flow aborted due to invalid node renderers', invalidRendererInfo);
+    return (
+      <div style={{ padding: 12, color: 'var(--mantine-color-red-7)' }}>
+        Topology rendering aborted: invalid node renderer(s). See console for details.
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    if (initialized && !hasFitViewRun.current) {
+      hasFitViewRun.current = true;
+      fitView({ padding: 0.2 });
+    }
+  }, [initialized, fitView]);
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const hasDragChange = changes.some(
+        (change) => change.type === 'position' && change.dragging,
+      );
+
+      if (hasDragChange && !isDraggingRef.current) {
+        isDraggingRef.current = true;
+        if (onNodeDragStart) onNodeDragStart();
+      }
+
+      setFlowNodes((nds) => applyNodeChanges(changes, nds));
+    },
+    [setFlowNodes, onNodeDragStart],
+  );
+
+  const handleNodeDragStop = useCallback(() => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      if (onNodeDragStop) onNodeDragStop();
+    }
+    if (pendingLayoutRef.current) {
+      setFlowNodes(pendingLayoutRef.current);
+      pendingLayoutRef.current = null;
+    }
+    // Gather current node positions
+    if (onNodesPositionChange) {
+      const positions: { [id: string]: { x: number; y: number } } = {};
+      flowNodes.forEach(node => {
+        positions[node.id] = { x: node.position.x, y: node.position.y };
+      });
+      onNodesPositionChange(positions);
+    }
+  }, [setFlowNodes, onNodeDragStop, onNodesPositionChange, flowNodes]);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setFlowNodes(layoutNodes);
+    } else {
+      pendingLayoutRef.current = layoutNodes;
+    }
+  }, [layoutNodes, setFlowNodes]);
+
+  return (
+    <ReactFlow
+      nodes={flowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
+      edges={[]}
+      nodeTypes={safeNodeTypes}
+      onNodesChange={handleNodesChange}
+      onNodeDragStop={handleNodeDragStop}
+      nodesDraggable={true}
+      nodesConnectable={false}
+      elementsSelectable={true}
+      minZoom={0.1}
+      maxZoom={2}
+      fitView
+      fitViewOptions={{ padding: 0.2 }}
+      proOptions={{ hideAttribution: true }}
+      onPaneClick={onPaneClick}
+    >
+      <Background
+        variant={BackgroundVariant.Dots}
+        gap={20}
+        size={1}
+        color="var(--mantine-color-gray-4)"
+      />
+      <Controls showInteractive={false} />
+      <MiniMap
+        nodeStrokeWidth={0}
+        nodeColor="var(--mantine-color-blue-3)"
+        maskColor="rgba(0,0,0,0.06)"
+        zoomable
+        pannable
+      />
+    </ReactFlow>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+// Maintains position by node ID
+
 export function CanvasTopologyView({
-  nodes,
-  shards,
-  indices,
+  onNodeDragStart,
+  onNodeDragStop,
+  nodes = [],
+  shards = [],
+  indices = [],
   searchParams,
   onShardClick,
   onNodeClick,
@@ -104,7 +286,7 @@ export function CanvasTopologyView({
     return param ? param.split(',').filter(Boolean) : Array.from(ALL);
   }, [searchParams]);
 
-  // ── shardsByNode map (mirror DotBasedTopologyView) ────────────────────────
+  // ── shardsByNode map ──────────────────────────────────────────────────────
   const shardsByNode = useMemo(() => {
     const filteredSet = new Set(filteredIndices.map((i) => i.name));
     const filtered = sortShards(
@@ -128,6 +310,8 @@ export function CanvasTopologyView({
   }, [shards, filteredIndices, selectedShardStates]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
+  const nodePositionsById = useRef<{ [id: string]: { x: number; y: number } }>({});
+
   const layoutNodes = useMemo(
     () =>
       calculateCanvasLayout({
@@ -143,7 +327,6 @@ export function CanvasTopologyView({
         onDestinationClick,
         getIndexHealthColor,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       filteredNodes,
       shardsByNode,
@@ -157,14 +340,15 @@ export function CanvasTopologyView({
     ],
   );
 
-  const [flowNodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+  // Merge user-modified positions into the layout-generated nodes
+  const layoutNodesWithUserPositions = useMemo(() => {
+    return layoutNodes.map(node => {
+      const userPos = nodePositionsById.current[node.id];
+      return userPos ? { ...node, position: userPos } : node;
+    });
+  }, [layoutNodes]);
 
-  // Reset RF state whenever layout output changes (filter/data change).
-  useEffect(() => {
-    setNodes(layoutNodes);
-  }, [layoutNodes, setNodes]);
-
-  // ── Loading skeleton ──────────────────────────────────────────────────────
+  // ── Loading skeleton ────────────────────────────────────────────────────────────
   if (isLoading && nodes.length === 0) {
     return (
       <Box p="md">
@@ -175,6 +359,18 @@ export function CanvasTopologyView({
     );
   }
 
+  // When node positions change via drag stop in Flow
+  const handleNodesPositionChange = useCallback((positions: { [id: string]: { x: number; y: number } }) => {
+    // Copy only current visible node IDs
+    const visibleNodeIds = new Set(layoutNodes.map(n => n.id));
+    // Purge non-existent nodes from positions
+    const merged: { [id: string]: { x: number; y: number } } = {};
+    for (const [id, pos] of Object.entries(positions)) {
+      if (visibleNodeIds.has(id)) merged[id] = pos;
+    }
+    nodePositionsById.current = merged;
+  }, [layoutNodes]);
+
   return (
     <Box
       h={600}
@@ -183,30 +379,15 @@ export function CanvasTopologyView({
         borderRadius: 'var(--mantine-radius-sm)',
       }}
     >
-      <ReactFlow
-        nodes={flowNodes}
-        edges={[]}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        nodesDraggable={true}
-        nodesConnectable={false}
-        elementsSelectable={true}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.1}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-        onPaneClick={onPaneClick}
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--mantine-color-gray-4)"
+      <ReactFlowProvider>
+        <Flow 
+          layoutNodes={layoutNodesWithUserPositions}
+          onPaneClick={onPaneClick}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDragStop={onNodeDragStop}
+          onNodesPositionChange={handleNodesPositionChange}
         />
-        <Controls showInteractive={false} />
-        <MiniMap nodeStrokeWidth={3} zoomable pannable />
-      </ReactFlow>
+      </ReactFlowProvider>
     </Box>
   );
 }

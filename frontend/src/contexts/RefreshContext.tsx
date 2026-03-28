@@ -36,6 +36,10 @@ interface RefreshActionContextValue {
   interval: RefreshInterval;
   setInterval: (interval: RefreshInterval) => void;
   refresh: (scope?: string | string[]) => void;
+  pausePolling: (reason: 'drag') => void;
+  resumePolling: (reason: 'drag') => void;
+  paused: boolean;
+  pausedByDrag: boolean;
 }
 
 const RefreshActionContext = createContext<RefreshActionContextValue | undefined>(undefined);
@@ -89,6 +93,8 @@ export function RefreshProvider({
   const [interval, setIntervalState] = useState<RefreshInterval>(loadInterval);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<number | null>(Date.now());
+  // --- New state for drag-aware pause ---
+  const [pausedByDrag, setPausedByDrag] = useState(false);
 
   // Calculate optimal cache duration based on refresh interval
   const calculateCacheDuration = (refreshInterval: RefreshInterval): number => {
@@ -136,6 +142,18 @@ export function RefreshProvider({
     localStorage.setItem('secan-refresh-interval', String(newInterval));
   }, []);
 
+  // ---- Polling pause/resume logic ----
+  const pausePolling = useCallback((reason: 'drag') => {
+    if (reason === 'drag') setPausedByDrag(true);
+  }, []);
+  const resumePolling = useCallback((reason: 'drag') => {
+    if (reason === 'drag') setPausedByDrag(false);
+  }, []);
+
+  // Compute paused: only currently supporting 'drag' but may add more
+  const paused = interval !== 0 && pausedByDrag;
+
+
   const refresh = useCallback(
     (scope?: string | string[]) => {
       setIsRefreshing(true);
@@ -161,7 +179,15 @@ export function RefreshProvider({
   );
 
   const stateValue: RefreshStateContextValue = { isRefreshing, lastRefreshTime };
-  const actionValue: RefreshActionContextValue = { interval, setInterval, refresh };
+  const actionValue: RefreshActionContextValue = {
+    interval,
+    setInterval,
+    refresh,
+    pausePolling,
+    resumePolling,
+    paused,
+    pausedByDrag
+  };
   const combinedValue: RefreshContextValue = { ...stateValue, ...actionValue };
 
   return (
@@ -202,6 +228,14 @@ export function useRefreshActions(): RefreshActionContextValue {
 }
 
 /**
+ * Returns only the paused state (true if polling is paused for any reason)
+ */
+export function useRefreshPaused() {
+  const { paused } = useRefreshActions();
+  return paused;
+}
+
+/**
  * Hook to access refresh context (all fields).
  * Prefer useRefreshState or useRefreshActions for better performance.
  */
@@ -218,6 +252,6 @@ export function useRefresh() {
  * Returns false when refresh is disabled
  */
 export function useRefreshInterval(): number | false {
-  const { interval } = useRefreshActions();
-  return interval === 0 ? false : interval;
+  const { interval, paused } = useRefreshActions();
+  return interval === 0 || paused ? false : interval;
 }

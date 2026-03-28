@@ -65,7 +65,6 @@ export function IndexVisualizationFlow({
         shards: shards ?? [],
         onShardClick,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [indexName, shards, onShardClick],
   );
 

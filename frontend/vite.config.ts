@@ -13,6 +13,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // When embedding the frontend in the Rust backend for dev/native debugging
+    // we may need a non-minified build so React shows full errors (not minified codes).
+    // Toggle via environment variable VITE_UNMINIFIED=true
+    minify: process.env.VITE_UNMINIFIED === 'true' ? false : undefined,
+    sourcemap: process.env.VITE_UNMINIFIED === 'true' ? true : false,
     rollupOptions: {
       onwarn(warning, warn) {
         // Suppress eval warning from @protobufjs dependency (not our code)
