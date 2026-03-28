@@ -14,7 +14,7 @@ import {
   Badge,
 } from '@mantine/core';
 import { FullWidthContainer } from '../components/FullWidthContainer';
-import { IndexVisualization } from '../components/IndexVisualization';
+import { IndexVisualizationFlow } from '../components/IndexVisualizationFlow';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -471,10 +471,9 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
           </Tabs.List>
 
           <Tabs.Panel value="visualization" pt="md">
-            <IndexVisualization
+            <IndexVisualizationFlow
               clusterId={clusterId}
               indexName={indexName}
-              onNodeClick={undefined}
               onShardClick={onShardClick}
             />
           </Tabs.Panel>

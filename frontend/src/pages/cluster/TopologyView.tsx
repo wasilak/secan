@@ -159,7 +159,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             ]}
             conditionalSections={[            ]}
             rightSection={
-              topologyViewType === 'node' ? (
+              topologyViewType === 'node' || topologyViewType === 'canvas' ? (
                 <GroupingControl
                   currentGrouping={topologyGroupingConfig.attribute}
                   currentGroupingValue={topologyGroupingConfig.value}
