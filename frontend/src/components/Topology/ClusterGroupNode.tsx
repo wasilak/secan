@@ -61,7 +61,7 @@ function ClusterGroupNodeComponent({
     onDestinationClick,
   } = data;
 
-  const isClickable = !!onNodeClick || !!isValidDestination;
+  const isClickable = !!onNodeClick || !!isValidDestination || !!onShardClick;
 
   return (
     <div
@@ -148,6 +148,14 @@ function ClusterGroupNodeComponent({
                     e.stopPropagation();
                     onShardClick(dot.shard as any, e as any);
                   }
+                }}
+                onPointerDown={(e) => {
+                  // Stop pointer events so ReactFlow/parent node click isn't triggered
+                  e.stopPropagation();
+                }}
+                onMouseDown={(e) => {
+                  // Also stop mouse down to be defensive across browsers and event phases
+                  e.stopPropagation();
                 }}
               />
             </Tooltip>

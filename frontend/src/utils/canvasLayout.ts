@@ -190,6 +190,7 @@ function emitGroupNode(
     dots,
     onNodeClick: input.onNodeClick,
     onDestinationClick: input.onDestinationClick,
+    onShardClick: input.onShardClick,
   };
 
   result.push({
