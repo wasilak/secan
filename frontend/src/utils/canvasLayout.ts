@@ -47,11 +47,14 @@ export interface ClusterGroupNodeDataFlat {
     color: string;
     tooltip: string;
     primary: boolean;
+    // Include shard info so node renderer can emit shard-specific interactions
+    shard: ShardInfo;
   }>;
 
   // Handlers (should be stable and at most one or two, for simple id click)
   onNodeClick?: (nodeId: string) => void;
   onDestinationClick?: (nodeId: string) => void;
+  onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
 }
 
 
@@ -160,6 +163,7 @@ function emitGroupNode(
       color,
       tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
       primary: shard.primary,
+      shard,
     };
   });
 
