@@ -121,7 +121,8 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
+  /* let the component or RF wrapper control borders */
+  border: none !important;
 }
 
 .react-flow__node .secan-cluster-node-card {
@@ -130,7 +131,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
+  border: none !important;
 }
 
 /* Dark-mode: RF is expected to draw the outer border (node renderer hides its own). */
