@@ -218,6 +218,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
                   opacity: dot.primary ? 1 : 0.5,
                   boxShadow: dot.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
                   flexShrink: 0,
+                  cursor: onShardClick ? 'pointer' : 'default',
                 }}
                 onClick={(e: MouseEvent) => {
                   if (onShardClick) {
