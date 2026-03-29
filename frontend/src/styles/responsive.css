@@ -356,7 +356,9 @@ html {
 .clickable-row {
   cursor: pointer;
 }
-.clickable-row:hover td {
+/* Only force a custom hover background in dark mode — in light mode rely on Mantine's
+   default highlightOnHover so we don't accidentally apply dark tints (black) in light theme. */
+html[data-secan-color-scheme="dark"] .clickable-row:hover td {
   background-color: var(--mantine-color-dark-6) !important;
 }
 
