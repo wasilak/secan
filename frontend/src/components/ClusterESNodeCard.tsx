@@ -234,7 +234,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
       )}
 
       <Group gap="xs" wrap="nowrap">
-        <Badge size="xs" variant="light">{sc.total} shards</Badge>
+        <Badge size="xs" variant="light" color="violet">{sc.total} shards</Badge>
         {sc.primary > 0 && (
           <Badge size="xs" variant="light" color="blue">{sc.primary} primary</Badge>
         )}
