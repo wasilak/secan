@@ -49,6 +49,10 @@ export function ShardContextMenu({
   const isRelocationDisabled =
     shard.state === 'UNASSIGNED' || shard.state === 'RELOCATING' || shard.state === 'INITIALIZING';
 
+  // Determine if showing stats should be disabled for certain shard states
+  // Displaying stats for UNASSIGNED shards is unsupported — disable the action.
+  const isShowStatsDisabled = shard.state === 'UNASSIGNED';
+
   // Get disabled reason for tooltip
   const getDisabledReason = (): string => {
     if (shard.state === 'UNASSIGNED') {
@@ -65,6 +69,7 @@ export function ShardContextMenu({
 
   // Handle menu item clicks
   const handleShowStats = () => {
+    if (isShowStatsDisabled) return;
     onShowStats(shard);
   };
 
@@ -155,6 +160,8 @@ export function ShardContextMenu({
             <Menu.Item
               leftSection={<IconInfoCircle size={isMobile ? 20 : 16} />}
               onClick={handleShowStats}
+              disabled={isShowStatsDisabled}
+              title={isShowStatsDisabled ? 'No stats available for unassigned shards' : undefined}
               style={{
                 fontSize: isMobile ? '16px' : '14px',
                 padding: isMobile ? '14px 16px' : '10px 12px',

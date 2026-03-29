@@ -305,7 +305,10 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     const ux = COLUMN_WIDTH; // middle column
     // Place below the lowest emitted node to avoid overlap
     const maxY = result.length ? Math.max(...result.map((n) => (n.position?.y ?? 0))) + VERTICAL_GAP : 0;
-    emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned, input, 'Unassigned');
+    // For the synthetic Unassigned node, ensure it is not clickable to open a node modal
+    // by clearing onNodeClick handler in the input for this emission.
+    const safeInput = { ...input, onNodeClick: undefined } as CanvasLayoutInput;
+    emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned, safeInput, 'Unassigned');
   }
 
   return result;
