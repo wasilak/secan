@@ -34,6 +34,14 @@
   fill: currentColor;
 }
 
+/* Make sure modal title / tabs reflect light typography in dark mode */
+html[data-secan-color-scheme="dark"] .secan-reactflow ~ .mantine-Modal-root .mantine-Title,
+html[data-secan-color-scheme="dark"] .mantine-Modal-root .mantine-Title,
+html[data-secan-color-scheme="dark"] .mantine-Tabs-tabLabel,
+html[data-secan-color-scheme="dark"] .mantine-Tabs-root .mantine-Tabs-list .mantine-Tabs-tab {
+  color: var(--mantine-color-gray-0) !important;
+}
+
 /* MiniMap */
 .secan-reactflow .react-flow__minimap {
   background: var(--mantine-color-body);
@@ -63,7 +71,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
-  /* Do not force an inner border here — the node renderer controls its own border */
+  /* Default: do not force an inner border here — dark-mode will add one where needed */
   border: none !important;
 }
 
@@ -77,7 +85,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
-  /* do not force border */
+  /* do not force border by default; dark-mode adds one */
   border: none !important;
 }
 
@@ -92,6 +100,21 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   border-radius: 8px !important;
   /* Do not add an extra border — inner node components render their own */
   border: none !important;
+}
+
+/* Dark-mode: RF is expected to draw the outer border (node renderer hides its own). */
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__label,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-content {
+  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+  color: var(--mantine-color-gray-0) !important; /* labels/text should be light */
+}
+
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default {
+  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+  color: var(--mantine-color-gray-0) !important;
 }
 
 /* Ensure any text inside RF label uses dimmed color tokens appropriately */
