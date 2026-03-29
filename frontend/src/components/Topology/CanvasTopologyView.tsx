@@ -15,6 +15,7 @@ import {
   type NodeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import '../../styles/reactflow-overrides.css';
 import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
@@ -212,6 +213,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
   return (
     <ReactFlow
+      className="secan-reactflow"
       nodes={flowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
       edges={[]}
       nodeTypes={safeNodeTypes}

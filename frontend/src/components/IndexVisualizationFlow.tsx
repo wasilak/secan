@@ -11,6 +11,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import '../styles/reactflow-overrides.css';
 import { Box, Loader, Alert, Center, Button, Group } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import type { ShardInfo } from '../types/api';
@@ -212,7 +213,7 @@ export function IndexVisualizationFlow({
         </Alert>
       )}
 
-      <ReactFlow
+      <ReactFlow className="secan-reactflow"
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}
