@@ -176,10 +176,14 @@ function emitGroupNode(
   if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
+  import { SHARD_STATE_COLORS } from './colors';
+
   const dots = sortedShards.map((shard, idx) => {
-    const color = input.getIndexHealthColor
-      ? input.getIndexHealthColor(shard.index)
-      : 'var(--mantine-color-gray-6)';
+    const color = shard.state === 'UNASSIGNED'
+      ? SHARD_STATE_COLORS.UNASSIGNED
+      : input.getIndexHealthColor
+        ? input.getIndexHealthColor(shard.index)
+        : 'var(--mantine-color-gray-6)';
     return {
       color,
       tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
