@@ -2,6 +2,7 @@ import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
 import { Grid, Text, Box, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
+import { SHARD_STATE_COLORS } from '../../utils/colors';
 import ClusterESNodeCard from '../ClusterESNodeCard';
 import { UNASSIGNED_KEY } from '../../utils/canvasLayout';
 import { formatBytes } from '../../utils/formatters';
@@ -294,7 +295,7 @@ export function DotBasedTopologyView({
     if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
     const dots = sortedShards.map(shard => ({
-      color: getIndexHealthColor(shard.index),
+      color: shard.state === 'UNASSIGNED' ? SHARD_STATE_COLORS.UNASSIGNED : getIndexHealthColor(shard.index),
       tooltip: `${shard.index} - Shard ${shard.shard}${shard.primary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`,
       primary: shard.primary,
       shard,

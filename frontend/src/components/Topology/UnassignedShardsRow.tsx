@@ -1,4 +1,5 @@
 import { Card, Text, Group, Box } from '@mantine/core';
+import { getUnassignedShardColor } from '../../utils/colors';
 import { ShardInfo } from '../../types/api';
 
 /**
@@ -33,12 +34,14 @@ export function UnassignedShardsRow({
             <Box
               key={`unassigned-${shard.index}[${shard.shard}]`}
               style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                backgroundColor: `var(--mantine-color-red-6)`,
+                width: '14px',
+                height: '14px',
+                borderRadius: 2, // square
+                backgroundColor: getUnassignedShardColor(!!shard.primary),
                 border: `2px solid ${indexColors[shard.index] || '#888'}`,
                 cursor: 'pointer',
+                opacity: shard.primary ? 1 : 0.6,
+                boxShadow: shard.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
               }}
               onClick={(e) => onShardClick?.(shard, e)}
               title={`${shard.index}[${shard.shard}] - Unassigned`}
