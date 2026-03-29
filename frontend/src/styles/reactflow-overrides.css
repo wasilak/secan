@@ -1,18 +1,19 @@
 /* ReactFlow dark theme overrides for Secan — imported after the default RF CSS */
 
-/* Note: visual overrides are scoped to html[data-secan-color-scheme] blocks below */
+/* Use Mantine CSS variables so RF styling follows current Mantine theme automatically.
+   This avoids duplicating logic for light/dark and follows the app tokens. */
 
 /* Scope to the app-specific container to avoid global side-effects */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__controls {
-  background: var(--mantine-color-dark-6, #15202b);
-  color: var(--mantine-color-gray-0, #ffffff);
+.secan-reactflow .react-flow__controls {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
   border-radius: 8px;
   padding: 6px;
-  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  border: 1px solid var(--mantine-color-default-border);
   box-shadow: none;
 }
 
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__controls button {
+.secan-reactflow .react-flow__controls button {
   background: transparent;
   color: inherit;
   border: none;
@@ -24,29 +25,29 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__controls butt
   border-radius: 6px;
 }
 
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__controls button:hover {
-  background: rgba(255,255,255,0.03);
+.secan-reactflow .react-flow__controls button:hover {
+  background: rgba(0,0,0,0.03);
 }
 
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__controls svg {
-  color: var(--mantine-color-gray-0, #ffffff);
+.secan-reactflow .react-flow__controls svg {
+  color: var(--mantine-color-gray-7);
   fill: currentColor;
 }
 
 /* MiniMap */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__minimap {
-  background: var(--mantine-color-dark-7, #0b1116);
-  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+.secan-reactflow .react-flow__minimap {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
   border-radius: 6px;
   box-shadow: none;
 }
 
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__minimap svg {
-  stroke: var(--mantine-color-gray-4, rgba(255,255,255,0.12));
+.secan-reactflow .react-flow__minimap svg {
+  stroke: var(--mantine-color-gray-4);
 }
 
 /* Background dots: make them slightly lighter on dark theme */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__background {
+.secan-reactflow .react-flow__background {
   opacity: 0.9;
 }
 
@@ -56,79 +57,80 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
 }
 
 
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default {
-  /* Default renderer boxes (labels) — force dark background */
-  background: var(--mantine-color-dark-6, #15202b) !important;
-  color: var(--mantine-color-gray-0, #ffffff) !important;
-  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+.secan-reactflow .react-flow__node-default {
+  /* Let node renderer decide the heavy visuals; provide safe defaults from Mantine vars */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
 }
 
 /* Node label/text */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default .react-flow__label {
-  color: var(--mantine-color-gray-0, #ffffff) !important;
+.secan-reactflow .react-flow__node-default .react-flow__label {
+  color: var(--mantine-color-gray-7) !important;
 }
 
 /* Some RF versions render default node as a direct child div; cover that too */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > .react-flow__handle ~ div {
-  background: var(--mantine-color-dark-6, #15202b) !important;
-  color: var(--mantine-color-gray-0, #ffffff) !important;
-  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+.secan-reactflow .react-flow__node > .react-flow__handle ~ div {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
 }
 
 /* Additional fallbacks: cover different RF markup patterns for node content */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div > div,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-default,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__label,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-content {
-  background: var(--mantine-color-dark-6, #15202b) !important;
-  color: var(--mantine-color-gray-0, #ffffff) !important;
+.secan-reactflow .react-flow__node > div,
+.secan-reactflow .react-flow__node > div > div,
+.secan-reactflow .react-flow__node .react-flow__node-default,
+.secan-reactflow .react-flow__node .react-flow__label,
+.secan-reactflow .react-flow__node .react-flow__node-content {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
 }
 
 /* Ensure any text inside RF label uses dimmed color tokens appropriately */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__label,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__label * {
-  color: var(--mantine-color-gray-0, #ffffff) !important;
+.secan-reactflow .react-flow__node .react-flow__label,
+.secan-reactflow .react-flow__node .react-flow__label * {
+  color: var(--mantine-color-gray-7) !important;
 }
 
 /* Small integration: inputs or buttons inside nodes should inherit dark theme */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node input,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node button {
-  color: var(--mantine-color-gray-0, #ffffff) !important;
+.secan-reactflow .react-flow__node input,
+.secan-reactflow .react-flow__node button {
+  color: var(--mantine-color-gray-7) !important;
   background: transparent !important;
-  border-color: rgba(255,255,255,0.06) !important;
+  border-color: rgba(0,0,0,0.06) !important;
 }
 
 /* Handles (connection dots) */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__handle {
-  background: var(--mantine-color-gray-4, rgba(255,255,255,0.12));
-  border: 1px solid rgba(0,0,0,0.25);
+.secan-reactflow .react-flow__handle {
+  background: var(--mantine-color-gray-4);
+  border: 1px solid rgba(0,0,0,0.12);
 }
 
 /* Edge paths / connectors */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__edge-path {
-  stroke: rgba(255,255,255,0.14);
+.secan-reactflow .react-flow__edge-path {
+  stroke: var(--mantine-color-gray-4);
 }
 
 /* Selected / hovered node ring */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node.selected,
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node.hovered {
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+.secan-reactflow .react-flow__node.selected,
+.secan-reactflow .react-flow__node.hovered {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.03);
   border-color: var(--mantine-color-blue-7, rgba(66,153,225,0.5));
 }
 
 /* Ensure minimap mask / viewport stands out */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__minimap__mask {
-  fill: rgba(255,255,255,0.02);
+.secan-reactflow .react-flow__minimap__mask {
+  fill: rgba(0,0,0,0.02);
 }
 
 /* Improve contrast for node outlines inside MiniMap */
-html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__minimap rect {
-  stroke: rgba(255,255,255,0.06);
+.secan-reactflow .react-flow__minimap rect {
+  stroke: rgba(0,0,0,0.06);
 }
 
 /* Light theme overrides: keep ReactFlow defaults but ensure our scoping doesn't force dark visuals */
