@@ -348,6 +348,13 @@ export function DotBasedTopologyView({
     });
   };
 
+  // Resolve shards for a given node, treating the canonical UNASSIGNED_KEY specially
+  const resolveNodeShards = (node: NodeInfo) => {
+    const isUnassignedNode = node.id === UNASSIGNED_KEY || node.name === UNASSIGNED_KEY || node.name === 'Unassigned';
+    if (isUnassignedNode) return filteredShardsByNode[UNASSIGNED_KEY] || [];
+    return filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+  };
+
   // Helper function to sort group entries with master group first
   const sortGroupEntriesWithMasterFirst = (entries: [string, NodeInfo[]][]): [string, NodeInfo[]][] => {
     return [...entries].sort(([keyA], [keyB]) => {
@@ -393,10 +400,10 @@ export function DotBasedTopologyView({
             <>
               <Text size="xs" c="dimmed" mb="xs" fw={500}>Master Nodes</Text>
               <Grid gutter="md" mb="md" overflow="hidden">
-                {masterNodes.map((node) => {
-                  const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
-                  return renderNodeCard(node, nodeShards);
-                })}
+               {masterNodes.map((node) => {
+                   const nodeShards = resolveNodeShards(node);
+                   return renderNodeCard(node, nodeShards);
+                 })}
               </Grid>
             </>
           )}
@@ -406,10 +413,10 @@ export function DotBasedTopologyView({
             <>
               <Text size="xs" c="dimmed" mb="xs" fw={500}>Data Nodes</Text>
               <Grid gutter="md" overflow="hidden">
-                {dataNodes.map((node) => {
-                  const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
-                  return renderNodeCard(node, nodeShards);
-                })}
+               {dataNodes.map((node) => {
+                   const nodeShards = resolveNodeShards(node);
+                   return renderNodeCard(node, nodeShards);
+                 })}
               </Grid>
             </>
           )}
@@ -453,7 +460,7 @@ export function DotBasedTopologyView({
                 >
                   <Grid gutter="md" overflow="hidden">
                     {sortedVisibleNodes.map(node => {
-                      const nodeShards = filteredShardsByNode[node.name] || filteredShardsByNode[node.id] || [];
+                      const nodeShards = resolveNodeShards(node);
                       return renderNodeCard(node, nodeShards);
                     })}
                   </Grid>
