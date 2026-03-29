@@ -63,7 +63,8 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
+  /* Do not force an inner border here — the node renderer controls its own border */
+  border: none !important;
 }
 
 /* Node label/text */
@@ -76,7 +77,8 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
+  /* do not force border */
+  border: none !important;
 }
 
 /* Additional fallbacks: cover different RF markup patterns for node content */
@@ -88,7 +90,8 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
+  /* Do not add an extra border — inner node components render their own */
+  border: none !important;
 }
 
 /* Ensure any text inside RF label uses dimmed color tokens appropriately */
