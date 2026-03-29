@@ -54,7 +54,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     const fallback = { primary: 0, replica: 0, total: 0 };
     // Render simple fallback card
     return (
-      <div
+      <div className="secan-cluster-node-card"
         style={{
           width: GROUP_WIDTH,
           minWidth: GROUP_WIDTH,
@@ -93,7 +93,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
   const sc = summaryCounts;
 
     return (
-    <div
+    <div className="secan-cluster-node-card"
       style={{
         // Allow the outer RF node container to size itself from this element
         // while keeping this card's borders fully visible. Use minWidth only

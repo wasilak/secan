@@ -115,6 +115,24 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   border: none !important;
 }
 
+/* Ensure the actual ClusterESNodeCard element keeps its visual styles when used inside RF */
+.secan-reactflow .secan-cluster-node-card {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
+}
+
+.react-flow__node .secan-cluster-node-card {
+  /* global fallback for Canvas view instances where .secan-reactflow may not be present */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
+}
+
 /* Dark-mode: RF is expected to draw the outer border (node renderer hides its own). */
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div,
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div > div,
