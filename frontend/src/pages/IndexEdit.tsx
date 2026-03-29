@@ -530,7 +530,20 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
                   )}
                 </Box>
               </Stack>
-            </Card>
+          </Card>
+
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  onClick={handleReset}
+                  disabled={!isModified || updateMutation.isPending}
+                >
+                  Reset
+                </Button>
+                <Button onClick={handleSubmit} loading={updateMutation.isPending} disabled={!isModified}>
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </Group>
           </Tabs.Panel>
 
           <Tabs.Panel value="mappings" pt="md">
@@ -620,21 +633,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
             </Text>
           </Alert>
         )}
-
-        {activeTab === 'settings' && (
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              onClick={handleReset}
-              disabled={!isModified || updateMutation.isPending}
-            >
-              Reset
-            </Button>
-            <Button onClick={handleSubmit} loading={updateMutation.isPending} disabled={!isModified}>
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </Group>
-        )}
+        
       </Stack>
     </FullWidthContainer>
   );
