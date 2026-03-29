@@ -3,6 +3,19 @@
 /* Use Mantine CSS variables so RF styling follows current Mantine theme automatically.
    This avoids duplicating logic for light/dark and follows the app tokens. */
 
+/* Per-theme derived tokens used by RF overrides */
+html[data-secan-color-scheme="light"] .secan-reactflow {
+  --secan-rf-edge-color: var(--mantine-color-default-border);
+  --secan-rf-node-text: var(--mantine-color-gray-7);
+  --secan-rf-node-title-weight: 700;
+}
+
+html[data-secan-color-scheme="dark"] .secan-reactflow {
+  --secan-rf-edge-color: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  --secan-rf-node-text: var(--mantine-color-gray-0);
+  --secan-rf-node-title-weight: 700;
+}
+
 /* Scope to the app-specific container to avoid global side-effects */
 .secan-reactflow .react-flow__controls {
   background: var(--mantine-color-body) !important;
@@ -117,10 +130,21 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
   color: var(--mantine-color-gray-0) !important;
 }
 
-/* Ensure any text inside RF label uses dimmed color tokens appropriately */
+/* Ensure RF node label/text uses the derived token so native RF nodes match custom nodes */
 .secan-reactflow .react-flow__node .react-flow__label,
 .secan-reactflow .react-flow__node .react-flow__label * {
-  color: var(--mantine-color-gray-7) !important;
+  color: var(--secan-rf-node-text) !important;
+  font-family: inherit !important;
+  /* Match ClusterESNodeCard title size & weight: Mantine 'sm' = 0.875rem */
+  font-size: 0.875rem !important;
+  font-weight: var(--secan-rf-node-title-weight) !important;
+  line-height: 1.15 !important;
+}
+
+/* Ensure body text inside native RF nodes also respects app tokens (smaller/dimmed) */
+.secan-reactflow .react-flow__node {
+  font-size: 0.875rem !important;
+  color: var(--secan-rf-node-text) !important;
 }
 
 /* Small integration: inputs or buttons inside nodes should inherit dark theme */
@@ -133,13 +157,20 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
 
 /* Handles (connection dots) */
 .secan-reactflow .react-flow__handle {
-  background: var(--mantine-color-gray-4);
-  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--secan-rf-edge-color) !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: none !important;
+  border-radius: 50% !important;
 }
 
-/* Edge paths / connectors */
+/* Edge paths / connectors - use same color as nodes */
 .secan-reactflow .react-flow__edge-path {
-  stroke: var(--mantine-color-gray-4);
+  stroke: var(--secan-rf-edge-color) !important;
+  stroke-width: 1.4 !important;
+  opacity: 0.95 !important;
+  stroke-linecap: round !important;
 }
 
 /* Selected / hovered node ring */
