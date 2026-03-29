@@ -965,29 +965,6 @@ export function ClusterView() {
     placeholderData: () => [],
   });
 
-  // Merge per-node shards (progressive) with cluster-level unassigned shards.
-  // Deduplicate by index:shard:primary:node for node-backed shards, but
-  // preserve multiple UNASSIGNED copies (node === null) by appending a
-  // per-baseKey counter when node is null. Exported helper makes this
-  // behavior testable in isolation.
-  export function mergeShardLists(allShardsList: ShardInfo[] | undefined, unassignedList: ShardInfo[] | undefined): ShardInfo[] {
-    const all = allShardsList || [];
-    const unassigned = unassignedList || [];
-
-    const baseKey = (s: ShardInfo) => `${s.index}:${s.shard}:${String(s.primary)}`;
-    const counters = new Map<string, number>();
-    const mergedMap = new Map<string, ShardInfo>();
-
-    for (const s of [...all, ...unassigned]) {
-      const b = baseKey(s);
-      const key = s.node ? `${b}:${s.node}` : `${b}:__unassigned__:${counters.get(b) ?? 0}`;
-      if (!s.node) counters.set(b, (counters.get(b) ?? 0) + 1);
-      if (!mergedMap.has(key)) mergedMap.set(key, s);
-    }
-
-    return Array.from(mergedMap.values());
-  }
-
   const mergedAllShards = useMemo(() => mergeShardLists(allShards, unassignedClusterShards), [allShards, unassignedClusterShards]);
 
   if (!id) {
