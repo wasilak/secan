@@ -157,10 +157,10 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div >
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-default,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__label,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-content {
+  /* Only set background/typography for light mode; leave borders to the node renderer */
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
-  border: 1px solid var(--mantine-color-default-border) !important;
   box-shadow: none !important;
 }
 
