@@ -128,3 +128,51 @@
 .secan-reactflow .react-flow__minimap rect {
   stroke: rgba(255,255,255,0.06);
 }
+
+/* Light theme overrides: keep ReactFlow defaults but ensure our scoping doesn't force dark visuals */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__controls {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__controls button {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap {
+  background: transparent !important;
+  border: 1px solid var(--mantine-color-gray-2) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__background {
+  opacity: 1 !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node-default,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > .react-flow__handle ~ div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-default,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__label,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-content {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--mantine-color-default-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__handle {
+  background: var(--mantine-color-gray-4) !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__edge-path {
+  stroke: rgba(0,0,0,0.12) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap__mask {
+  fill: rgba(0,0,0,0.01) !important;
+}
