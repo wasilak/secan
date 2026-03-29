@@ -150,6 +150,12 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__background {
   opacity: 1 !important;
 }
 
+  /* Only set background/typography for light mode; leave borders to the node renderer */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node-default,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > .react-flow__handle ~ div,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div,
@@ -157,20 +163,17 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div >
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-default,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__label,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-content {
-  /* Only set background/typography for light mode; leave borders to the node renderer */
-  background: var(--mantine-color-body) !important;
-  color: var(--mantine-color-gray-7) !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
+  /* Restore light-mode borders to the app's dimmed token */
+  border: 1px solid var(--mantine-color-default-border) !important;
 }
 
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__handle {
-  background: var(--mantine-color-gray-4) !important;
+  background: var(--mantine-color-gray-3) !important;
   border: 1px solid rgba(0,0,0,0.06) !important;
 }
 
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__edge-path {
-  stroke: rgba(0,0,0,0.12) !important;
+  stroke: var(--mantine-color-gray-4, rgba(0,0,0,0.12)) !important;
 }
 
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap__mask {
