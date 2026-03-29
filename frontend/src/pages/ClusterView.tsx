@@ -911,6 +911,63 @@ export function ClusterView() {
     firstError: allShardsError,
   } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology', 4);
 
+  // Additionally fetch cluster-level UNASSIGNED shards only (paged collector).
+  // This is a single extra request flow (or a few small pages) to pick up
+  // unassigned shards that are not returned by per-node progressive loader.
+  const {
+    data: unassignedClusterShards = [],
+    isLoading: unassignedClusterShardsLoading,
+    error: unassignedClusterShardsError,
+  } = useQuery<ShardInfo[]>({
+    queryKey: queryKeys.cluster(id!).shards(undefined, { state: 'UNASSIGNED' }),
+    queryFn: async () => {
+      if (!id) return [];
+      const pageSize = 2000; // conservative large page to avoid many round trips
+      let page = 1;
+      const collected: ShardInfo[] = [];
+
+      while (true) {
+        const resp = await apiClient.getShards(id!, page, pageSize, { state: 'UNASSIGNED' });
+        // resp may be PaginatedResponse<ShardInfo>
+        const items: ShardInfo[] = (resp as any).items ?? [];
+        if (items.length > 0) collected.push(...items);
+        if (!items || items.length < pageSize) break;
+        page += 1;
+      }
+
+      return collected;
+    },
+    enabled: !!id && activeView === 'topology',
+    refetchInterval: refreshInterval,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: () => [],
+  });
+
+  // Merge per-node shards (progressive) with cluster-level unassigned shards.
+  // Deduplicate by index:shard:primary:node for node-backed shards, but
+  // preserve multiple UNASSIGNED copies (node === null) by appending a
+  // per-baseKey counter when node is null. Exported helper makes this
+  // behavior testable in isolation.
+  export function mergeShardLists(allShardsList: ShardInfo[] | undefined, unassignedList: ShardInfo[] | undefined): ShardInfo[] {
+    const all = allShardsList || [];
+    const unassigned = unassignedList || [];
+
+    const baseKey = (s: ShardInfo) => `${s.index}:${s.shard}:${String(s.primary)}`;
+    const counters = new Map<string, number>();
+    const mergedMap = new Map<string, ShardInfo>();
+
+    for (const s of [...all, ...unassigned]) {
+      const b = baseKey(s);
+      const key = s.node ? `${b}:${s.node}` : `${b}:__unassigned__:${counters.get(b) ?? 0}`;
+      if (!s.node) counters.set(b, (counters.get(b) ?? 0) + 1);
+      if (!mergedMap.has(key)) mergedMap.set(key, s);
+    }
+
+    return Array.from(mergedMap.values());
+  }
+
+  const mergedAllShards = useMemo(() => mergeShardLists(allShards, unassignedClusterShards), [allShards, unassignedClusterShards]);
+
   if (!id) {
     return (
       <Stack p="md">
@@ -1035,7 +1092,7 @@ export function ClusterView() {
           <TopologyView
             allNodesArray={allNodesArray}
             allIndicesArray={allIndicesArray}
-            allShards={allShards}
+          allShards={mergedAllShards}
             searchParams={searchParams}
             setSearchParams={setSearchParams}
             topologyViewType={topologyViewType}

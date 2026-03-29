@@ -47,6 +47,7 @@ import { ShardGridSkeleton } from '../components/LoadingSkeleton';
 import { getShardStateColor } from '../utils/colors';
 import { useShardAllocation } from '../hooks/useShardAllocation';
 import { useClusterNodes } from '../hooks/useClusterNodes';
+import { UNASSIGNED_KEY } from '../utils/canvasLayout';
 
 /**
  * ShardManagement component displays and manages shard allocation
@@ -306,11 +307,11 @@ export function ShardManagement() {
   const initializingCount = shardsByState['INITIALIZING']?.length || 0;
   const hasProblems = unassignedCount > 0 || relocatingCount > 0 || initializingCount > 0;
 
-  // Group shards by node
+  // Group shards by node. Use canonical UNASSIGNED_KEY for unassigned bucket.
   const shardsByNode =
     shards?.reduce(
       (acc, shard) => {
-        const node = shard.node || 'UNASSIGNED';
+        const node = shard.node ?? UNASSIGNED_KEY;
         if (!acc[node]) {
           acc[node] = [];
         }
@@ -320,9 +321,9 @@ export function ShardManagement() {
       {} as Record<string, ShardInfo[]>
     ) || {};
 
-  // Separate unassigned shards
-  const unassignedShards = shardsByNode['UNASSIGNED'] || [];
-  const assignedNodes = Object.keys(shardsByNode).filter((node) => node !== 'UNASSIGNED');
+  // Separate unassigned shards using canonical key
+  const unassignedShards = shardsByNode[UNASSIGNED_KEY] || [];
+  const assignedNodes = Object.keys(shardsByNode).filter((node) => node !== UNASSIGNED_KEY);
 
   return (
     <FullWidthContainer>

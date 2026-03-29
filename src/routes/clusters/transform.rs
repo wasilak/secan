@@ -573,12 +573,33 @@ pub fn transform_shards(cat_shards: &Value) -> Vec<ShardInfoResponse> {
 
 /// Parse a single shard entry from routing_nodes structure
 fn parse_routing_node_shard(entry: &Value, node: Option<String>) -> Option<ShardInfoResponse> {
-    let index = entry.get("index")?.as_str()?.to_string();
-    let shard = entry.get("shard")?.as_u64()? as u32;
-    let primary = entry.get("primary")?.as_bool().unwrap_or(false);
+    // Some cluster_state variants may omit index/shard for transient entries.
+    // Log and skip entries missing these mandatory fields so we can debug live data.
+    let index_opt = entry
+        .get("index")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let shard_opt = entry
+        .get("shard")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
+    if index_opt.is_none() || shard_opt.is_none() {
+        tracing::debug!(entry = ?entry, node = ?node, "Skipping routing_nodes shard entry missing index or shard");
+        return None;
+    }
+    let index = index_opt.unwrap();
+    let shard = shard_opt.unwrap();
+    // "primary" may be missing in some cluster_state variants; default to false
+    let primary = entry
+        .get("primary")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    // "state" may be omitted for unassigned entries in some Elasticsearch/OpenSearch responses.
+    // Do not early-return if missing; default to "UNASSIGNED" so filtering by state works.
     let state = entry
-        .get("state")?
-        .as_str()
+        .get("state")
+        .and_then(|v| v.as_str())
         .unwrap_or("UNASSIGNED")
         .to_string();
 

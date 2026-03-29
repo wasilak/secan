@@ -235,7 +235,7 @@ export function IndexVisualizationFlow({
           color="var(--mantine-color-gray-4)"
         />
         <Controls showInteractive={false} />
-        <MiniMap nodeStrokeWidth={3} zoomable pannable />
+        {/* MiniMap intentionally hidden in Index Visualization to reduce clutter */}
       </ReactFlow>
     </Box>
   );

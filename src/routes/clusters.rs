@@ -1551,6 +1551,10 @@ fn default_page_size() -> u32 {
     10
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[utoipa::path(
     get,
     path = "/clusters/{cluster_id}/indices",
@@ -1809,10 +1813,10 @@ pub struct ShardsQueryParams {
     #[serde(default)]
     pub hide_special: bool, // exclude indices starting with '.' (default: false)
     #[schema(example = true)]
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub show_primaries: bool, // include primary shards (default: true)
     #[schema(example = true)]
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub show_replicas: bool, // include replica shards (default: true)
     #[schema(example = "STARTED,UNASSIGNED")]
     #[serde(default)]
@@ -1897,74 +1901,115 @@ pub async fn get_shards(
             }
         })?;
 
+    // Log routing_nodes summary for debugging
+    let unassigned_count = state_response["routing_nodes"]["unassigned"]
+        .as_array()
+        .map(|a| a.len())
+        .unwrap_or(0);
+    let nodes_count = state_response["routing_nodes"]["nodes"]
+        .as_object()
+        .map(|m| m.len())
+        .unwrap_or(0);
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        unassigned_count,
+        nodes_count,
+        "Routing nodes summary before transform"
+    );
+
     // Transform to flat shard list (minimal fields: index, shard, primary, state, node)
     let all_shards = transform_routing_nodes_to_shards(&state_response);
+
+    // Log breakdown of shard states (counts) for debugging filters
+    let mut state_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for s in &all_shards {
+        *state_counts.entry(s.state.clone()).or_insert(0) += 1;
+    }
+    tracing::debug!(cluster_id = %cluster_id, all_shards = all_shards.len(), state_counts = ?state_counts, "Transformed routing_nodes to flat shard list");
 
     // Apply filters
     let state_filter: Vec<&str> = params.state.split(',').filter(|s| !s.is_empty()).collect();
 
-    let filtered_shards: Vec<ShardInfoResponse> = all_shards
-        .into_iter()
-        .filter(|shard| {
-            // Hide special indices filter (indices starting with '.')
-            if params.hide_special && shard.index.starts_with('.') {
+    // Apply filters step-by-step with debug logs so we can see where shards are dropped
+    let mut step_shards = all_shards;
+
+    // Hide special indices
+    if params.hide_special {
+        step_shards.retain(|s| !s.index.starts_with('.'));
+    }
+    let after_hide = step_shards.len();
+
+    // State filter - apply early so explicit state requests (eg. UNASSIGNED)
+    // are respected and not accidentally removed by primary/replica filtering.
+    let mut after_state = after_hide;
+    if !state_filter.is_empty() {
+        step_shards.retain(|s| state_filter.contains(&s.state.as_str()));
+        after_state = step_shards.len();
+    }
+
+    // Primary/Replica filter
+    if !params.show_primaries || !params.show_replicas {
+        step_shards.retain(|s| {
+            if !params.show_primaries && s.primary {
                 return false;
             }
-
-            // Primary/Replica filter
-            if !params.show_primaries && shard.primary {
+            if !params.show_replicas && !s.primary {
                 return false;
             }
-            if !params.show_replicas && !shard.primary {
-                return false;
-            }
-
-            // State filter
-            if !state_filter.is_empty() && !state_filter.contains(&shard.state.as_str()) {
-                return false;
-            }
-
-            // Search filter (OR logic: matches either index OR node)
-            if !params.search.is_empty() {
-                let search_lower = params.search.to_lowercase();
-                let index_matches = shard.index.to_lowercase().contains(&search_lower);
-                let node_matches = shard
-                    .node
-                    .as_deref()
-                    .unwrap_or("")
-                    .to_lowercase()
-                    .contains(&search_lower);
-
-                if !index_matches && !node_matches {
-                    return false;
-                }
-            }
-
-            // Index filter (substring match) - only if search is not used
-            if params.search.is_empty()
-                && !params.index.is_empty()
-                && !shard
-                    .index
-                    .to_lowercase()
-                    .contains(&params.index.to_lowercase())
-            {
-                return false;
-            }
-
-            // Node filter (substring match on node name) - only if search is not used
-            if params.search.is_empty() && !params.node.is_empty() {
-                let node_name = shard.node.as_deref().unwrap_or("");
-                if !node_name
-                    .to_lowercase()
-                    .contains(&params.node.to_lowercase())
-                {
-                    return false;
-                }
-            }
-
             true
-        })
-        .collect();
+        });
+    }
+    let after_primary_replica = step_shards.len();
+
+    // Search filter (OR logic)
+    if !params.search.is_empty() {
+        let search_lower = params.search.to_lowercase();
+        step_shards.retain(|s| {
+            let index_matches = s.index.to_lowercase().contains(&search_lower);
+            let node_matches = s
+                .node
+                .as_deref()
+                .unwrap_or("")
+                .to_lowercase()
+                .contains(&search_lower);
+            index_matches || node_matches
+        });
+    }
+    let after_search = step_shards.len();
+
+    // Index filter (only if search empty)
+    if params.search.is_empty() && !params.index.is_empty() {
+        let idx_lower = params.index.to_lowercase();
+        step_shards.retain(|s| s.index.to_lowercase().contains(&idx_lower));
+    }
+    let after_index = step_shards.len();
+
+    // Node filter (only if search empty)
+    if params.search.is_empty() && !params.node.is_empty() {
+        let node_lower = params.node.to_lowercase();
+        step_shards.retain(|s| {
+            s.node
+                .as_deref()
+                .unwrap_or("")
+                .to_lowercase()
+                .contains(&node_lower)
+        });
+    }
+    let after_node = step_shards.len();
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        initial = after_hide, // after hide_special step is first count from all_shards
+        after_primary_replica,
+        after_state,
+        after_search,
+        after_index,
+        after_node,
+        "Shard filter pipeline counts"
+    );
+
+    let filtered_shards: Vec<ShardInfoResponse> = step_shards;
 
     tracing::debug!(
         cluster_id = %cluster_id,
