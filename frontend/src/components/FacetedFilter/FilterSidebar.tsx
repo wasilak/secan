@@ -27,7 +27,7 @@ export function FilterSidebar({
         width: isExpanded ? width : COLLAPSED_WIDTH,
         height: '100%',
         transition: 'width 200ms ease',
-        borderRight: '1px solid #e9ecef',
+        borderRight: '1px solid var(--secan-surface-border-weak)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',

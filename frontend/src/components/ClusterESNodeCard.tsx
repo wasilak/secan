@@ -3,7 +3,7 @@ import type { ShardInfo } from '../types/api';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { GROUP_WIDTH } from '../utils/canvasLayout';
 import { RoleIcons } from './RoleIcons';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, KeyboardEvent } from 'react';
 
 /**
  * Pure Mantine node card extracted from ClusterGroupNode.
@@ -41,7 +41,11 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     isLoading,
     hideInnerBorder,
   } = props;
-  const isClickable = !!onNodeClick || !!isValidDestination || !!onShardClick;
+  // Card-level destination click (used for relocation) should remain
+  // clickable when a destination handler is provided. Node-details modal
+  // must open only when clicking the node name below.
+  const isDestinationClickable = !!isValidDestination && !!onDestinationClick;
+  const isClickable = isDestinationClickable || !!onShardClick;
 
   // Ensure summaryCounts is present — its absence is a caller bug and should fail loudly
   if (!summaryCounts) {
@@ -62,14 +66,34 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           borderRadius: 8,
           padding: '10px 12px 8px',
           backgroundColor: selected ? 'var(--mantine-color-blue-light)' : 'var(--mantine-color-body)',
-          cursor: isValidDestination ? 'pointer' : 'default',
+          cursor: isDestinationClickable ? 'pointer' : 'default',
           opacity: isLoading ? 0.6 : 1,
           border: hideInnerBorder ? 'none' : (isValidDestination ? '2px dashed var(--mantine-color-violet-6)' : '1px solid var(--mantine-color-default-border)'),
         }}
       >
         <Group gap="xs" wrap="nowrap" justify="space-between" mb={4}>
           <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-            <Text fw={700} size="sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Text
+              fw={500}
+              size="sm"
+              className="clickable-name"
+              role={onNodeClick ? 'button' : undefined}
+              tabIndex={onNodeClick ? 0 : undefined}
+              aria-label={onNodeClick ? `Open node details ${name}` : undefined}
+              onClick={(e: MouseEvent) => {
+                e.stopPropagation();
+                if (onNodeClick) onNodeClick(id);
+              }}
+              onKeyDown={(e: KeyboardEvent) => {
+                if (!onNodeClick) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onNodeClick(id);
+                }
+              }}
+              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onNodeClick ? 'pointer' : undefined }}
+            >
               {name}
             </Text>
             {version && (
@@ -84,6 +108,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
             )}
             <RoleIcons roles={roles ?? []} size={13} />
           </Group>
+
         </Group>
 
         <Text size="xs" c="dimmed" fw={500} mb={2}>Missing shard summary</Text>
@@ -105,21 +130,39 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
         backgroundColor: selected
           ? 'var(--mantine-color-blue-light)'
           : 'var(--mantine-color-body)',
-        cursor: isClickable ? 'pointer' : 'default',
+        cursor: isDestinationClickable ? 'pointer' : 'default',
         opacity: isLoading ? 0.6 : 1,
         border: hideInnerBorder ? 'none' : (isValidDestination ? '2px dashed var(--mantine-color-violet-6)' : '1px solid var(--mantine-color-default-border)'),
       }}
       onClick={() => {
-        if (isValidDestination && onDestinationClick) {
+        if (isDestinationClickable && onDestinationClick) {
           onDestinationClick(id);
-        } else if (onNodeClick) {
-          onNodeClick(id);
         }
       }}
     >
       <Group gap="xs" wrap="nowrap" justify="space-between" mb={4}>
         <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-          <Text fw={700} size="sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Text
+            fw={500}
+            size="sm"
+            className="clickable-name"
+            role={onNodeClick ? 'button' : undefined}
+            tabIndex={onNodeClick ? 0 : undefined}
+            aria-label={onNodeClick ? `Open node details ${name}` : undefined}
+            onClick={(e: MouseEvent) => {
+              e.stopPropagation();
+              if (onNodeClick) onNodeClick(id);
+            }}
+            onKeyDown={(e: KeyboardEvent) => {
+              if (!onNodeClick) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onNodeClick(id);
+              }
+            }}
+            style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onNodeClick ? 'pointer' : undefined }}
+          >
             {name}
           </Text>
           {version && (

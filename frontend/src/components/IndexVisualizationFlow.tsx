@@ -198,7 +198,7 @@ export function IndexVisualizationFlow({
     <Box
       h={600}
       style={{
-        border: '1px solid var(--mantine-color-gray-3)',
+        border: '1px solid var(--secan-surface-border-weak)',
         borderRadius: 'var(--mantine-radius-sm)',
       }}
     >
@@ -233,7 +233,7 @@ export function IndexVisualizationFlow({
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="var(--mantine-color-gray-4)"
+          color="var(--secan-rf-edge-color)"
         />
         <Controls showInteractive={false} />
         {/* MiniMap intentionally hidden in Index Visualization to reduce clutter */}

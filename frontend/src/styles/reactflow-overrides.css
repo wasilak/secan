@@ -16,6 +16,17 @@ html[data-secan-color-scheme="dark"] .secan-reactflow {
   --secan-rf-node-title-weight: 700;
 }
 
+/* Surface border token — pick a dim token per color scheme */
+html[data-secan-color-scheme="light"] {
+  --secan-surface-border: var(--mantine-color-default-border);
+  --secan-surface-border-weak: var(--mantine-color-gray-3);
+}
+
+html[data-secan-color-scheme="dark"] {
+  --secan-surface-border: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  --secan-surface-border-weak: rgba(255,255,255,0.03);
+}
+
 /* Scope to the app-specific container to avoid global side-effects */
 .secan-reactflow .react-flow__controls {
   background: var(--mantine-color-body) !important;
@@ -241,6 +252,7 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__background {
   opacity: 1 !important;
 }
 
+html[data-secan-color-scheme="light"] .secan-reactflow .secan-cluster-node-card {
   /* Only set background/typography for light mode; leave borders to the node renderer */
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
@@ -269,4 +281,34 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__edge-path {
 
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap__mask {
   fill: rgba(0,0,0,0.01) !important;
+}
+
+/*
+  Remove ReactFlow wrapper borders when our ClusterESNodeCard is used inside the node.
+  Some RF wrapper selectors add a 1px border which becomes visible together with
+  the card's own inline border, producing a double-inner outline. Use :has() to
+  target only RF nodes that contain our card and remove the wrapper border.
+  Modern browsers support :has(), and LightningCSS accepts it. If you need
+  broader toolchain compatibility we can fallback to avoiding RF border rules
+  entirely and rely solely on the card's inline border instead.
+*/
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Fallback for environments where :has() may not be available in the runtime
+   or toolchain. We add a small class on the node renderer wrapper so the same
+   visual effect (removing the RF wrapper border) is guaranteed. */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }

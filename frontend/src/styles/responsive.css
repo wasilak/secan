@@ -360,6 +360,14 @@ html {
   background-color: var(--mantine-color-dark-6) !important;
 }
 
+/* App-wide override: ensure Mantine accordion separators use our surface border token
+   (Mantine may render computed colors inline; !important here ensures our token
+   wins and gives a dim border in dark mode). */
+.mantine-Accordion-item {
+  border-bottom-color: var(--secan-surface-border-weak) !important;
+}
+
+
 /* Responsive code editor height */
 .monaco-editor-responsive {
   height: 300px;

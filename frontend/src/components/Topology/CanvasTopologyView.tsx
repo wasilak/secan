@@ -402,7 +402,7 @@ export function CanvasTopologyView({
     <Box
       h={600}
       style={{
-        border: '1px solid var(--mantine-color-gray-3)',
+        border: '1px solid var(--secan-surface-border-weak)',
         borderRadius: 'var(--mantine-radius-sm)',
       }}
     >

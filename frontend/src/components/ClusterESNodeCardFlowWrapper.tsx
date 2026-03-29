@@ -79,12 +79,12 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     };
 
     return (
-      <>
+      <div className="secan-rf-node-contains-card">
         <Handle type="target" position={Position.Top} />
         {/* In RF contexts we want the RF node to render the border, so hide inner card border */}
         <ClusterESNodeCard {...flat} hideInnerBorder />
         <Handle type="source" position={Position.Bottom} />
-      </>
+      </div>
     );
   }
 
@@ -95,22 +95,22 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     if (process.env.NODE_ENV !== 'development') {
       // In production, defer to inner component's fallback UI
       return (
-        <>
+        <div className="secan-rf-node-contains-card">
           <Handle type="target" position={Position.Top} />
           <ClusterESNodeCard {...(data as any)} hideInnerBorder />
           <Handle type="source" position={Position.Bottom} />
-        </>
+        </div>
       );
     }
     throw new Error('ClusterESNodeCardFlowWrapper data missing summaryCounts');
   }
 
   return (
-    <>
+    <div className="secan-rf-node-contains-card">
       <Handle type="target" position={Position.Top} />
       <ClusterESNodeCard {...(data as any)} hideInnerBorder />
       <Handle type="source" position={Position.Bottom} />
-    </>
+    </div>
   );
 }
 

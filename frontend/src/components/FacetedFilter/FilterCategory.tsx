@@ -45,7 +45,7 @@ export function FilterCategory({
   };
 
   return (
-    <Accordion.Item value={title} style={{ borderBottom: '1px solid #e9ecef' }}>
+    <Accordion.Item value={title} style={{ borderBottom: '1px solid var(--secan-surface-border-weak)' }}>
       <Box style={{ display: 'flex', alignItems: 'center', paddingRight: '8px' }}>
         <Accordion.Control>
           <Text fw={600} size="sm" c="gray.8">
