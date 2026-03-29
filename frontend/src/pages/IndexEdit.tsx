@@ -621,18 +621,20 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
           </Alert>
         )}
 
-        <Group justify="flex-end">
-          <Button
-            variant="default"
-            onClick={handleReset}
-            disabled={!isModified || updateMutation.isPending}
-          >
-            Reset
-          </Button>
-          <Button onClick={handleSubmit} loading={updateMutation.isPending} disabled={!isModified}>
-            {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </Group>
+        {activeTab === 'settings' && (
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={handleReset}
+              disabled={!isModified || updateMutation.isPending}
+            >
+              Reset
+            </Button>
+            <Button onClick={handleSubmit} loading={updateMutation.isPending} disabled={!isModified}>
+              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </Group>
+        )}
       </Stack>
     </FullWidthContainer>
   );
