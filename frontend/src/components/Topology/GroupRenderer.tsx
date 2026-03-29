@@ -34,7 +34,7 @@ export interface GroupRendererProps {
  *   groupLabel="Data Nodes"
  *   nodes={dataNodes}
  * >
- *   {dataNodes.map(node => <NodeCard key={node.id} node={node} />)}
+ *   {dataNodes.map(node => <ESNodeCard key={node.id} node={node} />)}
  * </GroupRenderer>
  * ```
  */

@@ -37,6 +37,7 @@ export interface ClusterGroupNodeDataFlat {
   groupLabel?: string;
   isValidDestination: boolean;
 
+  // summaryCounts MUST be present. Keep as required to get compile-time checks.
   summaryCounts: {
     primary: number;
     replica: number;
@@ -55,6 +56,10 @@ export interface ClusterGroupNodeDataFlat {
   onNodeClick?: (nodeId: string) => void;
   onDestinationClick?: (nodeId: string) => void;
   onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
+  /** When false the node renderer should not draw shard dots (useful for index viz where
+   * shard leaf nodes are used for visuals and edges). Defaults to true when omitted.
+   */
+  renderDots?: boolean;
 }
 
 
@@ -117,6 +122,7 @@ function columnFor(node: NodeInfo): number {
 
 /** Emit a single group node (shards embedded in data, rendered by ClusterGroupNode). */
 import { formatBytes } from '../utils/formatters';
+import { computeHeapPercent, getHeapColor } from './heap';
 
 function emitGroupNode(
   result: Node[],
@@ -133,8 +139,8 @@ function emitGroupNode(
     );
 
   // Precompute metrics/colors
-  const heapPercent = node.heapMax > 0 ? (node.heapUsed / node.heapMax) * 100 : 0;
-  const heapColor = heapPercent < 70 ? 'green' : heapPercent < 85 ? 'yellow' : 'red';
+  const heapPercent = computeHeapPercent(node.heapUsed, node.heapMax);
+  const heapColor = getHeapColor(heapPercent);
   const cpuPercent = node.cpuPercent ?? undefined;
   const cpuColor =
     cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
@@ -193,22 +199,25 @@ function emitGroupNode(
     onShardClick: input.onShardClick,
   };
 
-  result.push({
-    id: node.id,
-    type: 'clusterGroup',
-    position,
-    draggable: true,
-    style: {
-      width: GROUP_WIDTH,
-      transition: 'transform 0.4s ease',
-      border: isValidDestination
-        ? '2px dashed var(--mantine-color-violet-6)'
-        : '1px solid var(--mantine-color-default-border)',
-      borderRadius: '8px',
-      backgroundColor: 'var(--mantine-color-body)',
-    },
-    data: groupData as unknown as Record<string, unknown>,
-  });
+    result.push({
+      id: node.id,
+      type: 'clusterGroup',
+      position,
+      draggable: true,
+      style: {
+        // Let inner card drive width/height; provide minWidth so layout remains stable
+        minWidth: GROUP_WIDTH,
+        boxSizing: 'border-box',
+        overflow: 'visible',
+        transition: 'transform 0.4s ease',
+        border: isValidDestination
+          ? '2px dashed var(--mantine-color-violet-6)'
+          : '1px solid var(--mantine-color-default-border)',
+        borderRadius: '8px',
+        backgroundColor: 'var(--mantine-color-body)',
+      },
+      data: groupData as unknown as Record<string, unknown>,
+    });
 }
 
 

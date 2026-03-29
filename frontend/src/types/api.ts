@@ -19,6 +19,19 @@ export interface PaginatedResponse<T> {
 }
 
 /**
+ * Paginated shards response that includes authoritative node metadata
+ * returned by the backend for the Index Visualization flow.
+ */
+export interface PaginatedShardsWithNodes {
+  items: ShardInfo[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  nodes: NodeInfo[];
+}
+
+/**
  * Helper to extract items from paginated response or return empty array
  */
 export function getPaginatedItems<T>(
@@ -148,6 +161,7 @@ export interface NodeInfo {
   roles: NodeRole[];
   heapUsed: number;
   heapMax: number;
+  heapPercent: number;
   diskUsed: number;
   diskTotal: number;
   cpuPercent?: number;
@@ -250,7 +264,7 @@ export interface NodeDetailStats {
   jvmVersion: string;
   heapUsed: number;
   heapMax: number;
-  heapPercent: number;
+  heapPercent: number; // Guaranteed to be present: computed server-side or derived client-side in ApiClient
   diskUsed: number;
   diskTotal: number;
   diskPercent: number;

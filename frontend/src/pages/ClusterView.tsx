@@ -307,10 +307,16 @@ export function ClusterView() {
   };
 
   // Shared topology handlers
-  const handleTopologyShardClick = (shard: ShardInfo, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleTopologyShardClick = (shard: ShardInfo, event?: React.MouseEvent) => {
+    // Support optional event (some callers may call with only shard)
+    if (event) {
+      event.stopPropagation();
+      setTopologyContextMenuPosition({ x: event.clientX, y: event.clientY });
+    } else {
+      // Fallback to center of viewport when no event is provided
+      setTopologyContextMenuPosition({ x: Math.floor(window.innerWidth / 2), y: Math.floor(window.innerHeight / 2) });
+    }
     setTopologyContextMenuShard(shard);
-    setTopologyContextMenuPosition({ x: event.clientX, y: event.clientY });
     setTopologyContextMenuOpened(true);
   };
 

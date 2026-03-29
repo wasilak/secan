@@ -2,7 +2,8 @@ import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
 import { Grid, Text, Box, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
-import { NodeCard } from './NodeCard';
+import ClusterESNodeCard from '../ClusterESNodeCard';
+import { formatBytes } from '../../utils/formatters';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import { sortShards } from '../../utils/shardOrdering';
 import {
@@ -11,6 +12,7 @@ import {
   type GroupingConfig,
 } from '../../utils/topologyGrouping';
 import { GroupRenderer } from './GroupRenderer';
+import { computeHeapPercent, getHeapColor } from '../../utils/heap';
 import { GroupingErrorBoundary } from './GroupingErrorBoundary';
 
 interface DotBasedTopologyViewProps {
@@ -18,7 +20,7 @@ interface DotBasedTopologyViewProps {
   shards: ShardInfo[];
   indices: IndexInfo[];
   searchParams: URLSearchParams;
-  onShardClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
+  onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
   onNodeClick?: (nodeId: string) => void;
   relocationMode?: boolean;
   validDestinationNodes?: string[];
@@ -263,23 +265,63 @@ export function DotBasedTopologyView({
 
   // Helper function to render a single node card
   const renderNodeCard = (node: NodeInfo, nodeShards: ShardInfo[]) => {
-    const isValidDestination = relocationMode && validDestinationNodes?.some(
+    const isValidDestination = !!(relocationMode && validDestinationNodes?.some(
       (id) => id === node?.id || id === node?.name
-    );
+    ));
+
+    const heapPercent = computeHeapPercent(node.heapUsed, node.heapMax);
+    const heapColor = getHeapColor(heapPercent);
+    const cpuPercent = node.cpuPercent ?? undefined;
+    const cpuColor = cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
+    const load1m = node.loadAverage?.[0];
+    const loadColor = load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
+    const diskDisplay = formatBytes(node.diskUsed);
+
+    const sortedShards = nodeShards.slice().sort((a,b) => a.shard - b.shard);
+    const primaryCount = sortedShards.filter(s => s.primary).length;
+    const replicaCount = sortedShards.filter(s => !s.primary).length;
+    const totalShards = sortedShards.length;
+
+    const badges: Array<{ label: string; color?: string }> = [{ label: `${totalShards} shards` }];
+    if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
+    if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
+
+    const dots = sortedShards.map(shard => ({
+      color: getIndexHealthColor(shard.index),
+      tooltip: `${shard.index} - Shard ${shard.shard}${shard.primary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`,
+      primary: shard.primary,
+      shard,
+    }));
+
+    const groupData = {
+      id: node.id,
+      name: node.name,
+      version: node.version,
+      roles: node.roles || [],
+      isMaster: node.isMaster,
+      isMasterEligible: node.isMasterEligible,
+      ip: node.ip,
+      heapPercent,
+      heapColor,
+      cpuPercent,
+      cpuColor,
+      diskUsed: node.diskUsed,
+      diskDisplay,
+      load1m,
+      loadColor,
+      groupLabel: undefined,
+      isValidDestination: isValidDestination,
+      summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShards },
+      badges,
+      dots,
+      onNodeClick,
+      onDestinationClick,
+      onShardClick,
+      renderDots: true,
+    };
 
     return (
-      <NodeCard
-        key={node.name}
-        node={node}
-        shards={nodeShards}
-        onNodeClick={onNodeClick}
-        onShardClick={onShardClick}
-        _relocationMode={relocationMode}
-        isValidDestination={isValidDestination}
-        onDestinationClick={onDestinationClick}
-        getIndexHealthColor={getIndexHealthColor}
-        isLoading={loadingNodes.has(node.id)}
-      />
+      <ClusterESNodeCard key={node.name} {...groupData} isValidDestination={isValidDestination} isLoading={loadingNodes.has(node.id)} />
     );
   };
 

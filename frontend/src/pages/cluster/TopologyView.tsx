@@ -49,7 +49,7 @@ interface TopologyViewProps {
   topologyContextMenuOpened: boolean;
   handleTopologyCancelRelocation: () => void;
   handleTopologyDestinationClick: (nodeId: string) => void;
-  handleTopologyShardClick: (shard: ShardInfo, event: React.MouseEvent) => void;
+  handleTopologyShardClick: (shard: ShardInfo, event?: React.MouseEvent) => void;
   handleTopologyContextMenuClose: () => void;
   handleTopologySelectForRelocation: (shard: ShardInfo) => void;
   openIndexModal: (indexName: string) => void;

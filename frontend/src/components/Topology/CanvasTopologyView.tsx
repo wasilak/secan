@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -17,10 +17,9 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
-import { ClusterGroupNode } from './ClusterGroupNode';
-// Debug: ensure ClusterGroupNode is imported at runtime
-// eslint-disable-next-line no-console
-console.log('CanvasTopologyView imported ClusterGroupNode', typeof ClusterGroupNode);
+import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
+// Debug: ensure wrapper imported
+console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
 import { calculateCanvasLayout } from '../../utils/canvasLayout';
 import { sortShards } from '../../utils/shardOrdering';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -29,16 +28,7 @@ import type { GroupingConfig } from '../../utils/topologyGrouping';
 // fallback component so React doesn't throw an "Invalid element type" error
 // which surfaces as the minified React error #310 in production.
 const nodeTypes: NodeTypes = {
-  clusterGroup: ClusterGroupNode || ((props: any) => {
-    // Render a simple placeholder and log the problem for debugging
-    // eslint-disable-next-line no-console
-    console.error('ClusterGroupNode is undefined — rendering fallback node component', props);
-    return (
-      <div style={{ padding: 8, border: '1px dashed red', background: 'rgba(255,0,0,0.04)' }}>
-        Missing node renderer
-      </div>
-    );
-  }),
+  clusterGroup: ClusterESNodeCardFlowWrapper,
 };
 
 interface CanvasTopologyViewProps {
@@ -310,8 +300,6 @@ export function CanvasTopologyView({
   }, [shards, filteredIndices, selectedShardStates]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
-  const nodePositionsById = useRef<{ [id: string]: { x: number; y: number } }>({});
-
   const layoutNodes = useMemo(
     () =>
       calculateCanvasLayout({
@@ -339,14 +327,16 @@ export function CanvasTopologyView({
       getIndexHealthColor,
     ],
   );
+  // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
+  const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
 
   // Merge user-modified positions into the layout-generated nodes
   const layoutNodesWithUserPositions = useMemo(() => {
     return layoutNodes.map(node => {
-      const userPos = nodePositionsById.current[node.id];
+      const userPos = userPositions[node.id];
       return userPos ? { ...node, position: userPos } : node;
     });
-  }, [layoutNodes]);
+  }, [layoutNodes, userPositions]);
 
   // ── Loading skeleton ────────────────────────────────────────────────────────────
   if (isLoading && nodes.length === 0) {
@@ -361,14 +351,13 @@ export function CanvasTopologyView({
 
   // When node positions change via drag stop in Flow
   const handleNodesPositionChange = useCallback((positions: { [id: string]: { x: number; y: number } }) => {
-    // Copy only current visible node IDs
+    // Copy only current visible node IDs and update state
     const visibleNodeIds = new Set(layoutNodes.map(n => n.id));
-    // Purge non-existent nodes from positions
     const merged: { [id: string]: { x: number; y: number } } = {};
     for (const [id, pos] of Object.entries(positions)) {
       if (visibleNodeIds.has(id)) merged[id] = pos;
     }
-    nodePositionsById.current = merged;
+    setUserPositions(merged);
   }, [layoutNodes]);
 
   return (

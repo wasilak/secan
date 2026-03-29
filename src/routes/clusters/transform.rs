@@ -316,6 +316,14 @@ pub fn transform_nodes(
                 (heap_used, heap_max)
             };
 
+            // Compute heap percent (0..100). If heap_max is zero or unavailable, default to 0
+            let heap_percent: u32 = if heap_max > 0 {
+                let pct = (heap_used as f64 / heap_max as f64) * 100.0;
+                pct.clamp(0.0, 100.0).round() as u32
+            } else {
+                0
+            };
+
             // Extract load average (1-minute) - use Prometheus metrics if available
             let load_average = if let Some(prom_metrics) = prometheus_metrics {
                 // Try to get load1 from Prometheus metrics
@@ -353,6 +361,7 @@ pub fn transform_nodes(
                 roles,
                 heap_used,
                 heap_max,
+                heap_percent,
                 disk_used,
                 disk_total,
                 cpu_percent: Some(cpu_percent),
@@ -688,6 +697,30 @@ impl PaginatedShardsResponse {
     }
 }
 
+/// Combined paginated shards response including authoritative node metadata
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PaginatedShardsWithNodes {
+    pub items: Vec<ShardInfoResponse>,
+    pub total: usize,
+    pub page: usize,
+    pub page_size: usize,
+    pub total_pages: usize,
+    pub nodes: Vec<NodeInfoResponse>,
+}
+
+impl PaginatedShardsWithNodes {
+    pub fn new(p: &PaginatedShardsResponse, nodes: Vec<NodeInfoResponse>) -> Self {
+        PaginatedShardsWithNodes {
+            items: p.items.clone(),
+            total: p.total,
+            page: p.page,
+            page_size: p.page_size,
+            total_pages: p.total_pages,
+            nodes,
+        }
+    }
+}
+
 /// Cluster stats response for frontend
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ClusterStatsResponse {
@@ -744,6 +777,8 @@ pub struct NodeInfoResponse {
     pub heap_used: u64,
     #[serde(rename = "heapMax")]
     pub heap_max: u64,
+    #[serde(rename = "heapPercent")]
+    pub heap_percent: u32,
     #[serde(rename = "diskUsed")]
     pub disk_used: u64,
     #[serde(rename = "diskTotal")]
@@ -1274,6 +1309,61 @@ mod tests {
 
         let result = transform_routing_nodes_to_shards(&state);
         assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_nodes_cover_shards_mapping() {
+        // Build nodes_info and nodes_stats for two nodes
+        let nodes_info = json!({
+            "nodes": {
+                "n1": { "name": "node1", "roles": ["data"], "ip": "10.0.0.1", "version": "8.0.0" },
+                "n2": { "name": "node2", "roles": ["data"], "ip": "10.0.0.2", "version": "8.0.0" }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "n1": {
+                    "jvm": { "mem": { "heap_used_in_bytes": 1000, "heap_max_in_bytes": 2000 }, "uptime_in_millis": 1000 },
+                    "fs": { "total": { "total_in_bytes": 10000, "available_in_bytes": 5000 } },
+                    "os": { "cpu": { "percent": 10, "load_average": { "1m": 0.5 } } }
+                },
+                "n2": {
+                    "jvm": { "mem": { "heap_used_in_bytes": 1500, "heap_max_in_bytes": 3000 }, "uptime_in_millis": 2000 },
+                    "fs": { "total": { "total_in_bytes": 20000, "available_in_bytes": 10000 } },
+                    "os": { "cpu": { "percent": 20, "load_average": { "1m": 0.7 } } }
+                }
+            }
+        });
+
+        // routing_nodes state references node names (not ids)
+        let state = json!({
+            "routing_nodes": {
+                "unassigned": [],
+                "nodes": {
+                    "n1": [ { "state": "STARTED", "primary": true, "index": "logs-2024.01", "shard": 0, "node": "node1" } ],
+                    "n2": [ { "state": "STARTED", "primary": false, "index": "logs-2024.01", "shard": 0, "node": "node2" } ]
+                }
+            }
+        });
+
+        let shards = transform_routing_nodes_to_shards(&state);
+        let nodes = transform_nodes(&nodes_info, &nodes_stats, Some("n1"), None);
+
+        // Build set of node names returned by transform_nodes
+        let node_names: std::collections::HashSet<String> =
+            nodes.into_iter().map(|n| n.name).collect();
+
+        // Each shard that has a node should be represented in node_names
+        for shard in shards {
+            if let Some(node_name) = shard.node {
+                assert!(
+                    node_names.contains(&node_name),
+                    "Shard references node '{}' which is missing from transform_nodes output",
+                    node_name
+                );
+            }
+        }
     }
 
     #[test]

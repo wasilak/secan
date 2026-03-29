@@ -20,7 +20,8 @@ use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
     transform_cluster_stats, transform_indices_from_cat, transform_node_detail_stats,
     transform_nodes, transform_routing_nodes_to_shards, transform_shards, ClusterStatsResponse,
-    IndexInfoResponse, NodeDetailStatsResponse, NodeInfoResponse, ShardInfoResponse,
+    IndexInfoResponse, NodeDetailStatsResponse, NodeInfoResponse, PaginatedShardsResponse,
+    PaginatedShardsWithNodes, ShardInfoResponse,
 };
 
 /// Shared application state for cluster routes
@@ -905,6 +906,9 @@ pub struct NodesQueryParams {
     pub search: String,
     #[schema(example = "master,data")]
     pub roles: Option<String>, // comma-separated: master,data,ingest; None = not set, Some("") = explicitly empty
+    #[schema(example = "node-1,node-2")]
+    #[serde(default)]
+    pub nodes: Option<String>, // comma-separated node ids or names
 }
 
 #[utoipa::path(
@@ -935,6 +939,7 @@ pub async fn get_nodes(
         page_size = params.page_size,
         search = %params.search,
         roles = ?params.roles,
+        nodes = ?params.nodes,
         "Getting nodes with filters"
     );
 
@@ -1226,9 +1231,39 @@ pub async fn get_nodes(
         filtered
     });
 
+    // Nodes filter: None = not set (show all), Some("") = explicitly empty (show none), Some("n1,n2") = filter by node id or name
+    let nodes_filter: Option<Vec<&str>> = params.nodes.as_ref().map(|n| {
+        let filtered: Vec<&str> = n.split(',').filter(|s| !s.is_empty()).collect();
+        filtered
+    });
+
     let filtered_nodes: Vec<NodeInfoResponse> = all_nodes
         .into_iter()
         .filter(|node| {
+            // Nodes filter: apply first
+            match &nodes_filter {
+                None => {} // no filter, show all
+                Some(v) if v.is_empty() => {
+                    // explicit empty filter => no nodes match
+                    return false;
+                }
+                Some(list) => {
+                    // match by id OR name (case-insensitive)
+                    let id_lower = node.id.to_lowercase();
+                    let name_lower = node.name.to_lowercase();
+                    let mut found = false;
+                    for val in list {
+                        if id_lower == val.to_lowercase() || name_lower == val.to_lowercase() {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        return false;
+                    }
+                }
+            }
+
             // Search filter (name, IP)
             if !params.search.is_empty() {
                 let search_lower = params.search.to_lowercase();
@@ -1801,7 +1836,7 @@ pub struct ShardsQueryParams {
         ShardsQueryParams
     ),
     responses(
-        (status = 200, body = PaginatedResponse<ShardInfoResponse>),
+        (status = 200, body = PaginatedShardsWithNodes),
         (status = 400, body = ClusterErrorResponse),
         (status = 401, body = ClusterErrorResponse),
         (status = 404, body = ClusterErrorResponse)
@@ -1814,7 +1849,7 @@ pub async fn get_shards(
     Path(cluster_id): Path<String>,
     Query(params): Query<ShardsQueryParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<PaginatedResponse<ShardInfoResponse>>, ClusterErrorResponse> {
+) -> Result<Json<PaginatedShardsWithNodes>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         page = params.page,
@@ -2002,13 +2037,137 @@ pub async fn get_shards(
         "Shards retrieved successfully"
     );
 
-    Ok(Json(PaginatedResponse {
+    // Fetch nodes_info and nodes_stats; fail the request if these cannot be
+    // retrieved. The frontend expects authoritative node metadata for the
+    // index visualization and should not have to synthesize missing values.
+    let nodes_vec: Vec<NodeInfoResponse> = {
+        let nodes_info = cluster.nodes_info().await.map_err(|e| {
+            tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to get nodes info for shards response");
+            ClusterErrorResponse {
+                error: "nodes_info_failed".to_string(),
+                message: format!("Failed to get nodes info: {}", e),
+            }
+        })?;
+
+        let nodes_stats = cluster.nodes_stats().await.map_err(|e| {
+            tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to get nodes stats for shards response");
+            ClusterErrorResponse {
+                error: "nodes_stats_failed".to_string(),
+                message: format!("Failed to get nodes stats: {}", e),
+            }
+        })?;
+
+        // Best-effort master node id
+        let master_node_id = match cluster.cat_master().await {
+            Ok(mid) => Some(mid),
+            Err(e) => {
+                tracing::warn!(cluster_id = %cluster_id, error = %e, "Failed to get master node id for shards response");
+                None
+            }
+        };
+
+        let all_nodes = transform_nodes(&nodes_info, &nodes_stats, master_node_id.as_deref(), None);
+        // Build quick lookup maps from node id -> name and name set for
+        // normalizing node identifiers referenced by shards. Some cluster
+        // APIs return node IDs (routing_nodes keys) while others return node
+        // NAMES (cat/shards). Normalize all referenced identifiers to the
+        // authoritative node NAMES produced by transform_nodes.
+        let mut id_to_name: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        let mut name_set: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for n in &all_nodes {
+            id_to_name.insert(n.id.clone(), n.name.clone());
+            name_set.insert(n.name.clone());
+        }
+
+        // Collect unique node identifiers referenced by shards on this page
+        // (these may be node NAMES or node IDs depending on source). We'll
+        // normalize them to node NAMES using the id_to_name map when
+        // necessary.
+        let referenced_raw: std::collections::HashSet<String> = items_with_details
+            .iter()
+            .filter_map(|s| s.node.clone())
+            .collect();
+
+        let referenced_node_names: std::collections::HashSet<String> = referenced_raw
+            .into_iter()
+            .map(|ident| {
+                // If the identifier already matches a known name, keep it.
+                if name_set.contains(&ident) {
+                    ident
+                } else if let Some(mapped) = id_to_name.get(&ident) {
+                    // If it matches a node ID, map to the node NAME.
+                    mapped.clone()
+                } else {
+                    // Unknown identifier - keep as-is so it shows up in the
+                    // missing list (and we fail the request below).
+                    ident
+                }
+            })
+            .collect();
+
+        // Filter nodes to those that are referenced (by NAME)
+        let page_nodes: Vec<NodeInfoResponse> = all_nodes
+            .into_iter()
+            .filter(|n| referenced_node_names.contains(&n.name))
+            .collect();
+
+        // Verify we have NodeInfo for every referenced node name. If any are
+        // missing, fail the request so the frontend receives a clear error.
+        let present_names: std::collections::HashSet<String> =
+            page_nodes.iter().map(|n| n.name.clone()).collect();
+
+        let missing_raw: Vec<String> = referenced_node_names
+            .into_iter()
+            .filter(|name| !present_names.contains(name))
+            .collect();
+
+        if !missing_raw.is_empty() {
+            // Map missing identifiers (which may be node IDs) to node NAMES when
+            // possible so the error message contains friendly node names.
+            let missing_names: Vec<String> = missing_raw
+                .iter()
+                .map(|ident| {
+                    // If this identifier is actually a node ID we can map it to a
+                    // name via id_to_name. Otherwise, keep the identifier as-is.
+                    id_to_name
+                        .get(ident)
+                        .cloned()
+                        .unwrap_or_else(|| ident.clone())
+                })
+                .collect();
+
+            tracing::error!(
+                cluster_id = %cluster_id,
+                missing_raw = ?missing_raw,
+                missing_names = ?missing_names,
+                "Missing NodeInfo for referenced nodes in shards page"
+            );
+
+            return Err(ClusterErrorResponse {
+                error: "nodes_missing".to_string(),
+                message: format!(
+                    "Missing NodeInfo for nodes referenced by shards: {}. Backend must supply full node metadata.",
+                    missing_names.join(", ")
+                ),
+            });
+        }
+
+        page_nodes
+    };
+
+    // Build paginated shards wrapper and include nodes
+    let paginated_shards = PaginatedShardsResponse {
         items: items_with_details,
         total: paginated.total,
         page: paginated.page,
         page_size: paginated.page_size,
         total_pages: paginated.total_pages,
-    }))
+    };
+
+    let response = PaginatedShardsWithNodes::new(&paginated_shards, nodes_vec);
+
+    Ok(Json(response))
 }
 
 /// Get shards allocated on a specific node
@@ -2874,5 +3033,89 @@ mod tests {
                 index
             );
         }
+    }
+
+    #[test]
+    fn test_get_shards_includes_nodes_for_page() {
+        use serde_json::json;
+        use std::collections::HashSet;
+
+        // Build paginated shards items (two assigned to node1/node2 and one unassigned)
+        let items = vec![
+            ShardInfoResponse {
+                index: "idx-a".to_string(),
+                shard: 0,
+                primary: true,
+                state: "STARTED".to_string(),
+                node: Some("node1".to_string()),
+                docs: 0,
+                store: 0,
+            },
+            ShardInfoResponse {
+                index: "idx-a".to_string(),
+                shard: 1,
+                primary: true,
+                state: "STARTED".to_string(),
+                node: Some("node2".to_string()),
+                docs: 0,
+                store: 0,
+            },
+            ShardInfoResponse {
+                index: "idx-a".to_string(),
+                shard: 2,
+                primary: true,
+                state: "UNASSIGNED".to_string(),
+                node: None,
+                docs: 0,
+                store: 0,
+            },
+        ];
+
+        let paginated = PaginatedShardsResponse::new(items.clone(), 1, 10);
+
+        // Build nodes_info and nodes_stats matching node names referenced by shards
+        let nodes_info = json!({
+            "nodes": {
+                "n1": { "name": "node1", "roles": ["data"], "ip": "10.0.0.1", "version": "8.0.0" },
+                "n2": { "name": "node2", "roles": ["data"], "ip": "10.0.0.2", "version": "8.0.0" }
+            }
+        });
+
+        let nodes_stats = json!({
+            "nodes": {
+                "n1": {
+                    "jvm": { "mem": { "heap_used_in_bytes": 1000, "heap_max_in_bytes": 2000 }, "uptime_in_millis": 1000 },
+                    "fs": { "total": { "total_in_bytes": 10000, "available_in_bytes": 5000 } },
+                    "os": { "cpu": { "percent": 10, "load_average": { "1m": 0.5 } } }
+                },
+                "n2": {
+                    "jvm": { "mem": { "heap_used_in_bytes": 1500, "heap_max_in_bytes": 3000 }, "uptime_in_millis": 2000 },
+                    "fs": { "total": { "total_in_bytes": 20000, "available_in_bytes": 10000 } },
+                    "os": { "cpu": { "percent": 20, "load_average": { "1m": 0.7 } } }
+                }
+            }
+        });
+
+        // Simulate handler logic: transform nodes and filter by referenced names
+        let all_nodes = transform_nodes(&nodes_info, &nodes_stats, Some("n1"), None);
+
+        let referenced_node_names: HashSet<String> = paginated
+            .items
+            .iter()
+            .filter_map(|s| s.node.clone())
+            .collect();
+
+        let nodes_vec: Vec<NodeInfoResponse> = all_nodes
+            .into_iter()
+            .filter(|n| referenced_node_names.contains(&n.name))
+            .collect();
+
+        let response = PaginatedShardsWithNodes::new(&paginated, nodes_vec);
+
+        // Expect nodes for node1 and node2 to be included; unassigned shard should not require a node
+        assert_eq!(response.nodes.len(), 2);
+        let names: HashSet<String> = response.nodes.into_iter().map(|n| n.name).collect();
+        assert!(names.contains("node1"));
+        assert!(names.contains("node2"));
     }
 }

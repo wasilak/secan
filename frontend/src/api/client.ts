@@ -9,6 +9,7 @@ import {
   NodeDetailStats,
   IndexInfo,
   ShardInfo,
+  PaginatedShardsWithNodes,
   LoginRequest,
   ApiError,
   ApiClientError,
@@ -36,6 +37,8 @@ import {
   TaskDetailsResponse,
   CancelTaskResponse,
 } from '../types/api';
+import { computeHeapPercent } from '../utils/heap';
+import { incrementHeapPercentMissing } from '../utils/metrics';
 
 /**
  * Retry configuration
@@ -377,13 +380,14 @@ export class ApiClient {
    *
    * Requirements: 4.6, 14.1, 14.2
    */
-  async getNodes(
+    async getNodes(
     clusterId: string,
     page: number = 1,
     pageSize: number = 50,
     filters?: {
       search?: string;
       roles?: string; // comma-separated: 'master,data,ingest'
+      nodes?: string; // comma-separated node ids or names to filter
     }
   ): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
@@ -397,6 +401,10 @@ export class ApiClient {
       if (filters?.roles !== undefined) {
         params.roles = filters.roles;
       }
+      if (filters?.nodes !== undefined) {
+        // pass through a comma-separated list of node ids or names
+        params.nodes = filters.nodes;
+      }
 
       const response = await this.client.get<PaginatedResponse<NodeInfo>>(
         `/clusters/${clusterId}/nodes`,
@@ -406,13 +414,27 @@ export class ApiClient {
       // Ensure optional fields have proper defaults
       return {
         ...response.data,
-        items: response.data.items.map((node) => ({
-          ...node,
-          tags: node.tags ?? [],
-          loadAverage: node.loadAverage ?? undefined,
-          uptime: node.uptime ?? undefined,
-          uptimeMillis: node.uptimeMillis ?? undefined,
-        })),
+        items: response.data.items.map((node) => {
+          // Ensure tags and other optional fields have sensible defaults
+          const tags = node.tags ?? [];
+          const loadAverage = node.loadAverage ?? undefined;
+          const uptime = node.uptime ?? undefined;
+          const uptimeMillis = Number.isFinite(node.uptimeMillis) ? node.uptimeMillis : undefined;
+
+          // Prefer server-provided heapPercent when valid; otherwise derive it from heapUsed/heapMax
+          const serverHeap = Number.isFinite((node as any).heapPercent) ? (node as any).heapPercent : undefined;
+          const heapPercent = serverHeap !== undefined ? serverHeap : computeHeapPercent(node.heapUsed, node.heapMax);
+          if (serverHeap === undefined) incrementHeapPercentMissing();
+
+          return {
+            ...node,
+            tags,
+            loadAverage,
+            uptime,
+            uptimeMillis,
+            heapPercent,
+          } as NodeInfo;
+        }),
       };
     });
   }
@@ -452,9 +474,17 @@ export class ApiClient {
         return value;
       };
 
+      const serverHeapPercent = validateNumber(data.heapPercent, 'heapPercent');
+      const heapPercent =
+        serverHeapPercent !== undefined
+          ? serverHeapPercent
+          : computeHeapPercent(data.heapUsed, data.heapMax);
+      if (serverHeapPercent === undefined) incrementHeapPercentMissing();
+
       return {
         ...data,
         cpuPercent: validateNumber(data.cpuPercent, 'cpuPercent'),
+        heapPercent,
         loadAverage: data.loadAverage ?? undefined,
         uptime: data.uptime ?? undefined,
         uptimeMillis: validateNumber(data.uptimeMillis, 'uptimeMillis'),
@@ -523,7 +553,7 @@ export class ApiClient {
       index?: string; // specific index filter (AND logic with node)
       node?: string; // specific node filter (AND logic with index)
     }
-  ): Promise<PaginatedResponse<ShardInfo>> {
+  ): Promise<PaginatedShardsWithNodes | PaginatedResponse<ShardInfo>> {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<PaginatedResponse<ShardInfo>>(
         `/clusters/${clusterId}/shards`,
@@ -541,7 +571,11 @@ export class ApiClient {
           },
         }
       );
-      return response.data;
+      // The backend may return the combined PaginatedShardsWithNodes shape for
+      // the Index Visualization flow. If so, preserve and return it; otherwise
+      // return the legacy PaginatedResponse<ShardInfo>.
+      const data = response.data as unknown as PaginatedShardsWithNodes | PaginatedResponse<ShardInfo>;
+      return data;
     });
   }
 

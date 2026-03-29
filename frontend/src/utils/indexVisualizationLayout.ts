@@ -13,11 +13,15 @@
  */
 
 import type { Node, Edge } from '@xyflow/react';
-import type { ShardInfo } from '../types/api';
+import type { ShardInfo, NodeInfo } from '../types/api';
 import { sortShards } from './shardOrdering';
 import type { IndexGroupNodeData } from '../components/IndexGroupNode';
-import type { IndexNodeSubGroupData } from '../components/IndexNodeSubGroup';
 import type { ShardNodeData } from '../components/Topology/ShardNode';
+import { computeHeapPercent, getHeapColor } from './heap';
+import { getShardDotColor } from './colors';
+import { formatBytes } from '../utils/formatters';
+import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
+import { GROUP_WIDTH } from './canvasLayout';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 export const SHARD_SIZE = 24;
@@ -37,6 +41,8 @@ export const SUBGROUP_WIDTH =
 export interface IndexVizLayoutInput {
   indexName: string;
   shards: ShardInfo[];
+  // authoritative node metadata for all nodes referenced by shards
+  nodes: NodeInfo[];
   health?: 'green' | 'yellow' | 'red';
   onShardClick?: (shard: ShardInfo) => void;
 }
@@ -68,24 +74,17 @@ export function calculateIndexVizLayout(
   input: IndexVizLayoutInput,
 ): IndexVizLayoutOutput {
   const { indexName, shards, health, onShardClick } = input;
+  const nodeInfos = input.nodes ?? [];
 
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
   if (shards.length === 0) {
-    // Emit a minimal index group so the canvas is not blank.
-    const indexData: IndexGroupNodeData = {
-      indexName,
-      health,
-      shardCount: 0,
-    };
+    // Emit a minimal root node so the canvas/modal is not blank.
     nodes.push({
       id: 'idx',
-      type: 'indexGroup',
       position: { x: 0, y: 0 },
-      width: SUBGROUP_WIDTH + INDEX_PADDING * 2,
-      height: INDEX_HEADER + INDEX_PADDING * 2,
-      data: indexData as unknown as Record<string, unknown>,
+      data: { label: indexName },
     });
     return { nodes, edges };
   }
@@ -121,25 +120,19 @@ export function calculateIndexVizLayout(
   const indexW = totalSubgroupsWidth + INDEX_PADDING * 2;
   const indexH = INDEX_HEADER + maxSubgroupH + INDEX_PADDING * 2;
 
-  // ── 3. Emit index group node ──────────────────────────────────────────────
-  const indexData: IndexGroupNodeData = {
-    indexName,
-    health,
-    shardCount: shards.length,
-  };
-
+  // ── 3. Emit root node (minimal default node for modal) ────────────────────
   nodes.push({
     id: 'idx',
-    type: 'indexGroup',
     position: { x: 0, y: 0 },
-    width: indexW,
-    height: indexH,
-    data: indexData as unknown as Record<string, unknown>,
+    data: { label: indexName },
   });
 
-  // Map: `${shardNumber}__p` → nodeId (for edge building)
+  // We'll render the index header at the top and create a clusterGroup-style
+  // node for each ES node below. Each clusterGroup node will receive only the
+  // shards belonging to this index and will render them using the same
+  // ClusterGroupNode component. We still emit shard-level nodes for edges
+  // between primary and replicas so we can draw connections.
   const primaryShardNodeId = new Map<number, string>();
-  // Map: shardNumber → replicaNodeIds[]
   const replicaShardNodeIds = new Map<number, string[]>();
 
   // ── 4. Emit sub-groups + their shard children ─────────────────────────────
@@ -157,76 +150,147 @@ export function calculateIndexVizLayout(
     const sgY = INDEX_HEADER + INDEX_PADDING;
     const sgH = subgroupHeights[sgIdx];
 
-    // Sub-group node
-    const sgData: IndexNodeSubGroupData = {
-      nodeName: nodeKey === UNASSIGNED_KEY ? 'Unassigned' : nodeKey,
+    // Find authoritative node info by id, name or ip. Some upstream data
+    // sources may supply shard.node as either the node NAME or the node ID
+    // (and occasionally an IP). Accept all of them so the layout is tolerant
+    // to mixed inputs — similar to other frontend components.
+    const nodeInfoByIdentifier = new Map<string, NodeInfo>();
+    for (const n of nodeInfos) {
+      if (n.id) nodeInfoByIdentifier.set(n.id, n);
+      if (n.name) nodeInfoByIdentifier.set(n.name, n);
+      if ((n as any).ip) nodeInfoByIdentifier.set((n as any).ip, n);
+    }
+
+    let nodeInfo = nodeInfoByIdentifier.get(nodeKey);
+
+    // Special-case unassigned shards: provide a lightweight placeholder so the
+    // index visualization can render an "Unassigned" subgroup without requiring
+    // a full NodeInfo from the backend. All other missing NodeInfo entries are
+    // considered errors and will fail fast to surface backend gaps.
+    if (!nodeInfo) {
+      if (nodeKey === UNASSIGNED_KEY) {
+        nodeInfo = {
+          id: UNASSIGNED_KEY,
+          name: 'Unassigned',
+          roles: [],
+          heapUsed: 0,
+          heapMax: 0,
+          heapPercent: 0,
+          diskUsed: 0,
+          diskTotal: 0,
+          cpuPercent: undefined,
+          ip: undefined,
+          version: undefined,
+          isMaster: false,
+          isMasterEligible: false,
+          loadAverage: undefined,
+          uptime: undefined,
+          uptimeMillis: undefined,
+          tags: undefined,
+        } as unknown as NodeInfo;
+      } else {
+        throw new Error(`Index visualization: missing NodeInfo for node '${nodeKey}'. Backend must supply full node metadata.`);
+      }
+    }
+
+    // Build dots and badges for this node using the shards of this index
+    const primaryCount = sgShards.filter((s) => s.primary).length;
+    const replicaCount = sgShards.filter((s) => !s.primary).length;
+    const totalShardsForNode = sgShards.length;
+
+    const badgesForNode: Array<{ label: string; color?: string }> = [
+      { label: `${totalShardsForNode} shards` },
+    ];
+    if (primaryCount > 0) badgesForNode.push({ label: `${primaryCount} primary`, color: 'blue' });
+    if (replicaCount > 0) badgesForNode.push({ label: `${replicaCount} replica`, color: 'gray' });
+
+    // Use shard-state-based dot coloring (consistent with other topology views)
+    const dotsForNode = sgShards.map((shard: ShardInfo) => ({
+      color: getShardDotColor(shard.state),
+      tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
+      primary: shard.primary,
+      shard,
+    }));
+
+    // Build flat ClusterGroupNodeDataFlat so IndexVisualization reuses the same renderer
+    const heapPercent = computeHeapPercent(nodeInfo.heapUsed as number | undefined, nodeInfo.heapMax as number | undefined);
+    const flat: ClusterGroupNodeDataFlat = {
+      id: nodeInfo.id ?? `node__${nodeInfo.name ?? 'unknown'}`,
+      name: nodeInfo.name ?? nodeInfo.id ?? 'unknown',
+      version: nodeInfo.version,
+      roles: nodeInfo.roles ?? [],
+      isMaster: !!nodeInfo.isMaster,
+      isMasterEligible: !!nodeInfo.isMasterEligible,
+      ip: nodeInfo.ip,
+      heapPercent,
+      heapColor: getHeapColor(heapPercent),
+      cpuPercent: nodeInfo.cpuPercent ?? undefined,
+      cpuColor: nodeInfo.cpuPercent === undefined ? 'dimmed' : nodeInfo.cpuPercent < 70 ? 'green' : nodeInfo.cpuPercent < 85 ? 'yellow' : 'red',
+      diskUsed: (nodeInfo.diskUsed as number) ?? 0,
+      diskDisplay: formatBytes(nodeInfo.diskUsed ?? 0),
+      load1m: nodeInfo.loadAverage && nodeInfo.loadAverage.length > 0 ? nodeInfo.loadAverage[0] : undefined,
+      loadColor: (nodeInfo.loadAverage && nodeInfo.loadAverage.length > 0) ? (nodeInfo.loadAverage[0] < 4 ? 'green' : nodeInfo.loadAverage[0] < 6 ? 'yellow' : 'red') : 'dimmed',
+      groupLabel: undefined,
+      isValidDestination: false,
+      summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShardsForNode },
+      badges: badgesForNode,
+      dots: dotsForNode,
+      onNodeClick: undefined,
+      onDestinationClick: undefined,
+      onShardClick: onShardClick ?? undefined,
+      renderDots: true,
     };
 
     nodes.push({
       id: subgroupId,
-      type: 'nodeSubGroup',
-      parentId: 'idx',
-      extent: 'parent',
+      type: 'clusterGroup',
       position: { x: sgX, y: sgY },
-      width: SUBGROUP_WIDTH,
-      height: sgH,
+      // Visual width is driven by the inner card (ClusterESNodeCard) which
+      // sets minWidth/width. Do not set RF node width to avoid clipping the
+      // inner card border due to double-sizing / subpixel rounding.
+      // Do not set RF node height: let the DOM/card drive its own height so
+      // React Flow places handles/connectors correctly (avoids clipped borders
+      // and mis-positioned bottom handles due to stale fixed heights).
       draggable: false,
-      data: sgData as unknown as Record<string, unknown>,
+      style: {
+        // Provide minWidth to avoid clipping while allowing DOM-driven sizing
+        minWidth: GROUP_WIDTH,
+        boxSizing: 'border-box',
+        overflow: 'visible',
+        transition: 'transform 0.4s ease',
+        border: '1px solid var(--mantine-color-default-border)',
+        borderRadius: '8px',
+        backgroundColor: 'var(--mantine-color-body)',
+      },
+      data: flat as unknown as Record<string, unknown>,
     });
 
-    // Shard leaf nodes
-    sgShards.forEach((shard, idx) => {
-      const col = idx % SHARDS_PER_ROW;
-      const row = Math.floor(idx / SHARDS_PER_ROW);
-      const shardNodeId = `shard__${nodeKey}__${shard.shard}__${shard.primary ? 'p' : 'r'}`;
-
-      const shardData: ShardNodeData = {
-        shard,
-        onShardClick: onShardClick
-          ? (s: ShardInfo) => onShardClick(s)
-          : undefined,
-      };
-
-      nodes.push({
-        id: shardNodeId,
-        type: 'shardNode',
-        parentId: subgroupId,
-        extent: 'parent',
-        position: {
-          x: SUBGROUP_PADDING + col * (SHARD_SIZE + SHARD_GAP),
-          y: SUBGROUP_HEADER + SUBGROUP_PADDING + row * (SHARD_SIZE + SHARD_GAP),
-        },
-        width: SHARD_SIZE,
-        height: SHARD_SIZE,
-        draggable: false,
-        selectable: false,
-        data: shardData as unknown as Record<string, unknown>,
+    // Connect the index header node to the subgroup (node card) with a single edge
+      edges.push({
+        id: `edge__idx__${subgroupId}`,
+        source: 'idx',
+        target: subgroupId,
       });
 
-      // Record for edge building
-      if (shard.primary) {
-        primaryShardNodeId.set(shard.shard, shardNodeId);
-      } else {
-        if (!replicaShardNodeIds.has(shard.shard)) {
-          replicaShardNodeIds.set(shard.shard, []);
-        }
-        replicaShardNodeIds.get(shard.shard)!.push(shardNodeId);
-      }
-    });
+    // Omit emission of visible ShardNode leaf nodes; all relevant shards are shown in the ClusterGroupNode dot rendering above.
+    // If edges between primary and replica shards are still needed, re-add invisible ShardNodes here; otherwise remove all below.
+    // (No code for emitting ShardNodes or edges to them.)
+
   });
 
   // ── 5. Emit primary→replica edges ────────────────────────────────────────
-  primaryShardNodeId.forEach((primaryId, shardNum) => {
-    const replicas = replicaShardNodeIds.get(shardNum) ?? [];
-    replicas.forEach((replicaId) => {
-      edges.push({
-        id: `edge__${primaryId}__${replicaId}`,
-        source: primaryId,
-        target: replicaId,
-        zIndex: 1,
-      });
-    });
-  });
+  // NOOP for this index visualization: omit primary→replica edges (per requirements)
+  // primaryShardNodeId.forEach((primaryId, shardNum) => {
+  //   const replicas = replicaShardNodeIds.get(shardNum) ?? [];
+  //   replicas.forEach((replicaId) => {
+  //     edges.push({
+  //       id: `edge__${primaryId}__${replicaId}`,
+  //       source: primaryId,
+  //       target: replicaId,
+  //       zIndex: 1,
+  //     });
+  //   });
+  // });
 
   return { nodes, edges };
 }

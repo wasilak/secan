@@ -3,6 +3,7 @@ import { Tooltip } from '@mantine/core';
 import { type NodeProps } from '@xyflow/react';
 import type { ShardInfo } from '../../types/api';
 import { getShardDotColor, getShardBorderColor } from '../../utils/colors';
+import { SHARD_SIZE } from '../../utils/canvasLayout';
 
 /**
  * Data interface for ShardNode — shared by Canvas and Index Viz.
@@ -13,6 +14,10 @@ export interface ShardNodeData extends Record<string, unknown> {
   shard: ShardInfo;
   /** Optional: called on click. event is optional so Index Viz can omit it. */
   onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
+  /** When true the ShardNode should render invisibly and not handle pointer events.
+   * Useful when ShardNodes are present only to act as edge endpoints in index viz.
+   */
+  invisible?: boolean;
 }
 
 /**
@@ -28,7 +33,24 @@ export interface ShardNodeData extends Record<string, unknown> {
  * Requirements: 5.1, 5.2, 5.3
  */
 function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
-  const { shard, onShardClick } = data;
+  const { shard, onShardClick, invisible } = data as ShardNodeData;
+  if (invisible) {
+    // Render an invisible placeholder that retains RF position/size but
+    // doesn't show visuals or receive pointer events. This allows edges to
+    // connect to the node while the ClusterGroupNode renders the visible
+    // shard dots.
+    return (
+      <div
+        style={{
+          width: SHARD_SIZE,
+          height: SHARD_SIZE,
+          boxSizing: 'border-box',
+          pointerEvents: 'none',
+          background: 'transparent',
+        }}
+      />
+    );
+  }
   const bg = getShardDotColor(shard.state);
   const border = getShardBorderColor(shard.state);
   const label = `${shard.index} / shard ${shard.shard} — ${shard.primary ? 'Primary' : 'Replica'} — ${shard.state}`;
@@ -41,6 +63,14 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
             e.stopPropagation();
             onShardClick(shard, e);
           }
+        }}
+        onPointerDown={(e) => {
+          // Prevent parent node click handlers from receiving pointer events
+          e.stopPropagation();
+        }}
+        onMouseDown={(e) => {
+          // Defensive: stop mouse down as well
+          e.stopPropagation();
         }}
         style={{
           width: 24,
