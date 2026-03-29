@@ -134,6 +134,17 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   border: none !important;
 }
 
+/* Remove inner borders inside the cluster node card when rendered inside ReactFlow canvas.
+   Keep the card's own border (inline style) intact; target only direct children which
+   were rendering those internal rounded outlines in the Canvas view. */
+.react-flow__node .secan-cluster-node-card > * {
+  border: none !important;
+}
+
+.secan-reactflow .secan-cluster-node-card > * {
+  border: none !important;
+}
+
 /* Dark-mode: RF is expected to draw the outer border (node renderer hides its own). */
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div,
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div > div,
