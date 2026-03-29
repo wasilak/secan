@@ -973,6 +973,14 @@ export function ClusterView() {
       const count = (mergedAllShards || []).filter((s) => !s.node || s.state === 'UNASSIGNED').length;
       // eslint-disable-next-line no-console
       console.debug('[ClusterView] mergedAllShards unassigned count:', count);
+      if (count > 0 && count < 200) {
+        const samples = (mergedAllShards || [])
+          .filter((s) => !s.node || s.state === 'UNASSIGNED')
+          .slice(0, 20)
+          .map((s) => `${s.index}[${s.shard}]`);
+        // eslint-disable-next-line no-console
+        console.debug('[ClusterView] mergedAllShards unassigned sample:', samples);
+      }
     } catch (e) {
       // ignore
     }
