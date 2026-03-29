@@ -50,10 +50,16 @@ export function GroupRenderer({
       data-node-count={nodes.length}
       style={{
         position: 'relative',
-        border: '2px solid var(--mantine-color-gray-4)',
+        // Don't draw a heavy outer border here — let the inner node card
+        // render its own border in Node View. Use subtle background and
+        // padding to group nodes visually and avoid 2px seam artifacts.
+        border: 'none',
         borderRadius: '8px',
         padding: '16px',
         marginBottom: '16px',
+        backgroundColor: 'var(--mantine-color-body)',
+        boxShadow: '0 1px 0 rgba(0,0,0,0.02) inset',
+        overflow: 'visible',
       }}
     >
       {/* Group label positioned at top-left of border */}

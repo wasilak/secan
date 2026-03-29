@@ -140,23 +140,26 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
         <Text size="xs" c="dimmed" fw={500} mb={2}>{groupLabel}</Text>
       )}
 
-      <Flex gap="xs" wrap="wrap" mb={6}>
-        {ip && <Text size="xs" c="dimmed">IP: {ip}</Text>}
-        {cpuPercent !== undefined && (
-          <Text size="xs" c={cpuColor}>CPU: {cpuPercent.toFixed(1)}%</Text>
-        )}
-        <Text size="xs" c={heapColor}>Heap: {typeof heapPercent === 'number' && !isNaN(heapPercent) ? `${heapPercent.toFixed(1)}%` : 'N/A'}</Text>
-        <Text size="xs" c="dimmed">Disk: {diskDisplay}</Text>
-        {load1m !== undefined && (
-          <Text size="xs" c={loadColor}>Load: {load1m.toFixed(2)}</Text>
-        )}
-      </Flex>
+      {/* Metrics: hide heap/disk for unassigned bucket entirely */}
+      {!props.isUnassigned && (
+        <Flex gap="xs" wrap="wrap" mb={6}>
+          {ip && <Text size="xs" c="dimmed">IP: {ip}</Text>}
+          {cpuPercent !== undefined && (
+            <Text size="xs" c={cpuColor}>CPU: {cpuPercent.toFixed(1)}%</Text>
+          )}
+          <Text size="xs" c={heapColor}>Heap: {typeof heapPercent === 'number' && !isNaN(heapPercent) ? `${heapPercent.toFixed(1)}%` : 'N/A'}</Text>
+          <Text size="xs" c="dimmed">Disk: {diskDisplay}</Text>
+          {load1m !== undefined && (
+            <Text size="xs" c={loadColor}>Load: {load1m.toFixed(2)}</Text>
+          )}
+        </Flex>
+      )}
 
       <Divider mb={6} />
 
-      {renderDots !== false && dots.length > 0 && (
-        <Flex gap={3} wrap="wrap" mb={6}>
-          {dots.map((dot, idx) => (
+        {renderDots !== false && dots.length > 0 && (
+          <Flex gap={3} wrap="wrap" mb={6}>
+            {dots.map((dot, idx) => (
             <Tooltip
               key={idx}
               label={dot.tooltip}

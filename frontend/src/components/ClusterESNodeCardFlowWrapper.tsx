@@ -3,6 +3,7 @@ import ClusterESNodeCard from './ClusterESNodeCard';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { computeHeapPercent, getHeapColor } from '../utils/heap';
 import { formatBytes } from '../utils/formatters';
+import { UNASSIGNED_KEY } from '../utils/canvasLayout';
 import type { ShardInfo, NodeInfo } from '../types/api';
 
 export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeDataFlat }) {
@@ -47,6 +48,8 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       shard,
     }));
 
+    const isUnassigned = nodeInfo.id === UNASSIGNED_KEY || nodeInfo.name === 'Unassigned';
+
     const flat: ClusterGroupNodeDataFlat = {
       id: nodeInfo.id ?? `node__${nodeInfo.name ?? 'unknown'}`,
       name: nodeInfo.name ?? nodeInfo.id ?? 'unknown',
@@ -72,6 +75,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       onDestinationClick: undefined,
       onShardClick: (data['onShardClick'] as ((s: ShardInfo, e?: React.MouseEvent) => void) | undefined) ?? undefined,
       renderDots: true,
+      isUnassigned,
     };
 
     return (

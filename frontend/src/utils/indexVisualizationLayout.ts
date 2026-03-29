@@ -239,6 +239,7 @@ export function calculateIndexVizLayout(
       onDestinationClick: undefined,
       onShardClick: onShardClick ?? undefined,
       renderDots: true,
+      isUnassigned: nodeKey === UNASSIGNED_KEY,
     };
 
     nodes.push({

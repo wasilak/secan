@@ -20,8 +20,10 @@ import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 // Debug: ensure wrapper imported
 console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
-import { calculateCanvasLayout } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, UNASSIGNED_KEY } from '../../utils/canvasLayout';
 import { sortShards } from '../../utils/shardOrdering';
+import { applyDagreLayout } from '../../utils/dagreLayout';
+import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
 
 // Defensive: if ClusterGroupNode failed to import for any reason, provide a
@@ -167,11 +169,46 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
   useEffect(() => {
     if (!isDraggingRef.current) {
-      setFlowNodes(layoutNodes);
+      // Always apply dagre for consistent node distribution
+      try {
+        const dagreLayout = applyDagreLayout(layoutNodes, [], 'TB');
+        setFlowNodes(dagreLayout.nodes);
+      } catch (err) {
+        // Fallback to raw layout if dagre fails
+        setFlowNodes(layoutNodes);
+      }
     } else {
       pendingLayoutRef.current = layoutNodes;
     }
   }, [layoutNodes, setFlowNodes]);
+
+  // Collision resolving: wait for RF to measure node sizes, then nudge nodes
+  // apart if they overlap. Mirrors IndexVisualizationFlow behavior.
+  const layoutRunId = useRef(0);
+  useEffect(() => {
+    layoutRunId.current += 1;
+    const runId = layoutRunId.current;
+    let cancelled = false;
+
+    const attemptResolve = () => {
+      const nodesArr = (flowNodes as any[]) || [];
+      if (nodesArr.length === 0) return;
+      const measuredReady = nodesArr.every((n) => !!n.measured && n.measured.width > 0 && n.measured.height > 0);
+      if (!measuredReady) {
+        requestAnimationFrame(attemptResolve);
+        return;
+      }
+
+      const resolved = resolveCollisions(nodesArr, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
+
+      if (!cancelled && runId === layoutRunId.current) {
+        setFlowNodes(resolved as any);
+      }
+    };
+
+    requestAnimationFrame(attemptResolve);
+    return () => { cancelled = true; };
+  }, [flowNodes, setFlowNodes]);
 
   return (
     <ReactFlow
@@ -180,7 +217,9 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
       nodeTypes={safeNodeTypes}
       onNodesChange={handleNodesChange}
       onNodeDragStop={handleNodeDragStop}
-      nodesDraggable={true}
+      // Disable dragging at the top-level Flow for Canvas/Cluster view to
+      // maintain parity with Index Visualization and avoid accidental layout shifts.
+      nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={true}
       minZoom={0.1}
@@ -287,16 +326,13 @@ export function CanvasTopologyView({
         return true;
       }),
     );
-    return filtered.reduce(
-      (acc, shard) => {
-        if (shard.node) {
-          if (!acc[shard.node]) acc[shard.node] = [];
-          acc[shard.node].push(shard);
-        }
-        return acc;
-      },
-      {} as Record<string, ShardInfo[]>,
-    );
+    const acc = filtered.reduce((acc, shard) => {
+      const key = shard.node ?? UNASSIGNED_KEY;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(shard);
+      return acc;
+    }, {} as Record<string, ShardInfo[]>);
+    return acc;
   }, [shards, filteredIndices, selectedShardStates]);
 
   // ── Layout ────────────────────────────────────────────────────────────────

@@ -60,6 +60,8 @@ export interface ClusterGroupNodeDataFlat {
    * shard leaf nodes are used for visuals and edges). Defaults to true when omitted.
    */
   renderDots?: boolean;
+  /** Whether this node represents the special unassigned shard bucket */
+  isUnassigned?: boolean;
 }
 
 
@@ -72,10 +74,19 @@ const ESTIMATED_HEADER_HEIGHT = 80;
 const ESTIMATED_SHARD_ROW_HEIGHT = SHARD_SIZE + SHARD_GAP;
 const GROUP_PADDING_BOTTOM = 12;
 export const GROUP_WIDTH = 360;
-export const HORIZONTAL_GAP = 50;
-export const VERTICAL_GAP = 30;
+// Tuned gaps for Dagre + collision resolver to produce pleasant spacing
+export const HORIZONTAL_GAP = 60;
+export const VERTICAL_GAP = 40;
+
+// Key used to collect shards that are not assigned to any node
+export const UNASSIGNED_KEY = '__unassigned__';
 
 const COLUMN_WIDTH = GROUP_WIDTH + HORIZONTAL_GAP;
+
+// Estimated single-row group height used as a sensible fallback by layout
+// consumers that need a non-content-driven height (eg. dagre layout).
+export const ESTIMATED_GROUP_HEIGHT =
+  ESTIMATED_HEADER_HEIGHT + ESTIMATED_SHARD_ROW_HEIGHT + GROUP_PADDING_BOTTOM;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface CanvasLayoutInput {
@@ -139,15 +150,19 @@ function emitGroupNode(
     );
 
   // Precompute metrics/colors
-  const heapPercent = computeHeapPercent(node.heapUsed, node.heapMax);
-  const heapColor = getHeapColor(heapPercent);
+  // For unassigned placeholder nodes we should not attempt to show heap/disk
+  // metrics (they are not actual ES nodes). The `node` parameter may be a
+  // lightweight placeholder with id === UNASSIGNED_KEY.
+  const isUnassignedNode = (node as any)?.id === (UNASSIGNED_KEY as any);
+  const heapPercent = isUnassignedNode ? 0 : computeHeapPercent(node.heapUsed, node.heapMax);
+  const heapColor = isUnassignedNode ? 'dimmed' : getHeapColor(heapPercent);
   const cpuPercent = node.cpuPercent ?? undefined;
   const cpuColor =
     cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
   const load1m = node.loadAverage?.[0];
   const loadColor =
     load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
-  const diskDisplay = formatBytes(node.diskUsed);
+  const diskDisplay = isUnassignedNode ? '0 B' : formatBytes(node.diskUsed);
 
   // Shard dot and badge summaries (precompute all)
   const sortedShards = sortShards(shards);
@@ -187,6 +202,7 @@ function emitGroupNode(
     cpuColor,
     diskUsed: node.diskUsed,
     diskDisplay,
+    isUnassigned: isUnassignedNode,
     load1m,
     loadColor,
     groupLabel,
@@ -203,7 +219,8 @@ function emitGroupNode(
       id: node.id,
       type: 'clusterGroup',
       position,
-      draggable: true,
+      // Nodes are not draggable in the canvas/cluster view by design (consistent with Index view)
+      draggable: false,
       style: {
         // Let inner card drive width/height; provide minWidth so layout remains stable
         minWidth: GROUP_WIDTH,
@@ -271,6 +288,24 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
 
       colX += COLUMN_WIDTH;
     });
+  }
+
+  // Emit synthetic Unassigned node if present in shardsByNode
+  const unassigned = shardsByNode[UNASSIGNED_KEY];
+  if (unassigned && unassigned.length > 0) {
+    const uNode: any = {
+      id: UNASSIGNED_KEY,
+      name: 'Unassigned',
+      roles: [],
+      heapUsed: 0,
+      heapMax: 0,
+      diskUsed: 0,
+    };
+    // Place unassigned roughly after existing nodes; choose the middle column offset
+    const ux = COLUMN_WIDTH; // middle column
+    // Place below the lowest emitted node to avoid overlap
+    const maxY = result.length ? Math.max(...result.map((n) => (n.position?.y ?? 0))) + VERTICAL_GAP : 0;
+    emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned, input, 'Unassigned');
   }
 
   return result;

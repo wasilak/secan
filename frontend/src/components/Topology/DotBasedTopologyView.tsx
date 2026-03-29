@@ -3,6 +3,7 @@ import { Grid, Text, Box, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import ClusterESNodeCard from '../ClusterESNodeCard';
+import { UNASSIGNED_KEY } from '../../utils/canvasLayout';
 import { formatBytes } from '../../utils/formatters';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import { sortShards } from '../../utils/shardOrdering';
@@ -247,12 +248,13 @@ export function DotBasedTopologyView({
 
   // Group assigned filtered shards by node for rendering
   const filteredShardsByNode = useMemo(() => {
-    return assignedShards.reduce((acc, shard) => {
-      const nodeName = shard.node!;
-      if (!acc[nodeName]) acc[nodeName] = [];
-      acc[nodeName].push(shard);
+    const acc = assignedShards.reduce((acc, shard) => {
+      const key = shard.node ?? UNASSIGNED_KEY;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(shard);
       return acc;
     }, {} as Record<string, ShardInfo[]>);
+    return acc;
   }, [assignedShards]);
 
   if (filteredNodes.length === 0) {
@@ -265,17 +267,22 @@ export function DotBasedTopologyView({
 
   // Helper function to render a single node card
   const renderNodeCard = (node: NodeInfo, nodeShards: ShardInfo[]) => {
+    // If this is the special unassigned bucket, render a fake NodeInfo
+    const isUnassigned = node.id === UNASSIGNED_KEY || node.name === UNASSIGNED_KEY;
+    const effectiveNode = isUnassigned
+      ? ({ id: UNASSIGNED_KEY, name: 'Unassigned', roles: [] } as unknown as NodeInfo)
+      : node;
     const isValidDestination = !!(relocationMode && validDestinationNodes?.some(
       (id) => id === node?.id || id === node?.name
     ));
 
-    const heapPercent = computeHeapPercent(node.heapUsed, node.heapMax);
+    const heapPercent = computeHeapPercent(effectiveNode.heapUsed, effectiveNode.heapMax);
     const heapColor = getHeapColor(heapPercent);
     const cpuPercent = node.cpuPercent ?? undefined;
     const cpuColor = cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
     const load1m = node.loadAverage?.[0];
     const loadColor = load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
-    const diskDisplay = formatBytes(node.diskUsed);
+    const diskDisplay = isUnassigned ? '0 B' : formatBytes(effectiveNode.diskUsed);
 
     const sortedShards = nodeShards.slice().sort((a,b) => a.shard - b.shard);
     const primaryCount = sortedShards.filter(s => s.primary).length;
@@ -295,7 +302,7 @@ export function DotBasedTopologyView({
 
     const groupData = {
       id: node.id,
-      name: node.name,
+      name: isUnassigned ? 'Unassigned' : node.name,
       version: node.version,
       roles: node.roles || [],
       isMaster: node.isMaster,
@@ -318,6 +325,7 @@ export function DotBasedTopologyView({
       onDestinationClick,
       onShardClick,
       renderDots: true,
+      isUnassigned: isUnassigned,
     };
 
     return (
