@@ -967,6 +967,17 @@ export function ClusterView() {
 
   const mergedAllShards = useMemo(() => mergeShardLists(allShards, unassignedClusterShards), [allShards, unassignedClusterShards]);
 
+  // Debug: log unassigned counts to help verify merging at runtime (temporary)
+  useEffect(() => {
+    try {
+      const count = (mergedAllShards || []).filter((s) => !s.node || s.state === 'UNASSIGNED').length;
+      // eslint-disable-next-line no-console
+      console.debug('[ClusterView] mergedAllShards unassigned count:', count);
+    } catch (e) {
+      // ignore
+    }
+  }, [mergedAllShards]);
+
   if (!id) {
     return (
       <Stack p="md">
