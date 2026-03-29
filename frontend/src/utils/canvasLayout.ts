@@ -15,6 +15,7 @@ import type { NodeInfo, ShardInfo } from '../types/api';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
+import { SHARD_STATE_COLORS } from './colors';
 // Minimal data for ClusterGroupNode — flat, shallow props only for top performance
 export interface ClusterGroupNodeDataFlat {
   id: string;
@@ -175,8 +176,6 @@ function emitGroupNode(
   ];
   if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
-
-  import { SHARD_STATE_COLORS } from './colors';
 
   const dots = sortedShards.map((shard, idx) => {
     const color = shard.state === 'UNASSIGNED'
