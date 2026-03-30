@@ -1,4 +1,5 @@
 use crate::auth::SessionManager;
+use crate::cache::MetadataCache;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use crate::telemetry::axum_middleware::OtelTraceLayer;
@@ -10,8 +11,10 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
+use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{RwLock, Semaphore};
 use tower_http::{compression::CompressionLayer, cors::CorsLayer};
 
 /// Server structure containing application state and configuration
@@ -164,8 +167,16 @@ impl Server {
             };
 
         // Create cluster state for cluster routes
+        // Initialize details cache and concurrency semaphore used by per-cluster details endpoint
+        let cache_ttl = Duration::from_secs(self.config.cache.get_duration_secs());
+        let details_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
+        // Default concurrency for fan-out is 6
+        let details_semaphore = Arc::new(Semaphore::new(6));
+
         let cluster_state = crate::routes::ClusterState {
             cluster_manager: self.cluster_manager.clone(),
+            details_cache: details_cache.clone(),
+            details_semaphore: details_semaphore.clone(),
         };
 
         // Create metrics state for metrics routes
@@ -217,6 +228,10 @@ impl Server {
             .route(
                 "/api/clusters/{id}/stats",
                 get(crate::routes::clusters::get_cluster_stats),
+            )
+            .route(
+                "/api/clusters/{id}/details",
+                get(crate::routes::clusters::get_cluster_details),
             )
             .route(
                 "/api/clusters/{id}/settings",

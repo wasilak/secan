@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Portal } from '@mantine/core';
 import { useLocation } from 'react-router-dom';
 import { Split, SplitPane, SplitResizer } from '@gfazioli/mantine-split-pane';
@@ -91,7 +91,10 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
   } = useConsolePanel();
   const location = useLocation();
   const previousPathnameRef = useRef(location.pathname);
+  // Ref to the console pane element that will be rendered in a portal
   const consolePaneRef = useRef<HTMLDivElement>(null);
+  // Container id used for the portal root (ensures a stable portal mount)
+  const portalId = useMemo(() => 'secan-console-portal', []);
 
   /**
    * Handle click outside - close panel if not sticky and not detached
@@ -102,21 +105,22 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
     const handleClickOutside = (event: MouseEvent) => {
       // Don't close if: not open, sticky mode, or detached modal mode
       if (!isOpen || isSticky || isDetached) return;
-      
+
       const target = event.target as HTMLElement;
-      
+
       // Check if click is on the console toggle button
       const isToggleButton = target.closest('[data-console-toggle]') !== null;
-      if (isToggleButton) {
-        return;
-      }
-      
-      // Check if click is inside the console pane
+      if (isToggleButton) return;
+
+      // Check if click is inside the console pane (portal) or inside a Mantine modal/dialog
       const isInsideConsole = consolePaneRef.current?.contains(target) ?? false;
-      if (isInsideConsole) {
-        return;
-      }
-      
+      if (isInsideConsole) return;
+
+      // If click landed inside a modal/dialog (portal), don't treat it as outside
+      // Mantine modal overlay/content typically have role="dialog" or aria-modal attributes
+      const isInsideModal = !!target.closest('[role="dialog"], [aria-modal="true"]');
+      if (isInsideModal) return;
+
       closePanel();
     };
 
@@ -179,88 +183,88 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
   const showConsole = isOpen && clusterId && !isDetached;
 
-  // If console is not shown, render children directly
-  if (!showConsole) {
-    return <>{children}</>;
-  }
-
-  // Local state for simple drag resize when rendering portal sidebar
-  const [isDragging, setIsDragging] = useState(false);
-
-  const onMouseDownResizer = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (ev: MouseEvent) => {
-      // New width is distance from right edge
-      const newWidth = Math.max(MIN_CONSOLE_WIDTH, window.innerWidth - ev.clientX);
-      const maxWidth = getMaxWidth();
-      setWidth(Math.min(newWidth, maxWidth));
-    };
-
-    const handleMouseUp = () => setIsDragging(false);
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp, { once: true });
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp as any);
-    };
-  }, [isDragging, setWidth, getMaxWidth]);
-
-  // Render children with a right margin equal to console width so layout
-  // appears like a split pane. Render the actual console as a portal
-  // mounted fixed to the right so it escapes stacking contexts and can
-  // be layered above modals.
+  // When console is not shown, render children directly without height constraints
+  // to allow normal page scrolling. We still render the portal root to ensure
+  // the click-outside detection can reference the portal node when it exists.
   return (
     <>
       <style>{customResizerStyles}</style>
-      <Box style={{ height: '100%', width: '100%', minHeight: 0 }}>
-        {children}
-      
-        <Portal>
+
+      {/* Main content always rendered; console drawer is portalized separately */}
+      <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>
+        <Split style={{ height: '100%', width: '100%' }}>
+          {/* Main content pane - grows to fill available space */}
+          <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
+            {children}
+          </SplitPane>
+
+          {/* Resizer handle placeholder - the visible resizer is rendered inside portal console */}
+          {/* Keep layout stable by reserving small space when console is visible */}
+          <div style={{ width: showConsole ? '4px' : 0 }} />
+        </Split>
+      </Box>
+
+      {/* Portalized console drawer: mounted at document root to avoid stacking context issues */}
+      <Portal>
+        {showConsole && (
           <div
+            id={portalId}
             ref={consolePaneRef}
-            role="complementary"
-            aria-label="Console Panel"
+            className="console-pane-enter console-pane-enter-active"
             style={{
               position: 'fixed',
-              right: 0,
               top: 0,
+              right: 0,
               bottom: 0,
+              height: '100vh',
               width: `${width}px`,
+              maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
               zIndex: 10500,
-              boxShadow: '-4px 0 12px rgba(0,0,0,0.06)',
-              background: 'var(--mantine-color-white, #fff)',
               display: 'flex',
               flexDirection: 'column',
+              boxShadow: 'var(--mantine-shadow-md)',
+              background: 'var(--mantine-color-white)',
+              // Ensure the console doesn't intercept pointer events for the main app
+              // outside of its bounds
               overflow: 'hidden',
             }}
           >
-            {/* Resizer - placed to the left of the console */}
-            <div
-              onMouseDown={onMouseDownResizer}
-              style={{
-                position: 'absolute',
-                left: '-6px',
-                top: 0,
-                bottom: 0,
-                width: '12px',
-                cursor: 'col-resize',
-                zIndex: 10501,
-              }}
-            />
+            <Split style={{ height: '100%', width: '100%' }}>
+              {/* Left side spacer to align resizer visually */}
+              <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
+                {/* Empty - main content remains in AppShell; console is overlay */}
+                <div style={{ height: '100%' }} />
+              </SplitPane>
 
-            <div style={{ height: '100%', width: '100%' }}>
-              <ConsoleContent clusterId={clusterId} />
-            </div>
+              <SplitResizer
+                onResizeEnd={handleResizeEnd}
+                onResizing={handleResizing}
+                style={{
+                  width: '4px',
+                  background: 'var(--mantine-color-gray-4)',
+                  cursor: 'col-resize',
+                  transition: 'background 0.2s',
+                }}
+              />
+
+              <SplitPane
+                minWidth={MIN_CONSOLE_WIDTH}
+                maxWidth={getMaxWidth()}
+                initialWidth={width}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+                  <ConsoleContent clusterId={clusterId} />
+                </div>
+              </SplitPane>
+            </Split>
           </div>
-        </Portal>
-      </Box>
+        )}
+      </Portal>
     </>
   );
 }

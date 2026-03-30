@@ -245,7 +245,7 @@ export const router = createBrowserRouter([
         path: 'cluster/:id/indices/create',
         element: (
           <LazyRoute>
-            <IndexCreate />
+            <ClusterView />
           </LazyRoute>
         ),
       },

@@ -1,4 +1,5 @@
 use crate::auth::middleware::AuthenticatedUser;
+use crate::cache::MetadataCache;
 use crate::cluster::{ClusterInfo, ElasticsearchClient, Manager as ClusterManager};
 use axum::{
     extract::{Path, Query, State},
@@ -9,6 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tracing::instrument;
 use utoipa::{IntoParams, ToSchema};
 
@@ -28,6 +30,10 @@ use transform::{
 #[derive(Clone)]
 pub struct ClusterState {
     pub cluster_manager: Arc<ClusterManager>,
+    /// Cache for per-cluster details responses (TTL configured by server)
+    pub details_cache: Arc<MetadataCache<serde_json::Value>>,
+    /// Concurrency limiter for per-cluster detail fan-outs
+    pub details_semaphore: Arc<Semaphore>,
 }
 
 /// Error response for cluster operations
@@ -652,6 +658,225 @@ pub async fn get_cluster_stats(
     );
 
     Ok(Json(response))
+}
+
+/// Per-cluster details response wrapper
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ClusterDetailsResponse {
+    pub status: String, // "ok" | "error"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<serde_json::Value>,
+    pub fetched_at: String,
+}
+
+/// Get cluster details (non-blocking list-friendly endpoint)
+///
+/// Returns a structured JSON envelope with status and either data or error.
+/// Always returns HTTP 200.
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/details",
+    params(("cluster_id" = String, Path, description = "Cluster ID")),
+    responses(
+        (status = 200, body = ClusterDetailsResponse),
+    ),
+    tag = "Clusters"
+)]
+#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+pub async fn get_cluster_details(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+) -> Result<Json<ClusterDetailsResponse>, ClusterErrorResponse> {
+    tracing::debug!(cluster_id = %cluster_id, "Getting cluster details");
+
+    // RBAC check
+    check_cluster_access(&cluster_id, &user_ext)?;
+
+    // Try cache first
+    if let Some(cached) = state.details_cache.get(&cluster_id).await {
+        tracing::debug!(cluster_id = %cluster_id, "Returning cached cluster details");
+        let resp = ClusterDetailsResponse {
+            status: "ok".to_string(),
+            data: Some(cached),
+            error: None,
+            fetched_at: chrono::Utc::now().to_rfc3339(),
+        };
+        return Ok(Json(resp));
+    }
+
+    // Cache miss -> record a proxy call metric and start timer
+    // metrics_cluster was previously used for per-cluster labels. Keep clone if needed later.
+    let _metrics_cluster = cluster_id.clone();
+    // Record a proxy call counter
+    metrics::counter!("proxy.calls").increment(1);
+    let start = std::time::Instant::now();
+
+    // Acquire permit from semaphore (fan-out concurrency limiter)
+    let permit = match state.details_semaphore.clone().acquire_owned().await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!(error = %e, cluster_id = %cluster_id, "Failed to acquire semaphore permit");
+            // Return structured error
+            let resp = ClusterDetailsResponse {
+                status: "error".to_string(),
+                data: None,
+                error: Some(
+                    serde_json::json!({"error": "semaphore_acquire_failed", "message": format!("{}", e)}),
+                ),
+                fetched_at: chrono::Utc::now().to_rfc3339(),
+            };
+            return Ok(Json(resp));
+        }
+    };
+
+    // Ensure permit is dropped at the end of scope
+    let cluster_id_clone = cluster_id.clone();
+    let manager = state.cluster_manager.clone();
+    // Overall timeout for the fan-out
+    let overall_timeout = std::time::Duration::from_secs(8);
+
+    let fut = async move {
+        // Get cluster connection (with auth if required)
+        let cluster_conn = if let Some(user) = user_ext {
+            manager
+                .get_cluster_with_auth(&cluster_id_clone, Some(&user.0 .0))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?
+        } else {
+            manager
+                .get_cluster(&cluster_id_clone)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?
+        };
+
+        // Perform fan-out calls in parallel: cluster_stats, health, nodes_info, nodes_stats
+        let stats_fut = cluster_conn.cluster_stats();
+        let health_fut = cluster_conn.health();
+        let nodes_info_fut = cluster_conn.nodes_info();
+        let nodes_stats_fut = cluster_conn.nodes_stats();
+
+        let (stats_res, health_res, nodes_info_res, nodes_stats_res) =
+            tokio::join!(stats_fut, health_fut, nodes_info_fut, nodes_stats_fut);
+
+        // Build response object
+        let mut data = serde_json::Map::new();
+
+        match stats_res {
+            Ok(s) => {
+                data.insert("cluster_stats".to_string(), s);
+            }
+            Err(e) => {
+                tracing::warn!(cluster_id = %cluster_id_clone, error = %e, "cluster_stats failed");
+                data.insert(
+                    "cluster_stats".to_string(),
+                    serde_json::json!({"error": format!("{}", e)}),
+                );
+            }
+        }
+
+        match health_res {
+            Ok(h) => {
+                data.insert("health".to_string(), h);
+            }
+            Err(e) => {
+                tracing::warn!(cluster_id = %cluster_id_clone, error = %e, "health failed");
+                data.insert(
+                    "health".to_string(),
+                    serde_json::json!({"error": format!("{}", e)}),
+                );
+            }
+        }
+
+        match nodes_info_res {
+            Ok(n) => {
+                data.insert("nodes_info".to_string(), n);
+            }
+            Err(e) => {
+                tracing::warn!(cluster_id = %cluster_id_clone, error = %e, "nodes_info failed");
+                data.insert(
+                    "nodes_info".to_string(),
+                    serde_json::json!({"error": format!("{}", e)}),
+                );
+            }
+        }
+
+        match nodes_stats_res {
+            Ok(ns) => {
+                data.insert("nodes_stats".to_string(), ns);
+            }
+            Err(e) => {
+                tracing::warn!(cluster_id = %cluster_id_clone, error = %e, "nodes_stats failed");
+                data.insert(
+                    "nodes_stats".to_string(),
+                    serde_json::json!({"error": format!("{}", e)}),
+                );
+            }
+        }
+
+        Ok::<serde_json::Value, anyhow::Error>(serde_json::Value::Object(data))
+    };
+
+    // Run with timeout
+    match tokio::time::timeout(overall_timeout, fut).await {
+        Ok(Ok(data_value)) => {
+            // Record latency histogram for successful calls (ms)
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+            metrics::histogram!("proxy.latency_ms").record(elapsed_ms);
+            // Cache successful result
+            state
+                .details_cache
+                .insert(cluster_id.clone(), data_value.clone())
+                .await;
+
+            // Release permit by dropping 'permit'
+            drop(permit);
+
+            let resp = ClusterDetailsResponse {
+                status: "ok".to_string(),
+                data: Some(data_value),
+                error: None,
+                fetched_at: chrono::Utc::now().to_rfc3339(),
+            };
+            Ok(Json(resp))
+        }
+        Ok(Err(e)) => {
+            tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to get cluster details");
+            // Failure metric (increment and record latency)
+            metrics::counter!("proxy.failures").increment(1);
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+            metrics::histogram!("proxy.latency_ms").record(elapsed_ms);
+            drop(permit);
+            let resp = ClusterDetailsResponse {
+                status: "error".to_string(),
+                data: None,
+                error: Some(
+                    serde_json::json!({"error": "fetch_failed", "message": format!("{}", e)}),
+                ),
+                fetched_at: chrono::Utc::now().to_rfc3339(),
+            };
+            Ok(Json(resp))
+        }
+        Err(_elapsed) => {
+            tracing::warn!(cluster_id = %cluster_id, "Cluster details request timed out");
+            // Timeout metric (increment and record latency)
+            metrics::counter!("proxy.timeouts").increment(1);
+            let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
+            metrics::histogram!("proxy.latency_ms").record(elapsed_ms);
+            drop(permit);
+            let resp = ClusterDetailsResponse {
+                status: "error".to_string(),
+                data: None,
+                error: Some(
+                    serde_json::json!({"error": "timeout", "message": "Request timed out"}),
+                ),
+                fetched_at: chrono::Utc::now().to_rfc3339(),
+            };
+            Ok(Json(resp))
+        }
+    }
 }
 
 /// Get cluster settings

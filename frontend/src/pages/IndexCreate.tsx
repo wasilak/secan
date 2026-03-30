@@ -92,7 +92,7 @@ function validateJSON(json: string): string | null {
  *
  * Requirements: 6.1, 6.2, 6.4, 6.5, 6.6, 6.7, 6.8
  */
-export function IndexCreate() {
+export function IndexCreate({ modalMode = false, onClose, onCreated } : { modalMode?: boolean; onClose?: () => void; onCreated?: (name: string) => void }) {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -164,7 +164,11 @@ export function IndexCreate() {
       });
 
       // Navigate to the new index edit page
-      navigate(`/cluster/${clusterId}/indices/${indexName}/edit`);
+      if (modalMode && onCreated) {
+        onCreated(indexName);
+      } else {
+        navigate(`/cluster/${clusterId}/indices/${indexName}/edit`);
+      }
     },
     onError: (error: Error) => {
       // Show error notification
@@ -213,15 +217,17 @@ export function IndexCreate() {
   }
 
   return (
-    <FullWidthContainer>
-      <Group justify="space-between" mb="md">
-        <div>
-          <Title order={1}>Create Index</Title>
-          <Text size="sm" c="dimmed">
-            Create a new index with custom settings and mappings
-          </Text>
-        </div>
-      </Group>
+    <>
+      {!modalMode && (
+        <Group justify="space-between" mb="md">
+          <div>
+            <Title order={1}>Create Index</Title>
+            <Text size="sm" c="dimmed">
+              Create a new index with custom settings and mappings
+            </Text>
+          </div>
+        </Group>
+      )}
 
       <Card shadow="sm" padding="lg">
         <Tabs value={activeTab} onChange={setActiveTab}>
@@ -332,7 +338,10 @@ export function IndexCreate() {
         <Group justify="flex-end" mt="xl">
           <Button
             variant="default"
-            onClick={() => navigate(`/cluster/${clusterId}/indices`)}
+            onClick={() => {
+              if (modalMode && onClose) onClose();
+              else navigate(`/cluster/${clusterId}/indices`);
+            }}
             disabled={createMutation.isPending}
           >
             Cancel
@@ -346,6 +355,6 @@ export function IndexCreate() {
           </Button>
         </Group>
       </Card>
-    </FullWidthContainer>
+    </>
   );
 }

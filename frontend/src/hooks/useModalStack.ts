@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 
-export type ModalType = 'index' | 'shard' | 'node';
+export type ModalType = 'index' | 'shard' | 'node' | 'indexCreate';
 
 export interface ModalData {
   type: ModalType;
