@@ -172,13 +172,8 @@ export function NodeModal({
                       />
                     )}
                     <Text size="lg" fw={600}>
-                      node details:
+                      {nodeStats ? nodeStats.name : 'Node Details'}
                     </Text>
-                    {nodeStats ? (
-                      <Badge size="lg" variant="light" color="blue">
-                        {String(nodeStats.name).toLowerCase()}
-                      </Badge>
-                    ) : null}
                   </Group>
                 </Modal.Title>
                 <Modal.CloseButton />
