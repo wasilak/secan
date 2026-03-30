@@ -32,9 +32,6 @@ import { parseError, getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
 import type { ShardInfo } from '../types/api';
 import ShardsTable from '../components/ShardsTable';
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '../utils/queryKeys';
-import { apiClient } from '../api/client';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 
 /**
@@ -260,20 +257,34 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
   });
 
   // Shards tab: fetch shards for this index
-  const {
-    data: indexShardsResp,
-    isLoading: shardsLoading,
-    error: shardsError,
-  } = useQuery({
-    queryKey: queryKeys.cluster(clusterId ?? '').shards(1, { index: indexName ?? '' }),
-    queryFn: async () => {
-      if (!clusterId || !indexName) return { items: [] } as any;
-      return apiClient.getShards(clusterId, 1, 2000, { index: indexName });
-    },
-    enabled: !!clusterId && !!indexName,
-  });
+  // Load shards for this index when Shards tab is active
+  const [shardsForIndex, setShardsForIndex] = useState<ShardInfo[]>([]);
+  const [shardsLoading, setShardsLoading] = useState(false);
 
-  const shardsForIndex: ShardInfo[] = (indexShardsResp?.items ?? []) as ShardInfo[];
+  useEffect(() => {
+    let mounted = true;
+    if (!clusterId || !indexName) return;
+    // Only fetch when the shards tab is active
+    if ((searchParams.get('indexTab') || 'visualization') !== 'shards') return;
+    setShardsLoading(true);
+    apiClient
+      .getShards(clusterId, 1, 2000, { index: indexName })
+      .then((resp) => {
+        if (!mounted) return;
+        setShardsForIndex((resp as any).items ?? []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setShardsForIndex([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setShardsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [clusterId, indexName, searchParams]);
 
   // Node name map for readable node names
   const { data: allNodesUnfiltered } = useClusterNodes(clusterId, { page: 1, pageSize: 1000, filters: { search: '' } });
