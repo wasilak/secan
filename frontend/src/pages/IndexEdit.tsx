@@ -133,13 +133,17 @@ interface IndexEditProps {
    */
   onShardClick?: (shard: ShardInfo) => void;
   /**
+   * Optional callback when a node is clicked in the visualization
+   */
+  onNodeClick?: (nodeId: string) => void;
+  /**
    * If true, there's a modal layered above this one
    * When true, ESC and click-outside should NOT close this modal
    */
   hasModalAbove?: boolean;
 }
 
-export function IndexEdit({ constrainToParent = false, hideHeader = false, onShardClick }: IndexEditProps) {
+export function IndexEdit({ constrainToParent = false, hideHeader = false, onShardClick, onNodeClick }: IndexEditProps) {
   const params = useParams<{ id?: string; indexName?: string }>();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -552,6 +556,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
               clusterId={clusterId}
               indexName={indexName}
               onShardClick={onShardClick}
+              onNodeClick={onNodeClick}
             />
           </Tabs.Panel>
 

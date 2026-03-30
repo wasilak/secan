@@ -39,6 +39,7 @@ interface IndexVisualizationFlowProps {
   clusterId: string;
   indexName: string;
   onShardClick?: (shard: ShardInfo) => void;
+  onNodeClick?: (nodeId: string) => void;
   refreshInterval?: number;
 }
 
@@ -57,6 +58,7 @@ export function IndexVisualizationFlow({
   clusterId,
   indexName,
   onShardClick,
+  onNodeClick,
   refreshInterval,
 }: IndexVisualizationFlowProps) {
   const { data: paginated, isLoading, error, refetch } = useIndexShardsWithNodes(
@@ -76,6 +78,7 @@ export function IndexVisualizationFlow({
         shards: shards ?? [],
         nodes: nodes ?? [],
         onShardClick,
+        onNodeClick,
       });
       // Pass through dagre layout for vertical (TB) arrangement
       const dagreLayout = applyDagreLayout(rawLayout.nodes, rawLayout.edges, 'TB');

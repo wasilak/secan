@@ -1242,7 +1242,12 @@ export function ClusterView() {
                 overflow: 'auto',
               }}
             >
-            <IndexEdit constrainToParent hideHeader onShardClick={handleShardClickInIndexModal} />
+            <IndexEdit
+              constrainToParent
+              hideHeader
+              onShardClick={handleShardClickInIndexModal}
+              onNodeClick={openNodeModal}
+            />
             </Modal.Body>
           </Modal.Content>
         </Modal.Root>

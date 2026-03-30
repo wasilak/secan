@@ -57,6 +57,7 @@ export interface IndexVizLayoutInput {
   nodes: NodeInfo[];
   health?: 'green' | 'yellow' | 'red';
   onShardClick?: (shard: ShardInfo) => void;
+  onNodeClick?: (nodeId: string) => void;
 }
 
 export interface IndexVizLayoutOutput {
@@ -85,7 +86,7 @@ function subgroupHeight(shardCount: number): number {
 export function calculateIndexVizLayout(
   input: IndexVizLayoutInput,
 ): IndexVizLayoutOutput {
-  const { indexName, shards, health, onShardClick } = input;
+  const { indexName, shards, health, onShardClick, onNodeClick } = input;
   const nodeInfos = input.nodes ?? [];
 
   const nodes: Node[] = [];
@@ -286,7 +287,7 @@ export function calculateIndexVizLayout(
       summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShardsForNode },
       badges: badgesForNode,
       dots: dotsForNode,
-      onNodeClick: undefined,
+      onNodeClick: nodeInfo.id && nodeInfo.id !== UNASSIGNED_KEY ? (() => onNodeClick?.(nodeInfo.id as string)) : undefined,
       onDestinationClick: undefined,
       onShardClick: onShardClick ?? undefined,
       renderDots: true,

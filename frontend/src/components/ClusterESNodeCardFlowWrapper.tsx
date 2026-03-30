@@ -82,7 +82,8 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShards },
       badges,
       dots,
-      onNodeClick: undefined,
+      // Allow node click handler when provided by layout/data
+      onNodeClick: (data['onNodeClick'] as ((id: string) => void) | undefined) ?? undefined,
       onDestinationClick: undefined,
       onShardClick: (data['onShardClick'] as ((s: ShardInfo, e?: React.MouseEvent) => void) | undefined) ?? undefined,
       renderDots: true,
@@ -90,7 +91,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     };
 
     return (
-      <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block' }}>
+      <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
         <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
         {/* In RF contexts we want the RF node to render the border, so hide inner card border */}
         <ClusterESNodeCard {...flat} hideInnerBorder />
@@ -117,7 +118,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
   }
 
   return (
-    <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block' }}>
+    <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
       <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
       <ClusterESNodeCard {...(data as any)} hideInnerBorder />
       <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
