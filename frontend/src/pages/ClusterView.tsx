@@ -1803,6 +1803,34 @@ function SortableHeader({ column, label, sortColumn, sortDirection, onSort }: So
   );
 }
 
+// Helper: render shard counts as pill badges in a single column
+function ShardStatsPills({ total, primaries, replicas }: { total: number; primaries: number; replicas: number }) {
+  const primaryLabel = primaries === 1 ? 'primary' : 'primaries';
+  const replicaLabel = replicas === 1 ? 'replica' : 'replicas';
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Group
+        gap="xs"
+        align="center"
+        justify="flex-start"
+        wrap="nowrap"
+        style={{ flexShrink: 0 }}
+      >
+        <Badge size="sm" variant="light" color="violet" style={{ textTransform: 'none' }}>
+          {total} shards
+        </Badge>
+        <Badge size="sm" variant="light" color="blue" style={{ textTransform: 'none' }}>
+          {primaries} {primaryLabel}
+        </Badge>
+        <Badge size="sm" variant="light" color="gray" style={{ textTransform: 'none' }}>
+          {replicas} {replicaLabel}
+        </Badge>
+      </Group>
+    </div>
+  );
+}
+
 export const IndicesList = memo(function IndicesList({
   indices,
   indicesPaginated,
@@ -2340,8 +2368,6 @@ export const IndicesList = memo(function IndicesList({
                   />
                 </Table.Th>
                 <Table.Th>Shards</Table.Th>
-                <Table.Th>Primaries</Table.Th>
-                <Table.Th>Replicas</Table.Th>
                 <Table.Th>Unassigned</Table.Th>
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
@@ -2428,15 +2454,11 @@ export const IndicesList = memo(function IndicesList({
                       </Group>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">
-                        {`${index.primaryShards}p / ${index.replicaShards}r`}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{index.primaryShards}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{index.replicaShards}</Text>
+                      <ShardStatsPills
+                        total={index.primaryShards + index.replicaShards}
+                        primaries={index.primaryShards}
+                        replicas={index.replicaShards}
+                      />
                     </Table.Td>
                     <Table.Td>
                       {unassignedCount > 0 ? (
