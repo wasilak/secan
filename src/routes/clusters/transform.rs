@@ -452,8 +452,16 @@ pub fn transform_indices_from_cat(cat_indices: &Value) -> Vec<IndexInfoResponse>
                 .to_string();
             let status = index_data["status"].as_str().unwrap_or("open").to_string();
 
-            let primary_shards = index_data["pri"].as_u64().unwrap_or(0) as u32;
-            let replica_shards = index_data["rep"].as_u64().unwrap_or(0) as u32;
+            let primary_shards = index_data["pri"]
+                .as_str()
+                .and_then(|s| s.parse::<u32>().ok())
+                .or_else(|| index_data["pri"].as_u64().map(|n| n as u32))
+                .unwrap_or(0);
+            let replica_shards = index_data["rep"]
+                .as_str()
+                .and_then(|s| s.parse::<u32>().ok())
+                .or_else(|| index_data["rep"].as_u64().map(|n| n as u32))
+                .unwrap_or(0);
 
             // Parse docs.count (can be "-" for empty indices)
             let docs_count = index_data["docs.count"]
