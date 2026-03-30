@@ -210,13 +210,21 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
         <Tooltip
           key={key}
           withArrow
-          label={
+      label={
             <div>
-              <div>Index: {shard.index}</div>
-              <div>Shard: {shard.shard}</div>
+              <div>
+                Index: <span style={{ textTransform: 'none' }}>{shard.index}</span>
+              </div>
+              <div>
+                Shard: <span style={{ textTransform: 'none' }}>{shard.shard}</span>
+              </div>
               <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
               <div>State: {shard.state}</div>
-              {shard.node && <div>Node: {shard.node}</div>}
+              {shard.node && (
+                <div>
+                  Node: <span style={{ textTransform: 'none' }}>{shard.node}</span>
+                </div>
+              )}
               <div>Docs: {shard.docs}</div>
               <div>Size: {formatBytes(shard.store)}</div>
             </div>
@@ -270,23 +278,24 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
 
       return (
         <Stack gap={4} align="center" style={{ maxWidth: 100 }}>
-          <Text
-            size="xs"
-            fw={500}
-            lineClamp={1}
-            title={index.name}
-            style={{ 
-              cursor: 'pointer', 
-              textDecoration: 'underline',
-              wordBreak: 'break-word',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              openIndexModal(index.name);
-            }}
-          >
-            {index.name}
-          </Text>
+            <Text
+              size="xs"
+              fw={500}
+              lineClamp={1}
+              title={index.name}
+              style={{ 
+                cursor: 'pointer', 
+                textDecoration: 'underline',
+                wordBreak: 'break-word',
+                textTransform: 'none',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openIndexModal(index.name);
+              }}
+            >
+              <span style={{ textTransform: 'none' }}>{index.name}</span>
+            </Text>
           <Group gap={6} justify="center">
             <Box
               style={{
@@ -492,25 +501,25 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                       >
                         {isValidDestination ? (
                           <Tooltip label="Click to select this destination">
-                            <Stack gap={4}>
-                              <Text
-                                size="xs"
-                                fw={500}
-                                truncate="end"
-                                title={node.name}
-                                style={{ textDecoration: 'underline' }}
-                              >
-                                {node.name}
-                              </Text>
-                              <Text
-                                size="xs"
-                                c="dimmed"
-                                truncate="end"
-                                title={node.ip}
-                              >
-                                {node.ip}
-                              </Text>
-                            </Stack>
+                              <Stack gap={4}>
+                                <Text
+                                  size="xs"
+                                  fw={500}
+                                  truncate="end"
+                                  title={node.name}
+                                  style={{ textDecoration: 'underline', textTransform: 'none' }}
+                                >
+                                  {node.name}
+                                </Text>
+                                <Text
+                                  size="xs"
+                                  c="dimmed"
+                                  truncate="end"
+                                  title={node.ip}
+                                >
+                                  {node.ip}
+                                </Text>
+                              </Stack>
                           </Tooltip>
                         ) : (
                           <Stack gap={4}>
@@ -519,7 +528,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                               fw={500}
                               truncate="end"
                               title={node.name}
-                              style={{ textDecoration: 'underline' }}
+                              style={{ textDecoration: 'underline', textTransform: 'none' }}
                             >
                               {node.name}
                             </Text>

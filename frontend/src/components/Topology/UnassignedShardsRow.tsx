@@ -31,9 +31,9 @@ export function UnassignedShardsRow({
       <Card.Section p="xs">
         <Group gap={4} wrap="wrap">
           {shards.map((shard) => (
-            <Box
-              key={`unassigned-${shard.index}[${shard.shard}]`}
-              style={{
+              <Box
+               key={`unassigned-${shard.index}[${shard.shard}]`}
+               style={{
                 width: '14px',
                 height: '14px',
                 borderRadius: 2, // square
@@ -44,8 +44,8 @@ export function UnassignedShardsRow({
                 boxShadow: shard.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
               }}
               onClick={(e) => onShardClick?.(shard, e)}
-              title={`${shard.index}[${shard.shard}] - Unassigned`}
-            />
+                title={`${shard.index}[${shard.shard}] - Unassigned`}
+              />
           ))}
         </Group>
       </Card.Section>

@@ -53,7 +53,14 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
   }
   const bg = getShardDotColor(shard.state);
   const border = getShardBorderColor(shard.state);
-  const label = `${shard.index} / shard ${shard.shard} — ${shard.primary ? 'Primary' : 'Replica'} — ${shard.state}`;
+  const label = (
+    <div>
+      <div>Index: <span style={{ textTransform: 'none' }}>{shard.index}</span></div>
+      <div>Shard: <span style={{ textTransform: 'none' }}>{shard.shard}</span></div>
+      <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+      <div>State: {shard.state}</div>
+    </div>
+  );
 
   return (
     <Tooltip label={label} withArrow withinPortal>

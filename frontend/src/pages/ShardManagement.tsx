@@ -883,7 +883,7 @@ function RelocateShardModal({
           <Alert icon={<IconAlertCircle size={16} />} title="Shard Information" color="blue">
             <Stack gap="xs">
               <Text size="sm">
-                <strong>Index:</strong> {shard.index}
+                <strong>Index:</strong> <span style={{ textTransform: 'none' }}>{shard.index}</span>
               </Text>
               <Text size="sm">
                 <strong>Shard:</strong> {shard.shard}

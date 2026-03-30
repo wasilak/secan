@@ -1656,26 +1656,27 @@ export const NodesList = memo(function NodesList({
                         size="md"
                       />
                       <div style={{ flex: 1 }}>
-                        <Text
-                          size="sm"
-                          fw={500}
-                          className="clickable-name"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (openNodeModal) {
-                              openNodeModal(node.id);
-                            } else {
-                              // Use cluster navigation modal flow when available (search-param driven)
-                              if (navigateToNode) {
-                                navigateToNode(node.id);
+                          <Text
+                            size="sm"
+                            fw={500}
+                            className="clickable-name"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openNodeModal) {
+                                openNodeModal(node.id);
                               } else {
-                                navigate(`/cluster/${id}/nodes/${node.id}`);
+                                // Use cluster navigation modal flow when available (search-param driven)
+                                if (navigateToNode) {
+                                  navigateToNode(node.id);
+                                } else {
+                                  navigate(`/cluster/${id}/nodes/${node.id}`);
+                                }
                               }
-                            }
-                          }}
-                        >
-                          {node.name}
-                        </Text>
+                            }}
+                            style={{ textTransform: 'none' }}
+                          >
+                            {node.name}
+                          </Text>
                         {!expandedView && node.ip && (
                           <Text size="xs" c="dimmed">
                             {node.ip}
@@ -2465,6 +2466,7 @@ export const IndicesList = memo(function IndicesList({
                               e.stopPropagation();
                               openIndexModal(index.name);
                             }}
+                            style={{ textTransform: 'none' }}
                           >
                             {index.name}
                           </Text>
@@ -2766,7 +2768,7 @@ function ShardDetailsModal({
               <Text size="lg" fw={600}>
                 Shard Details:
               </Text>
-              <Badge size="lg" variant="light" color="blue">
+              <Badge size="lg" variant="light" color="blue" style={{ textTransform: 'none' }}>
                 {shard.index}
               </Badge>
               <Text size="lg" c="dimmed">
@@ -3181,17 +3183,18 @@ export const ShardsList = memo(function ShardsList({
                     <Table.Td>
                       <Group gap={4} wrap="nowrap">
                         <Stack style={{ flex: 1 }}>
-                          <Text
-                            size="sm"
-                            fw={500}
-                            className="clickable-name"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (navigateToIndex) navigateToIndex(shard.index);
-                          }}
-                          >
-                            {shard.index}
-                          </Text>
+                            <Text
+                              size="sm"
+                              fw={500}
+                              className="clickable-name"
+                              style={{ textTransform: 'none' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (navigateToIndex) navigateToIndex(shard.index);
+                            }}
+                            >
+                              {shard.index}
+                            </Text>
                         </Stack>
                       </Group>
                     </Table.Td>
@@ -3200,6 +3203,7 @@ export const ShardsList = memo(function ShardsList({
                         size="sm"
                         fw={500}
                         className="clickable-name"
+                        style={{ textTransform: 'none' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleShardClick(shard);
@@ -3232,8 +3236,8 @@ export const ShardsList = memo(function ShardsList({
                           }}
                           style={{ textDecoration: 'none', cursor: 'pointer', color: 'inherit' }}
                         >
-                          <Text size="sm" fw={500} className="clickable-name">
-                            {nodeNameMap.get(shard.node) ?? shard.node}
+                          <Text size="sm" fw={500} className="clickable-name" style={{ textTransform: 'none' }}>
+                            <span style={{ textTransform: 'none' }}>{nodeNameMap.get(shard.node) ?? shard.node}</span>
                           </Text>
                         </Anchor>
                       ) : (

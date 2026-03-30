@@ -737,19 +737,19 @@ export function ShardGrid({
                     }}
                   >
                     <Stack gap="xs" align="center">
-                      <Box
-                        style={{
-                          fontWeight: 600,
-                          fontSize: '14px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          width: '100%',
-                          textAlign: 'center',
-                        }}
-                        title={index.name}
-                      >
-                        {index.name}
+                       <Box
+                         style={{
+                           fontWeight: 600,
+                           fontSize: '14px',
+                           overflow: 'hidden',
+                           textOverflow: 'ellipsis',
+                           whiteSpace: 'nowrap',
+                           width: '100%',
+                           textAlign: 'center',
+                         }}
+                         title={index.name}
+                       >
+                        <span style={{ textTransform: 'none' }}>{index.name}</span>
                       </Box>
                       <Box
                         style={{
@@ -814,7 +814,7 @@ export function ShardGrid({
                     ) : node ? (
                       <Stack gap="xs">
                         <Box>
-                          <Text fw={600} size="sm">
+                          <Text fw={600} size="sm" style={{ textTransform: 'none' }}>
                             {node.name}
                           </Text>
                           <Text size="xs" c="dimmed">
@@ -1025,19 +1025,19 @@ export function ShardGrid({
                     <Stack gap="xs" align="center">
                       {/* Index name with collapse toggle on small screens */}
                       <Group gap="xs" justify="center" wrap="nowrap">
-                        <Box
-                          style={{
-                            fontWeight: 600,
-                            fontSize: '14px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: isMobile || isTablet ? '80px' : '100%',
-                            textAlign: 'center',
-                          }}
-                          title={index.name}
-                        >
-                          {index.name}
+                          <Box
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '14px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              maxWidth: isMobile || isTablet ? '80px' : '100%',
+                              textAlign: 'center',
+                            }}
+                            title={index.name}
+                          >
+                          <span style={{ textTransform: 'none' }}>{index.name}</span>
                         </Box>
 
                         {/* Collapse toggle button on small screens - Requirements: 11.7 */}
@@ -1132,14 +1132,14 @@ export function ShardGrid({
                                 }
                               }}
                             >
-                              <Text fw={600} size="sm" style={{ textDecoration: 'inherit' }}>
+                              <Text fw={600} size="sm" style={{ textDecoration: 'inherit', textTransform: 'none' }}>
                                 {node.name}
                               </Text>
                             </Anchor>
                           ) : (
-                            <Text fw={600} size="sm">
-                              {node.name}
-                            </Text>
+                          <Text fw={600} size="sm" style={{ textTransform: 'none' }}>
+                            {node.name}
+                          </Text>
                           )}
                           <Text size="xs" c="dimmed">
                             {node.ip || 'N/A'}

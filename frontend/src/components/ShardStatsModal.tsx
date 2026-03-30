@@ -261,21 +261,21 @@ export function ShardStatsModal({
               </Table.Tr>
 
               {/* Index name - Requirements: 4.6 */}
-              <Table.Tr>
-                <Table.Td fw={500}>Index Name</Table.Td>
-                <Table.Td>
-                  <Text ff="monospace" size="sm">
-                    {shard.index}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
+               <Table.Tr>
+                 <Table.Td fw={500}>Index Name</Table.Td>
+                 <Table.Td>
+                   <Text ff="monospace" size="sm" style={{ textTransform: 'none' }}>
+                     {shard.index}
+                   </Text>
+                 </Table.Td>
+               </Table.Tr>
 
               {/* Node name and ID - Requirements: 4.6 */}
               <Table.Tr>
                 <Table.Td fw={500}>Node</Table.Td>
                 <Table.Td>
                   {shard.node ? (
-                    <Text ff="monospace" size="sm">
+                    <Text ff="monospace" size="sm" style={{ textTransform: 'none' }}>
                       {shard.node}
                     </Text>
                   ) : (
@@ -297,16 +297,16 @@ export function ShardStatsModal({
               </Table.Tr>
 
               {/* Relocating node (if applicable) */}
-              {shard.relocatingNode && (
-                <Table.Tr>
-                  <Table.Td fw={500}>Relocating To</Table.Td>
-                  <Table.Td>
-                    <Text ff="monospace" size="sm">
-                      {shard.relocatingNode}
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
+                {shard.relocatingNode && (
+                  <Table.Tr>
+                    <Table.Td fw={500}>Relocating To</Table.Td>
+                    <Table.Td>
+                      <Text ff="monospace" size="sm" style={{ textTransform: 'none' }}>
+                        {shard.relocatingNode}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                )}
             </Table.Tbody>
           </Table>
         </Box>

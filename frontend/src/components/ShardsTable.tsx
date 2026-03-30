@@ -48,17 +48,18 @@ export default function ShardsTable({
           {paginated.map((shard, idx) => (
             <Table.Tr key={`${shard.index}-${shard.shard}-${idx}`}>
               <Table.Td>
-                <Text
-                  size="sm"
-                  fw={500}
-                  className="clickable-name"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onIndexClick && onIndexClick(shard.index);
-                  }}
-                >
-                  {shard.index}
-                </Text>
+                  <Text
+                    size="sm"
+                    fw={500}
+                    className="clickable-name"
+                    style={{ textTransform: 'none' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onIndexClick && onIndexClick(shard.index);
+                    }}
+                  >
+                    {shard.index}
+                  </Text>
               </Table.Td>
               <Table.Td>
                 <Text
@@ -93,7 +94,7 @@ export default function ShardsTable({
                     }}
                     style={{ textDecoration: 'none', cursor: 'pointer', color: 'inherit' }}
                   >
-                    <Text size="sm" fw={500} className="clickable-name">
+                    <Text size="sm" fw={500} className="clickable-name" style={{ textTransform: 'none' }}>
                       {nodeNameMap?.get(shard.node!) ?? shard.node}
                     </Text>
                   </Anchor>
