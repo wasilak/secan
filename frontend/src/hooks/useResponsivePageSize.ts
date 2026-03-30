@@ -6,7 +6,7 @@ import { useMediaQuery } from '@mantine/hooks';
  * Returns:
  * - 10 for large/XL screens (≥1200px)
  * - 7 for medium screens (768-1199px)
- * - 5 for small screens (<768px)
+ * - 10 for small screens (<768px) — prefer slightly larger pages by default
  *
  * @example
  * ```tsx
@@ -20,5 +20,5 @@ export function useResponsivePageSize(): number {
 
   if (isLarge) return 10;
   if (isMedium) return 7;
-  return 5;
+  return 10;
 }
