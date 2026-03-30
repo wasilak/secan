@@ -770,29 +770,29 @@ export function ShardManagement() {
             title={
               selectedShard ? (
                 <Group gap="xs">
-                  <Text size="lg" fw={600}>
-                    Shard Details:
-                  </Text>
-                  <Badge size="lg" variant="light" color="blue">
-                    {selectedShard.index}
-                  </Badge>
-                  <Text size="lg" c="dimmed">
-                    /
-                  </Text>
-                  <Badge size="lg" variant="filled" color="cyan">
-                    #{selectedShard.shard}
-                  </Badge>
-                  <Badge
-                    size="lg"
-                    variant={selectedShard.primary ? 'filled' : 'light'}
-                    color={selectedShard.primary ? 'green' : 'gray'}
-                  >
-                    {selectedShard.primary ? 'Primary' : 'Replica'}
-                  </Badge>
+                <Text size="lg" fw={600}>
+                  shard details:
+                </Text>
+                <Badge size="lg" variant="light" color="blue">
+                  {String(selectedShard.index).toLowerCase()}
+                </Badge>
+                <Text size="lg" c="dimmed">
+                  /
+                </Text>
+                <Badge size="lg" variant="filled" color="cyan">
+                  #{selectedShard.shard}
+                </Badge>
+                <Badge
+                  size="lg"
+                  variant={selectedShard.primary ? 'filled' : 'light'}
+                  color={selectedShard.primary ? 'green' : 'gray'}
+                >
+                  {selectedShard.primary ? 'primary' : 'replica'}
+                </Badge>
                 </Group>
-              ) : (
-                'Shard Details'
-              )
+                ) : (
+                  'shard details'
+                )
             }
             size="90%"
             styles={{

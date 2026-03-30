@@ -1227,10 +1227,10 @@ export function ClusterView() {
               <Modal.Title>
                 <Group gap="xs">
                   <Text size="lg" fw={600}>
-                    Index Details:
+                    index details:
                   </Text>
                   <Badge size="lg" variant="light" color="blue" style={{ textTransform: 'none' }}>
-                    {selectedIndexName}
+                    {String(selectedIndexName).toLowerCase()}
                   </Badge>
                 </Group>
               </Modal.Title>

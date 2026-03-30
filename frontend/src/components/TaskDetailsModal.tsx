@@ -99,7 +99,7 @@ export function TaskDetailsModal({
         <Modal
           opened={isOpen}
           onClose={onClose}
-          title={`Task Details: ${task.id}`}
+          title={`task details: ${task.id}`}
           size="xl"
           centered
 
