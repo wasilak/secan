@@ -6,6 +6,20 @@ import type { ShardInfo } from '../types/api';
 import { ShardTypeBadge } from './ShardTypeBadge';
 import { getShardStateColor } from '../utils/colors';
 
+interface ShardsTableProps {
+  shards?: ShardInfo[];
+  loading?: boolean;
+  onShardClick?: (s: ShardInfo) => void;
+  onIndexClick?: (indexName: string) => void;
+  onNodeClick?: (nodeId: string) => void;
+  nodeNameMap?: Map<string, string>;
+  // Controlled pagination (optional). When provided, ShardsTable will use these values and call handlers instead of using internal state.
+  currentPage?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+}
+
 export default function ShardsTable({
   shards = [],
   loading = false,
@@ -13,17 +27,36 @@ export default function ShardsTable({
   onIndexClick,
   onNodeClick,
   nodeNameMap,
-}: {
-  shards?: ShardInfo[];
-  loading?: boolean;
-  onShardClick?: (s: ShardInfo) => void;
-  onIndexClick?: (indexName: string) => void;
-  onNodeClick?: (nodeId: string) => void;
-  nodeNameMap?: Map<string, string>;
-}) {
+  currentPage: currentPageProp,
+  pageSize: pageSizeProp,
+  onPageChange: onPageChangeProp,
+  onPageSizeChange: onPageSizeChangeProp,
+}: ShardsTableProps) {
   const defaultPageSize = useResponsivePageSize();
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(defaultPageSize);
+
+  const isControlled = typeof currentPageProp !== 'undefined' && typeof pageSizeProp !== 'undefined';
+
+  const [internalPage, setInternalPage] = useState<number>(1);
+  const [internalPageSize, setInternalPageSize] = useState<number>(defaultPageSize);
+
+  const currentPage = isControlled ? (currentPageProp as number) : internalPage;
+  const pageSize = isControlled ? (pageSizeProp as number) : internalPageSize;
+
+  const setCurrentPage = (p: number) => {
+    if (isControlled) {
+      onPageChangeProp && onPageChangeProp(p);
+    } else {
+      setInternalPage(p);
+    }
+  };
+
+  const setPageSize = (s: number) => {
+    if (isControlled) {
+      onPageSizeChangeProp && onPageSizeChangeProp(s);
+    } else {
+      setInternalPageSize(s);
+    }
+  };
 
   const totalPages = Math.ceil((shards?.length || 0) / pageSize);
   const paginated = useMemo(() => {
@@ -120,7 +153,11 @@ export default function ShardsTable({
           pageSize={pageSize}
           totalItems={shards.length}
           onPageChange={setCurrentPage}
-          onPageSizeChange={() => {}}
+          onPageSizeChange={(s) => {
+            // When pageSize changes, reset to page 1
+            setPageSize(s);
+            setCurrentPage(1);
+          }}
         />
       )}
     </>

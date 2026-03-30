@@ -32,6 +32,7 @@ import { parseError, getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
 import type { ShardInfo } from '../types/api';
 import ShardsTable from '../components/ShardsTable';
+import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 
 /**
@@ -295,6 +296,10 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
   }
 
   function ShardsTableWrapper({ indexName, onShardClick }: { indexName?: string | null; onShardClick?: (s: ShardInfo) => void }) {
+    const defaultSize = useResponsivePageSize();
+    const [localPage, setLocalPage] = useState<number>(1);
+    const [localPageSize, setLocalPageSize] = useState<number>(defaultSize);
+
     return (
       <ShardsTable
         shards={shardsForIndex}
@@ -309,6 +314,15 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
           setSearchParams(params, { replace: true });
         }}
         nodeNameMap={nodeNameMap}
+        // Use local, controlled pagination so modal pagination doesn't collide with main page URL params
+        currentPage={localPage}
+        pageSize={localPageSize}
+        onPageChange={setLocalPage}
+        onPageSizeChange={(s) => {
+          setLocalPageSize(s);
+          // ensure we reset to first page when page size changes
+          setLocalPage(1);
+        }}
       />
     );
   }
