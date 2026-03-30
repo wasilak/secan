@@ -24,13 +24,14 @@ export function ConsoleModal() {
 
           styles={{
             overlay: {
-              zIndex: 9999,
+              // Put console modal above regular app modals but below global notifications
+              zIndex: 10500,
             },
             inner: {
-              zIndex: 9999,
+              zIndex: 10500,
             },
             content: {
-              zIndex: 9999,
+              zIndex: 10500,
             },
             body: {
               height: '70vh',

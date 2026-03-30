@@ -221,7 +221,7 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
             <div
               ref={consolePaneRef}
               className="console-pane-enter console-pane-enter-active"
-              style={{ height: '100%', width: '100%' }}
+              style={{ height: '100%', width: '100%', position: 'relative', zIndex: 10500 }}
             >
               <ConsoleContent clusterId={clusterId} />
             </div>
