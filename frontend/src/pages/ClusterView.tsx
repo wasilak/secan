@@ -60,6 +60,7 @@ import { useClusterIndices } from '../hooks/useClusterIndices';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
 import { IndexEdit } from './IndexEdit';
+import { IndexCreate } from './IndexCreate';
 import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { TasksView } from './cluster/TasksView';
@@ -464,6 +465,16 @@ export function ClusterView() {
       pushModal({ type: 'node', nodeId: nodeIdFromPath });
     }
   }, [nodeIdFromPath, pushModal]);
+
+  // Open create-index modal when path matches /indices/create OR when search param indexCreate is present
+  useEffect(() => {
+    const isCreatePath = location.pathname.includes('/indices/create');
+    const isCreateParam = searchParams.get('indexCreate') != null;
+    const alreadyOpen = modalStack.some((m) => m.type === 'indexCreate');
+    if ((isCreatePath || isCreateParam) && !alreadyOpen) {
+      pushModal({ type: 'indexCreate' });
+    }
+  }, [location.pathname, searchParams, modalStack, pushModal]);
 
   // Handle opening node modal (keeps URL behavior)
   const openNodeModal = (nodeId: string) => {
@@ -1318,6 +1329,56 @@ export function ClusterView() {
               clusterId={id!}
               zIndex={1100}
             />
+          );
+        }
+
+        if (modal.type === 'indexCreate') {
+          return (
+            <Modal.Root
+              key={modal.id}
+              opened={true}
+              onClose={() => {
+                // Pop modal from stack first
+                const prevStack = modalStack.filter((m) => m.id !== modal.id);
+                popModal();
+
+                // If the modal was opened via search param, remove that param so closing doesn't navigate the path
+                if (searchParams.get('indexCreate') != null) {
+                  const params = new URLSearchParams(searchParams);
+                  params.delete('indexCreate');
+                  setSearchParams(params, { replace: false });
+                  return;
+                }
+
+                // Otherwise fall back to previous behavior: go back in history or navigate to indices list
+                if (window.history.length > 1) navigate(-1);
+                else navigate(`/cluster/${id}/indices`, { replace: true });
+              }}
+              size="80%"
+              zIndex={1100}
+            >
+              <Modal.Overlay />
+              <Modal.Content>
+                <Modal.Header>
+                  <Modal.Title>Create Index</Modal.Title>
+                  <Modal.CloseButton />
+                </Modal.Header>
+                <Modal.Body style={{ maxHeight: 'calc(100vh - 120px)', overflow: 'auto' }}>
+                  <IndexCreate
+                    modalMode
+                    onClose={() => {
+                      popModal();
+                      if (window.history.length > 1) navigate(-1);
+                      else navigate(`/cluster/${id}/indices`, { replace: true });
+                    }}
+                    onCreated={(name: string) => {
+                      popModal();
+                      navigate(`/cluster/${id}/indices/${name}/edit`);
+                    }}
+                  />
+                </Modal.Body>
+              </Modal.Content>
+            </Modal.Root>
           );
         }
 

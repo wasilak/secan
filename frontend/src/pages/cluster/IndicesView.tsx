@@ -206,11 +206,17 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
               },
             ]}
             actions={[
-              {
-                label: 'Create Index',
-                onClick: () => navigate(`/cluster/${clusterId}/indices/create`),
-                icon: <IconPlus size={16} />,
+            {
+              label: 'Create Index',
+              onClick: () => {
+                // Open create-index modal via search param so it behaves like other modals
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('indexCreate', '1');
+                // push new history entry so Back closes the modal
+                setSearchParams(newParams, { replace: false });
               },
+              icon: <IconPlus size={16} />,
+            },
             ]}
           />
           <Stack gap="md" style={{ flex: 1 }}>
