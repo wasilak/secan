@@ -206,6 +206,17 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
   border-radius: 50% !important;
 }
 
+/* Hover effect for small shard dots used across node views. Adds a subtle
+   outer border to improve affordance when hovering. Target the class we
+   add to rendered dot elements so this doesn't affect RF handles. */
+.secan-shard-dot {
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+.secan-shard-dot:hover {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+
 /* Edge paths / connectors - use same color as nodes */
 .secan-reactflow .react-flow__edge-path {
   stroke: var(--secan-rf-edge-color) !important;

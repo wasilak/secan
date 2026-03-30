@@ -84,6 +84,7 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
           justifyContent: 'center',
           position: 'relative',
           boxSizing: 'border-box',
+          transition: 'box-shadow 150ms ease, transform 150ms ease',
         }}
       >
         {/* Shard number */}

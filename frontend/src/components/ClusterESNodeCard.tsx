@@ -211,6 +211,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
               withinPortal
             >
               <Box
+                className="secan-shard-dot"
                 style={{
                   width: 14,
                   height: 14,
