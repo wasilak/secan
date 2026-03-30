@@ -139,6 +139,14 @@ export function calculateIndexVizLayout(
     type: 'indexGroup',
     position: { x: 0, y: 0 },
     draggable: false,
+    style: {
+      minWidth: indexW,
+      boxSizing: 'border-box',
+      overflow: 'visible',
+      transition: 'transform 0.4s ease',
+      borderRadius: '8px',
+      backgroundColor: 'transparent',
+    },
     data: {
       indexName,
       health,

@@ -31,7 +31,7 @@ import { IndexGroupNode } from './IndexGroupNode';
 // Use the same 'clusterGroup' renderer as the topology canvas so Index
 // Visualization reuses the exact same node renderer (ClusterESNodeCardFlowWrapper).
 const nodeTypes: NodeTypes = {
-  indexGroup: IndexGroupNode,
+  indexGroup: IndexGroupNodeFlowWrapper,
   clusterGroup: ClusterESNodeCardFlowWrapper,
 };
 
