@@ -210,11 +210,19 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
    outer border to improve affordance when hovering. Target the class we
    add to rendered dot elements so this doesn't affect RF handles. */
 .secan-shard-dot {
-  transition: box-shadow 140ms ease, transform 140ms ease;
+  transition: box-shadow 140ms ease;
 }
 .secan-shard-dot:hover {
+  /* subtle border-like outline without translation */
   box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
-  transform: translateY(-1px);
+}
+
+/* ShardNode (24px) hover outline */
+.secan-shard-node {
+  transition: box-shadow 150ms ease;
+}
+.secan-shard-node:hover {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
 }
 
 /* Edge paths / connectors - use same color as nodes */

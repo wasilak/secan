@@ -72,6 +72,7 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
           // Defensive: stop mouse down as well
           e.stopPropagation();
         }}
+        className="secan-shard-node"
         style={{
           width: 24,
           height: 24,
