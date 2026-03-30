@@ -60,10 +60,14 @@ export function TablePagination({
               onPageSizeChange(parseInt(value, 10));
             }
           }}
-          data={pageSizeOptions.map((size) => ({
-            value: size.toString(),
-            label: size.toString(),
-          }))}
+          data={(() => {
+            const items = pageSizeOptions.map((size) => ({ value: size.toString(), label: size.toString() }));
+            if (!items.some((it) => it.value === pageSize.toString())) {
+              // Ensure current pageSize is always present so Select doesn't render an empty value
+              items.unshift({ value: pageSize.toString(), label: pageSize.toString() });
+            }
+            return items;
+          })()}
           w={70}
           comboboxProps={{ withinPortal: false }}
         />
