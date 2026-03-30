@@ -3172,7 +3172,7 @@ export const ShardsList = memo(function ShardsList({
                               navigateToNode(shard.node!);
                             }
                           }}
-                          style={{ textDecoration: 'none', cursor: 'pointer' }}
+                          style={{ textDecoration: 'none', cursor: 'pointer', color: 'inherit' }}
                         >
                           <Text size="sm" fw={500} className="clickable-name">
                             {nodeNameMap.get(shard.node) ?? shard.node}
