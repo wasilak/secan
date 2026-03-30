@@ -2472,7 +2472,7 @@ export const IndicesList = memo(function IndicesList({
                           </Badge>
                         </Tooltip>
                       ) : (
-                        <Badge size="sm" color="green" variant="filled">
+                        <Badge size="sm" variant="light" color="green" style={{ textTransform: 'none' }}>
                           0
                         </Badge>
                       )}
