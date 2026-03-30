@@ -9,7 +9,7 @@ import type { ShardInfo, NodeInfo } from '../types/api';
 export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeDataFlat }) {
   const data = props.data as unknown as Record<string, unknown> | null;
   if (!data) {
-    // eslint-disable-next-line no-console
+     
     console.error('ClusterESNodeCardFlowWrapper received no data', props);
     if (process.env.NODE_ENV !== 'production') {
       throw new Error('ClusterESNodeCardFlowWrapper received no data');
@@ -37,9 +37,9 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
 
     const getIndexHealthColor = (data['getIndexHealthColor'] as ((indexName: string) => string) | undefined) ?? (() => 'var(--mantine-color-gray-6)');
 
-    const badges = [{ label: `${totalShards} shards` } as any];
-    if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
-    if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
+    const badges = [{ label: `${totalShards} shards` } as { label: string }];
+    if (primaryCount > 0) badges.push({ label: `${primaryCount} primary` });
+    if (replicaCount > 0) badges.push({ label: `${replicaCount} replica` });
 
     const dots = shards.map((shard) => ({
       color: getIndexHealthColor(shard.index),
@@ -91,7 +91,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     };
 
     // Debug: log presence of handlers in the normalized flat data
-    // eslint-disable-next-line no-console
+     
     console.debug('ClusterESNodeCardFlowWrapper flat has onNodeClick?', !!flat.onNodeClick, 'id', flat.id);
 
     return (
@@ -106,7 +106,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
 
   // Validate summaryCounts presence at the wrapper boundary to fail early
   if (!('summaryCounts' in data) || !data.summaryCounts) {
-    // eslint-disable-next-line no-console
+     
     console.error('ClusterESNodeCardFlowWrapper data missing summaryCounts', data);
     if (process.env.NODE_ENV !== 'development') {
       // In production, defer to inner component's fallback UI

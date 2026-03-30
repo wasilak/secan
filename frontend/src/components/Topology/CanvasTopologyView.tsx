@@ -89,7 +89,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
       const ok = typeof v === 'function' || (v && typeof v === 'object' && '$$typeof' in v);
       (out as any)[k] = ok ? v : fallback;
       if (!ok) {
-        // eslint-disable-next-line no-console
+         
         console.error(`Invalid node renderer for type ${k}, using fallback`, v);
       }
     });
@@ -117,7 +117,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   }, [safeNodeTypes, flowNodes]);
 
   if (invalidRendererInfo) {
-    // eslint-disable-next-line no-console
+     
     console.error('Topology Flow aborted due to invalid node renderers', invalidRendererInfo);
     return (
       <div style={{ padding: 12, color: 'var(--mantine-color-red-7)' }}>
@@ -367,7 +367,7 @@ export function CanvasTopologyView({
     ],
   );
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
-  // eslint-disable-next-line no-console
+   
   console.debug('CanvasTopologyView layoutNodes onNodeClick present?', layoutNodes.map(n => ({ id: n.id, onNodeClick: (n as any).data ? !!(n as any).data.onNodeClick : undefined })))
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});

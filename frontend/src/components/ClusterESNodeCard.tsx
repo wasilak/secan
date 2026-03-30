@@ -19,20 +19,17 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     version,
     roles,
     isMaster,
-    isMasterEligible: _isMasterEligible,
     ip,
     heapPercent,
     heapColor,
     cpuPercent,
     cpuColor,
-    diskUsed: _diskUsed,
     diskDisplay,
     load1m,
     loadColor,
     groupLabel,
     isValidDestination,
     summaryCounts,
-    badges: _badges,
     dots = [],
     renderDots = true,
     onShardClick,
@@ -42,24 +39,20 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     isLoading,
     hideInnerBorder,
   } = props;
-  // Debug: log whether a click handler is attached so we can trace topology click issues
-  // eslint-disable-next-line no-console
-  console.debug('ClusterESNodeCard onNodeClick', !!onNodeClick, 'id', id);
   // Card-level destination click (used for relocation) should remain
   // clickable when a destination handler is provided. Node-details modal
   // must open only when clicking the node name below.
   const isDestinationClickable = !!isValidDestination && !!onDestinationClick;
-  const isClickable = isDestinationClickable || !!onShardClick;
+  
 
   // Ensure summaryCounts is present — its absence is a caller bug and should fail loudly
   if (!summaryCounts) {
-    // eslint-disable-next-line no-console
+     
     console.error('ClusterESNodeCard rendered without summaryCounts', { id, name });
     if (process.env.NODE_ENV !== 'production') {
       throw new Error(`Missing summaryCounts for node ${id ?? name}`);
     }
     // In production, render a minimal fallback UI instead of throwing to avoid crashing the whole app
-    const fallback = { primary: 0, replica: 0, total: 0 };
     // Render simple fallback card
     return (
       <div className="secan-cluster-node-card"

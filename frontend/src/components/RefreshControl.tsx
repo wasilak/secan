@@ -41,7 +41,7 @@ export function RefreshControl({ scope }: RefreshControlProps = {}) {
     const timer = window.setInterval(updateTimer, 100);
 
     return () => window.clearInterval(timer);
-  }, [interval, lastRefreshTime]);
+  }, [interval, lastRefreshTime, paused]);
 
   // Format time remaining
   const formatTimeRemaining = (ms: number | null): string => {

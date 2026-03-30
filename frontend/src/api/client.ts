@@ -422,7 +422,10 @@ export class ApiClient {
           const uptimeMillis = Number.isFinite(node.uptimeMillis) ? node.uptimeMillis : undefined;
 
           // Prefer server-provided heapPercent when valid; otherwise derive it from heapUsed/heapMax
-          const serverHeap = Number.isFinite((node as any).heapPercent) ? (node as any).heapPercent : undefined;
+           // heapPercent may be present on older servers as a number; treat unknowns safely
+           const serverHeap = Number.isFinite((node as unknown as Record<string, unknown>).heapPercent as number)
+             ? ((node as unknown as Record<string, unknown>).heapPercent as number)
+             : undefined;
           const heapPercent = serverHeap !== undefined ? serverHeap : computeHeapPercent(node.heapUsed, node.heapMax);
           if (serverHeap === undefined) incrementHeapPercentMissing();
 

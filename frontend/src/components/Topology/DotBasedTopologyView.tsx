@@ -336,7 +336,7 @@ export function DotBasedTopologyView({
     };
 
     // Debug: trace whether node click handler was provided down to the rendered group
-    // eslint-disable-next-line no-console
+     
     console.debug('DotBasedTopologyView renderNodeCard onNodeClick?', !!groupData.onNodeClick, 'node', node.name || node.id);
 
     return (

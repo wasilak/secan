@@ -41,7 +41,7 @@ export function useModalStack(): UseModalStackReturn {
 
   const pushModal = useCallback((modal: ModalData) => {
     // Debug: log shard modal push payload to help diagnose missing metadata
-    // eslint-disable-next-line no-console
+     
     if (modal.type === 'shard') console.debug('pushModal shard', modal);
     const newModal: ModalStackItem = {
       ...modal,

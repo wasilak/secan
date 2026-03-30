@@ -601,8 +601,23 @@ fn parse_routing_node_shard(entry: &Value, node: Option<String>) -> Option<Shard
         tracing::debug!(entry = ?entry, node = ?node, "Skipping routing_nodes shard entry missing index or shard");
         return None;
     }
-    let index = index_opt.unwrap();
-    let shard = shard_opt.unwrap();
+
+    // Use pattern matching instead of unwrap() to satisfy clippy (avoid unwrap_used)
+    let index = match index_opt {
+        Some(i) => i,
+        None => {
+            tracing::debug!(entry = ?entry, node = ?node, "Skipping routing_nodes shard entry missing index (post-check)");
+            return None;
+        }
+    };
+
+    let shard = match shard_opt {
+        Some(s) => s,
+        None => {
+            tracing::debug!(entry = ?entry, node = ?node, "Skipping routing_nodes shard entry missing shard (post-check)");
+            return None;
+        }
+    };
     // "primary" may be missing in some cluster_state variants; default to false
     // "primary" may be boolean, numeric, or string ("true"/"false"/"1"/"0").
     let primary = entry

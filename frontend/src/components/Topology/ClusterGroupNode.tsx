@@ -4,7 +4,7 @@ import type { ClusterGroupNodeDataFlat } from '../../utils/canvasLayout';
 import ClusterESNodeCard from '../ClusterESNodeCard';
 
 // Debug: ensure this module loads in runtime builds
-// eslint-disable-next-line no-console
+ 
 console.log('ClusterGroupNode module loaded');
 
 /**
@@ -22,7 +22,7 @@ console.log('ClusterGroupNode module loaded');
 function ClusterGroupNodeComponent({ data, selected }: NodeProps & { data: ClusterGroupNodeDataFlat }) {
   if (!data) {
     // Defensive: avoid throwing during render when ReactFlow passes an unexpected node
-    // eslint-disable-next-line no-console
+     
     console.error('ClusterGroupNode rendered without data prop', { selected, data });
     return (
       <div style={{ padding: 8, border: '1px dashed red', background: 'rgba(255,0,0,0.04)' }}>
@@ -33,7 +33,7 @@ function ClusterGroupNodeComponent({ data, selected }: NodeProps & { data: Clust
 
   // Assert that required fields are present. Missing summaryCounts indicates a bug
   if (!('summaryCounts' in data) || !data.summaryCounts) {
-    // eslint-disable-next-line no-console
+     
     console.error('ClusterGroupNode data missing summaryCounts', data);
     if (process.env.NODE_ENV !== 'production') {
       throw new Error('ClusterGroupNode data missing summaryCounts');

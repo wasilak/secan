@@ -24,8 +24,9 @@ export function useIndexShardsWithNodes(
 
       // If backend returned combined shape, it will have `nodes` field.
       // Normalize to PaginatedShardsWithNodes for callers.
-      if ((response as any).nodes) {
-        return response as PaginatedShardsWithNodes;
+      const possibleCombined = response as unknown as PaginatedShardsWithNodes;
+      if (possibleCombined && Array.isArray(possibleCombined.nodes)) {
+        return possibleCombined;
       }
 
       // Legacy response: wrap with empty nodes array

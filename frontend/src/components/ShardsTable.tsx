@@ -22,7 +22,7 @@ interface ShardsTableProps {
 
 export default function ShardsTable({
   shards = [],
-  loading = false,
+  loading: _loading = false,
   onShardClick,
   onIndexClick,
   onNodeClick,
@@ -44,7 +44,7 @@ export default function ShardsTable({
 
   const setCurrentPage = (p: number) => {
     if (isControlled) {
-      onPageChangeProp && onPageChangeProp(p);
+      if (onPageChangeProp) onPageChangeProp(p);
     } else {
       setInternalPage(p);
     }
@@ -52,7 +52,7 @@ export default function ShardsTable({
 
   const setPageSize = (s: number) => {
     if (isControlled) {
-      onPageSizeChangeProp && onPageSizeChangeProp(s);
+      if (onPageSizeChangeProp) onPageSizeChangeProp(s);
     } else {
       setInternalPageSize(s);
     }
@@ -88,7 +88,7 @@ export default function ShardsTable({
                     style={{ textTransform: 'none' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onIndexClick && onIndexClick(shard.index);
+                  if (onIndexClick) onIndexClick(shard.index);
                     }}
                   >
                     {shard.index}
@@ -101,7 +101,7 @@ export default function ShardsTable({
                   className="clickable-name"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onShardClick && onShardClick(shard);
+                      if (onShardClick) onShardClick(shard);
                   }}
                 >
                   {shard.shard}
@@ -123,7 +123,7 @@ export default function ShardsTable({
                     component="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onNodeClick && onNodeClick(shard.node!);
+                      if (onNodeClick) onNodeClick(shard.node!);
                     }}
                     style={{ textDecoration: 'none', cursor: 'pointer', color: 'inherit' }}
                   >

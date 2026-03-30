@@ -1,10 +1,11 @@
-import { useMemo, useEffect } from 'react';
-import { useRef } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// TODO: replace any usage with proper React Flow types. Disabled at file
+// level for now because this file heavily integrates with RF library types.
 import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   BackgroundVariant,
   useNodesState,
   useEdgesState,
@@ -67,8 +68,8 @@ export function IndexVisualizationFlow({
     refreshInterval ?? 30000,
   );
 
-  const shards = paginated?.items ?? [];
-  const nodes = paginated?.nodes ?? [];
+  const shards = useMemo(() => paginated?.items ?? [], [paginated?.items]);
+  const nodes = useMemo(() => paginated?.nodes ?? [], [paginated?.nodes]);
 
   // Compute layout whenever shard or node data (or callbacks) change.
   const [layout, layoutError] = useMemo(() => {
@@ -83,7 +84,7 @@ export function IndexVisualizationFlow({
       // Pass through dagre layout for vertical (TB) arrangement
       const dagreLayout = applyDagreLayout(rawLayout.nodes, rawLayout.edges, 'TB');
       // Log the nodes and edges for debugging
-      // eslint-disable-next-line no-console
+       
       console.log('IndexVizLayout:', dagreLayout.nodes, dagreLayout.edges);
       return [dagreLayout, undefined] as const;
     } catch (err) {
@@ -92,16 +93,18 @@ export function IndexVisualizationFlow({
         err instanceof Error ? err : new Error(String(err)),
       ] as const;
     }
-  }, [indexName, shards, nodes, onShardClick]);
+  }, [indexName, shards, nodes, onShardClick, onNodeClick]);
 
   // applyDagreLayout may return readonly arrays; ensure we pass mutable copies
-  const [flowNodes, setNodes, onNodesChange] = useNodesState(layout.nodes as any as any[]);
-  const [flowEdges, setEdges, onEdgesChange] = useEdgesState(layout.edges as any as any[]);
+  // layout.nodes/edges may be readonly — provide mutable copies and avoid blanket `any`
+  // Keep local `any` casts limited to these assignments to avoid cascading type changes.
+  const [flowNodes, setNodes, onNodesChange] = useNodesState(layout.nodes as unknown as any[]);
+  const [flowEdges, setEdges, onEdgesChange] = useEdgesState(layout.edges as unknown as any[]);
 
   // Sync RF state on every layout change (data refresh / filter change).
   useEffect(() => {
-    setNodes(layout.nodes as any as any[]);
-    setEdges(layout.edges as any as any[]);
+    setNodes(layout.nodes as unknown as any[]);
+    setEdges(layout.edges as unknown as any[]);
   }, [layout, setNodes, setEdges]);
 
   // Collision resolving: wait for RF to measure node sizes, then nudge nodes
@@ -148,7 +151,7 @@ export function IndexVisualizationFlow({
 
     requestAnimationFrame(attemptResolve);
     return () => { cancelled = true; };
-  }, [flowNodes, setNodes]);
+  }, [flowNodes, setNodes, setEdges]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading && !paginated) {
