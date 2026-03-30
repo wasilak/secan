@@ -347,7 +347,14 @@ export function ClusterView() {
   const handleShardClickInIndexModal = useCallback(
     (shard: ShardInfo) => {
       if (shard.node) {
-        pushModal({ type: 'shard', indexName: shard.index, shardId: `${shard.index}[${shard.shard}]` });
+        // Include shard primary flag and node so modal header can render correctly
+        pushModal({
+          type: 'shard',
+          indexName: shard.index,
+          shardId: `${shard.index}[${shard.shard}]`,
+          shardPrimary: shard.primary,
+          shardNode: shard.node,
+        });
       }
     },
     [pushModal]
@@ -1274,12 +1281,15 @@ export function ClusterView() {
             : [modal.indexName, modal.shardId];
           const shardNum = shardPart ? parseInt(shardPart.replace(']', ''), 10) : 0;
 
+          // Use metadata from the modal entry if available (pushModal should
+          // include whether this shard was primary and its node). Fall back to
+          // sensible defaults for backward compatibility.
           const shard: ShardInfo = {
             index: modal.indexName || indexName || '',
             shard: shardNum,
-            primary: true,
+            primary: (modal as any).shardPrimary ?? true,
             state: 'STARTED',
-            node: undefined,
+            node: (modal as any).shardNode ?? undefined,
             docs: 0,
             store: 0,
           };
