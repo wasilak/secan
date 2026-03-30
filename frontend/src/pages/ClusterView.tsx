@@ -1351,6 +1351,7 @@ export const NodesList = memo(function NodesList({
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { navigateToNode } = useClusterNavigation();
 
   // Fetch watermark thresholds for disk/memory coloring
   const { getColor } = useWatermarks(id);
@@ -1606,7 +1607,12 @@ export const NodesList = memo(function NodesList({
                             if (openNodeModal) {
                               openNodeModal(node.id);
                             } else {
-                              navigate(`/cluster/${id}/nodes/${node.id}`);
+                              // Use cluster navigation modal flow when available (search-param driven)
+                              if (navigateToNode) {
+                                navigateToNode(node.id);
+                              } else {
+                                navigate(`/cluster/${id}/nodes/${node.id}`);
+                              }
                             }
                           }}
                         >
