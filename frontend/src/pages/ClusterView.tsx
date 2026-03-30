@@ -2472,9 +2472,9 @@ export const IndicesList = memo(function IndicesList({
                           </Badge>
                         </Tooltip>
                       ) : (
-                        <Text size="sm" c="dimmed">
-                          -
-                        </Text>
+                        <Badge size="sm" color="green" variant="filled">
+                          0
+                        </Badge>
                       )}
                     </Table.Td>
                     <Table.Td onClick={(e) => e.stopPropagation()}>
