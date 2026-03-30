@@ -147,46 +147,16 @@ pub async fn list_clusters(
         "Returning filtered cluster list"
     );
 
-    // Fetch actual cluster names and stats for filtered clusters
-    let mut result_clusters = Vec::new();
-    for cluster_info in filtered {
-        if let Ok(cluster) = state.cluster_manager.get_cluster(&cluster_info.id).await {
-            // Get health for health filter
-            let health = cluster.health().await.ok();
-
-            // Fetch cluster name if not in config
-            let cluster_name = cluster_info
-                .name
-                .clone()
-                .or_else(|| {
-                    health
-                        .as_ref()
-                        .and_then(|h: &serde_json::Value| h["cluster_name"].as_str())
-                        .map(|s| s.to_string())
-                })
-                .unwrap_or(cluster_info.id.clone());
-
-            result_clusters.push(ClusterInfo {
-                id: cluster_info.id,
-                name: Some(cluster_name),
-                nodes: cluster_info.nodes,
-                accessible: cluster_info.accessible,
-                metrics_source: cluster_info.metrics_source,
-            });
-        }
-    }
-
-    // Apply pagination
-    let response = paginate_vec(
-        result_clusters,
-        params.page as usize,
-        params.page_size as usize,
-    );
+    // At this stage return configured cluster info only (config-only response).
+    // Do NOT perform network calls (health/stats) here — those are performed
+    // by per-cluster detail endpoints. This makes the clusters list non-blocking
+    // when a cluster is slow or unreachable.
+    let response = paginate_vec(filtered, params.page as usize, params.page_size as usize);
 
     tracing::debug!(
         total = response.total,
         page_items = response.items.len(),
-        "Clusters retrieved successfully"
+        "Clusters retrieved (config-only)"
     );
 
     Ok(Json(response))
