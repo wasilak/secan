@@ -14,6 +14,7 @@
 
 import type { Node, Edge } from '@xyflow/react';
 import type { ShardInfo, NodeInfo } from '../types/api';
+import React, { type ReactNode } from 'react';
 import { sortShards } from './shardOrdering';
 import type { IndexGroupNodeData } from '../components/IndexGroupNode';
 import type { ShardNodeData } from '../components/Topology/ShardNode';
@@ -250,7 +251,14 @@ export function calculateIndexVizLayout(
     // Use shard-state-based dot coloring (consistent with other topology views)
     const dotsForNode = sgShards.map((shard: ShardInfo) => ({
       color: getShardDotColor(shard.state),
-      tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
+      tooltip: React.createElement(
+        'div',
+        null,
+        React.createElement('div', null, 'Index: ', React.createElement('span', { style: { textTransform: 'none' } }, shard.index)),
+        React.createElement('div', null, 'Shard: ', React.createElement('span', { style: { textTransform: 'none' } }, shard.shard)),
+        React.createElement('div', null, 'Type: ', shard.primary ? 'Primary' : 'Replica'),
+        React.createElement('div', null, 'State: ', shard.state),
+      ) as ReactNode,
       primary: shard.primary,
       shard,
     }));

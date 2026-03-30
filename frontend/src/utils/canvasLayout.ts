@@ -12,6 +12,7 @@
 
 import type { Node } from '@xyflow/react';
 import type { NodeInfo, ShardInfo } from '../types/api';
+import React, { type ReactNode } from 'react';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
@@ -47,7 +48,7 @@ export interface ClusterGroupNodeDataFlat {
   badges: Array<{ label: string; color?: string }>;
   dots: Array<{
     color: string;
-    tooltip: string;
+    tooltip: ReactNode;
     primary: boolean;
     // Include shard info so node renderer can emit shard-specific interactions
     shard: ShardInfo;
@@ -177,19 +178,25 @@ function emitGroupNode(
   if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
-  const dots = sortedShards.map((shard, idx) => {
-    const color = shard.state === 'UNASSIGNED'
-      ? SHARD_STATE_COLORS.UNASSIGNED
-      : input.getIndexHealthColor
-        ? input.getIndexHealthColor(shard.index)
-        : 'var(--mantine-color-gray-6)';
-    return {
-      color,
-      tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
-      primary: shard.primary,
-      shard,
-    };
-  });
+    const dots = sortedShards.map((shard, idx) => {
+      const color = shard.state === 'UNASSIGNED'
+        ? SHARD_STATE_COLORS.UNASSIGNED
+        : input.getIndexHealthColor
+          ? input.getIndexHealthColor(shard.index)
+          : 'var(--mantine-color-gray-6)';
+      return {
+        color,
+        tooltip: React.createElement(
+          'div',
+          null,
+          React.createElement('div', null, 'Index: ', React.createElement('span', { style: { textTransform: 'none' } }, shard.index)),
+          React.createElement('div', null, 'Shard: ', React.createElement('span', { style: { textTransform: 'none' } }, shard.shard)),
+          React.createElement('div', null, shard.primary ? 'Primary' : 'Replica', ' · ', shard.state),
+        ) as ReactNode,
+        primary: shard.primary,
+        shard,
+      };
+    });
 
   const groupData: ClusterGroupNodeDataFlat = {
     id: node.id,
