@@ -156,7 +156,7 @@ export function RelocationConfirmDialog({
         {/* Index and shard information */}
         <Box>
           <Text size="sm" fw={600} mb="xs">
-            shard details
+            Shard Details
           </Text>
           <Stack gap="xs">
             <Group gap="xs">

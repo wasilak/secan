@@ -200,7 +200,7 @@ export function ShardStatsModal({
 
   // Get shard type label
   const getShardTypeLabel = (primary: boolean): string => {
-    return primary ? 'primary' : 'replica';
+    return primary ? 'Primary' : 'Replica';
   };
 
   if (!shard) {
@@ -217,7 +217,7 @@ export function ShardStatsModal({
           title={
             <Group gap="sm">
               <Text fw={600} size="lg">
-                shard details
+                Shard Details
               </Text>
               <Badge color={getShardTypeColor(shard.primary)} variant="light">
                 {getShardTypeLabel(shard.primary)}
@@ -240,9 +240,9 @@ export function ShardStatsModal({
             <Stack gap="md">
         {/* Basic shard information - Requirements: 4.6 */}
         <Box>
-              <Text size="sm" fw={600} mb="xs">
-                basic information
-              </Text>
+          <Text size="sm" fw={600} mb="xs">
+            Basic Information
+          </Text>
           <Table withTableBorder withColumnBorders>
             <Table.Tbody>
               {/* Shard number and type - Requirements: 4.6 */}
@@ -262,10 +262,10 @@ export function ShardStatsModal({
 
               {/* Index name - Requirements: 4.6 */}
               <Table.Tr>
-                <Table.Td fw={500}>index name</Table.Td>
+                <Table.Td fw={500}>Index Name</Table.Td>
                 <Table.Td>
                   <Text ff="monospace" size="sm">
-                    {String(shard.index).toLowerCase()}
+                    {shard.index}
                   </Text>
                 </Table.Td>
               </Table.Tr>
@@ -314,7 +314,7 @@ export function ShardStatsModal({
         {/* Shard statistics - Requirements: 4.6 */}
         <Box>
           <Text size="sm" fw={600} mb="xs">
-            statistics
+            Statistics
           </Text>
           <Table withTableBorder withColumnBorders>
             <Table.Tbody>
@@ -349,9 +349,9 @@ export function ShardStatsModal({
         {/* Detailed statistics - Requirements: 4.6 */}
         {shard.state !== 'UNASSIGNED' && (
           <Box>
-          <Text size="sm" fw={600} mb="xs">
-            detailed statistics
-          </Text>
+            <Text size="sm" fw={600} mb="xs">
+              Detailed Statistics
+            </Text>
 
             {loading && (
               <Box p="md" style={{ textAlign: 'center' }}>
@@ -433,9 +433,9 @@ export function ShardStatsModal({
               borderRadius: 'var(--mantine-radius-sm)',
             }}
           >
-                <Text size="sm" c="dimmed">
-                  <strong>note:</strong> Detailed statistics are not available for unassigned shards.
-                </Text>
+            <Text size="sm" c="dimmed">
+              <strong>Note:</strong> Detailed statistics are not available for unassigned shards.
+            </Text>
           </Box>
         )}
             </Stack>
