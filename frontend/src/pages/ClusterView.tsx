@@ -3166,9 +3166,9 @@ export const ShardsList = memo(function ShardsList({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (openNodeModal) {
-                              openNodeModal(shard.node);
+                              openNodeModal(shard.node!);
                             } else if (navigateToNode) {
-                              navigateToNode(shard.node);
+                              navigateToNode(shard.node!);
                             }
                           }}
                           style={{ textDecoration: 'none', cursor: 'pointer' }}
