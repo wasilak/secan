@@ -1,6 +1,10 @@
 import { Grid, Group, Stack } from '@mantine/core';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../api/client';
+import { queryKeys } from '../../utils/queryKeys';
+import type { ShardInfo } from '../../types/api';
 import { IconPlus, IconEyeOff } from '@tabler/icons-react';
 
 import { useClusterIndices } from '../../hooks/useClusterIndices';
@@ -109,6 +113,38 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
 
   const indices = indicesPaginated?.items;
 
+  // Per-page: request UNASSIGNED shards only for indices visible on this page.
+  const visibleIndexNames = indices?.map((i) => i.name) ?? [];
+  const visibleIndexFilter = visibleIndexNames.join(',');
+
+  const { data: unassignedForPage = [] } = useQuery<ShardInfo[]>({
+    queryKey: queryKeys.cluster(clusterId).shards(undefined, {
+      state: 'UNASSIGNED',
+      index: visibleIndexFilter,
+      page: indicesPage,
+    }),
+    queryFn: async () => {
+      if (!clusterId || visibleIndexNames.length === 0) return [];
+      const resp = await apiClient.getShards(clusterId, 1, 2000, {
+        state: 'UNASSIGNED',
+        index: visibleIndexFilter,
+      });
+      return (resp as any).items ?? [];
+    },
+    enabled: !!clusterId && visibleIndexNames.length > 0,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: [],
+  });
+
+  const unassignedByIndexForPage: Record<string, ShardInfo[]> = unassignedForPage.reduce(
+    (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
+      if (!acc[shard.index]) acc[shard.index] = [];
+      acc[shard.index].push(shard);
+      return acc;
+    },
+    {} as Record<string, ShardInfo[]>
+  );
+
   const indexStats = {
     totalIndices: indicesPaginated?.total ?? 0,
     greenIndices: indices?.filter((idx) => idx.health === 'green').length ?? 0,
@@ -184,6 +220,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
               loading={indicesLoading}
               error={indicesError}
               openIndexModal={openIndexModal}
+              unassignedByIndexProp={unassignedByIndexForPage}
             />
             {indicesPaginated && indicesPaginated.total_pages > 1 && (
               <TablePagination

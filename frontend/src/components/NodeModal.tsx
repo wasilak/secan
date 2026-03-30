@@ -44,6 +44,7 @@ interface NodeModalProps {
   onClose: () => void;
   context: 'topology' | 'nodes' | 'shards';
   clusterInfo?: ClusterInfo;
+  zIndex?: number;
 }
 
 /**
@@ -73,6 +74,7 @@ export function NodeModal({
   opened,
   onClose,
   clusterInfo,
+  zIndex,
 }: NodeModalProps): React.JSX.Element {
   const refreshInterval = useRefreshInterval();
   const isPrometheus = clusterInfo?.metrics_source === 'prometheus';
@@ -141,7 +143,7 @@ export function NodeModal({
   return (
     <AnimatePresence>
       {opened && (
-        <Modal.Root opened={opened} onClose={onClose} size="90%">
+        <Modal.Root opened={opened} onClose={onClose} size="90%" zIndex={zIndex}>
           <Modal.Overlay />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

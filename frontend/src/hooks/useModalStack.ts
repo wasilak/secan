@@ -1,11 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
 
-export type ModalType = 'index' | 'shard';
+export type ModalType = 'index' | 'shard' | 'node';
 
 export interface ModalData {
   type: ModalType;
   indexName?: string;
   shardId?: string;
+  nodeId?: string;
   tab?: string;
 }
 
@@ -41,12 +42,13 @@ export function useModalStack(): UseModalStackReturn {
       id: generateModalId(),
     };
     setModalStack((prev) => {
-      const exists = prev.some(
-        (m) => m.type === modal.type && m.indexName === modal.indexName && m.shardId === modal.shardId
-      );
-      if (exists) {
-        return prev;
-      }
+      const exists = prev.some((m) => {
+        if (modal.type === 'index') return m.type === 'index' && m.indexName === modal.indexName;
+        if (modal.type === 'shard') return m.type === 'shard' && m.shardId === modal.shardId && m.indexName === modal.indexName;
+        if (modal.type === 'node') return m.type === 'node' && m.nodeId === modal.nodeId;
+        return false;
+      });
+      if (exists) return prev;
       return [...prev, newModal];
     });
   }, []);

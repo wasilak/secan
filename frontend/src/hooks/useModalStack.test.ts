@@ -31,6 +31,19 @@ describe('useModalStack', () => {
       expect(result.current.topModal?.indexName).toBe('test-index');
     });
 
+    it('should add a node modal to the stack', () => {
+      const { result } = renderHook(() => useModalStack());
+
+      act(() => {
+        result.current.pushModal({ type: 'node', nodeId: 'node-1' });
+      });
+
+      expect(result.current.modalStack).toHaveLength(1);
+      expect(result.current.modalStack[0].type).toBe('node');
+      expect(result.current.modalStack[0].nodeId).toBe('node-1');
+      expect(result.current.topModal?.nodeId).toBe('node-1');
+    });
+
     it('should add multiple modals to the stack', () => {
       const { result } = renderHook(() => useModalStack());
 

@@ -77,10 +77,6 @@ export function useClusterNavigation() {
     (nodeId: string) => {
       const params = new URLSearchParams(searchParams);
       params.set('nodeModal', nodeId);
-      // Close other modals if open
-      params.delete('indexModal');
-      params.delete('indexTab');
-      params.delete('shardModal');
       setSearchParams(params, { replace: false });
     },
     [searchParams, setSearchParams]

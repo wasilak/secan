@@ -587,10 +587,16 @@ fn parse_routing_node_shard(entry: &Value, node: Option<String>) -> Option<Shard
         .get("index")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let shard_opt = entry
-        .get("shard")
-        .and_then(|v| v.as_u64())
-        .map(|v| v as u32);
+    // shard may be a number or a string in different cluster_state variants
+    let shard_opt = entry.get("shard").and_then(|v| {
+        if let Some(n) = v.as_u64() {
+            Some(n as u32)
+        } else if let Some(s) = v.as_str() {
+            s.parse::<u64>().ok().map(|n| n as u32)
+        } else {
+            None
+        }
+    });
     if index_opt.is_none() || shard_opt.is_none() {
         tracing::debug!(entry = ?entry, node = ?node, "Skipping routing_nodes shard entry missing index or shard");
         return None;
@@ -598,9 +604,24 @@ fn parse_routing_node_shard(entry: &Value, node: Option<String>) -> Option<Shard
     let index = index_opt.unwrap();
     let shard = shard_opt.unwrap();
     // "primary" may be missing in some cluster_state variants; default to false
+    // "primary" may be boolean, numeric, or string ("true"/"false"/"1"/"0").
     let primary = entry
         .get("primary")
-        .and_then(|v| v.as_bool())
+        .and_then(|v| {
+            if let Some(b) = v.as_bool() {
+                Some(b)
+            } else if let Some(n) = v.as_u64() {
+                Some(n != 0)
+            } else if let Some(s) = v.as_str() {
+                match s.to_ascii_lowercase().as_str() {
+                    "true" | "1" | "t" => Some(true),
+                    "false" | "0" | "f" => Some(false),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
         .unwrap_or(false);
 
     // "state" may be omitted for unassigned entries in some Elasticsearch/OpenSearch responses.
@@ -1403,6 +1424,37 @@ mod tests {
 
         let result = transform_routing_nodes_to_shards(&state);
         assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_transform_routing_nodes_mixed_types() {
+        // routing_nodes entries where shard is string and primary is string/number
+        let state = json!({
+            "routing_nodes": {
+                "unassigned": [
+                    { "state": "UNASSIGNED", "primary": "true", "index": "mix-idx", "shard": "0" },
+                    { "state": "UNASSIGNED", "primary": 1, "index": "mix-idx", "shard": "1" },
+                    { "state": "UNASSIGNED", "primary": "false", "index": "mix-idx", "shard": "2" },
+                    { "state": "UNASSIGNED", "primary": 0, "index": "mix-idx", "shard": "3" }
+                ],
+                "nodes": {}
+            }
+        });
+
+        let result = transform_routing_nodes_to_shards(&state);
+        assert_eq!(result.len(), 4);
+
+        assert_eq!(result[0].shard, 0);
+        assert!(result[0].primary, "expected primary parsed from \"true\"");
+
+        assert_eq!(result[1].shard, 1);
+        assert!(result[1].primary, "expected primary parsed from numeric 1");
+
+        assert_eq!(result[2].shard, 2);
+        assert!(!result[2].primary, "expected primary parsed from \"false\"");
+
+        assert_eq!(result[3].shard, 3);
+        assert!(!result[3].primary, "expected primary parsed from numeric 0");
     }
 
     #[test]

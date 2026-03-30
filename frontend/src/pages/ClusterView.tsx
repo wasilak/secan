@@ -171,7 +171,7 @@ export function ClusterView() {
   const { getColor } = useWatermarks(id);
 
   // Get navigation helper
-  const { navigateToNode, navigateToIndex, closeModal, currentSection: getCurrentSection } = useClusterNavigation();
+  const { navigateToNode, navigateToIndex, navigateToShard, closeModal, currentSection: getCurrentSection } = useClusterNavigation();
 
   // Get active section from path parameter, default to 'overview'
   // This supports both /cluster/:id and /cluster/:id/:section URL formats
@@ -447,22 +447,31 @@ export function ClusterView() {
     }
   };
 
-  // Node modal state
+  // Node modal state is driven via URL and modal stack
   const [nodeModalOpen, setNodeModalOpen] = useState(false);
 
-  // Open node modal when URL path changes
+  // Open node modal when URL path changes and push to stack so it can be layered
   useEffect(() => {
     setNodeModalOpen(!!nodeIdFromPath);
-  }, [nodeIdFromPath]);
+    if (nodeIdFromPath) {
+      pushModal({ type: 'node', nodeId: nodeIdFromPath });
+    }
+  }, [nodeIdFromPath, pushModal]);
 
-  // Handle opening node modal
+  // Handle opening node modal (keeps URL behavior)
   const openNodeModal = (nodeId: string) => {
     navigateToNode(nodeId);
+    // push immediately so UI updates even if URL-driven effect lags
+    pushModal({ type: 'node', nodeId });
   };
 
-  // Handle closing node modal - navigate back to section
+  // Handle closing node modal - pop from stack if stacked otherwise remove modal param
   const closeNodeModal = () => {
-    closeModal();
+    if (modalStack.length > 0) {
+      popModal();
+    } else {
+      closeModal();
+    }
   };
 
   // Update URL when tab/section changes
@@ -1207,7 +1216,7 @@ export function ClusterView() {
 
       {/* Index Edit Modal */}
       {selectedIndexName && (
-        <Modal.Root opened={indexModalOpen} onClose={closeIndexModal} size="90%">
+        <Modal.Root opened={indexModalOpen} onClose={closeIndexModal} size="90%" zIndex={1000}>
           <Modal.Overlay />
           <Modal.Content
             style={{
@@ -1239,45 +1248,93 @@ export function ClusterView() {
         </Modal.Root>
       )}
 
-      {/* Node Modal */}
-      <NodeModal
-        clusterId={id!}
-        nodeId={nodeIdFromPath || null}
-        opened={nodeModalOpen}
-        onClose={closeNodeModal}
-        context={activeView === 'topology' ? 'topology' : activeView === 'nodes' ? 'nodes' : 'shards'}
-        clusterInfo={clusterInfo}
-      />
+      {/* Node & Shard Modals from stack (allows layering) */}
 
-      {/* Shard Modals from stack */}
       {modalStack.map((modal) => {
-        if (modal.type !== 'shard' || !modal.shardId) return null;
-        
-        const [indexName, shardPart] = modal.shardId.includes('[') 
-          ? modal.shardId.split('[') 
-          : [modal.indexName, modal.shardId];
-        const shardNum = shardPart ? parseInt(shardPart.replace(']', ''), 10) : 0;
-        
-        const shard: ShardInfo = {
-          index: modal.indexName || indexName || '',
-          shard: shardNum,
-          primary: true,
-          state: 'STARTED',
-          node: undefined,
-          docs: 0,
-          store: 0,
+        // Helper to remove only specific modal param from URL
+        const removeModalParam = (type: string) => {
+          const params = new URLSearchParams(searchParams);
+          if (type === 'node') params.delete('nodeModal');
+          if (type === 'index') {
+            params.delete('indexModal');
+            params.delete('indexTab');
+          }
+          if (type === 'shard') params.delete('shardModal');
+          setSearchParams(params, { replace: false });
         };
-        
-        return (
-          <ShardDetailsModal
-            key={modal.id}
-            shard={shard}
-            opened={true}
-            onClose={() => popModal()}
-            clusterId={id!}
-            zIndex={300}
-          />
-        );
+
+        if (modal.type === 'shard' && modal.shardId) {
+          const [indexName, shardPart] = modal.shardId.includes('[')
+            ? modal.shardId.split('[')
+            : [modal.indexName, modal.shardId];
+          const shardNum = shardPart ? parseInt(shardPart.replace(']', ''), 10) : 0;
+
+          const shard: ShardInfo = {
+            index: modal.indexName || indexName || '',
+            shard: shardNum,
+            primary: true,
+            state: 'STARTED',
+            node: undefined,
+            docs: 0,
+            store: 0,
+          };
+
+          return (
+            <ShardDetailsModal
+              key={modal.id}
+              shard={shard}
+              opened={true}
+              onClose={() => {
+                // Compute stack after removing this modal
+                const prevStack = modalStack.filter((m) => m.id !== modal.id);
+                popModal();
+
+                const newTop = prevStack.length > 0 ? prevStack[prevStack.length - 1] : null;
+                if (newTop) {
+                  // Show previous stacked modal by setting its search param
+                  if (newTop.type === 'index') navigateToIndex(newTop.indexName || '', newTop.tab);
+                  else if (newTop.type === 'node') navigateToNode(newTop.nodeId || '');
+                  else if (newTop.type === 'shard') navigateToShard(newTop.shardId || '');
+                } else {
+                  // No stacked modals remain. Remove only shard param so underlying index/modal stays
+                  removeModalParam('shard');
+                }
+              }}
+              clusterId={id!}
+              zIndex={1100}
+            />
+          );
+        }
+
+        if (modal.type === 'node' && modal.nodeId) {
+          return (
+            <NodeModal
+              key={modal.id}
+              clusterId={id!}
+              nodeId={modal.nodeId}
+              opened={true}
+              onClose={() => {
+                const prevStack = modalStack.filter((m) => m.id !== modal.id);
+                popModal();
+
+                const newTop = prevStack.length > 0 ? prevStack[prevStack.length - 1] : null;
+                if (newTop) {
+                  if (newTop.type === 'index') navigateToIndex(newTop.indexName || '', newTop.tab);
+                  else if (newTop.type === 'node') navigateToNode(newTop.nodeId || '');
+                  else if (newTop.type === 'shard') navigateToShard(newTop.shardId || '');
+                } else {
+                  // Remove only node modal param from URL; keep any existing index modal param
+                  removeModalParam('node');
+                }
+              }}
+              context={activeView === 'topology' ? 'topology' : activeView === 'nodes' ? 'nodes' : 'shards'}
+              clusterInfo={clusterInfo}
+              zIndex={1200}
+            />
+          );
+        }
+
+        return null;
       })}
     </Stack>
   );

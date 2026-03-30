@@ -302,10 +302,11 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
         onShardClick={onShardClick}
         onIndexClick={() => {}}
         onNodeClick={(nodeId) => {
-          // open node modal via URL param
-          const params = new URLSearchParams(window.location.search);
+          // open node modal via URL search params so React Router hooks pick it up
+          const params = new URLSearchParams(searchParams);
           params.set('nodeModal', nodeId);
-          window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+          // use setSearchParams to update router-managed search params (replace to avoid new history entry)
+          setSearchParams(params, { replace: true });
         }}
         nodeNameMap={nodeNameMap}
       />
