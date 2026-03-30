@@ -171,7 +171,7 @@ export function NodeModal({
                         showTooltip={true}
                       />
                     )}
-                    <Text size="lg" fw={600}>
+                    <Text size="lg" fw={600} style={{ textTransform: 'none' }}>
                       {nodeStats ? nodeStats.name : 'Node Details'}
                     </Text>
                   </Group>
