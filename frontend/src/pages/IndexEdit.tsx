@@ -75,6 +75,7 @@ function filterReadOnlySettings(settings: Record<string, unknown>): Record<strin
     'analysis', // All analysis settings (analyzers, tokenizers, filters, etc.)
     'similarity', // Similarity algorithms
     'mapping', // Mapping settings
+    'replication', // Non-dynamic nested settings like index.replication.type
   ];
 
   const allFilteredFields = [...systemReadOnlyFields, ...staticFields];
