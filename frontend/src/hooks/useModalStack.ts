@@ -8,6 +8,9 @@ export interface ModalData {
   shardId?: string;
   nodeId?: string;
   tab?: string;
+  // Optional metadata for shard modals
+  shardPrimary?: boolean;
+  shardNode?: string;
 }
 
 export interface ModalStackItem extends ModalData {
