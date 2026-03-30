@@ -1219,7 +1219,7 @@ export function ClusterView() {
                   <Text size="lg" fw={600}>
                     Index Details:
                   </Text>
-                  <Badge size="lg" variant="light" color="blue">
+                  <Badge size="lg" variant="light" color="blue" style={{ textTransform: 'none' }}>
                     {selectedIndexName}
                   </Badge>
                 </Group>

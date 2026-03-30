@@ -13,6 +13,8 @@ export interface IndexGroupNodeData extends Record<string, unknown> {
   indexName: string;
   health?: HealthStatus;
   shardCount?: number;
+  primaryCount?: number;
+  replicaCount?: number;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface IndexGroupNodeData extends Record<string, unknown> {
  * Requirements: 3.1, 3.8
  */
 function IndexGroupNodeComponent({ data }: NodeProps & { data: IndexGroupNodeData }) {
-  const { indexName, health, shardCount } = data;
+  const { indexName, health, shardCount, primaryCount, replicaCount } = data;
 
   return (
     <div
@@ -51,6 +53,11 @@ function IndexGroupNodeComponent({ data }: NodeProps & { data: IndexGroupNodeDat
           <Badge size="sm" color="gray" variant="light">
             {shardCount} shards
           </Badge>
+        )}
+        {(primaryCount !== undefined || replicaCount !== undefined) && (
+          <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+            {primaryCount ?? 0} primaries · {replicaCount ?? 0} replicas
+          </Text>
         )}
       </Group>
     </div>

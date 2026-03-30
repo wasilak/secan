@@ -79,12 +79,25 @@ export function calculateIndexVizLayout(
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
+  // Compute top-level shard counts for the index header
+  const totalShards = shards.length;
+  const totalPrimaries = shards.filter((s) => s.primary).length;
+  const totalReplicas = totalShards - totalPrimaries;
+
   if (shards.length === 0) {
-    // Emit a minimal root node so the canvas/modal is not blank.
+    // Emit an indexGroup root node so the canvas/modal is not blank.
     nodes.push({
       id: 'idx',
+      type: 'indexGroup',
       position: { x: 0, y: 0 },
-      data: { label: indexName },
+      draggable: false,
+      data: {
+        indexName,
+        health,
+        shardCount: 0,
+        primaryCount: 0,
+        replicaCount: 0,
+      } as IndexGroupNodeData,
     });
     return { nodes, edges };
   }
@@ -120,11 +133,19 @@ export function calculateIndexVizLayout(
   const indexW = totalSubgroupsWidth + INDEX_PADDING * 2;
   const indexH = INDEX_HEADER + maxSubgroupH + INDEX_PADDING * 2;
 
-  // ── 3. Emit root node (minimal default node for modal) ────────────────────
+  // ── 3. Emit root node (index header) ────────────────────────────────────
   nodes.push({
     id: 'idx',
+    type: 'indexGroup',
     position: { x: 0, y: 0 },
-    data: { label: indexName },
+    draggable: false,
+    data: {
+      indexName,
+      health,
+      shardCount: totalShards,
+      primaryCount: totalPrimaries,
+      replicaCount: totalReplicas,
+    } as IndexGroupNodeData,
   });
 
   // We'll render the index header at the top and create a clusterGroup-style
