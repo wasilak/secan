@@ -36,6 +36,20 @@ export function Login() {
   // Get redirect_to from query params, default to dashboard
   const searchParams = new URLSearchParams(location.search);
   const redirectPath = searchParams.get('redirect_to') || '/';
+
+  // Ensure redirect targets are safe (same-origin internal paths). Disallow absolute external URLs.
+  const safeRedirect = (path: string | null) => {
+    if (!path) return '/';
+    try {
+      const url = new URL(path, window.location.origin);
+      if (url.origin !== window.location.origin) return '/';
+      const pathname = url.pathname + url.search + url.hash;
+      if (!pathname.startsWith('/')) return '/';
+      return pathname;
+    } catch {
+      return '/';
+    }
+  };
   const isLoggedOut = searchParams.has('logged_out');
 
   // Check auth status and handle redirects, also fetch version
@@ -58,8 +72,8 @@ export function Login() {
           });
 
           if (meResponse.ok) {
-            // User is authenticated, redirect to home
-            navigate('/', { replace: true });
+            // User is authenticated, redirect to intended path (from redirect_to) or home
+            navigate(safeRedirect(redirectPath), { replace: true });
             return;
           }
         } catch (err) {
@@ -68,9 +82,9 @@ export function Login() {
           console.debug('Auth check failed, proceeding with status check:', err);
         }
 
-        // If already authenticated (from context), redirect to home
+        // If already authenticated (from context), redirect to intended path (from redirect_to) or home
         if (isAuthenticated) {
-          navigate('/', { replace: true });
+          navigate(safeRedirect(redirectPath), { replace: true });
           return;
         }
 
@@ -147,8 +161,8 @@ export function Login() {
 
     try {
       await login(username, password);
-      // Redirect to original path or dashboard
-      navigate(redirectPath, { replace: true });
+      // Redirect to original path or dashboard (sanitized)
+      navigate(safeRedirect(redirectPath), { replace: true });
     } catch {
       setError('Invalid username or password');
     } finally {
