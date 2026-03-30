@@ -3140,6 +3140,7 @@ export const ShardsList = memo(function ShardsList({
                     <Table.Td>
                       <Text
                         size="sm"
+                        fw={500}
                         className="clickable-name"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -3173,7 +3174,7 @@ export const ShardsList = memo(function ShardsList({
                           }}
                           style={{ textDecoration: 'none', cursor: 'pointer' }}
                         >
-                          <Text size="sm" style={{ textDecoration: 'inherit' }}>
+                          <Text size="sm" fw={500} className="clickable-name">
                             {nodeNameMap.get(shard.node) ?? shard.node}
                           </Text>
                         </Anchor>
