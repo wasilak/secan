@@ -27,6 +27,7 @@ import { sortShards } from '../../utils/shardOrdering';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
+import TopologyController from '../../topology/TopologyController';
 
 // Defensive: if ClusterGroupNode failed to import for any reason, provide a
 // fallback component so React doesn't throw an "Invalid element type" error
@@ -279,6 +280,10 @@ export function CanvasTopologyView({
 }: CanvasTopologyViewProps) {
   const showLoadingSkeleton = isLoading && nodes.length === 0;
 
+  // Feature flag: enable LOD-based topology when env var or global flag is set.
+  const ENABLE_TOPOLOGY_LOD = (process.env.REACT_APP_TOPOLOGY_LOD_FEATURE === '1') || ((window as any).__TOPOLOGY_LOD_FEATURE__ === true);
+  const [visibleNodesFromTiles, setVisibleNodesFromTiles] = useState<any[] | null>(null);
+
   // ── Index health colour helper ────────────────────────────────────────────
   const indexHealthMap = useMemo(() => {
     const map = new Map<string, IndexInfo['health']>();
@@ -345,33 +350,25 @@ export function CanvasTopologyView({
   }, [shards, filteredIndices, selectedShardStates]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
-  const layoutNodes = useMemo(
-    () =>
-      calculateCanvasLayout({
-        clusterNodes: filteredNodes,
-        shardsByNode,
-        groupingConfig,
-        onNodeClick,
-        onShardClick: onShardClick
-          ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
-          : undefined,
-        relocationMode,
-        validDestinationNodes,
-        onDestinationClick,
-        getIndexHealthColor,
-      }),
-    [
-      filteredNodes,
+  const layoutNodes = useMemo(() => {
+    if (ENABLE_TOPOLOGY_LOD && visibleNodesFromTiles) {
+      // Use nodes produced by tile system when LOD feature enabled
+      return visibleNodesFromTiles;
+    }
+    return calculateCanvasLayout({
+      clusterNodes: filteredNodes,
       shardsByNode,
       groupingConfig,
       onNodeClick,
-      onShardClick,
+      onShardClick: onShardClick
+        ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
+        : undefined,
       relocationMode,
       validDestinationNodes,
       onDestinationClick,
       getIndexHealthColor,
-    ],
-  );
+    });
+  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles, ENABLE_TOPOLOGY_LOD]);
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
   console.debug(
     'CanvasTopologyView layoutNodes onNodeClick present?',
@@ -417,13 +414,26 @@ export function CanvasTopologyView({
         </Box>
       ) : (
         <ReactFlowProvider>
-          <Flow 
-            layoutNodes={layoutNodesWithUserPositions}
-            onPaneClick={onPaneClick}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
-            onNodesPositionChange={handleNodesPositionChange}
-          />
+          {ENABLE_TOPOLOGY_LOD ? (
+            <>
+              <TopologyController onNodesUpdate={setVisibleNodesFromTiles} />
+              <Flow 
+                layoutNodes={layoutNodesWithUserPositions}
+                onPaneClick={onPaneClick}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDragStop={onNodeDragStop}
+                onNodesPositionChange={handleNodesPositionChange}
+              />
+            </>
+          ) : (
+            <Flow 
+              layoutNodes={layoutNodesWithUserPositions}
+              onPaneClick={onPaneClick}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDragStop={onNodeDragStop}
+              onNodesPositionChange={handleNodesPositionChange}
+            />
+          )}
         </ReactFlowProvider>
       )}
     </Box>
