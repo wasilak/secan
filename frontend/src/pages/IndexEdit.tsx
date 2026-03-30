@@ -31,6 +31,11 @@ import { queryKeys } from '../utils/queryKeys';
 import { parseError, getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
 import type { ShardInfo } from '../types/api';
+import ShardsTable from '../components/ShardsTable';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '../utils/queryKeys';
+import { apiClient } from '../api/client';
+import { useClusterNodes } from '../hooks/useClusterNodes';
 
 /**
  * Validate JSON string
@@ -254,6 +259,48 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     enabled: !!clusterId && !!indexName,
   });
 
+  // Shards tab: fetch shards for this index
+  const {
+    data: indexShardsResp,
+    isLoading: shardsLoading,
+    error: shardsError,
+  } = useQuery({
+    queryKey: queryKeys.cluster(clusterId ?? '').shards(1, { index: indexName ?? '' }),
+    queryFn: async () => {
+      if (!clusterId || !indexName) return { items: [] } as any;
+      return apiClient.getShards(clusterId, 1, 2000, { index: indexName });
+    },
+    enabled: !!clusterId && !!indexName,
+  });
+
+  const shardsForIndex: ShardInfo[] = (indexShardsResp?.items ?? []) as ShardInfo[];
+
+  // Node name map for readable node names
+  const { data: allNodesUnfiltered } = useClusterNodes(clusterId, { page: 1, pageSize: 1000, filters: { search: '' } });
+  const nodeNameMap = new Map<string, string>();
+  for (const n of allNodesUnfiltered?.items ?? []) {
+    if (n.id) nodeNameMap.set(n.id, n.name || n.id);
+    if (n.name) nodeNameMap.set(n.name, n.name);
+  }
+
+  function ShardsTableWrapper({ indexName, onShardClick }: { indexName?: string | null; onShardClick?: (s: ShardInfo) => void }) {
+    return (
+      <ShardsTable
+        shards={shardsForIndex}
+        loading={shardsLoading}
+        onShardClick={onShardClick}
+        onIndexClick={() => {}}
+        onNodeClick={(nodeId) => {
+          // open node modal via URL param
+          const params = new URLSearchParams(window.location.search);
+          params.set('nodeModal', nodeId);
+          window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        }}
+        nodeNameMap={nodeNameMap}
+      />
+    );
+  }
+
   // Initialize editors when data is loaded
   useEffect(() => {
     if (currentSettings) {
@@ -455,13 +502,16 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
 
       <Stack gap="md" style={{ flex: 1, overflow: 'auto' }}>
         <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tabs.List>
-            <Tabs.Tab value="visualization" leftSection={<IconMap size={16} />}>
-              Visualization
-            </Tabs.Tab>
-            <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
-              Settings
-            </Tabs.Tab>
+            <Tabs.List>
+              <Tabs.Tab value="visualization" leftSection={<IconMap size={16} />}>
+                Visualization
+              </Tabs.Tab>
+              <Tabs.Tab value="shards" leftSection={<IconSettings size={16} />}>
+                Shards
+              </Tabs.Tab>
+              <Tabs.Tab value="settings" leftSection={<IconSettings size={16} />}>
+                Settings
+              </Tabs.Tab>
             <Tabs.Tab value="mappings" leftSection={<IconMap size={16} />}>
               Mappings
             </Tabs.Tab>
@@ -476,6 +526,13 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
               indexName={indexName}
               onShardClick={onShardClick}
             />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="shards" pt="md">
+            {/* Shards table for this index - reuse ShardsTable component */}
+            <Card shadow="sm" padding="lg">
+              <ShardsTableWrapper indexName={indexName} onShardClick={onShardClick} />
+            </Card>
           </Tabs.Panel>
 
           <Tabs.Panel value="settings" pt="md">

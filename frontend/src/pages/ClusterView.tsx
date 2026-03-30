@@ -64,6 +64,7 @@ import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { TasksView } from './cluster/TasksView';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
+import ShardsTable from '../components/ShardsTable';
 import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
@@ -1232,7 +1233,7 @@ export function ClusterView() {
                 overflow: 'auto',
               }}
             >
-              <IndexEdit constrainToParent hideHeader onShardClick={handleShardClickInIndexModal} />
+            <IndexEdit constrainToParent hideHeader onShardClick={handleShardClickInIndexModal} />
             </Modal.Body>
           </Modal.Content>
         </Modal.Root>
