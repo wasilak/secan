@@ -335,6 +335,10 @@ export function DotBasedTopologyView({
       isUnassigned: isUnassigned,
     };
 
+    // Debug: trace whether node click handler was provided down to the rendered group
+    // eslint-disable-next-line no-console
+    console.debug('DotBasedTopologyView renderNodeCard onNodeClick?', !!groupData.onNodeClick, 'node', node.name || node.id);
+
     return (
       <ClusterESNodeCard key={node.name} {...groupData} isValidDestination={isValidDestination} isLoading={loadingNodes.has(node.id)} />
     );

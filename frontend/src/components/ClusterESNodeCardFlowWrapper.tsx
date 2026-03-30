@@ -90,6 +90,10 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       isUnassigned,
     };
 
+    // Debug: log presence of handlers in the normalized flat data
+    // eslint-disable-next-line no-console
+    console.debug('ClusterESNodeCardFlowWrapper flat has onNodeClick?', !!flat.onNodeClick, 'id', flat.id);
+
     return (
       <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
         <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />

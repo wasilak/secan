@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 import { ShardAllocationGrid } from '../../components/Topology/ShardAllocationGrid';
 import { ShardContextMenu } from '../../components/ShardContextMenu';
 import type { GroupingAttribute, GroupingConfig } from '../../utils/topologyGrouping';
+import type { ModalData } from '../../hooks/useModalStack';
 import { extractLabelFromTag } from '../../utils/topologyGrouping';
 import { SHARD_STATE_COLORS, getShardTypeColor } from '../../utils/colors';
 import type { NodeInfo, ShardInfo, IndexInfo } from '../../types/api';
@@ -54,7 +55,7 @@ interface TopologyViewProps {
   handleTopologySelectForRelocation: (shard: ShardInfo) => void;
   openIndexModal: (indexName: string) => void;
   openNodeModal: (nodeId: string) => void;
-  pushModal: (modal: { type: 'shard'; indexName?: string; shardId?: string }) => void;
+  pushModal: (modal: ModalData) => void;
   setRelocationConfirmOpened: (open: boolean) => void;
   handleTopologyConfirmRelocation: () => void;
 }
@@ -305,16 +306,23 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
       </Grid.Col>
 
       {/* Shared Context Menu */}
-      {topologyContextMenuShard && (
-        <ShardContextMenu
-          shard={topologyContextMenuShard}
-          opened={topologyContextMenuOpened}
-          position={topologyContextMenuPosition}
-          onClose={handleTopologyContextMenuClose}
-          onShowStats={(shard) => {
-            pushModal({ type: 'shard', indexName: shard.index, shardId: `${shard.index}[${shard.shard}]` });
-            handleTopologyContextMenuClose();
-          }}
+          {topologyContextMenuShard && (
+            <ShardContextMenu
+              shard={topologyContextMenuShard}
+              opened={topologyContextMenuOpened}
+              position={topologyContextMenuPosition}
+              onClose={handleTopologyContextMenuClose}
+              onShowStats={(shard) => {
+              // Include shard primary flag and node so the ShardDetailsModal can render correct header
+              pushModal({
+                type: 'shard',
+                indexName: shard.index,
+                shardId: `${shard.index}[${shard.shard}]`,
+                shardPrimary: shard.primary,
+                shardNode: shard.node,
+              });
+                handleTopologyContextMenuClose();
+              }}
           onSelectForRelocation={handleTopologySelectForRelocation}
           onShowIndexDetails={(shard) => {
             openIndexModal(shard.index);

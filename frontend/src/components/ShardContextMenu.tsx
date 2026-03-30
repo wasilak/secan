@@ -153,7 +153,7 @@ export function ShardContextMenu({
                 padding: isMobile ? '12px' : '8px',
               }}
             >
-              <span style={{ textTransform: 'none' }}>{shard.index}</span> / Shard <span style={{ textTransform: 'none' }}>{shard.shard}</span> ({shard.primary ? 'Primary' : 'Replica'})
+              <span style={{ textTransform: 'none' }}>{`${shard.index} / Shard ${shard.shard} (${shard.primary ? 'Primary' : 'Replica'})`}</span>
             </Menu.Label>
 
             {/* Display shard stats option - Requirements: 4.3 */}

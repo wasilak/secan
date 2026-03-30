@@ -366,6 +366,9 @@ export function CanvasTopologyView({
       getIndexHealthColor,
     ],
   );
+  // Debug: log whether layout nodes include onNodeClick handler in their data payloads
+  // eslint-disable-next-line no-console
+  console.debug('CanvasTopologyView layoutNodes onNodeClick present?', layoutNodes.map(n => ({ id: n.id, onNodeClick: (n as any).data ? !!(n as any).data.onNodeClick : undefined })))
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
 

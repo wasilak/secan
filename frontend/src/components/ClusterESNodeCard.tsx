@@ -42,6 +42,9 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     isLoading,
     hideInnerBorder,
   } = props;
+  // Debug: log whether a click handler is attached so we can trace topology click issues
+  // eslint-disable-next-line no-console
+  console.debug('ClusterESNodeCard onNodeClick', !!onNodeClick, 'id', id);
   // Card-level destination click (used for relocation) should remain
   // clickable when a destination handler is provided. Node-details modal
   // must open only when clicking the node name below.
