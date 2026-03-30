@@ -120,7 +120,8 @@ const App = (
       <AuthProvider>
         <DrawerProvider>
           <RefreshProvider>
-            <Notifications />
+            {/* Ensure notifications render above modals/overlays by increasing zIndex */}
+            <Notifications zIndex={11000} />
             <RouterProvider router={router} />
           </RefreshProvider>
         </DrawerProvider>
