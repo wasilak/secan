@@ -2833,6 +2833,27 @@ export const ShardsList = memo(function ShardsList({
   const [searchParams, setSearchParams] = useSearchParams();
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedShard, setSelectedShard] = useState<ShardInfo | null>(null);
+  const { navigateToNode, navigateToIndex } = useClusterNavigation();
+
+  // Fetch all nodes to map node id -> node name for display
+  const { data: allNodesUnfiltered } = useClusterNodes(id, {
+    page: 1,
+    pageSize: 1000,
+    filters: { search: '' },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+  });
+
+  const nodeNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const items = allNodesUnfiltered?.items ?? [];
+    for (const n of items) {
+      if (n.id) map.set(n.id, n.name || n.id);
+      if (n.name) map.set(n.name, n.name);
+    }
+    return map;
+  }, [allNodesUnfiltered]);
 
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
@@ -3098,22 +3119,35 @@ export const ShardsList = memo(function ShardsList({
                 const isUnassigned = shard.state === 'UNASSIGNED';
 
                 return (
-                  <Table.Tr
-                    key={`${shard.index}-${shard.shard}-${idx}`}
-                    className="clickable-row"
-                    style={{
-                      backgroundColor: isUnassigned ? 'rgba(250, 82, 82, 0.1)' : undefined,
-                    }}
-                    onClick={() => handleShardClick(shard)}
-                  >
+                  <Table.Tr key={`${shard.index}-${shard.shard}-${idx}`} className="clickable-row">
                     <Table.Td>
                       <Group gap={4} wrap="nowrap">
-                        <Text size="sm">{shard.index}</Text>
-                        <CopyButton value={shard.index} tooltip="Copy index name" size="xs" />
+                        <Stack style={{ flex: 1 }}>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            className="clickable-name"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (navigateToIndex) navigateToIndex(shard.index);
+                          }}
+                          >
+                            {shard.index}
+                          </Text>
+                        </Stack>
                       </Group>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{shard.shard}</Text>
+                      <Text
+                        size="sm"
+                        className="clickable-name"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShardClick(shard);
+                        }}
+                      >
+                        {shard.shard}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <ShardTypeBadge primary={shard.primary} />
@@ -3126,53 +3160,32 @@ export const ShardsList = memo(function ShardsList({
                       </Group>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        {shard.node && openNodeModal ? (
-                          <Anchor
-                            component="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Pass the node name - the modal will need to look up the node ID
-                              if (shard.node) {
-                                openNodeModal(shard.node);
-                              }
-                            }}
-                            style={{
-                              textDecoration: 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <Text size="sm" style={{ textDecoration: 'inherit' }}>
-                              {shard.node}
-                            </Text>
-                          </Anchor>
-                        ) : (
-                          <Text size="sm">{shard.node || 'N/A'}</Text>
-                        )}
-                        {shard.node && (
-                          <CopyButton value={shard.node} tooltip="Copy node name" size="xs" />
-                        )}
-                      </Group>
+                      {shard.node ? (
+                        <Anchor
+                          component="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openNodeModal) {
+                              openNodeModal(shard.node);
+                            } else if (navigateToNode) {
+                              navigateToNode(shard.node);
+                            }
+                          }}
+                          style={{ textDecoration: 'none', cursor: 'pointer' }}
+                        >
+                          <Text size="sm" style={{ textDecoration: 'inherit' }}>
+                            {nodeNameMap.get(shard.node) ?? shard.node}
+                          </Text>
+                        </Anchor>
+                      ) : (
+                        <Text size="sm">N/A</Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Text size="sm">{shard.docs.toLocaleString()}</Text>
-                        <CopyButton
-                          value={shard.docs.toString()}
-                          tooltip="Copy document count"
-                          size="xs"
-                        />
-                      </Group>
+                      <Text size="sm">{shard.docs.toLocaleString()}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Text size="sm">{formatBytes(shard.store)}</Text>
-                        <CopyButton
-                          value={formatBytes(shard.store)}
-                          tooltip="Copy size"
-                          size="xs"
-                        />
-                      </Group>
+                      <Text size="sm">{formatBytes(shard.store)}</Text>
                     </Table.Td>
                   </Table.Tr>
                 );
