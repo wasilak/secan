@@ -48,8 +48,26 @@ export function TablePagination({
 
   return (
     <Group justify="space-between" mt="md" wrap="nowrap">
-      {/* Hide per-page selector in modals / simplified tables per UX request. */}
-      <div style={{ flex: 1 }} />
+      <Group gap="xs">
+        <Text size="sm" c="dimmed">
+          Per page:
+        </Text>
+        <Select
+          size="xs"
+          value={pageSize.toString()}
+          onChange={(value) => {
+            if (value) {
+              onPageSizeChange(parseInt(value, 10));
+            }
+          }}
+          data={pageSizeOptions.map((size) => ({
+            value: size.toString(),
+            label: size.toString(),
+          }))}
+          w={70}
+          comboboxProps={{ withinPortal: false }}
+        />
+      </Group>
 
       <Pagination total={totalPages} value={currentPage} onChange={onPageChange} size="sm" />
 
