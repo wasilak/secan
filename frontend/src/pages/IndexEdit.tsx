@@ -30,7 +30,7 @@ import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { parseError, getErrorMessage } from '../lib/errorHandling';
 import { CodeEditor } from '../components/CodeEditor';
-import type { ShardInfo } from '../types/api';
+import type { ShardInfo, PaginatedResponse } from '../types/api';
 import ShardsTable from '../components/ShardsTable';
 import { useResponsivePageSize } from '../hooks/useResponsivePageSize';
 import { useClusterNodes } from '../hooks/useClusterNodes';
@@ -275,9 +275,10 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     setShardsLoading(true);
     apiClient
       .getShards(clusterId, 1, 2000, { index: indexName })
-      .then((resp) => {
+        .then((resp) => {
         if (!mounted) return;
-        setShardsForIndex((resp as any).items ?? []);
+        const paginated = resp as PaginatedResponse<ShardInfo> | Record<string, unknown>;
+        setShardsForIndex((paginated && (paginated as PaginatedResponse<ShardInfo>).items) ?? []);
       })
       .catch(() => {
         if (!mounted) return;
@@ -300,7 +301,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
     if (n.name) nodeNameMap.set(n.name, n.name);
   }
 
-  function ShardsTableWrapper({ indexName, onShardClick }: { indexName?: string | null; onShardClick?: (s: ShardInfo) => void }) {
+  function ShardsTableWrapper({ indexName: _indexName, onShardClick }: { indexName?: string | null; onShardClick?: (s: ShardInfo) => void }) {
     const defaultSize = useResponsivePageSize();
     const [localPage, setLocalPage] = useState<number>(1);
     const [localPageSize, setLocalPageSize] = useState<number>(defaultSize);

@@ -46,7 +46,7 @@ function ClusterGroupNodeComponent({ data, selected }: NodeProps & { data: Clust
   return <ClusterESNodeCard {...data} selected={selected} />;
 }
 
-function shallowArrayEqual(a?: Record<string, any>[], b?: Record<string, any>[]): boolean {
+function shallowArrayEqual(a?: Record<string, unknown>[], b?: Record<string, unknown>[]): boolean {
   const aa = Array.isArray(a) ? a : [];
   const bb = Array.isArray(b) ? b : [];
   if (aa === bb) return true;
@@ -85,8 +85,8 @@ function arePropsEqual(prev: NodeProps & { data: ClusterGroupNodeDataFlat }, nex
     if (pd.summaryCounts[key] !== nd.summaryCounts[key]) return false;
   }
   // badges and dots are shallow arrays of objects (defensive)
-  if (!shallowArrayEqual(pd.badges as any, nd.badges as any)) return false;
-  if (!shallowArrayEqual(pd.dots as any, nd.dots as any)) return false;
+  if (!shallowArrayEqual(pd.badges as unknown as Record<string, unknown>[], nd.badges as unknown as Record<string, unknown>[])) return false;
+  if (!shallowArrayEqual(pd.dots as unknown as Record<string, unknown>[], nd.dots as unknown as Record<string, unknown>[])) return false;
   if (pd.onNodeClick !== nd.onNodeClick) return false;
   if (pd.onDestinationClick !== nd.onDestinationClick) return false;
   // onShardClick affects behavior (context menu vs modal). Include in memo check.

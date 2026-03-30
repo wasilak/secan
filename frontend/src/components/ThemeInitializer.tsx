@@ -15,7 +15,7 @@ export function ThemeInitializer() {
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-secan-color-scheme', colorScheme ?? 'light');
-    } catch (err) {
+    } catch {
       // ignore in SSR or restricted environments
     }
   }, [colorScheme]);

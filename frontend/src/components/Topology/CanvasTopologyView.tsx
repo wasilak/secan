@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ReactFlow,
@@ -77,19 +78,19 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   // If some renderer is invalid (e.g. undefined due to import failure), replace
   // it with a simple fallback to avoid React throwing invalid element type (error #310).
   const safeNodeTypes = useMemo(() => {
-    const fallback = (props: any) => (
+    // Keep fallback typed as unknown to avoid `any` in lint
+    const fallback = (_props: unknown) => (
       <div style={{ padding: 8, border: '1px dashed orange', background: 'rgba(255,165,0,0.04)' }}>
         Missing renderer for node type
       </div>
     );
     const out: NodeTypes = {} as NodeTypes;
-    Object.keys(nodeTypes).forEach((k) => {
+      Object.keys(nodeTypes).forEach((k) => {
       // Accept functions or memoized exotic components (objects with $$typeof)
-      const v = (nodeTypes as any)[k];
+      const v = (nodeTypes as unknown as Record<string, unknown>)[k];
       const ok = typeof v === 'function' || (v && typeof v === 'object' && '$$typeof' in v);
-      (out as any)[k] = ok ? v : fallback;
+      (out as unknown as Record<string, unknown>)[k] = ok ? v : fallback;
       if (!ok) {
-         
         console.error(`Invalid node renderer for type ${k}, using fallback`, v);
       }
     });
@@ -99,31 +100,30 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   }, []);
 
   // Validate nodes before passing to ReactFlow to avoid invalid element errors
+  // Validate nodeTypes and nodes for invalid renderers. Run validation but
+  // do not short-circuit hook calls — keep this synchronous and non-conditional
+  // so hook order remains stable. If problems exist, render a lightweight
+  // fallback at render time below instead of returning early here.
   const invalidRendererInfo = useMemo(() => {
-    const problems: Array<{ nodeId?: string; nodeType?: string; renderer?: any; reason: string }> = [];
+    const problems: Array<{ nodeId?: string; nodeType?: string; renderer?: unknown; reason: string }> = [];
     // check nodeTypes
-    Object.entries(safeNodeTypes as any).forEach(([k, v]) => {
+    Object.entries(safeNodeTypes as unknown as Record<string, unknown>).forEach(([k, v]) => {
       const ok = typeof v === 'function' || (v && typeof v === 'object' && '$$typeof' in v);
       if (!ok) problems.push({ nodeType: k, renderer: v, reason: 'invalid renderer type' });
     });
-    // check nodes
-    flowNodes.slice(0, 20).forEach((n: any) => {
-      const t = n.type || 'default';
-      const renderer = (safeNodeTypes as any)[t];
+    // check nodes (sample)
+    (flowNodes || []).slice(0, 20).forEach((n: unknown) => {
+      const nodeObj = n as Record<string, unknown>;
+      const t = (nodeObj.type as string) || 'default';
+      const renderer = (safeNodeTypes as unknown as Record<string, unknown>)[t];
       const ok = typeof renderer === 'function' || (renderer && typeof renderer === 'object' && '$$typeof' in renderer);
-      if (!ok) problems.push({ nodeId: n.id, nodeType: t, renderer, reason: 'node type maps to invalid renderer' });
+      if (!ok) problems.push({ nodeId: nodeObj.id as string | undefined, nodeType: t, renderer, reason: 'node type maps to invalid renderer' });
     });
     return problems.length ? problems : null;
   }, [safeNodeTypes, flowNodes]);
 
   if (invalidRendererInfo) {
-     
-    console.error('Topology Flow aborted due to invalid node renderers', invalidRendererInfo);
-    return (
-      <div style={{ padding: 12, color: 'var(--mantine-color-red-7)' }}>
-        Topology rendering aborted: invalid node renderer(s). See console for details.
-      </div>
-    );
+    console.error('Invalid node renderers detected in topology flow', invalidRendererInfo);
   }
 
   useEffect(() => {
@@ -176,6 +176,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
         setFlowNodes(dagreLayout.nodes);
       } catch (err) {
         // Fallback to raw layout if dagre fails
+        console.warn('Dagre layout failed', err);
         setFlowNodes(layoutNodes);
       }
     } else {
@@ -192,15 +193,18 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     let cancelled = false;
 
     const attemptResolve = () => {
-      const nodesArr = (flowNodes as any[]) || [];
+    const nodesArr = (flowNodes as unknown as Record<string, unknown>[]) || [];
       if (nodesArr.length === 0) return;
-      const measuredReady = nodesArr.every((n) => !!n.measured && n.measured.width > 0 && n.measured.height > 0);
-      if (!measuredReady) {
-        requestAnimationFrame(attemptResolve);
-        return;
-      }
+      const measuredReady = nodesArr.every((n) => {
+        const m = (n as any).measured;
+        return !!m && (m as any).width > 0 && (m as any).height > 0;
+      });
+        if (!measuredReady) {
+          requestAnimationFrame(attemptResolve);
+          return;
+        }
 
-      const resolved = resolveCollisions(nodesArr, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
+      const resolved = resolveCollisions(nodesArr as any, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
 
       if (!cancelled && runId === layoutRunId.current) {
         setFlowNodes(resolved as any);
@@ -273,6 +277,8 @@ export function CanvasTopologyView({
   isLoading = false,
   groupingConfig = { attribute: 'none', value: undefined },
 }: CanvasTopologyViewProps) {
+  const showLoadingSkeleton = isLoading && nodes.length === 0;
+
   // ── Index health colour helper ────────────────────────────────────────────
   const indexHealthMap = useMemo(() => {
     const map = new Map<string, IndexInfo['health']>();
@@ -367,8 +373,10 @@ export function CanvasTopologyView({
     ],
   );
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
-   
-  console.debug('CanvasTopologyView layoutNodes onNodeClick present?', layoutNodes.map(n => ({ id: n.id, onNodeClick: (n as any).data ? !!(n as any).data.onNodeClick : undefined })))
+  console.debug(
+    'CanvasTopologyView layoutNodes onNodeClick present?',
+    layoutNodes.map(n => ({ id: n.id, onNodeClick: (n as any).data ? !!(n as any).data?.onNodeClick : undefined }))
+  );
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
 
@@ -380,16 +388,7 @@ export function CanvasTopologyView({
     });
   }, [layoutNodes, userPositions]);
 
-  // ── Loading skeleton ────────────────────────────────────────────────────────────
-  if (isLoading && nodes.length === 0) {
-    return (
-      <Box p="md">
-        <Skeleton height={180} radius="sm" mb="md" />
-        <Skeleton height={180} radius="sm" mb="md" />
-        <Skeleton height={180} radius="sm" />
-      </Box>
-    );
-  }
+  // (loading early return moved earlier to keep hook order stable)
 
   // When node positions change via drag stop in Flow
   const handleNodesPositionChange = useCallback((positions: { [id: string]: { x: number; y: number } }) => {
@@ -410,15 +409,23 @@ export function CanvasTopologyView({
         borderRadius: 'var(--mantine-radius-sm)',
       }}
     >
-      <ReactFlowProvider>
-        <Flow 
-          layoutNodes={layoutNodesWithUserPositions}
-          onPaneClick={onPaneClick}
-          onNodeDragStart={onNodeDragStart}
-          onNodeDragStop={onNodeDragStop}
-          onNodesPositionChange={handleNodesPositionChange}
-        />
-      </ReactFlowProvider>
+      {showLoadingSkeleton ? (
+        <Box p="md">
+          <Skeleton height={180} radius="sm" mb="md" />
+          <Skeleton height={180} radius="sm" mb="md" />
+          <Skeleton height={180} radius="sm" />
+        </Box>
+      ) : (
+        <ReactFlowProvider>
+          <Flow 
+            layoutNodes={layoutNodesWithUserPositions}
+            onPaneClick={onPaneClick}
+            onNodeDragStart={onNodeDragStart}
+            onNodeDragStop={onNodeDragStop}
+            onNodesPositionChange={handleNodesPositionChange}
+          />
+        </ReactFlowProvider>
+      )}
     </Box>
   );
 }

@@ -1,10 +1,10 @@
 import { Grid, Group, Stack } from '@mantine/core';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
-import type { ShardInfo } from '../../types/api';
+import type { ShardInfo, PaginatedResponse } from '../../types/api';
 import { IconPlus, IconEyeOff } from '@tabler/icons-react';
 
 import { useClusterIndices } from '../../hooks/useClusterIndices';
@@ -19,7 +19,7 @@ interface IndicesViewProps {
 }
 
 export function IndicesView({ clusterId }: IndicesViewProps) {
-  const navigate = useNavigate();
+  // navigation not required here; parent ClusterView manages section navigation
   const [searchParams, setSearchParams] = useSearchParams();
   const { navigateToIndex } = useClusterNavigation();
 
@@ -129,7 +129,8 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
         state: 'UNASSIGNED',
         index: visibleIndexFilter,
       });
-      return (resp as any).items ?? [];
+      const paginated = resp as PaginatedResponse<ShardInfo> | Record<string, unknown>;
+      return (paginated && (paginated as PaginatedResponse<ShardInfo>).items) ?? [];
     },
     enabled: !!clusterId && visibleIndexNames.length > 0,
     staleTime: 5 * 60 * 1000,

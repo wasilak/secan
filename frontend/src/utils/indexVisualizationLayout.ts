@@ -17,7 +17,6 @@ import type { ShardInfo, NodeInfo } from '../types/api';
 import React, { type ReactNode } from 'react';
 import { sortShards } from './shardOrdering';
 import type { IndexGroupNodeData } from '../components/IndexGroupNode';
-import type { ShardNodeData } from '../components/Topology/ShardNode';
 import { computeHeapPercent, getHeapColor } from './heap';
 import { getShardDotColor } from './colors';
 import { formatBytes } from '../utils/formatters';
@@ -135,18 +134,17 @@ export function calculateIndexVizLayout(
 
   // ── 2. Compute sub-group dimensions and index group size ─────────────────
   let maxSubgroupH = 0;
-  const subgroupHeights: number[] = sortedKeys.map((key) => {
+  // Compute subgroup heights for layout; keep max height for index group sizing.
+  for (const key of sortedKeys) {
     const h = subgroupHeight(groupMap.get(key)!.length);
     if (h > maxSubgroupH) maxSubgroupH = h;
-    return h;
-  });
+  }
 
   const totalSubgroupsWidth =
     sortedKeys.length * SUBGROUP_WIDTH +
     (sortedKeys.length - 1) * SUB_GROUP_GAP;
 
   const indexW = totalSubgroupsWidth + INDEX_PADDING * 2;
-  const indexH = INDEX_HEADER + maxSubgroupH + INDEX_PADDING * 2;
 
   // ── 3. Emit root node (index header) ────────────────────────────────────
   nodes.push({
@@ -177,8 +175,8 @@ export function calculateIndexVizLayout(
   // shards belonging to this index and will render them using the same
   // ClusterGroupNode component. We still emit shard-level nodes for edges
   // between primary and replicas so we can draw connections.
-  const primaryShardNodeId = new Map<number, string>();
-  const replicaShardNodeIds = new Map<number, string[]>();
+  // primary/replica node tracking removed: index visualization omits explicit
+  // ShardNode leaf emission and primary->replica edges (requirements).
 
   // ── 4. Emit sub-groups + their shard children ─────────────────────────────
   sortedKeys.forEach((nodeKey, sgIdx) => {
@@ -193,7 +191,6 @@ export function calculateIndexVizLayout(
 
     const sgX = INDEX_PADDING + sgIdx * (SUBGROUP_WIDTH + SUB_GROUP_GAP);
     const sgY = INDEX_HEADER + INDEX_PADDING;
-    const sgH = subgroupHeights[sgIdx];
 
     // Find authoritative node info by id, name or ip. Some upstream data
     // sources may supply shard.node as either the node NAME or the node ID
@@ -203,7 +200,7 @@ export function calculateIndexVizLayout(
     for (const n of nodeInfos) {
       if (n.id) nodeInfoByIdentifier.set(n.id, n);
       if (n.name) nodeInfoByIdentifier.set(n.name, n);
-      if ((n as any).ip) nodeInfoByIdentifier.set((n as any).ip, n);
+      if ((n as NodeInfo).ip) nodeInfoByIdentifier.set((n as NodeInfo).ip as string, n);
     }
 
     let nodeInfo = nodeInfoByIdentifier.get(nodeKey);

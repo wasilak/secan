@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Group, Text, Badge } from '@mantine/core';
+import { Text, Badge } from '@mantine/core';
 import ShardPills from './ShardPills';
 import type { HealthStatus } from '../types/api';
 import { getHealthColor } from '../utils/colors';

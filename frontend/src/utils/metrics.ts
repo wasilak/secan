@@ -12,7 +12,7 @@ export function incrementHeapPercentMissing(): void {
     // Expose for debugging in devtools
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__secanHeapPercentMissingCount = heapPercentMissingCount;
-  } catch (e) {
+  } catch {
     // ignore in non-browser environments
   }
 }

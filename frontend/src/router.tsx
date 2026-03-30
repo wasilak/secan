@@ -39,9 +39,7 @@ const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login
 const AccessDenied = lazy(() =>
   import('./pages/AccessDenied').then((m) => ({ default: m.AccessDenied }))
 );
-const IndexCreate = lazy(() =>
-  import('./pages/IndexCreate').then((m) => ({ default: m.IndexCreate }))
-);
+// IndexCreate page is rendered via ClusterView modal routes; avoid importing directly here to prevent unused import linting
 const Aliases = lazy(() => import('./pages/Aliases').then((m) => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default: m.Templates })));
 const ShardManagement = lazy(() =>

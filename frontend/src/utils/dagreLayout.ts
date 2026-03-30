@@ -1,6 +1,6 @@
 // dagreLayout utility for React Flow (vertical tree)
 import dagre from '@dagrejs/dagre';
-import type { Node, Edge, XYPosition } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
 import { Position } from '@xyflow/react';
 // Use GROUP_WIDTH from canvasLayout so Dagre spacing matches actual node widths
 import { GROUP_WIDTH, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, VERTICAL_GAP } from './canvasLayout';

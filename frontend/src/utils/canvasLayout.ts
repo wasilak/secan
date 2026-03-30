@@ -155,7 +155,9 @@ function emitGroupNode(
   // For unassigned placeholder nodes we should not attempt to show heap/disk
   // metrics (they are not actual ES nodes). The `node` parameter may be a
   // lightweight placeholder with id === UNASSIGNED_KEY.
-  const isUnassignedNode = (node as any)?.id === (UNASSIGNED_KEY as any);
+  // Node may be a lightweight placeholder object (synthetic unassigned node).
+  // Narrow to an object with optional id to avoid blanket `any`.
+  const isUnassignedNode = (node as unknown as { id?: string }).id === UNASSIGNED_KEY;
   const heapPercent = isUnassignedNode ? 0 : computeHeapPercent(node.heapUsed, node.heapMax);
   const heapColor = isUnassignedNode ? 'dimmed' : getHeapColor(heapPercent);
   const cpuPercent = node.cpuPercent ?? undefined;
@@ -178,7 +180,7 @@ function emitGroupNode(
   if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
-    const dots = sortedShards.map((shard, idx) => {
+  const dots = sortedShards.map((shard, _idx) => {
       const color = shard.state === 'UNASSIGNED'
         ? SHARD_STATE_COLORS.UNASSIGNED
         : input.getIndexHealthColor
@@ -303,7 +305,8 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
   // Emit synthetic Unassigned node if present in shardsByNode
   const unassigned = shardsByNode[UNASSIGNED_KEY];
   if (unassigned && unassigned.length > 0) {
-    const uNode: any = {
+    // Small typed placeholder for synthetic unassigned node to avoid `any`
+    const uNode: Partial<NodeInfo> = {
       id: UNASSIGNED_KEY,
       name: 'Unassigned',
       roles: [],

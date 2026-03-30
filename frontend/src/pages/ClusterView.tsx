@@ -65,7 +65,7 @@ import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
 import { TasksView } from './cluster/TasksView';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
-import ShardsTable from '../components/ShardsTable';
+// ShardsTable is used in IndexEdit modal; ClusterView does not need direct import
 import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
@@ -455,12 +455,8 @@ export function ClusterView() {
     }
   };
 
-  // Node modal state is driven via URL and modal stack
-  const [nodeModalOpen, setNodeModalOpen] = useState(false);
-
-  // Open node modal when URL path changes and push to stack so it can be layered
+  // Node modal is driven via URL and modal stack; effect ensures modal is pushed when URL param appears
   useEffect(() => {
-    setNodeModalOpen(!!nodeIdFromPath);
     if (nodeIdFromPath) {
       pushModal({ type: 'node', nodeId: nodeIdFromPath });
     }
@@ -481,15 +477,6 @@ export function ClusterView() {
     navigateToNode(nodeId);
     // push immediately so UI updates even if URL-driven effect lags
     pushModal({ type: 'node', nodeId });
-  };
-
-  // Handle closing node modal - pop from stack if stacked otherwise remove modal param
-  const closeNodeModal = () => {
-    if (modalStack.length > 0) {
-      popModal();
-    } else {
-      closeModal();
-    }
   };
 
   // Update URL when tab/section changes
@@ -966,8 +953,6 @@ export function ClusterView() {
   // unassigned shards that are not returned by per-node progressive loader.
   const {
     data: unassignedClusterShards = [],
-    isLoading: unassignedClusterShardsLoading,
-    error: unassignedClusterShardsError,
   } = useQuery<ShardInfo[]>({
     queryKey: queryKeys.cluster(id!).shards(undefined, { state: 'UNASSIGNED' }),
     queryFn: async () => {
@@ -979,7 +964,9 @@ export function ClusterView() {
       while (true) {
         const resp = await apiClient.getShards(id!, page, pageSize, { state: 'UNASSIGNED' });
         // resp may be PaginatedResponse<ShardInfo>
-        const items: ShardInfo[] = (resp as any).items ?? [];
+        // Response is a PaginatedResponse<ShardInfo> — narrow safely
+        const paginated = resp as PaginatedResponse<ShardInfo> | Record<string, unknown>;
+        const items: ShardInfo[] = (paginated && (paginated as PaginatedResponse<ShardInfo>).items) ?? [];
         if (items.length > 0) collected.push(...items);
         if (!items || items.length < pageSize) break;
         page += 1;
@@ -1286,7 +1273,7 @@ export function ClusterView() {
           setSearchParams(params, { replace: false });
         };
 
-        if (modal.type === 'shard' && modal.shardId) {
+    if (modal.type === 'shard' && modal.shardId) {
           const [indexName, shardPart] = modal.shardId.includes('[')
             ? modal.shardId.split('[')
             : [modal.indexName, modal.shardId];
@@ -1295,12 +1282,14 @@ export function ClusterView() {
           // Use metadata from the modal entry if available (pushModal should
           // include whether this shard was primary and its node). Fall back to
           // sensible defaults for backward compatibility.
+          // Narrow modal metadata rather than relying on `any`.
+          const modalMeta = modal as unknown as { shardPrimary?: boolean; shardNode?: string } | undefined;
           const shard: ShardInfo = {
             index: modal.indexName || indexName || '',
             shard: shardNum,
-            primary: (modal as any).shardPrimary ?? true,
+            primary: modalMeta?.shardPrimary ?? true,
             state: 'STARTED',
-            node: (modal as any).shardNode ?? undefined,
+            node: modalMeta?.shardNode ?? undefined,
             docs: 0,
             store: 0,
           };
@@ -1312,10 +1301,9 @@ export function ClusterView() {
               opened={true}
               onClose={() => {
                 // Compute stack after removing this modal
-                const prevStack = modalStack.filter((m) => m.id !== modal.id);
                 popModal();
 
-                const newTop = prevStack.length > 0 ? prevStack[prevStack.length - 1] : null;
+                const newTop = modalStack.filter((m) => m.id !== modal.id).slice(-1)[0] ?? null;
                 if (newTop) {
                   // Show previous stacked modal by setting its search param
                   if (newTop.type === 'index') navigateToIndex(newTop.indexName || '', newTop.tab);
@@ -1339,20 +1327,19 @@ export function ClusterView() {
               opened={true}
               onClose={() => {
                 // Pop modal from stack first
-                const prevStack = modalStack.filter((m) => m.id !== modal.id);
-                popModal();
+                  popModal();
 
-                // If the modal was opened via search param, remove that param so closing doesn't navigate the path
-                if (searchParams.get('indexCreate') != null) {
-                  const params = new URLSearchParams(searchParams);
-                  params.delete('indexCreate');
-                  setSearchParams(params, { replace: false });
-                  return;
-                }
+                  // If the modal was opened via search param, remove that param so closing doesn't navigate the path
+                  if (searchParams.get('indexCreate') != null) {
+                    const params = new URLSearchParams(searchParams);
+                    params.delete('indexCreate');
+                    setSearchParams(params, { replace: false });
+                    return;
+                  }
 
-                // Otherwise fall back to previous behavior: go back in history or navigate to indices list
-                if (window.history.length > 1) navigate(-1);
-                else navigate(`/cluster/${id}/indices`, { replace: true });
+                  // Otherwise fall back to previous behavior: go back in history or navigate to indices list
+                  if (window.history.length > 1) navigate(-1);
+                  else navigate(`/cluster/${id}/indices`, { replace: true });
               }}
               size="80%"
               zIndex={1100}
@@ -1367,13 +1354,13 @@ export function ClusterView() {
                   <IndexCreate
                     modalMode
                     onClose={() => {
-                      popModal();
-                      if (window.history.length > 1) navigate(-1);
-                      else navigate(`/cluster/${id}/indices`, { replace: true });
+                       popModal();
+                       if (window.history.length > 1) navigate(-1);
+                       else navigate(`/cluster/${id}/indices`, { replace: true });
                     }}
                     onCreated={(name: string) => {
-                      popModal();
-                      navigate(`/cluster/${id}/indices/${name}/edit`);
+                       popModal();
+                       navigate(`/cluster/${id}/indices/${name}/edit`);
                     }}
                   />
                 </Modal.Body>
@@ -1390,10 +1377,9 @@ export function ClusterView() {
               nodeId={modal.nodeId}
               opened={true}
               onClose={() => {
-                const prevStack = modalStack.filter((m) => m.id !== modal.id);
                 popModal();
 
-                const newTop = prevStack.length > 0 ? prevStack[prevStack.length - 1] : null;
+                const newTop = modalStack.filter((m) => m.id !== modal.id).slice(-1)[0] ?? null;
                 if (newTop) {
                   if (newTop.type === 'index') navigateToIndex(newTop.indexName || '', newTop.tab);
                   else if (newTop.type === 'node') navigateToNode(newTop.nodeId || '');
@@ -1744,9 +1730,9 @@ export const NodesList = memo(function NodesList({
                                 // Use cluster navigation modal flow when available (search-param driven)
                                 if (navigateToNode) {
                                   navigateToNode(node.id);
-                                } else {
-                                  navigate(`/cluster/${id}/nodes/${node.id}`);
-                                }
+                                  } else {
+                                   navigate(`/cluster/${id}/nodes/${node.id}`);
+                                  }
                               }
                             }}
                             style={{ textTransform: 'none' }}
@@ -2099,7 +2085,8 @@ export const IndicesList = memo(function IndicesList({
 
       while (true) {
         const resp = await apiClient.getShards(id!, page, pageSize, { state: 'UNASSIGNED' });
-        const items: ShardInfo[] = (resp as any).items ?? [];
+        const paginated = resp as PaginatedResponse<ShardInfo> | Record<string, unknown>;
+        const items: ShardInfo[] = (paginated && (paginated as PaginatedResponse<ShardInfo>).items) ?? [];
         if (items.length > 0) collected.push(...items);
         if (!items || items.length < pageSize) break;
         page += 1;
@@ -3252,7 +3239,8 @@ export const ShardsList = memo(function ShardsList({
             </Table.Thead>
             <Table.Tbody>
               {paginatedShards?.map((shard, idx) => {
-                const isUnassigned = shard.state === 'UNASSIGNED';
+                // local flag intentionally unused in UI; keep mapping here for clarity
+                void (shard.state === 'UNASSIGNED');
 
                 return (
                   <Table.Tr key={`${shard.index}-${shard.shard}-${idx}`} className="clickable-row">
