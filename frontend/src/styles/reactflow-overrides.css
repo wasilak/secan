@@ -221,11 +221,12 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
    make the outline visible on small dots. */
 html[data-secan-color-scheme="light"] .secan-shard-dot:hover,
 html[data-secan-color-scheme="light"] .secan-shard-node:hover {
-  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.12);
+  /* stronger inset + subtle outer ring to make it clearly visible */
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.6), 0 0 0 3px rgba(0,0,0,0.06) !important;
 }
 html[data-secan-color-scheme="dark"] .secan-shard-dot:hover,
 html[data-secan-color-scheme="dark"] .secan-shard-node:hover {
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.14);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.5), 0 0 0 3px rgba(255,255,255,0.04) !important;
 }
 
 /* Edge paths / connectors - use same color as nodes */
