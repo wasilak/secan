@@ -209,20 +209,23 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default 
 /* Hover effect for small shard dots used across node views. Adds a subtle
    outer border to improve affordance when hovering. Target the class we
    add to rendered dot elements so this doesn't affect RF handles. */
-.secan-shard-dot {
-  transition: box-shadow 140ms ease;
-}
-.secan-shard-dot:hover {
-  /* subtle border-like outline without translation */
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+.secan-shard-dot,
+.secan-shard-node {
+  transition: box-shadow 140ms ease, transform 140ms ease;
+  box-sizing: border-box;
+  display: inline-block;
 }
 
-/* ShardNode (24px) hover outline */
-.secan-shard-node {
-  transition: box-shadow 150ms ease;
+/* Use an inset stroke so the outline remains visible even when parent
+   containers have overflow:hidden. Increase contrast/opacity slightly to
+   make the outline visible on small dots. */
+html[data-secan-color-scheme="light"] .secan-shard-dot:hover,
+html[data-secan-color-scheme="light"] .secan-shard-node:hover {
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.12);
 }
-.secan-shard-node:hover {
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+html[data-secan-color-scheme="dark"] .secan-shard-dot:hover,
+html[data-secan-color-scheme="dark"] .secan-shard-node:hover {
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.14);
 }
 
 /* Edge paths / connectors - use same color as nodes */
