@@ -1809,12 +1809,15 @@ export const IndicesList = memo(function IndicesList({
   loading,
   error,
   openIndexModal,
+  unassignedByIndexProp,
 }: {
   indices?: IndexInfo[];
   indicesPaginated?: PaginatedResponse<IndexInfo>;
   loading: boolean;
   error: Error | null;
   openIndexModal: (indexName: string, tab?: string) => void;
+  // Optional per-page map of unassigned shards provided by parent (IndicesView)
+  unassignedByIndexProp?: Record<string, ShardInfo[]>;
 }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -1919,6 +1922,32 @@ export const IndicesList = memo(function IndicesList({
 
   // Extract shards array from paginated response (for use in IndicesList)
   const shards: ShardInfo[] = shardsPaginatedForIndices?.items ?? [];
+
+  // Additionally fetch cluster-level UNASSIGNED shards (full collector) so the
+  // indices table can show accurate unassigned counts even when the default
+  // paginated shards request doesn't include UNASSIGNED items on the current page.
+  const { data: unassignedClusterShards = [] } = useQuery<ShardInfo[]>({
+    queryKey: queryKeys.cluster(id!).shards(undefined, { state: 'UNASSIGNED' }),
+    queryFn: async () => {
+      if (!id) return [];
+      const pageSize = 2000;
+      let page = 1;
+      const collected: ShardInfo[] = [];
+
+      while (true) {
+        const resp = await apiClient.getShards(id!, page, pageSize, { state: 'UNASSIGNED' });
+        const items: ShardInfo[] = (resp as any).items ?? [];
+        if (items.length > 0) collected.push(...items);
+        if (!items || items.length < pageSize) break;
+        page += 1;
+      }
+
+      return collected;
+    },
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: () => [],
+  });
 
   // Bulk operation mutations
   const bulkOpenMutation = useMutation({
@@ -2135,19 +2164,50 @@ export const IndicesList = memo(function IndicesList({
     });
   }
 
-  // Identify unassigned shards
-  const unassignedShards =
-    shards && shards.length > 0 ? shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED') : [];
-  const unassignedByIndex = unassignedShards.reduce(
-    (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
-      if (!acc[shard.index]) {
-        acc[shard.index] = [];
+  // If parent provided a per-page unassigned map, merge those entries into
+  // shardsByIndex so that "hasProblems" detection and other UI logic see
+  // UNASSIGNED shards even when the default paginated shards response
+  // doesn't include them.
+  if (unassignedByIndexProp && Object.keys(unassignedByIndexProp).length > 0) {
+    for (const [idx, unassignedList] of Object.entries(unassignedByIndexProp)) {
+      if (!shardsByIndex[idx]) shardsByIndex[idx] = [];
+      const existingKeys = new Set(shardsByIndex[idx].map(s => `${s.shard}:${String(s.primary)}:${s.node ?? ''}`));
+      for (const s of unassignedList) {
+        const key = `${s.shard}:${String(s.primary)}:${s.node ?? ''}`;
+        if (!existingKeys.has(key)) {
+          shardsByIndex[idx].push(s);
+          existingKeys.add(key);
+        }
       }
-      acc[shard.index].push(shard);
-      return acc;
-    },
-    {} as Record<string, ShardInfo[]>
-  );
+    }
+  }
+
+  // Identify unassigned shards. Prefer parent-provided per-page map when
+  // available (unassignedByIndexProp). Otherwise fall back to the
+  // cluster-level UNASSIGNED collector (unassignedClusterShards) or the
+  // paginated shards response as a last resort.
+  const unassignedByIndex = unassignedByIndexProp && Object.keys(unassignedByIndexProp).length > 0
+    ? unassignedByIndexProp
+    : (unassignedClusterShards && unassignedClusterShards.length > 0
+      ? unassignedClusterShards.reduce(
+          (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
+            if (!acc[shard.index]) acc[shard.index] = [];
+            acc[shard.index].push(shard);
+            return acc;
+          },
+          {} as Record<string, ShardInfo[]>
+        )
+      : shards && shards.length > 0
+      ? shards.filter((s: ShardInfo) => s.state === 'UNASSIGNED').reduce(
+          (acc: Record<string, ShardInfo[]>, shard: ShardInfo) => {
+            if (!acc[shard.index]) acc[shard.index] = [];
+            acc[shard.index].push(shard);
+            return acc;
+          },
+          {} as Record<string, ShardInfo[]>
+        )
+      : {} as Record<string, ShardInfo[]>
+    );
 
   // Check if an index has problems
   const hasProblems = (indexName: string) => {
