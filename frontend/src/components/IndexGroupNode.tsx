@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Group, Text, Badge } from '@mantine/core';
+import ShardPills from './ShardPills';
 import { type NodeProps } from '@xyflow/react';
 import type { HealthStatus } from '../types/api';
 import { getHealthColor } from '../utils/colors';
@@ -50,14 +51,11 @@ function IndexGroupNodeComponent({ data }: NodeProps & { data: IndexGroupNodeDat
           </Badge>
         )}
         {shardCount !== undefined && (
-          <Badge size="sm" color="gray" variant="light">
-            {shardCount} shards
-          </Badge>
-        )}
-        {(primaryCount !== undefined || replicaCount !== undefined) && (
-          <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-            {primaryCount ?? 0} primaries · {replicaCount ?? 0} replicas
-          </Text>
+          // Use the ShardPills component for consistent styling with node cards
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {/* Render pills with slightly larger size for index header */}
+            <ShardPills total={shardCount as number} primary={primaryCount as number | undefined} replica={replicaCount as number | undefined} size="sm" />
+          </div>
         )}
       </Group>
     </div>

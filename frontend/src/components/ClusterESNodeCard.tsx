@@ -1,4 +1,5 @@
 import { Group, Text, Badge, Divider, Flex, Box, Tooltip } from '@mantine/core';
+import ShardPills from './ShardPills';
 import type { ShardInfo } from '../types/api';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { GROUP_WIDTH } from '../utils/canvasLayout';
@@ -234,15 +235,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
         </Flex>
       )}
 
-      <Group gap="xs" wrap="nowrap">
-        <Badge size="xs" variant="light" color="violet">{sc.total} shards</Badge>
-        {sc.primary > 0 && (
-          <Badge size="xs" variant="light" color="blue">{sc.primary} primary</Badge>
-        )}
-        {sc.replica > 0 && (
-          <Badge size="xs" variant="light" color="gray">{sc.replica} replica</Badge>
-        )}
-      </Group>
+      <ShardPills total={sc.total} primary={sc.primary} replica={sc.replica} size="xs" />
     </div>
   );
 }
