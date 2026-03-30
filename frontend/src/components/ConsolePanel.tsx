@@ -1,5 +1,5 @@
-import { ReactNode, useCallback, useEffect, useRef } from 'react';
-import { Box } from '@mantine/core';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { Box, Portal } from '@mantine/core';
 import { useLocation } from 'react-router-dom';
 import { Split, SplitPane, SplitResizer } from '@gfazioli/mantine-split-pane';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
@@ -179,54 +179,87 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
   const showConsole = isOpen && clusterId && !isDetached;
 
-  // When console is not shown, render children directly without height constraints
-  // to allow normal page scrolling
+  // If console is not shown, render children directly
   if (!showConsole) {
     return <>{children}</>;
   }
 
+  // Local state for simple drag resize when rendering portal sidebar
+  const [isDragging, setIsDragging] = useState(false);
+
+  const onMouseDownResizer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      // New width is distance from right edge
+      const newWidth = Math.max(MIN_CONSOLE_WIDTH, window.innerWidth - ev.clientX);
+      const maxWidth = getMaxWidth();
+      setWidth(Math.min(newWidth, maxWidth));
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp, { once: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp as any);
+    };
+  }, [isDragging, setWidth, getMaxWidth]);
+
+  // Render children with a right margin equal to console width so layout
+  // appears like a split pane. Render the actual console as a portal
+  // mounted fixed to the right so it escapes stacking contexts and can
+  // be layered above modals.
   return (
     <>
       <style>{customResizerStyles}</style>
-      <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>
-        <Split style={{ height: '100%', width: '100%' }}>
-          {/* Main content pane - grows to fill available space */}
-          <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
-            {children}
-          </SplitPane>
-
-          {/* Resizer handle - only show when console is open */}
-          <SplitResizer
-            onResizeEnd={handleResizeEnd}
-            onResizing={handleResizing}
+      <Box style={{ height: '100%', width: '100%', minHeight: 0 }}>
+        {children}
+      
+        <Portal>
+          <div
+            ref={consolePaneRef}
+            role="complementary"
+            aria-label="Console Panel"
             style={{
-              width: '4px',
-              background: 'var(--mantine-color-gray-4)',
-              cursor: 'col-resize',
-              transition: 'background 0.2s',
-            }}
-          />
-
-          {/* Console panel - fixed width, resizable - only in drawer mode */}
-          <SplitPane
-            minWidth={MIN_CONSOLE_WIDTH}
-            maxWidth={getMaxWidth()}
-            initialWidth={width}
-            style={{
+              position: 'fixed',
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: `${width}px`,
+              zIndex: 10500,
+              boxShadow: '-4px 0 12px rgba(0,0,0,0.06)',
+              background: 'var(--mantine-color-white, #fff)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
             }}
           >
+            {/* Resizer - placed to the left of the console */}
             <div
-              ref={consolePaneRef}
-              className="console-pane-enter console-pane-enter-active"
-              style={{ height: '100%', width: '100%', position: 'relative', zIndex: 10500 }}
-            >
+              onMouseDown={onMouseDownResizer}
+              style={{
+                position: 'absolute',
+                left: '-6px',
+                top: 0,
+                bottom: 0,
+                width: '12px',
+                cursor: 'col-resize',
+                zIndex: 10501,
+              }}
+            />
+
+            <div style={{ height: '100%', width: '100%' }}>
               <ConsoleContent clusterId={clusterId} />
             </div>
-          </SplitPane>
-        </Split>
+          </div>
+        </Portal>
       </Box>
     </>
   );
