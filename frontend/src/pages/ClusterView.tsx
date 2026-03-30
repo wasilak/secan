@@ -2434,24 +2434,10 @@ export const IndicesList = memo(function IndicesList({
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Text size="sm">{index.docsCount.toLocaleString()}</Text>
-                        <CopyButton
-                          value={index.docsCount.toString()}
-                          tooltip="Copy document count"
-                          size="xs"
-                        />
-                      </Group>
+                      <Text size="sm">{index.docsCount.toLocaleString()}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Text size="sm">{formatBytes(index.storeSize)}</Text>
-                        <CopyButton
-                          value={formatBytes(index.storeSize)}
-                          tooltip="Copy size"
-                          size="xs"
-                        />
-                      </Group>
+                      <Text size="sm">{formatBytes(index.storeSize)}</Text>
                     </Table.Td>
                     <Table.Td>
                       <ShardStatsPills
