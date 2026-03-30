@@ -68,14 +68,16 @@ export interface ClusterGroupNodeDataFlat {
 
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-export const SHARD_SIZE = 24;
-export const SHARD_GAP = 4;
-export const SHARDS_PER_ROW = 8;
+import TOPOLOGY_CONFIG from '../config/topologyConfig';
+
+export const SHARD_SIZE = TOPOLOGY_CONFIG.SHARD_SIZE;
+export const SHARD_GAP = TOPOLOGY_CONFIG.SHARD_GAP;
+export const SHARDS_PER_ROW = TOPOLOGY_CONFIG.SHARDS_PER_ROW_BASE;
 /** Estimated group height used only for inter-node vertical spacing. */
 const ESTIMATED_HEADER_HEIGHT = 80;
 const ESTIMATED_SHARD_ROW_HEIGHT = SHARD_SIZE + SHARD_GAP;
 const GROUP_PADDING_BOTTOM = 12;
-export const GROUP_WIDTH = 360;
+export const GROUP_WIDTH = TOPOLOGY_CONFIG.GROUP_WIDTH;
 // Tuned gaps for Dagre + collision resolver to produce pleasant spacing
 export const HORIZONTAL_GAP = 60;
 export const VERTICAL_GAP = 40;
@@ -107,7 +109,8 @@ export interface CanvasLayoutInput {
 
 /** Estimated group height for layout spacing (not used for actual rendering). */
 function estimatedGroupHeight(shardCount: number): number {
-  const rows = Math.ceil(shardCount / SHARDS_PER_ROW);
+  // Ensure we respect a maximum number of rows to avoid extremely tall nodes.
+  const rows = Math.min(Math.ceil(shardCount / SHARDS_PER_ROW), TOPOLOGY_CONFIG.MAX_SHARD_ROWS);
   return (
     ESTIMATED_HEADER_HEIGHT +
     rows * ESTIMATED_SHARD_ROW_HEIGHT +

@@ -35,9 +35,11 @@ function estimateIndexNodeWidth(indexName: string, total: number, primary: numbe
 }
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-export const SHARD_SIZE = 24;
-export const SHARD_GAP = 4;
-export const SHARDS_PER_ROW = 6;
+import TOPOLOGY_CONFIG from '../config/topologyConfig';
+
+export const SHARD_SIZE = TOPOLOGY_CONFIG.SHARD_SIZE;
+export const SHARD_GAP = TOPOLOGY_CONFIG.SHARD_GAP;
+export const SHARDS_PER_ROW = TOPOLOGY_CONFIG.SHARDS_PER_ROW_BASE;
 export const SUBGROUP_HEADER = 28;
 export const SUBGROUP_PADDING = 8;
 export const SUB_GROUP_GAP = 16;
@@ -69,7 +71,8 @@ export interface IndexVizLayoutOutput {
 const UNASSIGNED_KEY = '__unassigned__';
 
 function subgroupHeight(shardCount: number): number {
-  const rows = Math.ceil(shardCount / SHARDS_PER_ROW);
+  // Cap rows to avoid extreme heights; frontend config controls this value.
+  const rows = Math.min(Math.ceil(shardCount / SHARDS_PER_ROW), TOPOLOGY_CONFIG.MAX_SHARD_ROWS);
   return (
     SUBGROUP_HEADER +
     rows * (SHARD_SIZE + SHARD_GAP) +
