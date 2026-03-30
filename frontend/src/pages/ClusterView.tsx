@@ -2761,29 +2761,29 @@ function ShardDetailsModal({
         }}
       >
         <Modal.Header>
-          <Modal.Title>
-            <Group gap="xs">
-              <Text size="lg" fw={600}>
-                Shard Details:
-              </Text>
-              <Badge size="lg" variant="light" color="blue">
-                {shard.index}
-              </Badge>
-              <Text size="lg" c="dimmed">
-                /
-              </Text>
-              <Badge size="lg" variant="filled" color="cyan">
-                #{shard.shard}
-              </Badge>
-              <Badge
-                size="lg"
-                variant={shard.primary ? 'filled' : 'light'}
-                color={shard.primary ? 'green' : 'gray'}
-              >
-                {shard.primary ? 'Primary' : 'Replica'}
-              </Badge>
-            </Group>
-          </Modal.Title>
+              <Modal.Title>
+                <Group gap="xs">
+                  <Text size="lg" fw={600}>
+                    shard details:
+                  </Text>
+                  <Badge size="lg" variant="light" color="blue">
+                    {String(shard.index).toLowerCase()}
+                  </Badge>
+                  <Text size="lg" c="dimmed">
+                    /
+                  </Text>
+                  <Badge size="lg" variant="filled" color="cyan">
+                    #{shard.shard}
+                  </Badge>
+                  <Badge
+                    size="lg"
+                    variant={shard.primary ? 'filled' : 'light'}
+                    color={shard.primary ? 'green' : 'gray'}
+                  >
+                    {shard.primary ? 'primary' : 'replica'}
+                  </Badge>
+                </Group>
+              </Modal.Title>
           <Modal.CloseButton />
         </Modal.Header>
         <Modal.Body
