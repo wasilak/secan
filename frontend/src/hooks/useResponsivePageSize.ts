@@ -15,10 +15,8 @@ import { useMediaQuery } from '@mantine/hooks';
  * ```
  */
 export function useResponsivePageSize(): number {
-  const isLarge = useMediaQuery('(min-width: 1200px)');
-  const isMedium = useMediaQuery('(min-width: 768px)');
-
-  if (isLarge) return 10;
-  if (isMedium) return 7;
-  return 5;
+  // Default page size across the app — set to 20 per UX request.
+  // Keep hook for potential future responsiveness, but return a constant
+  // value so modal/table pagination shows 20 items by default.
+  return 20;
 }
