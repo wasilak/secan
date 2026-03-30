@@ -43,7 +43,18 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
 
     const dots = shards.map((shard) => ({
       color: getIndexHealthColor(shard.index),
-      tooltip: `${shard.index} · shard ${shard.shard} · ${shard.primary ? 'Primary' : 'Replica'} · ${shard.state}`,
+      tooltip: (
+        <div>
+          <div>
+            Index: <span style={{ textTransform: 'none' }}>{shard.index}</span>
+          </div>
+          <div>
+            Shard: <span style={{ textTransform: 'none' }}>{shard.shard}</span>
+          </div>
+          <div>Type: {shard.primary ? 'Primary' : 'Replica'}</div>
+          <div>State: {shard.state}</div>
+        </div>
+      ),
       primary: shard.primary,
       shard,
     }));

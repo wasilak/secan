@@ -296,7 +296,13 @@ export function DotBasedTopologyView({
 
     const dots = sortedShards.map(shard => ({
       color: shard.state === 'UNASSIGNED' ? SHARD_STATE_COLORS.UNASSIGNED : getIndexHealthColor(shard.index),
-      tooltip: `${shard.index} - Shard ${shard.shard}${shard.primary ? ' (Primary)' : ' (Replica)'} - ${shard.state}`,
+      tooltip: (
+        <div>
+          <div>Index: <span style={{ textTransform: 'none' }}>{shard.index}</span></div>
+          <div>Shard: <span style={{ textTransform: 'none' }}>{shard.shard}</span></div>
+          <div>{shard.primary ? 'Primary' : 'Replica'} · {shard.state}</div>
+        </div>
+      ),
       primary: shard.primary,
       shard,
     }));

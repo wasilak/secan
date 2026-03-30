@@ -74,17 +74,17 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
       >
         <Group gap="xs" wrap="nowrap" justify="space-between" mb={4}>
           <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              fw={500}
-              size="sm"
-              className="clickable-name"
-              role={onNodeClick ? 'button' : undefined}
-              tabIndex={onNodeClick ? 0 : undefined}
-              aria-label={onNodeClick ? `Open node details ${name}` : undefined}
-              onClick={(e: MouseEvent) => {
-                e.stopPropagation();
-                if (onNodeClick) onNodeClick(id);
-              }}
+              <Text
+                fw={500}
+                size="sm"
+                className="clickable-name"
+                role={onNodeClick ? 'button' : undefined}
+                tabIndex={onNodeClick ? 0 : undefined}
+                aria-label={onNodeClick ? `Open node details ${name}` : undefined}
+                onClick={(e: MouseEvent) => {
+                  e.stopPropagation();
+                  if (onNodeClick) onNodeClick(id);
+                }}
               onKeyDown={(e: KeyboardEvent) => {
                 if (!onNodeClick) return;
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -93,9 +93,9 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
                   onNodeClick(id);
                 }
               }}
-              style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onNodeClick ? 'pointer' : undefined }}
-            >
-              {name}
+             style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onNodeClick ? 'pointer' : undefined }}
+          >
+              <span style={{ textTransform: 'none' }}>{name}</span>
             </Text>
             {version && (
               <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
@@ -164,7 +164,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
             }}
             style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: onNodeClick ? 'pointer' : undefined }}
           >
-            {name}
+            <span style={{ textTransform: 'none' }}>{name}</span>
           </Text>
           {version && (
             <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
