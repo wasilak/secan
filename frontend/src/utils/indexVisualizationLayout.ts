@@ -23,6 +23,17 @@ import { formatBytes } from '../utils/formatters';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { GROUP_WIDTH } from './canvasLayout';
 
+// Simple width estimator for the index header node based on text lengths.
+function estimateIndexNodeWidth(indexName: string, total: number, primary: number, replica: number): number {
+  const charWidth = 8; // conservative average char width in px
+  const badgeCharWidth = 9; // badges have padding
+  const nameWidth = Math.max(40, indexName.length * charWidth);
+  const pills = [`${total} shards`, `${primary} primary`, `${replica} replica`].filter(Boolean).join(' ');
+  const pillsWidth = Math.max(40, pills.length * badgeCharWidth);
+  const padding = 32; // left+right padding inside node
+  return Math.ceil(nameWidth + pillsWidth + padding);
+}
+
 // ─── Layout constants ────────────────────────────────────────────────────────
 export const SHARD_SIZE = 24;
 export const SHARD_GAP = 4;
@@ -91,6 +102,8 @@ export function calculateIndexVizLayout(
       type: 'indexGroup',
       position: { x: 0, y: 0 },
       draggable: false,
+      // Provide an estimated width so Dagre can center the node accurately
+      width: Math.max(120, estimateIndexNodeWidth(indexName, 0, 0, 0)),
       data: {
         indexName,
         health,
@@ -139,8 +152,9 @@ export function calculateIndexVizLayout(
     type: 'indexGroup',
     position: { x: 0, y: 0 },
     draggable: false,
+    // Estimate width from content so dagre centers this node above its children.
+    width: Math.max(120, Math.min(indexW, estimateIndexNodeWidth(indexName, totalShards, totalPrimaries, totalReplicas))),
     style: {
-      minWidth: indexW,
       boxSizing: 'border-box',
       overflow: 'visible',
       transition: 'transform 0.4s ease',

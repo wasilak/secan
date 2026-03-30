@@ -216,6 +216,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
       className="secan-reactflow"
       nodes={flowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
       edges={[]}
+      defaultEdgeOptions={{ type: 'simplebezier' }}
       nodeTypes={safeNodeTypes}
       onNodesChange={handleNodesChange}
       onNodeDragStop={handleNodeDragStop}

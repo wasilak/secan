@@ -1,8 +1,6 @@
 import { memo } from 'react';
 import { Group, Text, Badge } from '@mantine/core';
 import ShardPills from './ShardPills';
-export type { IndexGroupNodeData } from './IndexGroupNode';
-import { type NodeProps } from '@xyflow/react';
 import type { HealthStatus } from '../types/api';
 import { getHealthColor } from '../utils/colors';
 
@@ -27,14 +25,14 @@ export interface IndexGroupNodeData extends Record<string, unknown> {
  *
  * Requirements: 3.1, 3.8
  */
-function IndexGroupNodeComponent({ data }: NodeProps & { data: IndexGroupNodeData }) {
+function IndexGroupNodeComponent({ data }: { data: IndexGroupNodeData }) {
   const { indexName, health, shardCount, primaryCount, replicaCount } = data;
 
   return (
-    <div style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px', backgroundColor: 'transparent', border: 'none' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Text fw={700} size="md" lineClamp={1} style={{ flex: 1, minWidth: 0 }}>
+    <div style={{ display: 'inline-block', boxSizing: 'border-box', padding: '6px 10px', backgroundColor: 'transparent', border: 'none', textAlign: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+          <Text fw={700} size="md" lineClamp={1} style={{ minWidth: 0 }}>
             {indexName}
           </Text>
           {health && (
@@ -45,7 +43,7 @@ function IndexGroupNodeComponent({ data }: NodeProps & { data: IndexGroupNodeDat
         </div>
 
         {shardCount !== undefined && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <ShardPills total={shardCount as number} primary={primaryCount as number | undefined} replica={replicaCount as number | undefined} size="sm" />
           </div>
         )}

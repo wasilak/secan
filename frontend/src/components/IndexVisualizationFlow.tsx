@@ -22,7 +22,7 @@ import { useIndexShardsWithNodes } from '../hooks/useIndexShardsWithNodes';
 import { calculateIndexVizLayout } from '../utils/indexVisualizationLayout';
 import { applyDagreLayout } from '../utils/dagreLayout';
 import { resolveCollisions } from '../utils/resolveCollisions';
-import { IndexGroupNode } from './IndexGroupNode';
+import IndexGroupNodeFlowWrapper from './IndexGroupNodeFlowWrapper';
 // import { ClusterGroupNode } from './Topology/ClusterGroupNode';
 // import { ShardNode } from './Topology/ShardNode';
 
@@ -31,7 +31,7 @@ import { IndexGroupNode } from './IndexGroupNode';
 // Use the same 'clusterGroup' renderer as the topology canvas so Index
 // Visualization reuses the exact same node renderer (ClusterESNodeCardFlowWrapper).
 const nodeTypes: NodeTypes = {
-  indexGroup: IndexGroupNodeFlowWrapper,
+  indexGroup: IndexGroupNodeFlowWrapper as any,
   clusterGroup: ClusterESNodeCardFlowWrapper,
 };
 
@@ -110,23 +110,38 @@ export function IndexVisualizationFlow({
     const runId = layoutRunId.current;
     let cancelled = false;
 
-    const attemptResolve = () => {
-      // If nodes haven't been measured yet, retry on next frame
-      const nodesArr = (flowNodes as any[]) || [];
-      if (nodesArr.length === 0) return;
-      const measuredReady = nodesArr.every((n) => !!n.measured && n.measured.width > 0 && n.measured.height > 0);
-      if (!measuredReady) {
-        requestAnimationFrame(attemptResolve);
-        return;
-      }
+      const attemptResolve = () => {
+        // If nodes haven't been measured yet, retry on next frame
+        const nodesArr = (flowNodes as any[]) || [];
+        if (nodesArr.length === 0) return;
+        const measuredReady = nodesArr.every((n) => !!n.measured && n.measured.width > 0 && n.measured.height > 0);
+        if (!measuredReady) {
+          requestAnimationFrame(attemptResolve);
+          return;
+        }
 
-      // Run resolver with a small margin to avoid any touching borders
-      const resolved = resolveCollisions(nodesArr, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
+        // Update RF node width/height to measured DOM dimensions so subsequent
+        // collision resolution and any downstream logic use the real sizes.
+        const measuredNodes = nodesArr.map((n) => {
+          if (!n.measured) return n;
+          const w = n.measured.width;
+          const h = n.measured.height;
+          // Only update if dimensions differ to avoid pointless state churn
+          if (n.width === w && n.height === h) return n;
+          return { ...n, width: w, height: h };
+        });
 
-      if (!cancelled && runId === layoutRunId.current) {
-        setNodes(resolved as any);
-      }
-    };
+        // Run resolver with a small margin to avoid any touching borders
+        const resolved = resolveCollisions(measuredNodes, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
+
+        if (!cancelled && runId === layoutRunId.current) {
+          setNodes(resolved as any);
+          // Force edges to re-evaluate their paths after node sizes/positions
+          // changed. Cloning the edges objects causes React Flow to recompute
+          // edge paths based on the updated node geometry.
+          setEdges((prev) => prev.map((e) => ({ ...e })));
+        }
+      };
 
     requestAnimationFrame(attemptResolve);
     return () => { cancelled = true; };
@@ -217,6 +232,7 @@ export function IndexVisualizationFlow({
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}
+        defaultEdgeOptions={{ type: 'simplebezier' }}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodesDraggable={false}

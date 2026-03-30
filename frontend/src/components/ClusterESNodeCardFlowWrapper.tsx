@@ -79,11 +79,11 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     };
 
     return (
-      <div className="secan-rf-node-contains-card">
-        <Handle type="target" position={Position.Top} />
+      <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block' }}>
+        <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
         {/* In RF contexts we want the RF node to render the border, so hide inner card border */}
         <ClusterESNodeCard {...flat} hideInnerBorder />
-        <Handle type="source" position={Position.Bottom} />
+        <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
       </div>
     );
   }
@@ -106,10 +106,10 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
   }
 
   return (
-    <div className="secan-rf-node-contains-card">
-      <Handle type="target" position={Position.Top} />
+    <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block' }}>
+      <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
       <ClusterESNodeCard {...(data as any)} hideInnerBorder />
-      <Handle type="source" position={Position.Bottom} />
+      <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
     </div>
   );
 }
