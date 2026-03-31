@@ -157,18 +157,19 @@ export function Dashboard() {
   // Build cluster summaries from cached stats
   const clusterSummaries: ClusterSummary[] = useMemo(() => {
     return clusters.map((cluster, index) => {
-      const displayName = cluster.name ?? cluster.id;
-      if (!cluster.name) {
-        // Log missing names so the backend/data owner can investigate
-        // Use console.debug so it doesn't spam production logs at info level
-        // but is visible during local development and debugging.
-        // eslint-disable-next-line no-console
-        console.debug(`[Dashboard] cluster ${cluster.id} missing name, falling back to id for display`);
-      }
-
       const statsQuery = clusterStatsQueries[index];
       const stats = statsQuery?.data;
       const error = statsQuery?.error;
+
+      // Prefer the configured cluster name from the clusters list, then
+      // fall back to the authoritative clusterName from cluster stats if available.
+      const displayName = cluster.name ?? stats?.clusterName ?? '';
+      if (!displayName) {
+        // This is unexpected: the API contract guarantees a cluster name.
+        // Log as an error so it's visible in development and can be escalated.
+        // eslint-disable-next-line no-console
+        console.error(`[Dashboard] Missing cluster name for cluster ${cluster.id} (neither clusters list nor stats provided a name)`);
+      }
 
       if (error) {
         return {
