@@ -36,7 +36,8 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     const loadColor = load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
     const diskDisplay = formatBytes((nodeInfo.diskUsed as number) ?? 0);
 
-    const getIndexHealthColor = (data['getIndexHealthColor'] as ((indexName: string) => string) | undefined) ?? (() => 'var(--mantine-color-gray-6)');
+    // Index health helper may be provided by layout; not required here because
+    // we use shard state-based coloring (getShardDotColor / getUnassignedShardColor).
 
     const badges = [{ label: `${totalShards} shards` } as { label: string }];
     if (primaryCount > 0) badges.push({ label: `${primaryCount} primary` });
