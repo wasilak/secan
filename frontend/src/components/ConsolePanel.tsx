@@ -217,7 +217,7 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
           const clampedWidth = Math.max(MIN_CONSOLE_WIDTH, Math.min(rawDrawerWidth, getMaxWidth()));
 
           return (
-            <div
+          <div
               id={portalId}
               ref={consolePaneRef}
               className="console-pane-enter console-pane-enter-active"
@@ -229,7 +229,10 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
                 height: '100vh',
                 width: `${clampedWidth}px`,
                 maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
-                zIndex: 10500,
+                // Allow context to override z-index when needed (e.g., forced detached over modals)
+                zIndex: (typeof (window as any).__SE_CAN_CONSOLE_Z_INDEX__ !== 'undefined')
+                  ? (window as any).__SE_CAN_CONSOLE_Z_INDEX__
+                  : 10500,
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: 'var(--mantine-shadow-md)',

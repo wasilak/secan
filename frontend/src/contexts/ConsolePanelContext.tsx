@@ -10,6 +10,7 @@ import {
 import { useParams } from 'react-router-dom';
 import { usePreferences } from '../hooks/usePreferences';
 import { ClusterConsoleState } from '../types/preferences';
+import { notifications } from '@mantine/notifications';
 
 /**
  * Default console panel width in pixels
@@ -168,6 +169,13 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
   const widthTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousClusterIdRef = useRef<string | null>(null);
   const currentStateRef = useRef<ClusterConsoleState>(currentState);
+  // Refs used for modal-forced detached behaviour
+  const wasDetachedDueToModalRef = useRef(false);
+  const previousDetachedStateRef = useRef<boolean | null>(null);
+  const observerRef = useRef<MutationObserver | null>(null);
+
+  // Overlay z-index when forcing detached above modals (computed when needed)
+  const [overlayZIndex, setOverlayZIndex] = useState<number | undefined>(undefined);
 
   // Update ref whenever state changes
   useEffect(() => {
@@ -413,6 +421,68 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
       if (event.key === '`' || event.key === '~') {
         event.preventDefault();
         event.stopPropagation();
+        // If any modal is open, force detached mode and open the console overlay
+        const isAnyModalOpen = () =>
+          !!document.querySelector('[role="dialog"], [aria-modal="true"], .mantine-Modal-root, .mantine-Modal-content');
+
+        if (isAnyModalOpen()) {
+          // Save previous detached state so we can revert later
+          previousDetachedStateRef.current = isDetached;
+          wasDetachedDueToModalRef.current = true;
+
+          // Force detached overlay mode and open
+          setIsDetached(true);
+          setIsOpen(true);
+
+          // Compute a z-index that is above existing modals
+          try {
+            const nodes = Array.from(document.querySelectorAll('[role="dialog"], .mantine-Modal-root')) as HTMLElement[];
+            const maxZ = nodes.reduce((max, n) => {
+              const z = parseInt(window.getComputedStyle(n).zIndex || '0', 10);
+              return Number.isFinite(z) ? Math.max(max, z) : max;
+            }, 1000);
+            setOverlayZIndex(maxZ + 20);
+            // Expose a global override that ConsolePanel reads to set z-index in the portal
+            // This avoids passing additional props down and keeps the portal self-contained.
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            window.__SE_CAN_CONSOLE_Z_INDEX__ = maxZ + 20;
+          } catch (e) {
+            setOverlayZIndex(11000);
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            window.__SE_CAN_CONSOLE_Z_INDEX__ = 11000;
+          }
+
+          notifications.show({ title: 'Console (detached)', message: 'Opened console in detached mode because a modal is active', color: 'blue' });
+
+          // Watch for modal removal to revert detached state
+          if (!observerRef.current) {
+            observerRef.current = new MutationObserver(() => {
+              if (!isAnyModalOpen() && wasDetachedDueToModalRef.current) {
+                // Revert detached state to previous preference
+                const prev = previousDetachedStateRef.current;
+                if (prev !== null && prev !== undefined) {
+                  setIsDetached(prev);
+                }
+                wasDetachedDueToModalRef.current = false;
+                previousDetachedStateRef.current = null;
+                if (observerRef.current) {
+                  observerRef.current.disconnect();
+                  observerRef.current = null;
+                }
+                setOverlayZIndex(undefined);
+                // clean up global override
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                delete (window as any).__SE_CAN_CONSOLE_Z_INDEX__;
+              }
+            });
+            observerRef.current.observe(document.body, { childList: true, subtree: true });
+          }
+          return;
+        }
+
         togglePanel();
       }
     };
