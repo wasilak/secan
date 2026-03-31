@@ -352,8 +352,12 @@ export function CanvasTopologyView({
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
     if (visibleNodesFromTiles) {
-      // Use nodes produced by tile system when available
-      return visibleNodesFromTiles;
+      // Use nodes produced by tile system when available; inject index health helper
+      // so downstream wrappers (ClusterESNodeCardFlowWrapper) can color shard dots
+      return visibleNodesFromTiles.map((n) => ({
+        ...n,
+        data: { ...(n as any).data, getIndexHealthColor },
+      } as any));
     }
     return calculateCanvasLayout({
       clusterNodes: filteredNodes,
