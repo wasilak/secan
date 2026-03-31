@@ -16,7 +16,7 @@ import React, { type ReactNode } from 'react';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
-import { SHARD_STATE_COLORS } from './colors';
+import { SHARD_STATE_COLORS, getShardDotColor, getUnassignedShardColor } from './colors';
 // Minimal data for ClusterGroupNode — flat, shallow props only for top performance
 export interface ClusterGroupNodeDataFlat {
   id: string;
@@ -184,11 +184,10 @@ function emitGroupNode(
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
   const dots = sortedShards.map((shard, _idx) => {
+      // Use centralized shard color helpers so Canvas/Nodes/Dot views match
       const color = shard.state === 'UNASSIGNED'
-        ? SHARD_STATE_COLORS.UNASSIGNED
-        : input.getIndexHealthColor
-          ? input.getIndexHealthColor(shard.index)
-          : 'var(--mantine-color-gray-6)';
+        ? getUnassignedShardColor(shard.primary)
+        : getShardDotColor(shard.state);
       return {
         color,
         tooltip: React.createElement(
