@@ -352,11 +352,20 @@ export function CanvasTopologyView({
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
     if (visibleNodesFromTiles) {
-      // Use nodes produced by tile system when available; inject index health helper
-      // so downstream wrappers (ClusterESNodeCardFlowWrapper) can color shard dots
+      // Use nodes produced by tile system when available; inject helpers and
+      // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
+      // color shard dots and handle interactions (open node modal / shard ctx menu).
       return visibleNodesFromTiles.map((n) => ({
         ...n,
-        data: { ...(n as any).data, getIndexHealthColor },
+        // Preserve any existing handlers from the tile payload, but provide
+        // the canonical ones from this view when absent.
+        data: {
+          ...(n as any).data,
+          getIndexHealthColor,
+          onNodeClick: (n as any).data?.onNodeClick ?? onNodeClick,
+          onShardClick: (n as any).data?.onShardClick ?? onShardClick,
+          onDestinationClick: (n as any).data?.onDestinationClick ?? onDestinationClick,
+        },
       } as any));
     }
     return calculateCanvasLayout({
