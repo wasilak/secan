@@ -187,7 +187,7 @@ export function ClusterView() {
     if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas') return urlParam;
     if (location.pathname.includes('/topology/index')) return 'index';
     if (location.pathname.includes('/topology/canvas')) return 'canvas';
-    return 'node';
+    return 'canvas';
   });
 
   const setTopologyViewType = (value: 'node' | 'index' | 'canvas') => {

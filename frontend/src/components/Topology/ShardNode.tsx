@@ -62,6 +62,10 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
     </div>
   );
 
+  const badgeOffset = Math.max(3, Math.round(SHARD_SIZE * 0.18));
+  const badgeFontSize = Math.max(7, Math.round(SHARD_SIZE * 0.35));
+  const labelFontSize = Math.max(9, Math.round(SHARD_SIZE * 0.37));
+
   return (
     <Tooltip label={label} withArrow withinPortal>
       <div
@@ -81,8 +85,8 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
         }}
         className="secan-shard-node"
         style={{
-          width: 24,
-          height: 24,
+          width: SHARD_SIZE,
+          height: SHARD_SIZE,
           backgroundColor: bg,
           border: `2px solid ${border}`,
           borderRadius: 4,
@@ -98,7 +102,7 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
         {/* Shard number */}
         <span
           style={{
-            fontSize: 9,
+            fontSize: labelFontSize,
             fontWeight: 700,
             color: '#fff',
             lineHeight: 1,
@@ -113,17 +117,17 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
         <span
           style={{
             position: 'absolute',
-            top: -4,
-            right: -4,
-            fontSize: 7,
+            top: -badgeOffset,
+            right: -badgeOffset,
+            fontSize: badgeFontSize,
             fontWeight: 900,
             color: '#fff',
             backgroundColor: shard.primary
               ? 'var(--mantine-color-blue-7)'
               : 'var(--mantine-color-gray-6)',
             borderRadius: 2,
-            padding: '0 2px',
-            lineHeight: '10px',
+            padding: badgeFontSize > 9 ? '0 4px' : '0 2px',
+            lineHeight: `${Math.max(10, badgeFontSize + 2)}px`,
             userSelect: 'none',
           }}
         >

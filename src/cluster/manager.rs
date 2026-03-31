@@ -294,6 +294,7 @@ impl ClusterConnection {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::config::TlsConfig;
@@ -313,7 +314,7 @@ mod tests {
         let connection = ClusterConnection::new(&config).await;
         assert!(connection.is_ok());
 
-        let conn = connection.unwrap();
+        let conn = connection.expect("ClusterConnection::new should succeed in test");
         assert_eq!(conn.id, "test");
         assert_eq!(conn.name, Some("Test Cluster".to_string()));
         assert_eq!(conn.nodes.len(), 1);
@@ -337,34 +338,37 @@ mod tests {
         let connection = ClusterConnection::new(&config).await;
         assert!(connection.is_ok());
 
-        let conn = connection.unwrap();
+        let conn = connection.expect("ClusterConnection::new should succeed in test");
         assert!(conn.auth.is_some());
     }
 
     #[test]
     fn test_health_status_serialization() {
         let status = HealthStatus::Green;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("serialize health status to JSON");
         assert_eq!(json, "\"green\"");
 
         let status = HealthStatus::Yellow;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("serialize health status to JSON");
         assert_eq!(json, "\"yellow\"");
 
         let status = HealthStatus::Red;
-        let json = serde_json::to_string(&status).unwrap();
+        let json = serde_json::to_string(&status).expect("serialize health status to JSON");
         assert_eq!(json, "\"red\"");
     }
 
     #[test]
     fn test_health_status_deserialization() {
-        let status: HealthStatus = serde_json::from_str("\"green\"").unwrap();
+        let status: HealthStatus =
+            serde_json::from_str("\"green\"").expect("deserialize HealthStatus from JSON");
         assert_eq!(status, HealthStatus::Green);
 
-        let status: HealthStatus = serde_json::from_str("\"yellow\"").unwrap();
+        let status: HealthStatus =
+            serde_json::from_str("\"yellow\"").expect("deserialize HealthStatus from JSON");
         assert_eq!(status, HealthStatus::Yellow);
 
-        let status: HealthStatus = serde_json::from_str("\"red\"").unwrap();
+        let status: HealthStatus =
+            serde_json::from_str("\"red\"").expect("deserialize HealthStatus from JSON");
         assert_eq!(status, HealthStatus::Red);
     }
 
@@ -379,7 +383,7 @@ mod tests {
             metrics_source: MetricsSource::Internal,
         };
 
-        let json = serde_json::to_string(&info).unwrap();
+        let json = serde_json::to_string(&info).expect("serialize cluster info to JSON");
         assert!(json.contains("\"id\":\"test\""));
         assert!(json.contains("\"accessible\":true"));
     }
@@ -785,7 +789,7 @@ mod manager_tests {
         let manager = Manager::new(configs, Duration::from_secs(30)).await;
         assert!(manager.is_ok());
 
-        let mgr = manager.unwrap();
+        let mgr = manager.expect("create manager");
         assert_eq!(mgr.cluster_count().await, 2);
     }
 
@@ -794,10 +798,8 @@ mod manager_tests {
         let configs = vec![];
         let manager = Manager::new(configs, Duration::from_secs(30)).await;
         assert!(manager.is_err());
-        assert!(manager
-            .unwrap_err()
-            .to_string()
-            .contains("No clusters configured"));
+        let err = manager.expect_err("manager creation with empty configs should fail");
+        assert!(err.to_string().contains("No clusters configured"));
     }
 
     #[tokio::test]
@@ -814,12 +816,12 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
 
         let cluster = manager.get_cluster("test").await;
         assert!(cluster.is_ok());
 
-        let conn = cluster.unwrap();
+        let conn = cluster.expect("get_cluster should succeed");
         assert_eq!(conn.id, "test");
     }
 
@@ -837,14 +839,12 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
 
         let cluster = manager.get_cluster("nonexistent").await;
         assert!(cluster.is_err());
-        assert!(cluster
-            .unwrap_err()
-            .to_string()
-            .contains("Cluster 'nonexistent' not found"));
+        let err = cluster.expect_err("get_cluster should return error for nonexistent");
+        assert!(err.to_string().contains("Cluster 'nonexistent' not found"));
     }
 
     #[tokio::test]
@@ -872,7 +872,7 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
         let clusters = manager.list_clusters().await;
 
         assert_eq!(clusters.len(), 2);
@@ -894,7 +894,7 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
 
         assert!(manager.has_cluster("test").await);
         assert!(!manager.has_cluster("nonexistent").await);
@@ -925,7 +925,7 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
         assert_eq!(manager.cluster_count().await, 2);
     }
 
@@ -969,7 +969,7 @@ mod manager_tests {
         let manager = Manager::new(configs, Duration::from_secs(30)).await;
         assert!(manager.is_ok());
 
-        let mgr = manager.unwrap();
+        let mgr = manager.expect("create manager");
         assert_eq!(mgr.cluster_count().await, 3);
     }
 
@@ -1013,7 +1013,7 @@ mod manager_tests {
         let rbac = RbacManager::new(role_configs);
         let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager with rbac");
 
         // Test with prod-admin user
         let prod_user = AuthUser::new(
@@ -1079,7 +1079,7 @@ mod manager_tests {
         let rbac = RbacManager::new(role_configs);
         let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager with rbac");
 
         let user = AuthUser::new(
             "user1".to_string(),
@@ -1117,7 +1117,7 @@ mod manager_tests {
         let rbac = RbacManager::new(role_configs);
         let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager with rbac");
 
         let user = AuthUser::new(
             "admin1".to_string(),
@@ -1154,7 +1154,7 @@ mod manager_tests {
         let rbac = RbacManager::new(role_configs);
         let manager = Manager::new_with_rbac(configs, rbac, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager with rbac");
 
         let user = AuthUser::new(
             "user1".to_string(),
@@ -1166,10 +1166,8 @@ mod manager_tests {
             .get_cluster_with_auth("prod-cluster-1", Some(&user))
             .await;
         assert!(cluster.is_err());
-        assert!(cluster
-            .unwrap_err()
-            .to_string()
-            .contains("not authorized to access"));
+        let err = cluster.expect_err("get_cluster_with_auth should be unauthorized for user");
+        assert!(err.to_string().contains("not authorized to access"));
     }
 
     #[tokio::test]
@@ -1186,7 +1184,7 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
 
         // Without user, should allow access
         let cluster = manager.get_cluster_with_auth("test", None).await;
@@ -1209,7 +1207,7 @@ mod manager_tests {
 
         let manager = Manager::new(configs, Duration::from_secs(30))
             .await
-            .unwrap();
+            .expect("create manager");
 
         let user = AuthUser::new(
             "user1".to_string(),

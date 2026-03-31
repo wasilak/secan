@@ -347,7 +347,7 @@ mod tests {
         let cluster_manager =
             ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
                 .await
-                .unwrap();
+                .expect("create cluster manager");
 
         let session_manager = SessionManager::new(crate::auth::SessionConfig::new(60));
 
@@ -376,7 +376,7 @@ mod tests {
             message: "All systems operational".to_string(),
         };
 
-        let json = serde_json::to_string(&response).unwrap();
+        let json = serde_json::to_string(&response).expect("serialize HealthResponse to JSON");
         assert!(json.contains("\"status\":\"healthy\""));
         assert!(json.contains("\"message\":\"All systems operational\""));
     }
@@ -384,7 +384,8 @@ mod tests {
     #[test]
     fn test_health_response_deserialization() {
         let json = r#"{"status":"healthy","message":"Server is running"}"#;
-        let response: HealthResponse = serde_json::from_str(json).unwrap();
+        let response: HealthResponse =
+            serde_json::from_str(json).expect("deserialize HealthResponse from JSON");
 
         assert_eq!(response.status, "healthy");
         assert_eq!(response.message, "Server is running");
@@ -407,7 +408,7 @@ mod tests {
             git_info: "main".to_string(),
         };
 
-        let json = serde_json::to_string(&response).unwrap();
+        let json = serde_json::to_string(&response).expect("serialize VersionResponse to JSON");
         assert!(json.contains("\"version\":\"1.0.0\""));
         assert!(json.contains("\"git_info\":\"main\""));
     }

@@ -12,7 +12,7 @@ use tempfile::TempDir;
 #[test]
 #[serial]
 fn test_metrics_configuration_load() {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = TempDir::new().expect("create temp dir");
     let config_path = temp_dir.path().join("config.yaml");
 
     let yaml_content = r#"
@@ -31,17 +31,17 @@ clusters:
     metrics_source: "internal"
 "#;
 
-    fs::write(&config_path, yaml_content).unwrap();
+    fs::write(&config_path, yaml_content).expect("write config file");
 
-    let orig_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(&temp_dir).unwrap();
+    let orig_dir = std::env::current_dir().expect("get cwd");
+    std::env::set_current_dir(&temp_dir).expect("chdir to temp");
 
     let result = Config::load();
 
-    std::env::set_current_dir(&orig_dir).unwrap();
+    std::env::set_current_dir(&orig_dir).expect("restore cwd");
 
     assert!(result.is_ok(), "Should load config with metrics settings");
-    let config = result.unwrap();
+    let config = result.expect("config loaded");
     assert_eq!(config.clusters.len(), 1);
     assert_eq!(config.clusters[0].id, "prod");
 }
@@ -80,7 +80,7 @@ fn test_time_range_custom() {
     let result = TimeRange::new(start, end);
 
     assert!(result.is_ok());
-    let time_range = result.unwrap();
+    let time_range = result.expect("valid time range should be constructed");
     assert_eq!(time_range.start, 1000);
     assert_eq!(time_range.end, 2000);
 }

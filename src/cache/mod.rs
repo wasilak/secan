@@ -126,6 +126,7 @@ impl<T: Clone> MetadataCache<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use tokio::time::sleep;
@@ -250,8 +251,8 @@ mod tests {
             }
         });
 
-        handle1.await.unwrap();
-        handle2.await.unwrap();
+        handle1.await.expect("join cache writer task");
+        handle2.await.expect("join cache reader task");
 
         // All keys should be present
         assert_eq!(cache.len().await, 100);

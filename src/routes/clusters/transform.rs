@@ -902,6 +902,7 @@ pub struct ShardInfoResponse {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use serde_json::json;
@@ -963,7 +964,8 @@ mod tests {
             "unassigned_shards": 0
         });
 
-        let result = transform_cluster_stats(&stats, &health, None, None).unwrap();
+        let result =
+            transform_cluster_stats(&stats, &health, None, None).expect("transform cluster stats");
 
         assert_eq!(result.health, "green");
         assert_eq!(result.cluster_name, "test-cluster");
@@ -1177,7 +1179,7 @@ mod tests {
         assert_eq!(result[0].name, "test-node");
         assert!(result[0].tags.is_some());
 
-        let tags = result[0].tags.as_ref().unwrap();
+        let tags = result[0].tags.as_ref().expect("tags should be present");
         assert_eq!(tags.len(), 3);
         assert!(tags.contains(&"rack:rack1".to_string()));
         assert!(tags.contains(&"zone:us-east-1a".to_string()));

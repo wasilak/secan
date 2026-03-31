@@ -299,9 +299,12 @@ mod tests {
     async fn test_auth_middleware_open_mode() {
         let app = create_test_app(AuthMode::Open);
 
-        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/test")
+            .body(Body::empty())
+            .expect("build request body");
 
-        let response = app.oneshot(request).await.unwrap();
+        let response = app.oneshot(request).await.expect("send request to app");
 
         assert_eq!(response.status(), StatusCode::OK);
     }
@@ -310,9 +313,12 @@ mod tests {
     async fn test_auth_middleware_missing_token() {
         let app = create_test_app(AuthMode::LocalUsers);
 
-        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/test")
+            .body(Body::empty())
+            .expect("build request body");
 
-        let response = app.oneshot(request).await.unwrap();
+        let response = app.oneshot(request).await.expect("send request to app");
 
         // Should redirect to login (303) instead of returning 401
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -326,9 +332,9 @@ mod tests {
             .uri("/test")
             .header(header::COOKIE, "session_token=invalid_token")
             .body(Body::empty())
-            .unwrap();
+            .expect("build request with cookie header");
 
-        let response = app.oneshot(request).await.unwrap();
+        let response = app.oneshot(request).await.expect("send request to app");
 
         // Should redirect to login (303) for invalid session
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
@@ -348,7 +354,10 @@ mod tests {
             "testuser".to_string(),
             vec!["admin".to_string()],
         );
-        let token = session_manager.create_session(user).await.unwrap();
+        let token = session_manager
+            .create_session(user)
+            .await
+            .expect("create session");
 
         let app = Router::new()
             .route("/test", get(test_handler))
@@ -362,9 +371,9 @@ mod tests {
             .uri("/test")
             .header(header::COOKIE, format!("session_token={}", token))
             .body(Body::empty())
-            .unwrap();
+            .expect("build request with cookie header");
 
-        let response = app.oneshot(request).await.unwrap();
+        let response = app.oneshot(request).await.expect("send request to app");
 
         assert_eq!(response.status(), StatusCode::OK);
     }
@@ -374,9 +383,9 @@ mod tests {
         let request = Request::builder()
             .header(header::COOKIE, "session_token=abc123; other=value")
             .body(Body::empty())
-            .unwrap();
+            .expect("build request with cookie header");
 
-        let token = extract_session_token(&request).unwrap();
+        let token = extract_session_token(&request).expect("extract session token");
         assert_eq!(token, "abc123");
     }
 
@@ -385,7 +394,7 @@ mod tests {
         let request = Request::builder()
             .header(header::COOKIE, "other=value")
             .body(Body::empty())
-            .unwrap();
+            .expect("build request with cookie header");
 
         let result = extract_session_token(&request);
         assert!(matches!(result, Err(AuthError::MissingSessionToken)));
@@ -393,7 +402,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_extract_session_token_no_cookie_header() {
-        let request = Request::builder().body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .body(Body::empty())
+            .expect("build request body");
 
         let result = extract_session_token(&request);
         assert!(matches!(result, Err(AuthError::MissingSessionToken)));
@@ -403,9 +414,12 @@ mod tests {
     async fn test_auth_middleware_oidc_mode_missing_token() {
         let app = create_test_app(AuthMode::Oidc);
 
-        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+        let request = Request::builder()
+            .uri("/test")
+            .body(Body::empty())
+            .expect("build request body");
 
-        let response = app.oneshot(request).await.unwrap();
+        let response = app.oneshot(request).await.expect("send request to app");
 
         // Should redirect to login (303) instead of returning 401
         assert_eq!(response.status(), StatusCode::SEE_OTHER);

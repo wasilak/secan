@@ -24,7 +24,7 @@ mod tests {
         assert!(index.is_some(), "index.html should be embedded");
 
         // Verify the content is not empty
-        let index_content = index.unwrap();
+        let index_content = index.expect("index.html should be embedded");
         assert!(
             !index_content.data.is_empty(),
             "index.html should not be empty"

@@ -22,11 +22,12 @@ import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 // Debug: ensure wrapper imported
 console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
-import { calculateCanvasLayout, UNASSIGNED_KEY } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, UNASSIGNED_KEY, estimateGroupMinWidth } from '../../utils/canvasLayout';
 import { sortShards } from '../../utils/shardOrdering';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
+import TopologyController from '../../topology/TopologyController';
 
 // Defensive: if ClusterGroupNode failed to import for any reason, provide a
 // fallback component so React doesn't throw an "Invalid element type" error
@@ -279,6 +280,10 @@ export function CanvasTopologyView({
 }: CanvasTopologyViewProps) {
   const showLoadingSkeleton = isLoading && nodes.length === 0;
 
+  // Visible nodes supplied by the tile/L0-L2 system when available.
+  // When tiles are not yet available we fall back to calculateCanvasLayout.
+  const [visibleNodesFromTiles, setVisibleNodesFromTiles] = useState<any[] | null>(null);
+
   // ── Index health colour helper ────────────────────────────────────────────
   const indexHealthMap = useMemo(() => {
     const map = new Map<string, IndexInfo['health']>();
@@ -345,33 +350,73 @@ export function CanvasTopologyView({
   }, [shards, filteredIndices, selectedShardStates]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
-  const layoutNodes = useMemo(
-    () =>
-      calculateCanvasLayout({
-        clusterNodes: filteredNodes,
-        shardsByNode,
-        groupingConfig,
-        onNodeClick,
-        onShardClick: onShardClick
-          ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
-          : undefined,
-        relocationMode,
-        validDestinationNodes,
-        onDestinationClick,
-        getIndexHealthColor,
-      }),
-    [
-      filteredNodes,
+  const layoutNodes = useMemo(() => {
+    if (visibleNodesFromTiles) {
+      // Build a lookup of full NodeInfo from the nodes prop so we can
+      // enrich tile-provided compact payloads with the authoritative node
+      // metadata (version, roles, metrics) available from the main nodes list.
+      const nodesByKey = new Map<string, typeof nodes[0]>();
+      nodes.forEach((nn) => {
+        if (nn.id) nodesByKey.set(nn.id, nn);
+        if (nn.name) nodesByKey.set(nn.name, nn);
+      });
+      // Helper: merge objects preferring defined values so compact tile payloads
+      // that intentionally set fields to `undefined` do not wipe authoritative
+      // values from the nodes prop.
+      const mergePreferDefined = (...objs: Array<Record<string, unknown> | undefined>) => {
+        const out: Record<string, unknown> = {};
+        for (const obj of objs) {
+          if (!obj) continue;
+          Object.keys(obj).forEach((k) => {
+            const v = (obj as Record<string, unknown>)[k];
+            if (v !== undefined) out[k] = v;
+          });
+        }
+        return out as Record<string, unknown>;
+      };
+      // Use nodes produced by tile system when available; inject helpers and
+      // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
+      // color shard dots and handle interactions (open node modal / shard ctx menu).
+      return visibleNodesFromTiles.map((n) => {
+        const existing = (n as any).data || {};
+        // Node identity may be provided under existing.node (compact) or
+        // as the RF node id. Prefer explicit compact fields, but fall back
+        // to the authoritative nodes list when tile payloads are compact.
+        const explicitNode = existing.node as Record<string, unknown> | undefined;
+        const rawNode = existing.__raw as Record<string, unknown> | undefined;
+        const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
+        const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
+        // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
+        const mergedNode = mergePreferDefined(fallbackNode as Record<string, unknown> | undefined, rawNode, explicitNode);
+        const minW = estimateGroupMinWidth(mergedNode as any);
+        return {
+          ...n,
+          data: {
+            ...existing,
+            node: mergedNode,
+            getIndexHealthColor,
+            onNodeClick: existing?.onNodeClick ?? onNodeClick,
+            onShardClick: existing?.onShardClick ?? onShardClick,
+            onDestinationClick: existing?.onDestinationClick ?? onDestinationClick,
+          },
+          width: minW,
+        } as any;
+      });
+    }
+    return calculateCanvasLayout({
+      clusterNodes: filteredNodes,
       shardsByNode,
       groupingConfig,
       onNodeClick,
-      onShardClick,
+      onShardClick: onShardClick
+        ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
+        : undefined,
       relocationMode,
       validDestinationNodes,
       onDestinationClick,
       getIndexHealthColor,
-    ],
-  );
+    });
+  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
   console.debug(
     'CanvasTopologyView layoutNodes onNodeClick present?',
@@ -417,13 +462,16 @@ export function CanvasTopologyView({
         </Box>
       ) : (
         <ReactFlowProvider>
-          <Flow 
-            layoutNodes={layoutNodesWithUserPositions}
-            onPaneClick={onPaneClick}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
-            onNodesPositionChange={handleNodesPositionChange}
-          />
+          <>
+            <TopologyController onNodesUpdate={setVisibleNodesFromTiles} />
+            <Flow 
+              layoutNodes={layoutNodesWithUserPositions}
+              onPaneClick={onPaneClick}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDragStop={onNodeDragStop}
+              onNodesPositionChange={handleNodesPositionChange}
+            />
+          </>
         </ReactFlowProvider>
       )}
     </Box>

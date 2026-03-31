@@ -915,7 +915,7 @@ mod tests {
 
     #[test]
     fn test_time_range_construction() {
-        let tr = TimeRange::new(100, 200).unwrap();
+        let tr = TimeRange::new(100, 200).expect("create time range");
         assert_eq!(tr.start, 100);
         assert_eq!(tr.end, 200);
         assert_eq!(tr.duration(), 100);
@@ -928,7 +928,7 @@ mod tests {
 
     #[test]
     fn test_recommended_step() {
-        let tr = TimeRange::new(0, 100000).unwrap();
+        let tr = TimeRange::new(0, 100000).expect("create time range");
         let step = tr.recommended_step();
         assert!(step > 0);
         assert!(step <= 100000 / 50); // Should be <= duration/50 (targeting ~50 points)

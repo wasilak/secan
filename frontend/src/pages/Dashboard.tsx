@@ -161,10 +161,20 @@ export function Dashboard() {
       const stats = statsQuery?.data;
       const error = statsQuery?.error;
 
+      // Prefer the configured cluster name from the clusters list, then
+      // fall back to the authoritative clusterName from cluster stats if available.
+      const displayName = cluster.name ?? stats?.clusterName ?? '';
+      if (!displayName) {
+        // This is unexpected: the API contract guarantees a cluster name.
+        // Log as an error so it's visible in development and can be escalated.
+        // eslint-disable-next-line no-console
+        console.error(`[Dashboard] Missing cluster name for cluster ${cluster.id} (neither clusters list nor stats provided a name)`);
+      }
+
       if (error) {
         return {
           id: cluster.id,
-          name: cluster.name,
+          name: displayName,
           health: 'unreachable' as const,
           nodes: 0,
           shards: 0,
@@ -178,7 +188,7 @@ export function Dashboard() {
         // Still loading - return placeholder with unknown health
         return {
           id: cluster.id,
-          name: cluster.name,
+          name: displayName,
           health: 'green' as const, // Default while loading
           nodes: 0,
           shards: 0,
@@ -189,7 +199,7 @@ export function Dashboard() {
 
       return {
         id: cluster.id,
-        name: cluster.name,
+        name: displayName,
         health: stats.health,
         nodes: stats.numberOfNodes,
         shards: stats.activeShards,

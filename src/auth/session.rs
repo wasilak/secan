@@ -183,18 +183,17 @@ impl Default for SessionStore {
 
 /// Generate a cryptographically secure random session token
 pub fn generate_token() -> String {
-    use rand::RngExt;
-    const TOKEN_LENGTH: usize = 32;
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    // Generate 32 bytes (256 bits) of cryptographically-secure random data
+    // and encode as URL-safe base64 without padding. This yields a compact,
+    // URL-friendly token suitable for session identifiers.
+    use base64::Engine;
+    use getrandom::getrandom;
 
-    let token: String = (0..TOKEN_LENGTH)
-        .map(|_| {
-            let idx = rand::rng().random_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect();
+    let mut bytes = [0u8; 32];
+    // getrandom fills the buffer with cryptographically secure random bytes
+    getrandom(&mut bytes).expect("secure RNG failed");
 
-    token
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
 /// Session manager for handling user sessions
@@ -397,7 +396,8 @@ mod tests {
 
         let retrieved = store.get("token123").await;
         assert!(retrieved.is_some());
-        assert_eq!(retrieved.unwrap().token, "token123");
+        let retrieved = retrieved.expect("session inserted should be retrievable");
+        assert_eq!(retrieved.token, "token123");
     }
 
     #[tokio::test]
@@ -459,16 +459,17 @@ mod tests {
         let token1 = generate_token();
         let token2 = generate_token();
 
-        // Tokens should be 32 characters long
-        assert_eq!(token1.len(), 32);
-        assert_eq!(token2.len(), 32);
+        // Tokens should encode 32 bytes as URL-safe base64 without padding -> 43 chars
+        assert_eq!(token1.len(), 43);
+        assert_eq!(token2.len(), 43);
 
         // Tokens should be different (extremely unlikely to be the same)
         assert_ne!(token1, token2);
 
-        // Tokens should only contain alphanumeric characters
-        assert!(token1.chars().all(|c| c.is_alphanumeric()));
-        assert!(token2.chars().all(|c| c.is_alphanumeric()));
+        // Tokens should only contain URL-safe base64 characters: alphanumeric, '-' and '_'
+        let is_url_safe = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+        assert!(token1.chars().all(is_url_safe));
+        assert!(token2.chars().all(is_url_safe));
     }
 
     #[test]
@@ -495,14 +496,20 @@ mod tests {
             vec!["admin".to_string()],
         );
 
-        let token = manager.create_session(user).await.unwrap();
+        let token = manager
+            .create_session(user)
+            .await
+            .expect("create session should succeed");
         assert!(!token.is_empty());
-        assert_eq!(token.len(), 32);
+        assert_eq!(token.len(), 43);
 
         // Verify session was created
-        let session = manager.validate_session(&token).await.unwrap();
-        assert!(session.is_some());
-        assert_eq!(session.unwrap().username, "testuser");
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
+        let session = session.expect("session should exist");
+        assert_eq!(session.username, "testuser");
     }
 
     #[tokio::test]
@@ -516,14 +523,23 @@ mod tests {
             vec!["admin".to_string()],
         );
 
-        let token = manager.create_session(user).await.unwrap();
+        let token = manager
+            .create_session(user)
+            .await
+            .expect("create session should succeed");
 
         // Valid session should be returned
-        let session = manager.validate_session(&token).await.unwrap();
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
         assert!(session.is_some());
 
         // Invalid token should return None
-        let session = manager.validate_session("invalid_token").await.unwrap();
+        let session = manager
+            .validate_session("invalid_token")
+            .await
+            .expect("validate_session should succeed for invalid token");
         assert!(session.is_none());
     }
 
@@ -534,14 +550,23 @@ mod tests {
 
         let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
 
-        let token = manager.create_session(user).await.unwrap();
+        let token = manager
+            .create_session(user)
+            .await
+            .expect("create session should succeed");
 
         // Session should be expired and removed
-        let session = manager.validate_session(&token).await.unwrap();
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
         assert!(session.is_none());
 
         // Session should no longer exist in store
-        let session = manager.validate_session(&token).await.unwrap();
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
         assert!(session.is_none());
     }
 
@@ -552,16 +577,30 @@ mod tests {
 
         let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
 
-        let token = manager.create_session(user).await.unwrap();
+        let token = manager
+            .create_session(user)
+            .await
+            .expect("create session should succeed");
 
         // Session should exist
-        assert!(manager.validate_session(&token).await.unwrap().is_some());
+        assert!(manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed")
+            .is_some());
 
         // Invalidate session
-        manager.invalidate_session(&token).await.unwrap();
+        manager
+            .invalidate_session(&token)
+            .await
+            .expect("invalidate_session should succeed");
 
         // Session should no longer exist
-        assert!(manager.validate_session(&token).await.unwrap().is_none());
+        assert!(manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed")
+            .is_none());
     }
 
     #[tokio::test]
@@ -572,7 +611,10 @@ mod tests {
         // Create multiple expired sessions
         for i in 0..5 {
             let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
-            manager.create_session(user).await.unwrap();
+            manager
+                .create_session(user)
+                .await
+                .expect("create session should succeed");
         }
 
         assert_eq!(manager.active_session_count().await, 5);
@@ -590,17 +632,28 @@ mod tests {
 
         let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
 
-        let token = manager.create_session(user).await.unwrap();
+        let token = manager
+            .create_session(user)
+            .await
+            .expect("create session should succeed");
 
         // Get initial session
-        let session1 = manager.validate_session(&token).await.unwrap().unwrap();
+        let session1 = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed")
+            .expect("session should exist");
         let expires_at1 = session1.expires_at;
 
         // Wait a bit
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 
         // Validate again (should renew)
-        let session2 = manager.validate_session(&token).await.unwrap().unwrap();
+        let session2 = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed")
+            .expect("session should exist");
         let expires_at2 = session2.expires_at;
 
         // Expiration should be extended
@@ -617,7 +670,10 @@ mod tests {
         // Create sessions
         for i in 0..3 {
             let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
-            manager.create_session(user).await.unwrap();
+            manager
+                .create_session(user)
+                .await
+                .expect("create session should succeed");
         }
 
         assert_eq!(manager.active_session_count().await, 3);
@@ -643,12 +699,15 @@ mod tests {
         let token = manager
             .create_session_with_clusters(user, clusters.clone())
             .await
-            .unwrap();
+            .expect("create session with clusters should succeed");
 
         // Verify session has accessible clusters
-        let session = manager.validate_session(&token).await.unwrap();
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
         assert!(session.is_some());
-        let session = session.unwrap();
+        let session = session.expect("session should exist");
         assert_eq!(session.accessible_clusters, clusters);
         assert_eq!(session.accessible_clusters.len(), 3);
     }
@@ -669,12 +728,15 @@ mod tests {
         let token = manager
             .create_session_with_clusters(user, clusters.clone())
             .await
-            .unwrap();
+            .expect("create session with clusters should succeed");
 
         // Verify session has wildcard cluster
-        let session = manager.validate_session(&token).await.unwrap();
+        let session = manager
+            .validate_session(&token)
+            .await
+            .expect("validate_session should succeed");
         assert!(session.is_some());
-        let session = session.unwrap();
+        let session = session.expect("session should exist");
         assert_eq!(session.accessible_clusters, vec!["*".to_string()]);
     }
 

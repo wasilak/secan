@@ -965,8 +965,7 @@ mod tests {
         assert!(client.is_ok());
 
         // SAFETY: unwrap is safe here because we just asserted is_ok() above
-        #[allow(clippy::unwrap_used)]
-        let _client = client.unwrap();
+        let _client = client.expect("create client");
     }
 
     #[tokio::test]
@@ -1017,8 +1016,7 @@ mod tests {
         };
 
         // SAFETY: Creating a client with valid config should always succeed in tests
-        #[allow(clippy::unwrap_used)]
-        let _client = Client::new(&config).await.unwrap();
+        let _client = Client::new(&config).await.expect("create client");
 
         let config = ClusterConfig {
             id: "test".to_string(),
@@ -1031,7 +1029,6 @@ mod tests {
         };
 
         // SAFETY: Creating a client with valid config should always succeed in tests
-        #[allow(clippy::unwrap_used)]
-        let _client = Client::new(&config).await.unwrap();
+        let _client = Client::new(&config).await.expect("create client");
     }
 }

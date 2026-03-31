@@ -117,6 +117,7 @@ fn extract_operation_name(path: &str) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

@@ -1066,14 +1066,16 @@ mod tests {
 
     #[test]
     fn test_metrics_query_default() {
-        let query: MetricsQuery = serde_json::from_str("{}").unwrap();
+        let query: MetricsQuery =
+            serde_json::from_str("{}").expect("deserialize empty MetricsQuery");
         assert_eq!(query.start, None);
         assert_eq!(query.end, None);
     }
 
     #[test]
     fn test_metrics_query_with_timestamps() {
-        let query: MetricsQuery = serde_json::from_str(r#"{"start": 1000, "end": 2000}"#).unwrap();
+        let query: MetricsQuery = serde_json::from_str(r#"{"start": 1000, "end": 2000}"#)
+            .expect("deserialize MetricsQuery with timestamps");
         assert_eq!(query.start, Some(1000));
         assert_eq!(query.end, Some(2000));
     }
@@ -1086,7 +1088,8 @@ mod tests {
             labels: None,
         };
 
-        let json = serde_json::to_string(&req).unwrap();
+        let json =
+            serde_json::to_string(&req).expect("serialize PrometheusValidationRequest to JSON");
         assert!(json.contains("\"url\":\"http://prometheus:9090\""));
         assert!(json.contains("\"job_name\":\"elasticsearch\""));
     }
@@ -1098,7 +1101,7 @@ mod tests {
             message: "Test error message".to_string(),
         };
 
-        let json = serde_json::to_string(&error).unwrap();
+        let json = serde_json::to_string(&error).expect("serialize MetricsErrorResponse to JSON");
         assert!(json.contains("\"error\":\"test_error\""));
         assert!(json.contains("\"message\":\"Test error message\""));
     }

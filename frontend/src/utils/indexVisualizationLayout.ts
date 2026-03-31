@@ -21,7 +21,7 @@ import { computeHeapPercent, getHeapColor } from './heap';
 import { getShardDotColor } from './colors';
 import { formatBytes } from '../utils/formatters';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
-import { GROUP_WIDTH } from './canvasLayout';
+import { GROUP_WIDTH, estimateGroupMinWidth } from './canvasLayout';
 
 // Simple width estimator for the index header node based on text lengths.
 function estimateIndexNodeWidth(indexName: string, total: number, primary: number, replica: number): number {
@@ -35,9 +35,11 @@ function estimateIndexNodeWidth(indexName: string, total: number, primary: numbe
 }
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-export const SHARD_SIZE = 24;
-export const SHARD_GAP = 4;
-export const SHARDS_PER_ROW = 6;
+import TOPOLOGY_CONFIG from '../config/topologyConfig';
+
+export const SHARD_SIZE = TOPOLOGY_CONFIG.SHARD_SIZE;
+export const SHARD_GAP = TOPOLOGY_CONFIG.SHARD_GAP;
+export const SHARDS_PER_ROW = TOPOLOGY_CONFIG.SHARDS_PER_ROW_BASE;
 export const SUBGROUP_HEADER = 28;
 export const SUBGROUP_PADDING = 8;
 export const SUB_GROUP_GAP = 16;
@@ -69,7 +71,8 @@ export interface IndexVizLayoutOutput {
 const UNASSIGNED_KEY = '__unassigned__';
 
 function subgroupHeight(shardCount: number): number {
-  const rows = Math.ceil(shardCount / SHARDS_PER_ROW);
+  // Cap rows to avoid extreme heights; frontend config controls this value.
+  const rows = Math.min(Math.ceil(shardCount / SHARDS_PER_ROW), TOPOLOGY_CONFIG.MAX_SHARD_ROWS);
   return (
     SUBGROUP_HEADER +
     rows * (SHARD_SIZE + SHARD_GAP) +
@@ -291,24 +294,35 @@ export function calculateIndexVizLayout(
       isUnassigned: nodeKey === UNASSIGNED_KEY,
     };
 
+    // Compute a conservative width hint based on the node's name + badges
+    // so the RF layout can allocate enough horizontal space before the DOM
+    // measurement occurs. This reduces transient truncation / layout flashes
+    // for long node names while still allowing the inner card DOM to size
+    // itself (we only set width hint and minWidth, not a fixed height).
+    const minW = estimateGroupMinWidth(nodeInfo ?? ({} as NodeInfo));
+
     nodes.push({
       id: subgroupId,
       type: 'clusterGroup',
       position: { x: sgX, y: sgY },
-      // Visual width is driven by the inner card (ClusterESNodeCard) which
-      // sets minWidth/width. Do not set RF node width to avoid clipping the
-      // inner card border due to double-sizing / subpixel rounding.
-      // Do not set RF node height: let the DOM/card drive its own height so
-      // React Flow places handles/connectors correctly (avoids clipped borders
-      // and mis-positioned bottom handles due to stale fixed heights).
+      // Provide a width hint so Dagre and the collision resolver allocate
+      // sufficient space initially. We avoid fixing heights — the DOM
+      // continues to drive the actual node height.
+      width: minW,
+      // Tag the RF node so our CSS can remove the wrapper border when the
+      // ClusterESNodeCard inner component renders its own border. This avoids
+      // the double-border effect visible when both RF and the card drew borders.
+      className: 'secan-rf-node-contains-card',
       draggable: false,
       style: {
         // Provide minWidth to avoid clipping while allowing DOM-driven sizing
-        minWidth: GROUP_WIDTH,
+        minWidth: minW,
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',
-        border: '1px solid var(--mantine-color-default-border)',
+        // Do not set border on the RF wrapper; the inner ClusterESNodeCard
+        // should be the authoritative source for the node border. See
+        // canvasLayout.ts for rationale.
         borderRadius: '8px',
         backgroundColor: 'var(--mantine-color-body)',
       },

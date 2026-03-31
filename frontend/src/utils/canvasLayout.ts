@@ -16,7 +16,7 @@ import React, { type ReactNode } from 'react';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
-import { SHARD_STATE_COLORS } from './colors';
+import { getShardDotColor, getUnassignedShardColor } from './colors';
 // Minimal data for ClusterGroupNode — flat, shallow props only for top performance
 export interface ClusterGroupNodeDataFlat {
   id: string;
@@ -66,16 +66,38 @@ export interface ClusterGroupNodeDataFlat {
   isUnassigned?: boolean;
 }
 
+/**
+ * Estimate a minimum width (px) required to display the node header (name + version + role icons)
+ * Uses a simple character-based heuristic to avoid measuring DOM synchronously.
+ * Returned value is clamped to a reasonable maximum to avoid extremely wide nodes.
+ */
+export function estimateGroupMinWidth(node: Partial<NodeInfo>, iconSize = 13): number {
+  const name = node.name ?? '';
+  const nameChars = Math.max(0, name.length);
+  const CHAR_PX = 8; // approximate average character width in 'sm' font
+  const basePadding = 24; // left + right padding from card style
+  const versionWidth = node.version ? 36 : 0; // small token for 'vX.Y.Z'
+  const masterBadgeWidth = node.isMaster ? 28 : 0; // M badge
+  const rolesWidth = (node.roles ? node.roles.length : 0) * (iconSize + 4); // icon + gap
+  const extraGap = 12; // gap between name and icons
+  const width = Math.ceil(basePadding + nameChars * CHAR_PX + versionWidth + masterBadgeWidth + rolesWidth + extraGap);
+  // Clamp sensible min/max to avoid pathological widths
+  const MAX = 1000;
+  return Math.max(GROUP_WIDTH, Math.min(width, MAX));
+}
+
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-export const SHARD_SIZE = 24;
-export const SHARD_GAP = 4;
-export const SHARDS_PER_ROW = 8;
+import TOPOLOGY_CONFIG from '../config/topologyConfig';
+
+export const SHARD_SIZE = TOPOLOGY_CONFIG.SHARD_SIZE;
+export const SHARD_GAP = TOPOLOGY_CONFIG.SHARD_GAP;
+export const SHARDS_PER_ROW = TOPOLOGY_CONFIG.SHARDS_PER_ROW_BASE;
 /** Estimated group height used only for inter-node vertical spacing. */
 const ESTIMATED_HEADER_HEIGHT = 80;
 const ESTIMATED_SHARD_ROW_HEIGHT = SHARD_SIZE + SHARD_GAP;
 const GROUP_PADDING_BOTTOM = 12;
-export const GROUP_WIDTH = 360;
+export const GROUP_WIDTH = TOPOLOGY_CONFIG.GROUP_WIDTH;
 // Tuned gaps for Dagre + collision resolver to produce pleasant spacing
 export const HORIZONTAL_GAP = 60;
 export const VERTICAL_GAP = 40;
@@ -107,7 +129,8 @@ export interface CanvasLayoutInput {
 
 /** Estimated group height for layout spacing (not used for actual rendering). */
 function estimatedGroupHeight(shardCount: number): number {
-  const rows = Math.ceil(shardCount / SHARDS_PER_ROW);
+  // Ensure we respect a maximum number of rows to avoid extremely tall nodes.
+  const rows = Math.min(Math.ceil(shardCount / SHARDS_PER_ROW), TOPOLOGY_CONFIG.MAX_SHARD_ROWS);
   return (
     ESTIMATED_HEADER_HEIGHT +
     rows * ESTIMATED_SHARD_ROW_HEIGHT +
@@ -181,11 +204,10 @@ function emitGroupNode(
   if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
   const dots = sortedShards.map((shard, _idx) => {
+      // Use centralized shard color helpers so Canvas/Nodes/Dot views match
       const color = shard.state === 'UNASSIGNED'
-        ? SHARD_STATE_COLORS.UNASSIGNED
-        : input.getIndexHealthColor
-          ? input.getIndexHealthColor(shard.index)
-          : 'var(--mantine-color-gray-6)';
+        ? getUnassignedShardColor(shard.primary)
+        : getShardDotColor(shard.state);
       return {
         color,
         tooltip: React.createElement(
@@ -227,21 +249,32 @@ function emitGroupNode(
     onShardClick: input.onShardClick,
   };
 
+    // Provide a width hint based on node header content so dagre/collision
+    // layout allocate enough space before the DOM measurement occurs. This
+    // reduces transient truncation/flash for long node names.
+    const minW = estimateGroupMinWidth(node);
+
     result.push({
       id: node.id,
       type: 'clusterGroup',
       position,
+      // Provide a width hint used by dagre / layout engines
+      width: minW,
+      // Tag the RF node so we can target its wrapper element from CSS and
+      // remove the wrapper border when our inner card renders the border.
+      className: 'secan-rf-node-contains-card',
       // Nodes are not draggable in the canvas/cluster view by design (consistent with Index view)
       draggable: false,
       style: {
         // Let inner card drive width/height; provide minWidth so layout remains stable
-        minWidth: GROUP_WIDTH,
+        minWidth: minW,
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',
-        border: isValidDestination
-          ? '2px dashed var(--mantine-color-violet-6)'
-          : '1px solid var(--mantine-color-default-border)',
+        // Do not set border on the RF wrapper; the inner ClusterESNodeCard
+        // is the authoritative source of the visible border. Setting border
+        // here caused a double-border when both wrapper and inner card drew
+        // borders. Avoid inline border to keep a single source of truth.
         borderRadius: '8px',
         backgroundColor: 'var(--mantine-color-body)',
       },

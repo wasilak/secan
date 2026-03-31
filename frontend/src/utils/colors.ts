@@ -182,3 +182,19 @@ export const SHARD_TYPE_COLORS: Record<string, string> = {
   primaries: 'var(--mantine-color-blue-6)',
   replicas: 'var(--mantine-color-gray-6)',
 };
+
+/**
+ * Resolve final shard color for a shard object, using shard state helpers and
+ * falling back to index health color when state is missing.
+ */
+export function resolveShardColor(shard: unknown, getIndexHealthColor?: (indexName: string) => string): string {
+  if (!shard || typeof shard !== 'object' || shard === null) return 'var(--mantine-color-gray-6)';
+  // narrow to the expected shape for safer access
+  const s = shard as { state?: string; status?: string; primary?: boolean; index?: string };
+  const rawState = s.state ?? s.status ?? '';
+  const state = typeof rawState === 'string' ? rawState.toUpperCase() : '';
+  if (state === 'UNASSIGNED') return getUnassignedShardColor(Boolean(s.primary));
+  if (state) return getShardDotColor(state as ShardInfo['state']);
+  if (getIndexHealthColor && typeof s.index === 'string') return getIndexHealthColor(s.index);
+  return 'var(--mantine-color-gray-6)';
+}

@@ -13,6 +13,18 @@ pub struct Config {
     pub clusters: Vec<ClusterConfig>,
     #[serde(default)]
     pub cache: CacheConfig,
+    /// Maximum number of tiles a client may request in a single /topology/tiles call.
+    /// If not specified, the server will default to 64 tiles per request.
+    #[serde(default)]
+    pub topology_max_tiles_per_request: Option<usize>,
+    /// Maximum number of concurrent tile generation tasks allowed across the server.
+    /// If not specified, a sensible default (4) is used.
+    #[serde(default)]
+    pub topology_max_concurrent_generations: Option<usize>,
+    /// Timeout in seconds to wait for acquiring a topology generation permit.
+    /// If not specified, defaults to 8 seconds.
+    #[serde(default)]
+    pub topology_generation_acquire_timeout_seconds: Option<u64>,
 }
 
 /// Server configuration
@@ -51,6 +63,11 @@ pub struct CacheConfig {
     /// ensuring that manual/automatic refreshes hit cache while background jobs update data.
     #[serde(default)]
     pub metadata_duration_seconds: Option<u64>,
+    /// Maximum number of tile cache entries (optional). If set, the tile cache
+    /// will be bounded to this capacity. If not set, a sensible default is used
+    /// by the server (e.g., 10_000).
+    #[serde(default)]
+    pub tile_max_entries: Option<u64>,
 }
 
 impl CacheConfig {
@@ -926,8 +943,8 @@ impl Config {
 
         // Match ${VAR:-default} or ${VAR}
         // SAFETY: This regex pattern is a static literal and is always valid
-        #[allow(clippy::unwrap_used)]
-        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}").unwrap();
+        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}")
+            .expect("compile environment variable substitution regex");
 
         re.replace_all(content, |caps: &regex::Captures| {
             let var_name = &caps[1];
@@ -975,6 +992,9 @@ mod tests {
             auth: AuthConfig::default(),
             clusters: Vec::new(),
             cache: CacheConfig::default(),
+            topology_max_tiles_per_request: None,
+            topology_max_concurrent_generations: None,
+            topology_generation_acquire_timeout_seconds: None,
         };
 
         assert!(config.validate().is_err());
@@ -1180,19 +1200,15 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("must use ldap:// or ldaps://"));
+        let err = result.expect_err("LDAP config validation should fail for invalid scheme");
+        assert!(err.to_string().contains("must use ldap:// or ldaps://"));
 
         // Test with https scheme
         config.server_url = "https://ldap.example.com".to_string();
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("must use ldap:// or ldaps://"));
+        let err = result.expect_err("LDAP config validation should fail for https scheme");
+        assert!(err.to_string().contains("must use ldap:// or ldaps://"));
     }
 
     #[test]
@@ -1220,10 +1236,8 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("bind_dn cannot be empty"));
+        let err = result.expect_err("LDAP config validation should fail for empty bind_dn");
+        assert!(err.to_string().contains("bind_dn cannot be empty"));
     }
 
     #[test]
@@ -1251,10 +1265,8 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("bind_password cannot be empty"));
+        let err = result.expect_err("LDAP config validation should fail for empty bind_password");
+        assert!(err.to_string().contains("bind_password cannot be empty"));
     }
 
     #[test]
@@ -1282,8 +1294,8 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err = result.expect_err("LDAP config validation should fail for zero timeout");
+        assert!(err
             .to_string()
             .contains("connection_timeout_seconds must be positive"));
     }
@@ -1313,8 +1325,9 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err =
+            result.expect_err("LDAP config validation should fail when missing user search config");
+        assert!(err
             .to_string()
             .contains("must provide either user_dn_pattern or both search_base and search_filter"));
     }
@@ -1345,8 +1358,9 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err = result
+            .expect_err("LDAP config validation should fail when incomplete user search config");
+        assert!(err
             .to_string()
             .contains("must provide either user_dn_pattern or both search_base and search_filter"));
 
@@ -1374,8 +1388,9 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err = result
+            .expect_err("LDAP config validation should fail when only search_filter provided");
+        assert!(err
             .to_string()
             .contains("must provide either user_dn_pattern or both search_base and search_filter"));
     }
@@ -1406,8 +1421,9 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err =
+            result.expect_err("LDAP config validation should fail when incomplete group mapping");
+        assert!(err
             .to_string()
             .contains("group mapping requires both group_search_base and group_search_filter"));
 
@@ -1435,8 +1451,9 @@ mod tests {
 
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
+        let err =
+            result.expect_err("LDAP config validation should fail when group mapping missing base");
+        assert!(err
             .to_string()
             .contains("group mapping requires both group_search_base and group_search_filter"));
     }

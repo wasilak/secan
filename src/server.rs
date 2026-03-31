@@ -170,13 +170,36 @@ impl Server {
         // Initialize details cache and concurrency semaphore used by per-cluster details endpoint
         let cache_ttl = Duration::from_secs(self.config.cache.get_duration_secs());
         let details_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
+
+        // Create a moka-based cache for tiles with TTL and max capacity.
+        let tile_max = self.config.cache.tile_max_entries.unwrap_or(10_000);
+        let tile_cache = Arc::new(
+            moka::future::Cache::builder()
+                .time_to_live(cache_ttl)
+                .max_capacity(tile_max)
+                .build(),
+        );
         // Default concurrency for fan-out is 6
         let details_semaphore = Arc::new(Semaphore::new(6));
+
+        // Create a semaphore for topology generation concurrency. Default to 4 if not configured.
+        let topology_limit = self.config.topology_max_concurrent_generations.unwrap_or(4);
+        let topology_generation_semaphore = Arc::new(Semaphore::new(topology_limit));
 
         let cluster_state = crate::routes::ClusterState {
             cluster_manager: self.cluster_manager.clone(),
             details_cache: details_cache.clone(),
             details_semaphore: details_semaphore.clone(),
+            tile_cache: tile_cache.clone(),
+            topology_max_tiles_per_request: self
+                .config
+                .topology_max_tiles_per_request
+                .unwrap_or(64),
+            topology_generation_semaphore: topology_generation_semaphore.clone(),
+            topology_generation_acquire_timeout_seconds: self
+                .config
+                .topology_generation_acquire_timeout_seconds
+                .unwrap_or(8),
         };
 
         // Create metrics state for metrics routes
@@ -244,6 +267,11 @@ impl Server {
             .route(
                 "/api/clusters/{id}/nodes",
                 get(crate::routes::clusters::get_nodes),
+            )
+            // Topology tile generation (per-cluster)
+            .route(
+                "/api/clusters/{id}/topology/tiles",
+                post(crate::routes::topology::post_tiles),
             )
             .route(
                 "/api/clusters/{id}/nodes/{nodeId}/stats",
@@ -451,6 +479,9 @@ mod tests {
             },
             clusters: vec![],
             cache: crate::config::CacheConfig::default(),
+            topology_max_tiles_per_request: None,
+            topology_max_concurrent_generations: None,
+            topology_generation_acquire_timeout_seconds: None,
         }
     }
 
@@ -474,12 +505,12 @@ mod tests {
         let cluster_manager =
             ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
                 .await
-                .unwrap();
+                .expect("create cluster manager");
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
         let server = Server::new(config, cluster_manager, session_manager)
             .await
-            .unwrap();
+            .expect("create server");
 
         assert_eq!(server.config.server.port, 27182);
     }
@@ -500,12 +531,12 @@ mod tests {
         let cluster_manager =
             ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
                 .await
-                .unwrap();
+                .expect("create cluster manager");
         let session_manager = SessionManager::new(SessionConfig::new(60));
 
         let server = Server::new(config, cluster_manager, session_manager)
             .await
-            .unwrap();
+            .expect("create server");
         let _router = server.router();
 
         // Router creation should succeed
