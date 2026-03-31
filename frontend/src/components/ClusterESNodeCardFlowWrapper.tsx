@@ -27,7 +27,22 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     // details may still be present on __raw. Merge so we prefer explicit
     // `node` fields but fall back to raw values when missing.
     const rawNode = (data['__raw'] as Partial<NodeInfo>) ?? undefined;
-    const nodeInfo = { ...(rawNode ?? {}), ...(data['node'] as Partial<NodeInfo> ?? {}) } as Partial<NodeInfo>;
+    const explicitNode = (data['node'] as Partial<NodeInfo>) ?? undefined;
+    // Helper: merge objects but do not overwrite existing values with `undefined`.
+    const mergePreferDefined = (...objs: Array<Record<string, unknown> | undefined>) => {
+      const out: Record<string, unknown> = {};
+      for (const obj of objs) {
+        if (!obj) continue;
+        Object.keys(obj).forEach((k) => {
+          const v = (obj as Record<string, unknown>)[k];
+          if (v !== undefined) out[k] = v;
+        });
+      }
+      return out as Partial<NodeInfo>;
+    };
+    // Precedence: rawNode overrides nothing, explicitNode overrides raw, but
+    // do not replace defined values with undefined. Merge order: raw <- explicit
+    const nodeInfo = mergePreferDefined(rawNode, explicitNode) as Partial<NodeInfo>;
     const shards = Array.isArray(data['shards']) ? (data['shards'] as ShardInfo[]) : [];
 
     const primaryCount = shards.filter((s) => s.primary).length;

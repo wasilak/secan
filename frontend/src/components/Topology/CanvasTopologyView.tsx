@@ -360,6 +360,20 @@ export function CanvasTopologyView({
         if (nn.id) nodesByKey.set(nn.id, nn);
         if (nn.name) nodesByKey.set(nn.name, nn);
       });
+      // Helper: merge objects preferring defined values so compact tile payloads
+      // that intentionally set fields to `undefined` do not wipe authoritative
+      // values from the nodes prop.
+      const mergePreferDefined = (...objs: Array<Record<string, unknown> | undefined>) => {
+        const out: Record<string, unknown> = {};
+        for (const obj of objs) {
+          if (!obj) continue;
+          Object.keys(obj).forEach((k) => {
+            const v = (obj as Record<string, unknown>)[k];
+            if (v !== undefined) out[k] = v;
+          });
+        }
+        return out as Record<string, unknown>;
+      };
       // Use nodes produced by tile system when available; inject helpers and
       // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
       // color shard dots and handle interactions (open node modal / shard ctx menu).
@@ -377,7 +391,7 @@ export function CanvasTopologyView({
           const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
           const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
           // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
-          const mergedNode = { ...(fallbackNode ?? {}), ...(rawNode ?? {}), ...(explicitNode ?? {}) };
+          const mergedNode = mergePreferDefined(fallbackNode as Record<string, unknown> | undefined, rawNode, explicitNode);
           return {
             ...existing,
             node: mergedNode,
