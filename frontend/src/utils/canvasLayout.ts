@@ -66,6 +66,26 @@ export interface ClusterGroupNodeDataFlat {
   isUnassigned?: boolean;
 }
 
+/**
+ * Estimate a minimum width (px) required to display the node header (name + version + role icons)
+ * Uses a simple character-based heuristic to avoid measuring DOM synchronously.
+ * Returned value is clamped to a reasonable maximum to avoid extremely wide nodes.
+ */
+export function estimateGroupMinWidth(node: Partial<NodeInfo>, iconSize = 13): number {
+  const name = node.name ?? '';
+  const nameChars = Math.max(0, name.length);
+  const CHAR_PX = 8; // approximate average character width in 'sm' font
+  const basePadding = 24; // left + right padding from card style
+  const versionWidth = node.version ? 36 : 0; // small token for 'vX.Y.Z'
+  const masterBadgeWidth = node.isMaster ? 28 : 0; // M badge
+  const rolesWidth = (node.roles ? node.roles.length : 0) * (iconSize + 4); // icon + gap
+  const extraGap = 12; // gap between name and icons
+  const width = Math.ceil(basePadding + nameChars * CHAR_PX + versionWidth + masterBadgeWidth + rolesWidth + extraGap);
+  // Clamp sensible min/max to avoid pathological widths
+  const MAX = 1000;
+  return Math.max(GROUP_WIDTH, Math.min(width, MAX));
+}
+
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 import TOPOLOGY_CONFIG from '../config/topologyConfig';
@@ -229,15 +249,22 @@ function emitGroupNode(
     onShardClick: input.onShardClick,
   };
 
+    // Provide a width hint based on node header content so dagre/collision
+    // layout allocate enough space before the DOM measurement occurs. This
+    // reduces transient truncation/flash for long node names.
+    const minW = estimateGroupMinWidth(node);
+
     result.push({
       id: node.id,
       type: 'clusterGroup',
       position,
+      // Provide a width hint used by dagre / layout engines
+      width: minW,
       // Nodes are not draggable in the canvas/cluster view by design (consistent with Index view)
       draggable: false,
       style: {
         // Let inner card drive width/height; provide minWidth so layout remains stable
-        minWidth: GROUP_WIDTH,
+        minWidth: minW,
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',

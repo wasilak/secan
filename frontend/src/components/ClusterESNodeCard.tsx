@@ -126,7 +126,12 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
         // Allow the outer RF node container to size itself from this element
         // while keeping this card's borders fully visible. Use minWidth only
         // so the card can grow if RF or container sizing requires it.
+        // Allow the card to expand to fit the full name + badges/icons when needed.
+        // The RF wrapper will measure and nudge collisions accordingly. Use a
+        // flexible minWidth so long names don't get truncated.
         minWidth: GROUP_WIDTH,
+        // allow the inner card to grow beyond GROUP_WIDTH up to measured width
+        width: 'auto',
         boxSizing: 'border-box',
         borderRadius: 8,
         padding: '10px 12px 8px',

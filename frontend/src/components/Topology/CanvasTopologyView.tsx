@@ -22,7 +22,7 @@ import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 // Debug: ensure wrapper imported
 console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
-import { calculateCanvasLayout, UNASSIGNED_KEY } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, UNASSIGNED_KEY, estimateGroupMinWidth } from '../../utils/canvasLayout';
 import { sortShards } from '../../utils/shardOrdering';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
@@ -377,31 +377,31 @@ export function CanvasTopologyView({
       // Use nodes produced by tile system when available; inject helpers and
       // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
       // color shard dots and handle interactions (open node modal / shard ctx menu).
-      return visibleNodesFromTiles.map((n) => ({
-        ...n,
-        // Preserve any existing handlers from the tile payload, but provide
-        // the canonical ones from this view when absent.
-        data: (() => {
-          const existing = (n as any).data || {};
-          // Node identity may be provided under existing.node (compact) or
-          // as the RF node id. Prefer explicit compact fields, but fall back
-          // to the authoritative nodes list when tile payloads are compact.
-          const explicitNode = existing.node as Record<string, unknown> | undefined;
-          const rawNode = existing.__raw as Record<string, unknown> | undefined;
-          const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
-          const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
-          // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
-          const mergedNode = mergePreferDefined(fallbackNode as Record<string, unknown> | undefined, rawNode, explicitNode);
-          return {
+      return visibleNodesFromTiles.map((n) => {
+        const existing = (n as any).data || {};
+        // Node identity may be provided under existing.node (compact) or
+        // as the RF node id. Prefer explicit compact fields, but fall back
+        // to the authoritative nodes list when tile payloads are compact.
+        const explicitNode = existing.node as Record<string, unknown> | undefined;
+        const rawNode = existing.__raw as Record<string, unknown> | undefined;
+        const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
+        const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
+        // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
+        const mergedNode = mergePreferDefined(fallbackNode as Record<string, unknown> | undefined, rawNode, explicitNode);
+        const minW = estimateGroupMinWidth(mergedNode as any);
+        return {
+          ...n,
+          data: {
             ...existing,
             node: mergedNode,
             getIndexHealthColor,
             onNodeClick: existing?.onNodeClick ?? onNodeClick,
             onShardClick: existing?.onShardClick ?? onShardClick,
             onDestinationClick: existing?.onDestinationClick ?? onDestinationClick,
-          } as unknown as Record<string, unknown>;
-        })(),
-      } as any));
+          },
+          width: minW,
+        } as any;
+      });
     }
     return calculateCanvasLayout({
       clusterNodes: filteredNodes,
