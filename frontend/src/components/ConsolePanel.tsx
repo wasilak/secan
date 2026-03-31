@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Portal } from '@mantine/core';
 import { useLocation } from 'react-router-dom';
-import { Split, SplitPane, SplitResizer } from '@gfazioli/mantine-split-pane';
+import { Split, SplitPane } from '@gfazioli/mantine-split-pane';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
 import { ConsoleContent } from './ConsoleContent';
 
@@ -57,6 +57,11 @@ const MIN_CONSOLE_WIDTH = 300;
  * Maximum console panel width as percentage of viewport
  */
 const MAX_CONSOLE_WIDTH_PERCENT = 80;
+
+/**
+ * Default drawer width as percentage of viewport (40%)
+ */
+const DRAWER_DEFAULT_WIDTH_PERCENT = 0.4;
 
 /**
  * Props for ConsolePanel component
@@ -206,64 +211,38 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
       {/* Portalized console drawer: mounted at document root to avoid stacking context issues */}
       <Portal>
-        {showConsole && (
-          <div
-            id={portalId}
-            ref={consolePaneRef}
-            className="console-pane-enter console-pane-enter-active"
-            style={{
-              position: 'fixed',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              height: '100vh',
-              width: `${width}px`,
-              maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
-              zIndex: 10500,
-              display: 'flex',
-              flexDirection: 'column',
-              boxShadow: 'var(--mantine-shadow-md)',
-              background: 'var(--mantine-color-white)',
-              // Ensure the console doesn't intercept pointer events for the main app
-              // outside of its bounds
-              overflow: 'hidden',
-            }}
-          >
-            <Split style={{ height: '100%', width: '100%' }}>
-              {/* Left side spacer to align resizer visually */}
-              <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
-                {/* Empty - main content remains in AppShell; console is overlay */}
-                <div style={{ height: '100%' }} />
-              </SplitPane>
+        {showConsole && (() => {
+          // Drawer mode: not draggable, default to 40% of viewport width
+          const rawDrawerWidth = Math.round(window.innerWidth * DRAWER_DEFAULT_WIDTH_PERCENT);
+          const clampedWidth = Math.max(MIN_CONSOLE_WIDTH, Math.min(rawDrawerWidth, getMaxWidth()));
 
-              <SplitResizer
-                onResizeEnd={handleResizeEnd}
-                onResizing={handleResizing}
-                style={{
-                  width: '4px',
-                  background: 'var(--mantine-color-gray-4)',
-                  cursor: 'col-resize',
-                  transition: 'background 0.2s',
-                }}
-              />
-
-              <SplitPane
-                minWidth={MIN_CONSOLE_WIDTH}
-                maxWidth={getMaxWidth()}
-                initialWidth={width}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-                  <ConsoleContent clusterId={clusterId} />
-                </div>
-              </SplitPane>
-            </Split>
-          </div>
-        )}
+          return (
+            <div
+              id={portalId}
+              ref={consolePaneRef}
+              className="console-pane-enter console-pane-enter-active"
+              style={{
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                height: '100vh',
+                width: `${clampedWidth}px`,
+                maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
+                zIndex: 10500,
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: 'var(--mantine-shadow-md)',
+                background: 'var(--mantine-color-white)',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+                <ConsoleContent clusterId={clusterId} />
+              </div>
+            </div>
+          );
+        })()}
       </Portal>
     </>
   );
