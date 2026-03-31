@@ -11,6 +11,12 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
   const tileCacheRef = useRef(new TileCache(200));
   const { id: clusterId } = useParams<{ id: string }>();
   const revalRef = useRef(new RevalidationCoordinator(tileCacheRef.current, clusterId));
+
+  // Ensure RevalidationCoordinator knows about clusterId changes (e.g., navigating between clusters
+  // without remounting the controller). This updates the internal URL used for tile requests.
+  useEffect(() => {
+    if (revalRef.current) revalRef.current.setClusterId(clusterId);
+  }, [clusterId]);
   const [visibleNodes, setVisibleNodes] = useState<any[]>([]);
   const subscribedTilesRef = useRef<TileKey[]>([]);
   const subscriptionIdRef = useRef<number | null>(null);
