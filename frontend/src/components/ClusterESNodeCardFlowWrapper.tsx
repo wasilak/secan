@@ -21,7 +21,13 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
   // Compatibility: index visualization emits { node, shards, onShardClick, getIndexHealthColor }
   // Normalize that shape into ClusterGroupNodeDataFlat so ClusterESNodeCard always receives the flat props.
   if ('node' in data && 'shards' in data) {
-    const nodeInfo = data['node'] as Partial<NodeInfo>;
+    // Merge node info from explicit `node` field with any raw payload that
+    // tile sources may attach as `__raw`. Some tile payloads intentionally
+    // include only a subset of node fields to reduce payload size; the full
+    // details may still be present on __raw. Merge so we prefer explicit
+    // `node` fields but fall back to raw values when missing.
+    const rawNode = (data['__raw'] as Partial<NodeInfo>) ?? undefined;
+    const nodeInfo = { ...(rawNode ?? {}), ...(data['node'] as Partial<NodeInfo> ?? {}) } as Partial<NodeInfo>;
     const shards = Array.isArray(data['shards']) ? (data['shards'] as ShardInfo[]) : [];
 
     const primaryCount = shards.filter((s) => s.primary).length;
@@ -88,7 +94,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       dots,
       // Allow node click handler when provided by layout/data
       onNodeClick: (data['onNodeClick'] as ((id: string) => void) | undefined) ?? undefined,
-      onDestinationClick: undefined,
+      onDestinationClick: (data['onDestinationClick'] as ((id: string) => void) | undefined) ?? undefined,
       onShardClick: (data['onShardClick'] as ((s: ShardInfo, e?: React.MouseEvent) => void) | undefined) ?? undefined,
       renderDots: true,
       isUnassigned,
