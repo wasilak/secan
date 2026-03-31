@@ -352,6 +352,14 @@ export function CanvasTopologyView({
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
     if (visibleNodesFromTiles) {
+      // Build a lookup of full NodeInfo from the nodes prop so we can
+      // enrich tile-provided compact payloads with the authoritative node
+      // metadata (version, roles, metrics) available from the main nodes list.
+      const nodesByKey = new Map<string, typeof nodes[0]>();
+      nodes.forEach((nn) => {
+        if (nn.id) nodesByKey.set(nn.id, nn);
+        if (nn.name) nodesByKey.set(nn.name, nn);
+      });
       // Use nodes produced by tile system when available; inject helpers and
       // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
       // color shard dots and handle interactions (open node modal / shard ctx menu).
@@ -359,13 +367,26 @@ export function CanvasTopologyView({
         ...n,
         // Preserve any existing handlers from the tile payload, but provide
         // the canonical ones from this view when absent.
-        data: {
-          ...(n as any).data,
-          getIndexHealthColor,
-          onNodeClick: (n as any).data?.onNodeClick ?? onNodeClick,
-          onShardClick: (n as any).data?.onShardClick ?? onShardClick,
-          onDestinationClick: (n as any).data?.onDestinationClick ?? onDestinationClick,
-        },
+        data: (() => {
+          const existing = (n as any).data || {};
+          // Node identity may be provided under existing.node (compact) or
+          // as the RF node id. Prefer explicit compact fields, but fall back
+          // to the authoritative nodes list when tile payloads are compact.
+          const explicitNode = existing.node as Record<string, unknown> | undefined;
+          const rawNode = existing.__raw as Record<string, unknown> | undefined;
+          const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
+          const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
+          // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
+          const mergedNode = { ...(fallbackNode ?? {}), ...(rawNode ?? {}), ...(explicitNode ?? {}) };
+          return {
+            ...existing,
+            node: mergedNode,
+            getIndexHealthColor,
+            onNodeClick: existing?.onNodeClick ?? onNodeClick,
+            onShardClick: existing?.onShardClick ?? onShardClick,
+            onDestinationClick: existing?.onDestinationClick ?? onDestinationClick,
+          } as unknown as Record<string, unknown>;
+        })(),
       } as any));
     }
     return calculateCanvasLayout({
