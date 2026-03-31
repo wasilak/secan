@@ -34,6 +34,8 @@ pub struct ClusterState {
     pub details_cache: Arc<MetadataCache<serde_json::Value>>,
     /// Concurrency limiter for per-cluster detail fan-outs
     pub details_semaphore: Arc<Semaphore>,
+    /// Cache for generated topology tiles (per-cluster)
+    pub tile_cache: Arc<MetadataCache<serde_json::Value>>,
 }
 
 /// Error response for cluster operations
@@ -226,7 +228,7 @@ fn filter_clusters_by_access(
 ///
 /// Returns Ok(()) if the user has access, Err with 403 response otherwise.
 /// If no user is provided (Open mode), access is granted to all clusters.
-fn check_cluster_access(
+pub(crate) fn check_cluster_access(
     cluster_id: &str,
     user_ext: &Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<(), ClusterErrorResponse> {

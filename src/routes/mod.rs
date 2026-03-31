@@ -7,6 +7,7 @@ pub mod metrics;
 pub mod openapi;
 pub mod static_assets;
 pub mod telemetry;
+pub mod topology;
 
 pub use auth::{AuthState, ErrorResponse, LoginRequest, LoginResponse, OidcCallbackQuery};
 pub use clusters::{ClusterErrorResponse, ClusterState};

@@ -170,6 +170,7 @@ impl Server {
         // Initialize details cache and concurrency semaphore used by per-cluster details endpoint
         let cache_ttl = Duration::from_secs(self.config.cache.get_duration_secs());
         let details_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
+        let tile_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
         // Default concurrency for fan-out is 6
         let details_semaphore = Arc::new(Semaphore::new(6));
 
@@ -177,6 +178,7 @@ impl Server {
             cluster_manager: self.cluster_manager.clone(),
             details_cache: details_cache.clone(),
             details_semaphore: details_semaphore.clone(),
+            tile_cache: tile_cache.clone(),
         };
 
         // Create metrics state for metrics routes
@@ -244,6 +246,11 @@ impl Server {
             .route(
                 "/api/clusters/{id}/nodes",
                 get(crate::routes::clusters::get_nodes),
+            )
+            // Topology tile generation (per-cluster)
+            .route(
+                "/api/clusters/{id}/topology/tiles",
+                post(crate::routes::topology::post_tiles),
             )
             .route(
                 "/api/clusters/{id}/nodes/{nodeId}/stats",

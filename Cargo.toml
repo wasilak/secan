@@ -101,12 +101,16 @@ urlencoding = "2"
 # Base64 encoding/decoding
 base64 = "0.22"
 
+# Stable hashing for tile version tokens
+sha2 = "0.10"
+
 [dev-dependencies]
 proptest = "1"
 wiremock = "0.6"
 tokio-test = "0.4"
 tempfile = "3"
 serial_test = "3"
+
 
 [profile.release]
 opt-level = 3

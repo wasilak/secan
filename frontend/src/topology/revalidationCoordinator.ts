@@ -18,9 +18,15 @@ export class RevalidationCoordinator {
   private maxRetries = 2;
   private globalIntervalId: number | null = null;
   private globalReloadIntervalMs = 30000; // default 30s
+  private clusterId?: string | undefined;
 
-  constructor(tileCache: TileCache) {
+  constructor(tileCache: TileCache, clusterId?: string) {
     this.tileCache = tileCache;
+    this.clusterId = clusterId;
+  }
+
+  setClusterId(clusterId?: string) {
+    this.clusterId = clusterId;
   }
 
   subscribeTiles(tileKeys: TileKey[]) {
@@ -31,6 +37,16 @@ export class RevalidationCoordinator {
 
   unsubscribe(id: number) {
     this.subscriptions.delete(id);
+    // Abort any inflight requests for tiles no longer subscribed by any subscriber
+    const remaining = new Set<string>(Array.from(this.subscriptions.values()).flat().map((k: TileKey) => keyToString(k)));
+    for (const [s, info] of Array.from(this.inflight.entries())) {
+      if (!remaining.has(s)) {
+        try {
+          info.controller.abort();
+        } catch (e) {}
+        this.inflight.delete(s);
+      }
+    }
   }
 
   onTilePayload(cb: TileCallback) {
@@ -122,7 +138,7 @@ export class RevalidationCoordinator {
       versions[keyToString(k)] = existing?.version;
     }
 
-    const url = '/topology/tiles';
+    const url = this.clusterId ? `/api/clusters/${this.clusterId}/topology/tiles` : '/topology/tiles';
     const body = { tileRequests: keysToSend.map((b) => ({ x: b.tileX, y: b.tileY, lod: b.lod, clientVersion: versions[keyToString(b)] })) };
 
     let resp: Response;
@@ -146,22 +162,32 @@ export class RevalidationCoordinator {
     const json = await resp.json();
     const tiles = json.tiles || [];
 
-    // server may return only changed tiles; for those returned we update cache and notify
-    const returnedKeys = new Set<string>();
+    // server returns an entry per requested tile. If tile.unchanged is true or nodes is null,
+    // keep existing cache entry (avoid overwriting with empty payload). Otherwise update cache.
     for (const t of tiles) {
       const key: TileKey = { tileX: t.x, tileY: t.y, lod: t.lod };
+      const s = keyToString(key);
+
+      const unchanged = !!t.unchanged || t.nodes == null;
+      if (unchanged) {
+        // leave cache alone; just notify using existing cached payload if present
+        const existing = this.tileCache.get(key as TileKey);
+        if (existing && this.onTileCb) this.onTileCb(key, existing);
+        this.inflight.delete(s);
+        continue;
+      }
+
       const payload: TilePayload = { tileX: t.x, tileY: t.y, lod: t.lod, version: t.version, nodes: t.nodes, edges: t.edges };
       this.tileCache.put(key, payload);
-      returnedKeys.add(keyToString(key));
       if (this.onTileCb) this.onTileCb(key, payload);
       // clear inflight for this key
-      this.inflight.delete(keyToString(key));
+      this.inflight.delete(s);
     }
 
-    // Any keys not returned — treat as unchanged; clear inflight markers
+    // In case server did not include entries for some keys, clear inflight markers for them
     for (const k of keysToSend) {
       const s = keyToString(k);
-      if (!returnedKeys.has(s)) this.inflight.delete(s);
+      if (this.inflight.has(s)) this.inflight.delete(s);
     }
   }
 }
