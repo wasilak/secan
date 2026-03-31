@@ -220,13 +220,15 @@ fn default_otlp_endpoint(protocol: &OtlpProtocol) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::env;
 
     #[test]
     fn test_parse_key_value_list() {
-        let result = parse_key_value_list("key1=value1,key2=value2").unwrap();
+        let result = parse_key_value_list("key1=value1,key2=value2")
+            .expect("parse_key_value_list should parse valid input");
         assert_eq!(result.len(), 2);
         assert_eq!(result[0], ("key1".to_string(), "value1".to_string()));
         assert_eq!(result[1], ("key2".to_string(), "value2".to_string()));
@@ -234,13 +236,14 @@ mod tests {
 
     #[test]
     fn test_parse_key_value_list_empty() {
-        let result = parse_key_value_list("").unwrap();
+        let result = parse_key_value_list("").expect("empty input should parse to empty vector");
         assert!(result.is_empty());
     }
 
     #[test]
     fn test_parse_key_value_list_with_spaces() {
-        let result = parse_key_value_list(" key1 = value1 , key2 = value2 ").unwrap();
+        let result = parse_key_value_list(" key1 = value1 , key2 = value2 ")
+            .expect("parse with spaces should succeed");
         assert_eq!(result.len(), 2);
         assert_eq!(result[0], ("key1".to_string(), "value1".to_string()));
     }
@@ -254,11 +257,13 @@ mod tests {
     #[test]
     fn test_otlp_protocol_parsing() {
         assert!(matches!(
-            "http/protobuf".parse::<OtlpProtocol>().unwrap(),
+            "http/protobuf"
+                .parse::<OtlpProtocol>()
+                .expect("parse otlp protocol"),
             OtlpProtocol::Http
         ));
         assert!(matches!(
-            "grpc".parse::<OtlpProtocol>().unwrap(),
+            "grpc".parse::<OtlpProtocol>().expect("parse otlp protocol"),
             OtlpProtocol::Grpc
         ));
         assert!("invalid".parse::<OtlpProtocol>().is_err());
@@ -283,12 +288,12 @@ mod tests {
 
         // Test disabled
         env::set_var("OTEL_SDK_DISABLED", "true");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert!(!config.enabled);
 
         // Test enabled (explicit)
         env::set_var("OTEL_SDK_DISABLED", "false");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert!(config.enabled);
 
         // Restore original
@@ -303,12 +308,12 @@ mod tests {
         let original = env::var("OTEL_SERVICE_NAME").ok();
 
         env::set_var("OTEL_SERVICE_NAME", "test-service");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert_eq!(config.service_name, "test-service");
 
         // Test default
         env::remove_var("OTEL_SERVICE_NAME");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert_eq!(config.service_name, "secan");
 
         match original {
@@ -322,7 +327,7 @@ mod tests {
         let original = env::var("OTEL_RESOURCE_ATTRIBUTES").ok();
 
         env::set_var("OTEL_RESOURCE_ATTRIBUTES", "env=prod,region=us-east");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert_eq!(config.resource_attributes.len(), 2);
         assert!(config
             .resource_attributes
@@ -342,7 +347,7 @@ mod tests {
         let original = env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok();
 
         env::set_var("OTEL_EXPORTER_OTLP_ENDPOINT", "http://custom:4318");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert_eq!(config.otlp_endpoint, "http://custom:4318");
 
         match original {
@@ -356,11 +361,11 @@ mod tests {
         let original = env::var("OTEL_EXPORTER_OTLP_PROTOCOL").ok();
 
         env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert!(matches!(config.otlp_protocol, OtlpProtocol::Grpc));
 
         env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf");
-        let config = TelemetryConfig::from_env().unwrap();
+        let config = TelemetryConfig::from_env().expect("telemetry config from env");
         assert!(matches!(config.otlp_protocol, OtlpProtocol::Http));
 
         match original {

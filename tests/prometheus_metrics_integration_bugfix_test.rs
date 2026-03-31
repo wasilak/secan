@@ -27,6 +27,7 @@ use proptest::prelude::*;
 /// The test is scoped to concrete cases where Prometheus is configured
 /// as the metrics source with elasticsearch_exporter metrics.
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod prometheus_metrics_bug_condition_tests {
     use super::*;
 

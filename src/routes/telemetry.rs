@@ -160,6 +160,7 @@ pub fn create_otlp_proxy_router(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

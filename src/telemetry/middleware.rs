@@ -107,7 +107,7 @@ mod tests {
                 "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
             )
             .body(())
-            .unwrap();
+            .expect("build request body");
 
         let traceparent = extract_traceparent(&request);
         assert_eq!(
@@ -122,7 +122,7 @@ mod tests {
             .method("GET")
             .uri("/test")
             .body(())
-            .unwrap();
+            .expect("build request body");
 
         let traceparent = extract_traceparent(&request);
         assert_eq!(traceparent, None);

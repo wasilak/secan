@@ -618,8 +618,7 @@ mod tests {
     fn test_login_request_deserialization() {
         let json = r#"{"username":"testuser","password":"testpass"}"#;
         // SAFETY: Test data is valid JSON matching the struct
-        #[allow(clippy::unwrap_used)]
-        let request: LoginRequest = serde_json::from_str(json).unwrap();
+        let request: LoginRequest = serde_json::from_str(json).expect("parse test JSON");
         assert_eq!(request.username, "testuser");
         assert_eq!(request.password, "testpass");
     }
@@ -632,8 +631,7 @@ mod tests {
             session_token: Some("token123".to_string()),
         };
         // SAFETY: Serializing a simple struct always succeeds
-        #[allow(clippy::unwrap_used)]
-        let json = serde_json::to_string(&response).unwrap();
+        let json = serde_json::to_string(&response).expect("serialize test response");
         assert!(json.contains("\"success\":true"));
         assert!(json.contains("\"session_token\":\"token123\""));
     }
@@ -642,8 +640,7 @@ mod tests {
     fn test_oidc_callback_query_deserialization() {
         let json = r#"{"code":"auth_code_123","state":"random_state"}"#;
         // SAFETY: Test data is valid JSON matching the struct
-        #[allow(clippy::unwrap_used)]
-        let query: OidcCallbackQuery = serde_json::from_str(json).unwrap();
+        let query: OidcCallbackQuery = serde_json::from_str(json).expect("parse test JSON");
         assert_eq!(query.code, "auth_code_123");
         assert_eq!(query.state, "random_state");
     }
@@ -655,8 +652,7 @@ mod tests {
             message: "Username or password is incorrect".to_string(),
         };
         // SAFETY: Serializing a simple struct always succeeds
-        #[allow(clippy::unwrap_used)]
-        let json = serde_json::to_string(&error).unwrap();
+        let json = serde_json::to_string(&error).expect("serialize test error");
         assert!(json.contains("\"error\":\"invalid_credentials\""));
         assert!(json.contains("\"message\":\"Username or password is incorrect\""));
     }

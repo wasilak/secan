@@ -203,6 +203,7 @@ impl TlsManager {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;
@@ -259,15 +260,15 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_load_certs_from_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("test-ca.pem");
 
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let result = TlsManager::load_certs_from_file(&cert_path);
         assert!(result.is_ok(), "Should load certificate from file");
 
-        let certs = result.unwrap();
+        let certs = result.expect("load certs from file should succeed");
         assert_eq!(certs.len(), 1, "Should load exactly one certificate");
     }
 
@@ -279,10 +280,10 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_load_certs_from_file_invalid_pem() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("invalid.pem");
 
-        fs::write(&cert_path, "This is not a valid PEM file").unwrap();
+        fs::write(&cert_path, "This is not a valid PEM file").expect("write invalid pem file");
 
         let result = TlsManager::load_certs_from_file(&cert_path);
         assert!(result.is_err(), "Should fail with invalid PEM content");
@@ -290,31 +291,31 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_load_certs_from_dir() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
 
         // Create multiple certificate files
         let cert1_path = temp_dir.path().join("ca1.pem");
         let cert2_path = temp_dir.path().join("ca2.crt");
         let cert3_path = temp_dir.path().join("ca3.cer");
 
-        fs::write(&cert1_path, TEST_CERT_PEM).unwrap();
-        fs::write(&cert2_path, TEST_CERT_PEM).unwrap();
-        fs::write(&cert3_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert1_path, TEST_CERT_PEM).expect("write cert1");
+        fs::write(&cert2_path, TEST_CERT_PEM).expect("write cert2");
+        fs::write(&cert3_path, TEST_CERT_PEM).expect("write cert3");
 
         // Create a non-certificate file that should be ignored
         let txt_path = temp_dir.path().join("readme.txt");
-        fs::write(&txt_path, "This is not a certificate").unwrap();
+        fs::write(&txt_path, "This is not a certificate").expect("write non-cert file");
 
         let result = TlsManager::load_certs_from_dir(temp_dir.path());
         assert!(result.is_ok(), "Should load certificates from directory");
 
-        let certs = result.unwrap();
+        let certs = result.expect("load certs from dir should succeed");
         assert_eq!(certs.len(), 3, "Should load three certificates");
     }
 
     #[test]
     fn test_load_certs_from_dir_empty() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
 
         let result = TlsManager::load_certs_from_dir(temp_dir.path());
         assert!(
@@ -331,10 +332,10 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_load_ca_certs_from_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("ca.pem");
 
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let config = TlsConfig {
             verify: true,
@@ -345,16 +346,16 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
         let result = TlsManager::load_ca_certs(&config);
         assert!(result.is_ok(), "Should load CA certificates from file");
 
-        let certs = result.unwrap();
+        let certs = result.expect("load ca certs from file should succeed");
         assert_eq!(certs.len(), 1, "Should load one certificate");
     }
 
     #[test]
     fn test_load_ca_certs_from_dir() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("ca.pem");
 
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let config = TlsConfig {
             verify: true,
@@ -365,19 +366,19 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
         let result = TlsManager::load_ca_certs(&config);
         assert!(result.is_ok(), "Should load CA certificates from directory");
 
-        let certs = result.unwrap();
+        let certs = result.expect("load ca certs from dir should succeed");
         assert_eq!(certs.len(), 1, "Should load one certificate");
     }
 
     #[test]
     fn test_load_ca_certs_from_both() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_file = temp_dir.path().join("ca-file.pem");
         let cert_dir = temp_dir.path().join("ca-dir");
 
-        fs::create_dir(&cert_dir).unwrap();
-        fs::write(&cert_file, TEST_CERT_PEM).unwrap();
-        fs::write(cert_dir.join("ca.pem"), TEST_CERT_PEM).unwrap();
+        fs::create_dir(&cert_dir).expect("create cert dir");
+        fs::write(&cert_file, TEST_CERT_PEM).expect("write cert file");
+        fs::write(cert_dir.join("ca.pem"), TEST_CERT_PEM).expect("write ca.pem in dir");
 
         let config = TlsConfig {
             verify: true,
@@ -391,7 +392,7 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
             "Should load CA certificates from both sources"
         );
 
-        let certs = result.unwrap();
+        let certs = result.expect("load ca certs from both should succeed");
         assert_eq!(certs.len(), 2, "Should load two certificates");
     }
 
@@ -427,9 +428,9 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_validate_config_with_valid_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("ca.pem");
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let config = TlsConfig {
             verify: true,
@@ -458,7 +459,7 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_validate_config_with_valid_dir() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
 
         let config = TlsConfig {
             verify: true,
@@ -490,9 +491,9 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_build_client_with_custom_ca_file() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("ca.pem");
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let config = TlsConfig {
             verify: true,
@@ -515,9 +516,9 @@ P3neWArCLbqhSfCr6UvFfuf/LQIDAQAB
 
     #[test]
     fn test_build_client_with_custom_ca_dir() {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().expect("create temp dir for test");
         let cert_path = temp_dir.path().join("ca.pem");
-        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        fs::write(&cert_path, TEST_CERT_PEM).expect("write test cert file");
 
         let config = TlsConfig {
             verify: true,

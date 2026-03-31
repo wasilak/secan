@@ -435,7 +435,8 @@ mod tests {
 
         let role = rbac.get_role("admin");
         assert!(role.is_some());
-        assert_eq!(role.unwrap().name, "admin");
+        let role = role.expect("role should exist");
+        assert_eq!(role.name, "admin");
 
         let role = rbac.get_role("unknown");
         assert!(role.is_none());

@@ -13,6 +13,7 @@
 // the correct behavior on unfixed code for non-buggy inputs.
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod preservation_tests {
     use proptest::prelude::*;
 

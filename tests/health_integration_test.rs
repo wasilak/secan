@@ -27,7 +27,7 @@ async fn test_health_check_returns_ok() {
 
     let cluster_manager = ClusterManager::new(vec![cluster_config], Duration::from_secs(30))
         .await
-        .unwrap();
+        .expect("create cluster manager");
 
     let session_manager = SessionManager::new(SessionConfig::new(60));
 
@@ -64,7 +64,7 @@ async fn test_readiness_check_includes_dependencies() {
 
     let cluster_manager = ClusterManager::new(vec![cluster_config], Duration::from_secs(30))
         .await
-        .unwrap();
+        .expect("create cluster manager");
 
     let session_manager = SessionManager::new(SessionConfig::new(60));
 
@@ -93,7 +93,7 @@ fn test_health_response_serialization() {
         message: "Server is running".to_string(),
     };
 
-    let json = serde_json::to_string(&response).unwrap();
+    let json = serde_json::to_string(&response).expect("serialize health response");
     assert!(json.contains("\"status\":\"healthy\""));
     assert!(json.contains("\"message\":\"Server is running\""));
 }
@@ -127,7 +127,7 @@ fn test_readiness_response_structure() {
         }),
     };
 
-    let json = serde_json::to_string(&response).unwrap();
+    let json = serde_json::to_string(&response).expect("serialize readiness response");
     assert!(json.contains("\"status\":\"ready\""));
     assert!(json.contains("\"dependencies\""));
     assert!(json.contains("\"total\":1"));
@@ -159,7 +159,7 @@ fn test_cluster_health_status_serialization() {
         ],
     };
 
-    let json = serde_json::to_string(&status).unwrap();
+    let json = serde_json::to_string(&status).expect("serialize cluster health status");
     assert!(json.contains("\"total\":2"));
     assert!(json.contains("\"healthy\":1"));
     assert!(json.contains("\"unhealthy\":1"));

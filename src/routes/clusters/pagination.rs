@@ -120,7 +120,7 @@ mod tests {
             page: 0,
             page_size: 0,
         };
-        let validated = params.validate().unwrap();
+        let validated = params.validate().expect("validate pagination params");
         assert_eq!(validated.page, 1);
         assert_eq!(validated.page_size, 50);
     }
@@ -131,7 +131,7 @@ mod tests {
             page: 1,
             page_size: 2000,
         };
-        let validated = params.validate().unwrap();
+        let validated = params.validate().expect("validate pagination params");
         assert_eq!(validated.page_size, 1000);
     }
 

@@ -145,9 +145,11 @@ pub fn generate_tiles(
         // Prefix version with cluster generation to allow cheap invalidation
         let full_version = format!("{}-{}", cluster_generation, version);
 
+        // Compare client_version against the full payload version (cluster_generation-prefixed)
+        // so clients can send the exact version string that the server returns.
         let client_matches = client_version
             .as_ref()
-            .map(|cv| cv == &version)
+            .map(|cv| cv == &full_version)
             .unwrap_or(false);
 
         let payload = TilePayload {

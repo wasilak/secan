@@ -280,8 +280,8 @@ export function CanvasTopologyView({
 }: CanvasTopologyViewProps) {
   const showLoadingSkeleton = isLoading && nodes.length === 0;
 
-  // Feature flag: enable LOD-based topology when env var or global flag is set.
-  const ENABLE_TOPOLOGY_LOD = (process.env.REACT_APP_TOPOLOGY_LOD_FEATURE === '1') || ((window as any).__TOPOLOGY_LOD_FEATURE__ === true);
+  // Visible nodes supplied by the tile/L0-L2 system when available.
+  // When tiles are not yet available we fall back to calculateCanvasLayout.
   const [visibleNodesFromTiles, setVisibleNodesFromTiles] = useState<any[] | null>(null);
 
   // ── Index health colour helper ────────────────────────────────────────────
@@ -351,8 +351,8 @@ export function CanvasTopologyView({
 
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
-    if (ENABLE_TOPOLOGY_LOD && visibleNodesFromTiles) {
-      // Use nodes produced by tile system when LOD feature enabled
+    if (visibleNodesFromTiles) {
+      // Use nodes produced by tile system when available
       return visibleNodesFromTiles;
     }
     return calculateCanvasLayout({
@@ -368,7 +368,7 @@ export function CanvasTopologyView({
       onDestinationClick,
       getIndexHealthColor,
     });
-  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles, ENABLE_TOPOLOGY_LOD]);
+  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
   console.debug(
     'CanvasTopologyView layoutNodes onNodeClick present?',
@@ -414,18 +414,8 @@ export function CanvasTopologyView({
         </Box>
       ) : (
         <ReactFlowProvider>
-          {ENABLE_TOPOLOGY_LOD ? (
-            <>
-              <TopologyController onNodesUpdate={setVisibleNodesFromTiles} />
-              <Flow 
-                layoutNodes={layoutNodesWithUserPositions}
-                onPaneClick={onPaneClick}
-                onNodeDragStart={onNodeDragStart}
-                onNodeDragStop={onNodeDragStop}
-                onNodesPositionChange={handleNodesPositionChange}
-              />
-            </>
-          ) : (
+          <>
+            <TopologyController onNodesUpdate={setVisibleNodesFromTiles} />
             <Flow 
               layoutNodes={layoutNodesWithUserPositions}
               onPaneClick={onPaneClick}
@@ -433,7 +423,7 @@ export function CanvasTopologyView({
               onNodeDragStop={onNodeDragStop}
               onNodesPositionChange={handleNodesPositionChange}
             />
-          )}
+          </>
         </ReactFlowProvider>
       )}
     </Box>

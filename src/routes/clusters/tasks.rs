@@ -620,7 +620,7 @@ mod tests {
             }
         }"#;
 
-        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks_json: Value = serde_json::from_str(json_str).expect("parse test tasks JSON");
         let tasks = transform_tasks_response(&tasks_json);
 
         assert_eq!(tasks.len(), 2);
@@ -663,7 +663,7 @@ mod tests {
             }
         }"#;
 
-        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks_json: Value = serde_json::from_str(json_str).expect("parse test tasks JSON");
         let tasks = transform_tasks_response(&tasks_json);
 
         assert_eq!(tasks.len(), 2);
@@ -683,7 +683,7 @@ mod tests {
             "start_time_in_millis": 1000
         }"#;
 
-        let mut task_value: Value = serde_json::from_str(json_str).unwrap();
+        let mut task_value: Value = serde_json::from_str(json_str).expect("parse test task JSON");
 
         // Simulate the field injection logic
         if let Some(colon_pos) = task_id.find(':') {
@@ -709,7 +709,8 @@ mod tests {
         }
 
         // Should now deserialize successfully
-        let task_info: TaskInfo = serde_json::from_value(task_value).unwrap();
+        let task_info: TaskInfo =
+            serde_json::from_value(task_value).expect("deserialize TaskInfo from value");
         assert_eq!(task_info.node, "nodeA");
         assert_eq!(task_info.id, 123456);
         assert_eq!(task_info.action, "unknown");
@@ -735,7 +736,7 @@ mod tests {
             }
         }"#;
 
-        let tasks_json: Value = serde_json::from_str(json_str).unwrap();
+        let tasks_json: Value = serde_json::from_str(json_str).expect("parse test tasks JSON");
         let tasks = transform_tasks_response(&tasks_json);
 
         assert_eq!(tasks.len(), 1);

@@ -259,6 +259,7 @@ impl RateLimiter {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
@@ -401,8 +402,9 @@ mod tests {
         // Should have block time remaining
         let remaining = limiter.get_block_remaining("test_user").await;
         assert!(remaining.is_some());
-        assert!(remaining.unwrap() > 0);
-        assert!(remaining.unwrap() <= 60);
+        let remaining = remaining.expect("block remaining should exist");
+        assert!(remaining > 0);
+        assert!(remaining <= 60);
     }
 
     #[tokio::test]

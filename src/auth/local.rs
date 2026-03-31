@@ -312,12 +312,12 @@ mod tests {
         vec![
             LocalUser {
                 username: "admin".to_string(),
-                password_hash: hash_password("admin123").unwrap(),
+                password_hash: hash_password("admin123").expect("hash test password"),
                 groups: vec!["admin".to_string()],
             },
             LocalUser {
                 username: "developer".to_string(),
-                password_hash: hash_password("dev123").unwrap(),
+                password_hash: hash_password("dev123").expect("hash test password"),
                 groups: vec!["developer".to_string()],
             },
         ]
@@ -326,42 +326,44 @@ mod tests {
     #[test]
     fn test_hash_password() {
         let password = "test_password";
-        let hash = hash_password(password).unwrap();
+        let hash = hash_password(password).expect("hash password");
 
         assert!(!hash.is_empty());
         assert!(hash.starts_with("$2b$"));
 
-        let hash2 = hash_password(password).unwrap();
+        let hash2 = hash_password(password).expect("hash password");
         assert_ne!(hash, hash2);
     }
 
     #[test]
     fn test_verify_password() {
         let password = "test_password";
-        let hash = hash_password(password).unwrap();
+        let hash = hash_password(password).expect("hash password");
 
-        assert!(verify_password(password, &hash).unwrap());
-        assert!(!verify_password("wrong_password", &hash).unwrap());
+        assert!(verify_password(password, &hash).expect("verify password"));
+        assert!(!verify_password("wrong_password", &hash).expect("verify password"));
     }
 
     #[tokio::test]
     async fn test_verify_password_async() {
         let password = "test_password";
-        let hash = hash_password(password).unwrap();
+        let hash = hash_password(password).expect("hash password");
 
         // Test correct password
-        assert!(verify_password_async(password, &hash).await.unwrap());
+        assert!(verify_password_async(password, &hash)
+            .await
+            .expect("verify_password_async"));
 
         // Test wrong password
         assert!(!verify_password_async("wrong_password", &hash)
             .await
-            .unwrap());
+            .expect("verify_password_async"));
     }
 
     #[tokio::test]
     async fn test_verify_password_async_non_blocking() {
         let password = "test_password";
-        let hash = hash_password(password).unwrap();
+        let hash = hash_password(password).expect("hash password");
 
         // Spawn multiple concurrent verifications to ensure they don't block each other
         let handles: Vec<_> = (0..5)
@@ -378,7 +380,10 @@ mod tests {
 
         // All should complete successfully
         for (i, handle) in handles.into_iter().enumerate() {
-            let result = handle.await.unwrap().unwrap();
+            let result = handle
+                .await
+                .expect("join handle should complete")
+                .expect("verify result");
             if i % 2 == 0 {
                 assert!(result, "Even-indexed tasks should verify successfully");
             } else {
@@ -395,7 +400,10 @@ mod tests {
         let permission_resolver = PermissionResolver::empty();
         let provider = LocalAuthProvider::new(users, session_manager, permission_resolver);
 
-        let token = provider.authenticate("admin", "admin123").await.unwrap();
+        let token = provider
+            .authenticate("admin", "admin123")
+            .await
+            .expect("authenticate should succeed");
         assert!(token.is_some());
     }
 
@@ -414,7 +422,10 @@ mod tests {
             permission_resolver,
         );
 
-        let token = provider.authenticate("admin", "admin123").await.unwrap();
+        let token = provider
+            .authenticate("admin", "admin123")
+            .await
+            .expect("authenticate should succeed");
         assert!(token.is_some());
     }
 
@@ -438,12 +449,15 @@ mod tests {
             let token = provider
                 .authenticate("admin", "wrong_password")
                 .await
-                .unwrap();
+                .expect("authenticate should succeed");
             assert!(token.is_none());
         }
 
         // Fourth attempt should be blocked even with correct password
-        let token = provider.authenticate("admin", "admin123").await.unwrap();
+        let token = provider
+            .authenticate("admin", "admin123")
+            .await
+            .expect("authenticate should succeed");
         assert!(token.is_none());
     }
 
@@ -469,7 +483,7 @@ mod tests {
             let token = provider
                 .authenticate_with_ip("admin", "wrong_password", ip)
                 .await
-                .unwrap();
+                .expect("authenticate_with_ip should succeed");
             assert!(token.is_none());
         }
 
@@ -477,7 +491,7 @@ mod tests {
         let token = provider
             .authenticate_with_ip("admin", "admin123", ip)
             .await
-            .unwrap();
+            .expect("authenticate_with_ip should succeed");
         assert!(token.is_none());
     }
 
@@ -500,24 +514,27 @@ mod tests {
         provider
             .authenticate("admin", "wrong_password")
             .await
-            .unwrap();
+            .expect("authenticate should succeed");
         provider
             .authenticate("admin", "wrong_password")
             .await
-            .unwrap();
+            .expect("authenticate should succeed");
 
         // Successful authentication should clear rate limit
-        let token = provider.authenticate("admin", "admin123").await.unwrap();
+        let token = provider
+            .authenticate("admin", "admin123")
+            .await
+            .expect("authenticate should succeed");
         assert!(token.is_some());
 
         // Should be able to make more attempts now
         provider
             .authenticate("admin", "wrong_password")
             .await
-            .unwrap();
+            .expect("authenticate should succeed");
         provider
             .authenticate("admin", "wrong_password")
             .await
-            .unwrap();
+            .expect("authenticate should succeed");
     }
 }

@@ -293,8 +293,11 @@ mod tests {
 
     #[test]
     fn test_parse_value() {
-        assert_eq!(Client::parse_value("123.456").unwrap(), 123.456);
-        assert_eq!(Client::parse_value("0").unwrap(), 0.0);
+        assert_eq!(
+            Client::parse_value("123.456").expect("parse numeric string"),
+            123.456
+        );
+        assert_eq!(Client::parse_value("0").expect("parse zero string"), 0.0);
         assert!(Client::parse_value("invalid").is_err());
     }
 }

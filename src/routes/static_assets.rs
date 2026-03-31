@@ -145,31 +145,33 @@ mod tests {
     #[tokio::test]
     async fn test_serve_index_html() {
         // SAFETY: Static path literals always parse successfully
-        #[allow(clippy::unwrap_used)]
-        let uri: Uri = "/".parse().unwrap();
+        let uri: Uri = "/".parse().expect("parse test URI");
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
         // Check content type
         // SAFETY: Response header always present after successful serve_static
-        #[allow(clippy::unwrap_used)]
-        let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
+        let content_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .expect("Content-Type header present");
         assert_eq!(content_type, "text/html");
     }
 
     #[tokio::test]
     async fn test_serve_static_file() {
         // SAFETY: Static path literals always parse successfully
-        #[allow(clippy::unwrap_used)]
-        let uri: Uri = "/index.html".parse().unwrap();
+        let uri: Uri = "/index.html".parse().expect("parse test URI");
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
         // SAFETY: Response header always present after successful serve_static
-        #[allow(clippy::unwrap_used)]
-        let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
+        let content_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .expect("Content-Type header present");
         assert_eq!(content_type, "text/html");
     }
 
@@ -178,15 +180,16 @@ mod tests {
         // Request a path that doesn't exist as a file
         // Should return index.html for SPA routing
         // SAFETY: Static path literals always parse successfully
-        #[allow(clippy::unwrap_used)]
-        let uri: Uri = "/cluster/test-cluster".parse().unwrap();
+        let uri: Uri = "/cluster/test-cluster".parse().expect("parse test URI");
         let response = serve_static(uri).await;
 
         assert_eq!(response.status(), StatusCode::OK);
 
         // SAFETY: Response header always present after successful serve_static
-        #[allow(clippy::unwrap_used)]
-        let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
+        let content_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .expect("Content-Type header present");
         assert_eq!(content_type, "text/html");
     }
 
@@ -201,12 +204,14 @@ mod tests {
 
         for (path, expected_mime) in test_cases {
             // SAFETY: Static path literals always parse successfully
-            #[allow(clippy::unwrap_used)]
-            let uri: Uri = format!("/{}", path).parse().unwrap();
+            let uri: Uri = format!("/{}", path).parse().expect("parse test URI");
             let response = serve_static(uri).await;
 
             if response.status() == StatusCode::OK {
-                let content_type = response.headers().get(header::CONTENT_TYPE).unwrap();
+                let content_type = response
+                    .headers()
+                    .get(header::CONTENT_TYPE)
+                    .expect("Content-Type header present");
                 assert_eq!(content_type, expected_mime);
             }
         }

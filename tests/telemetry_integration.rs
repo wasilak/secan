@@ -41,7 +41,7 @@ fn cleanup_env_vars() {
 fn test_telemetry_disabled_by_default() {
     cleanup_env_vars();
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
     // By default (no OTEL_SDK_DISABLED set), telemetry should be DISABLED
     assert!(!config.enabled);
 }
@@ -52,7 +52,7 @@ fn test_telemetry_explicitly_disabled() {
     cleanup_env_vars();
     env::set_var("OTEL_SDK_DISABLED", "true");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
     assert!(!config.enabled);
 
     cleanup_env_vars();
@@ -64,7 +64,7 @@ fn test_telemetry_explicitly_enabled() {
     cleanup_env_vars();
     env::set_var("OTEL_SDK_DISABLED", "false");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
     assert!(config.enabled);
 
     cleanup_env_vars();
@@ -96,7 +96,7 @@ fn test_full_configuration() {
     env::set_var("OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "1024");
     env::set_var("OTEL_BSP_EXPORT_TIMEOUT", "60000");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
 
     assert!(config.enabled);
     assert_eq!(config.service_name, "test-secan");
@@ -137,7 +137,7 @@ fn test_grpc_protocol_configuration() {
 
     env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
     assert!(matches!(config.otlp_protocol, OtlpProtocol::Grpc));
     assert_eq!(config.otlp_endpoint, "http://localhost:4317"); // Default gRPC port
 
@@ -160,7 +160,8 @@ fn test_protocol_case_insensitive() {
     ] {
         env::set_var("OTEL_SDK_DISABLED", "false");
         env::set_var("OTEL_EXPORTER_OTLP_PROTOCOL", protocol);
-        let config = TelemetryConfig::from_env().unwrap();
+        let config =
+            TelemetryConfig::from_env().expect("parse telemetry config for protocol casing tests");
         // Should not error
         assert!(config.enabled);
     }
@@ -216,7 +217,7 @@ fn test_is_telemetry_enabled() {
 fn test_default_configuration_values() {
     cleanup_env_vars();
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
 
     // Check all defaults
     assert!(!config.enabled); // Default is disabled
@@ -245,7 +246,7 @@ fn test_partial_configuration() {
     env::set_var("OTEL_SERVICE_NAME", "partial-test");
     env::set_var("OTEL_BSP_MAX_QUEUE_SIZE", "1000");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config");
 
     assert_eq!(config.service_name, "partial-test");
     assert_eq!(config.batch_config.max_queue_size, 1000);
@@ -263,7 +264,8 @@ fn test_empty_resource_attributes() {
 
     env::set_var("OTEL_RESOURCE_ATTRIBUTES", "");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config =
+        TelemetryConfig::from_env().expect("parse telemetry config with empty resource attributes");
     assert!(config.resource_attributes.is_empty());
 
     cleanup_env_vars();
@@ -276,7 +278,7 @@ fn test_empty_headers() {
 
     env::set_var("OTEL_EXPORTER_OTLP_HEADERS", "");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config with empty headers");
     assert!(config.otlp_headers.is_empty());
 
     cleanup_env_vars();
@@ -290,7 +292,7 @@ fn test_sampler_ratio_parsing() {
     env::set_var("OTEL_TRACES_SAMPLER", "traceidratio");
     env::set_var("OTEL_TRACES_SAMPLER_ARG", "0.25");
 
-    let config = TelemetryConfig::from_env().unwrap();
+    let config = TelemetryConfig::from_env().expect("parse telemetry config with sampler ratio");
     assert_eq!(config.sampler.sampler, "traceidratio");
     assert_eq!(config.sampler.sampler_arg, Some(0.25));
 
@@ -305,7 +307,8 @@ fn test_invalid_sampler_arg() {
     env::set_var("OTEL_TRACES_SAMPLER_ARG", "not_a_number");
 
     // Should handle gracefully (use None)
-    let config = TelemetryConfig::from_env().unwrap();
+    let config =
+        TelemetryConfig::from_env().expect("parse telemetry config with invalid sampler arg");
     assert!(config.sampler.sampler_arg.is_none());
 
     cleanup_env_vars();

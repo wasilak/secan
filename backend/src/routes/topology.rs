@@ -1,5 +1,5 @@
 use crate::auth::middleware::AuthenticatedUser;
-use crate::routes::clusters::transform::{NodeInfoResponse, ShardInfoResponse};
+use crate::routes::clusters::transform::ShardInfoResponse;
 use axum::{
     extract::{Extension, Path, State},
     response::IntoResponse,
@@ -11,6 +11,7 @@ mod generator;
 mod layout;
 
 use generator::generate_tiles;
+use tokio::sync::OwnedSemaphorePermit;
 
 // Use camelCase JSON keys so frontend can keep using the same shape while keeping
 // idiomatic Rust field names.
@@ -58,6 +59,25 @@ pub async fn post_tiles(
         .iter()
         .map(|r| (r.x, r.y, r.lod.as_str(), r.client_version.clone()))
         .collect();
+
+    // Enforce a maximum number of requested tiles per call to protect the server
+    // during rollout of server-side generation. Default limit is 64 if not set in config.
+    let max_tiles = state.topology_max_tiles_per_request;
+    if requests.len() > max_tiles {
+        tracing::warn!(
+            requested = requests.len(),
+            max = max_tiles,
+            "Too many tiles requested in a single call"
+        );
+        return Err(crate::routes::clusters::ClusterErrorResponse {
+            error: "too_many_tiles".to_string(),
+            message: format!(
+                "Request contains {} tiles which exceeds the allowed maximum of {}",
+                requests.len(),
+                max_tiles
+            ),
+        });
+    }
 
     // Attempt to fetch cluster nodes and shards from ClusterManager via ClusterState
     // If fetching fails, fall back to synthetic generator behavior (empty tiles)
@@ -126,6 +146,7 @@ pub async fn post_tiles(
                         cluster_id, cluster_generation, lod, x, y
                     );
                     if let Some(cached) = state.tile_cache.get(&key).await {
+                        // moka returns a cloneable value synchronously for future::Cache::get
                         // Try to deserialize cached tile payload
                         match serde_json::from_value::<generator::TilePayload>(cached) {
                             Ok(mut payload) => {
@@ -154,24 +175,57 @@ pub async fn post_tiles(
 
                 // If all tiles present in cache, use them
                 if maybe_tiles.iter().all(|t| t.is_some()) {
-                    tiles = maybe_tiles.into_iter().map(|t| t.unwrap()).collect();
+                    tiles = maybe_tiles.into_iter().map(|t| t.expect("checked above: all elements are Some(TilePayload) by .all(|t| t.is_some())")).collect();
                 } else {
-                    // Generate tiles and populate cache
-                    tiles = generate_tiles(
-                        &requests,
-                        &transformed,
-                        &shards_by_node,
-                        &grouping,
-                        &cluster_generation,
-                    );
-                    for tile in tiles.iter() {
-                        let key = format!(
-                            "tile:{}:{}:{}:{}:{}",
-                            cluster_id, cluster_generation, tile.lod, tile.x, tile.y
-                        );
-                        if let Ok(val) = serde_json::to_value(&tile) {
-                            // Insert into cache (async)
-                            state.tile_cache.insert(key, val).await;
+                    // Before performing expensive generation, acquire a concurrency permit
+                    // from the server-wide topology semaphore. Use a timeout to avoid
+                    // hanging requests when the server is saturated.
+                    let sem = state.topology_generation_semaphore.clone();
+                    // Permit acquire timeout (seconds) - configurable via ClusterState
+                    let acquire_secs = state.topology_generation_acquire_timeout_seconds;
+                    let acquire_timeout = std::time::Duration::from_secs(acquire_secs);
+                    match tokio::time::timeout(acquire_timeout, sem.acquire_owned()).await {
+                        Ok(Ok(permit)) => {
+                            // Hold the permit while generating tiles. The OwnedSemaphorePermit
+                            // will be released when it is dropped (end of scope or explicit drop).
+                            let _permit: OwnedSemaphorePermit = permit;
+
+                            tiles = generate_tiles(
+                                &requests,
+                                &transformed,
+                                &shards_by_node,
+                                &grouping,
+                                &cluster_generation,
+                            );
+
+                            for tile in tiles.iter() {
+                                let key = format!(
+                                    "tile:{}:{}:{}:{}:{}",
+                                    cluster_id, cluster_generation, tile.lod, tile.x, tile.y
+                                );
+                                if let Ok(val) = serde_json::to_value(tile) {
+                                    // moka::future::Cache::insert is async; await so the value
+                                    // is actually stored before we return. Previously the
+                                    // future was dropped which made the cache appear empty
+                                    // to subsequent requests and caused test flakes.
+                                    let _ = state.tile_cache.insert(key, val).await;
+                                }
+                            }
+                            // Permit dropped here when _permit goes out of scope
+                        }
+                        Ok(Err(e)) => {
+                            tracing::error!(error = %e, "Semaphore closed unexpectedly");
+                            return Err(crate::routes::clusters::ClusterErrorResponse {
+                                error: "semaphore_error".to_string(),
+                                message: format!("Failed to acquire generation permit: {}", e),
+                            });
+                        }
+                        Err(_) => {
+                            tracing::warn!("Timed out waiting for generation permit");
+                            return Err(crate::routes::clusters::ClusterErrorResponse {
+                                error: "generation_concurrency_limited".to_string(),
+                                message: "Server is currently handling maximum concurrent tile generations; try again later".to_string(),
+                            });
                         }
                     }
                 }

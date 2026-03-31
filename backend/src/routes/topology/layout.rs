@@ -30,10 +30,7 @@ pub struct PositionedNode {
 }
 
 fn estimated_group_height(shard_count: usize) -> i64 {
-    let rows = std::cmp::min(
-        ((shard_count + SHARDS_PER_ROW - 1) / SHARDS_PER_ROW),
-        MAX_SHARD_ROWS,
-    );
+    let rows = std::cmp::min(shard_count.div_ceil(SHARDS_PER_ROW), MAX_SHARD_ROWS);
     ESTIMATED_HEADER_HEIGHT + (rows as i64 * ESTIMATED_SHARD_ROW_HEIGHT) + GROUP_PADDING_BOTTOM
 }
 
@@ -64,6 +61,9 @@ fn column_for(node: &NodeInfoResponse) -> usize {
 }
 
 /// Compute positions for nodes using the no-grouping (3-column) layout used by the frontend.
+// Some grouping attribute variants are not exercised in unit tests yet.
+// Allow dead_code to keep the enum exhaustive without causing clippy failures.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum GroupingAttribute {
     None,
@@ -91,7 +91,7 @@ pub fn layout_nodes(
         GroupingAttribute::None => {
             let sorted = sort_cluster_nodes(nodes);
             let column_width = GROUP_WIDTH + HORIZONTAL_GAP;
-            let mut col_y = vec![0i64, 0i64, 0i64];
+            let mut col_y = [0i64, 0i64, 0i64];
             let mut out: Vec<PositionedNode> = Vec::with_capacity(sorted.len() + 1);
 
             for node in sorted.iter() {
@@ -271,27 +271,23 @@ fn calculate_node_groups(
 /// Helper: extract label name/value similar to frontend extractLabelFromTag
 fn extract_label_from_tag(tag: &str) -> LabelPair {
     if tag.contains(':') {
-        let mut parts: Vec<&str> = tag.splitn(2, ':').collect();
+        let parts: Vec<&str> = tag.splitn(2, ':').collect();
         return LabelPair {
-            name: parts[0].to_string(),
             value: parts[1].to_string(),
         };
     }
     if let Some(idx) = tag.find('-') {
         if idx > 0 && idx < tag.len() - 1 {
-            let name = tag[..idx].to_string();
             let value = tag[idx + 1..].to_string();
-            return LabelPair { name, value };
+            return LabelPair { value };
         }
     }
     LabelPair {
-        name: tag.to_string(),
         value: tag.to_string(),
     }
 }
 
 #[derive(Debug)]
 struct LabelPair {
-    name: String,
     value: String,
 }

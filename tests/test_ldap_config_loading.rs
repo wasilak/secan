@@ -40,6 +40,9 @@ fn test_ldap_config_validation_at_startup() {
             vec!["http://localhost:9200".to_string()],
         )],
         cache: secan::config::CacheConfig::default(),
+        topology_max_tiles_per_request: None,
+        topology_max_concurrent_generations: None,
+        topology_generation_acquire_timeout_seconds: None,
     };
 
     // Validation should succeed with valid LDAP configuration
@@ -84,12 +87,17 @@ fn test_ldap_config_validation_fails_with_invalid_url() {
             vec!["http://localhost:9200".to_string()],
         )],
         cache: secan::config::CacheConfig::default(),
+        topology_max_tiles_per_request: None,
+        topology_max_concurrent_generations: None,
+        topology_generation_acquire_timeout_seconds: None,
     };
 
     // Validation should fail with descriptive error
     let result = config.validate();
     assert!(result.is_err());
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = result
+        .expect_err("validation should fail in this test")
+        .to_string();
     assert!(error_msg.contains("must use ldap:// or ldaps://"));
 }
 
@@ -112,12 +120,17 @@ fn test_ldap_config_validation_fails_without_config() {
             vec!["http://localhost:9200".to_string()],
         )],
         cache: secan::config::CacheConfig::default(),
+        topology_max_tiles_per_request: None,
+        topology_max_concurrent_generations: None,
+        topology_generation_acquire_timeout_seconds: None,
     };
 
     // Validation should fail with descriptive error
     let result = config.validate();
     assert!(result.is_err());
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = result
+        .expect_err("validation should fail in this test")
+        .to_string();
     assert!(error_msg.contains("LDAP mode requires LDAP configuration"));
 }
 
@@ -159,12 +172,17 @@ fn test_ldap_config_validation_fails_with_empty_bind_dn() {
             vec!["http://localhost:9200".to_string()],
         )],
         cache: secan::config::CacheConfig::default(),
+        topology_max_tiles_per_request: None,
+        topology_max_concurrent_generations: None,
+        topology_generation_acquire_timeout_seconds: None,
     };
 
     // Validation should fail with descriptive error
     let result = config.validate();
     assert!(result.is_err());
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = result
+        .expect_err("validation should fail in this test")
+        .to_string();
     assert!(error_msg.contains("bind_dn cannot be empty"));
 }
 
@@ -206,11 +224,16 @@ fn test_ldap_config_validation_fails_with_zero_timeout() {
             vec!["http://localhost:9200".to_string()],
         )],
         cache: secan::config::CacheConfig::default(),
+        topology_max_tiles_per_request: None,
+        topology_max_concurrent_generations: None,
+        topology_generation_acquire_timeout_seconds: None,
     };
 
     // Validation should fail with descriptive error
     let result = config.validate();
     assert!(result.is_err());
-    let error_msg = result.unwrap_err().to_string();
+    let error_msg = result
+        .expect_err("validation should fail in this test")
+        .to_string();
     assert!(error_msg.contains("connection_timeout_seconds must be positive"));
 }

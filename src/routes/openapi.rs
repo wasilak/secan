@@ -104,13 +104,13 @@ mod tests {
 
     #[test]
     fn test_openapi_spec_generates() {
-        let json = ApiDoc::openapi().to_json().unwrap();
+        let json = ApiDoc::openapi().to_json().expect("generate openapi json");
         assert!(json.contains("\"openapi\":\"3.1.0\""));
         assert!(json.contains("\"/health\""));
         assert!(json.contains("\"/clusters\""));
 
         // Write to file for easy access
-        std::fs::write("openapi.json", &json).unwrap();
+        std::fs::write("openapi.json", &json).expect("write openapi.json");
         println!(
             "OpenAPI spec written to openapi.json ({} bytes)",
             json.len()

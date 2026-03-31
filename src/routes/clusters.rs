@@ -7,6 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use moka::future::Cache as MokaCache;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -35,7 +36,15 @@ pub struct ClusterState {
     /// Concurrency limiter for per-cluster detail fan-outs
     pub details_semaphore: Arc<Semaphore>,
     /// Cache for generated topology tiles (per-cluster)
-    pub tile_cache: Arc<MetadataCache<serde_json::Value>>,
+    /// Uses moka::future::Cache for TTL + capacity (LRU-ish) semantics.
+    pub tile_cache: Arc<MokaCache<String, serde_json::Value>>,
+    /// Maximum number of tiles allowed per /topology/tiles request
+    pub topology_max_tiles_per_request: usize,
+    /// Semaphore limiting concurrent uncached topology generation tasks across the server
+    pub topology_generation_semaphore: Arc<Semaphore>,
+    /// Timeout (in seconds) to wait for a generation permit before returning an error.
+    /// Default: 8 seconds when not configured.
+    pub topology_generation_acquire_timeout_seconds: u64,
 }
 
 /// Error response for cluster operations
@@ -47,7 +56,37 @@ pub struct ClusterErrorResponse {
 
 impl IntoResponse for ClusterErrorResponse {
     fn into_response(self) -> Response {
-        (StatusCode::BAD_REQUEST, Json(self)).into_response()
+        // Map certain error codes to more appropriate HTTP status codes.
+        // In particular, generation concurrency limits should return 429
+        // so clients can retry later, while other errors remain 400.
+        let status = match self.error.as_str() {
+            // Client / auth errors
+            "access_denied" => StatusCode::FORBIDDEN,
+            "unauthorized" | "authentication_required" => StatusCode::UNAUTHORIZED,
+            // Not found
+            "cluster_not_found" => StatusCode::NOT_FOUND,
+
+            // Rate / concurrency
+            "generation_concurrency_limited" => StatusCode::TOO_MANY_REQUESTS,
+
+            // Upstream/proxy errors
+            "proxy_timeout" | "response_read_timeout" => StatusCode::GATEWAY_TIMEOUT,
+            "proxy_failed"
+            | "elasticsearch_error"
+            | "response_read_failed"
+            | "response_build_failed" => StatusCode::BAD_GATEWAY,
+
+            // Server errors
+            "semaphore_error" | "internal_error" => StatusCode::INTERNAL_SERVER_ERROR,
+
+            // Validation / client input
+            "validation_failed" | "parse_failed" | "parse_error" | "no_settings"
+            | "too_many_tiles" => StatusCode::BAD_REQUEST,
+
+            // Default to 400 for other structured errors
+            _ => StatusCode::BAD_REQUEST,
+        };
+        (status, Json(self)).into_response()
     }
 }
 
@@ -3082,7 +3121,7 @@ mod tests {
             message: "Cluster 'test' not found".to_string(),
         };
 
-        let json = serde_json::to_string(&error).unwrap();
+        let json = serde_json::to_string(&error).expect("serialize ClusterErrorResponse to JSON");
         assert!(json.contains("\"error\":\"cluster_not_found\""));
         assert!(json.contains("\"message\":\"Cluster 'test' not found\""));
     }
@@ -3090,7 +3129,8 @@ mod tests {
     #[test]
     fn test_cluster_error_response_deserialization() {
         let json = r#"{"error":"proxy_failed","message":"Connection timeout"}"#;
-        let error: ClusterErrorResponse = serde_json::from_str(json).unwrap();
+        let error: ClusterErrorResponse =
+            serde_json::from_str(json).expect("deserialize ClusterErrorResponse from JSON");
 
         assert_eq!(error.error, "proxy_failed");
         assert_eq!(error.message, "Connection timeout");
@@ -3105,7 +3145,7 @@ mod tests {
             to_node: "node-2".to_string(),
         };
 
-        let json = serde_json::to_string(&req).unwrap();
+        let json = serde_json::to_string(&req).expect("serialize RelocateShardRequest to JSON");
         assert!(json.contains("\"index\":\"test-index\""));
         assert!(json.contains("\"shard\":0"));
         assert!(json.contains("\"from_node\":\"node-1\""));
@@ -3115,7 +3155,8 @@ mod tests {
     #[test]
     fn test_relocate_shard_request_deserialization() {
         let json = r#"{"index":"logs-2024","shard":1,"from_node":"node-a","to_node":"node-b"}"#;
-        let req: RelocateShardRequest = serde_json::from_str(json).unwrap();
+        let req: RelocateShardRequest =
+            serde_json::from_str(json).expect("deserialize RelocateShardRequest from JSON");
 
         assert_eq!(req.index, "logs-2024");
         assert_eq!(req.shard, 1);
@@ -3147,7 +3188,7 @@ mod tests {
 
         let result = validate_relocation_request(&req);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.expect_err("relocation request validation should fail for empty index");
         assert_eq!(err.error, "validation_failed");
         assert!(err.message.contains("Index name is required"));
     }
@@ -3163,7 +3204,8 @@ mod tests {
 
         let result = validate_relocation_request(&req);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err =
+            result.expect_err("relocation request validation should fail for uppercase index");
         assert_eq!(err.error, "validation_failed");
         assert!(err.message.contains("lowercase"));
     }
@@ -3212,7 +3254,8 @@ mod tests {
 
         let result = validate_relocation_request(&req);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err =
+            result.expect_err("relocation request validation should fail for empty from_node");
         assert_eq!(err.error, "validation_failed");
         assert!(err.message.contains("Source node ID is required"));
     }
@@ -3228,7 +3271,7 @@ mod tests {
 
         let result = validate_relocation_request(&req);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.expect_err("relocation request validation should fail for empty to_node");
         assert_eq!(err.error, "validation_failed");
         assert!(err.message.contains("Destination node ID is required"));
     }
@@ -3244,7 +3287,9 @@ mod tests {
 
         let result = validate_relocation_request(&req);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.expect_err(
+            "relocation request validation should fail when from/to nodes are the same",
+        );
         assert_eq!(err.error, "validation_failed");
         assert!(err.message.contains("must be different"));
     }

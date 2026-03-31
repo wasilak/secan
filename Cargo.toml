@@ -95,6 +95,9 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Random number generation for secure tokens
 rand = "0.10"
 
+# Cryptographically secure randomness for session tokens
+getrandom = "0.2"
+
 # URL encoding for OIDC
 urlencoding = "2"
 
@@ -103,6 +106,8 @@ base64 = "0.22"
 
 # Stable hashing for tile version tokens
 sha2 = "0.10"
+# LRU + TTL async cache for tile caching
+moka = { version = "0.12", features = ["future"] }
 
 [dev-dependencies]
 proptest = "1"
@@ -110,6 +115,7 @@ wiremock = "0.6"
 tokio-test = "0.4"
 tempfile = "3"
 serial_test = "3"
+# hyper removed from dev-dependencies; not used by current tests
 
 
 [profile.release]
