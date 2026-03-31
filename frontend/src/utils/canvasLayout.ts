@@ -260,6 +260,9 @@ function emitGroupNode(
       position,
       // Provide a width hint used by dagre / layout engines
       width: minW,
+      // Tag the RF node so we can target its wrapper element from CSS and
+      // remove the wrapper border when our inner card renders the border.
+      className: 'secan-rf-node-contains-card',
       // Nodes are not draggable in the canvas/cluster view by design (consistent with Index view)
       draggable: false,
       style: {

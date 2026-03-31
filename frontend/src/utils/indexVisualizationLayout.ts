@@ -309,6 +309,10 @@ export function calculateIndexVizLayout(
       // sufficient space initially. We avoid fixing heights — the DOM
       // continues to drive the actual node height.
       width: minW,
+      // Tag the RF node so our CSS can remove the wrapper border when the
+      // ClusterESNodeCard inner component renders its own border. This avoids
+      // the double-border effect visible when both RF and the card drew borders.
+      className: 'secan-rf-node-contains-card',
       draggable: false,
       style: {
         // Provide minWidth to avoid clipping while allowing DOM-driven sizing
