@@ -98,7 +98,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
         <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
         {/* In RF contexts we want the RF node to render the border, so hide inner card border */}
-        <ClusterESNodeCard {...flat} hideInnerBorder isLoading={Boolean((data as any).isLoading)} />
+        <ClusterESNodeCard {...flat} hideInnerBorder isLoading={Boolean((data as unknown as { isLoading?: boolean }).isLoading)} />
         <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
       </div>
     );
@@ -110,13 +110,13 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     console.error('ClusterESNodeCardFlowWrapper data missing summaryCounts', data);
     if (process.env.NODE_ENV !== 'development') {
       // In production, defer to inner component's fallback UI
-      return (
-        <div className="secan-rf-node-contains-card">
-          <Handle type="target" position={Position.Top} />
-        <ClusterESNodeCard {...(data as unknown as ClusterGroupNodeDataFlat)} hideInnerBorder isLoading={Boolean((data as any).isLoading)} />
-          <Handle type="source" position={Position.Bottom} />
-        </div>
-      );
+    return (
+      <div className="secan-rf-node-contains-card">
+        <Handle type="target" position={Position.Top} />
+        <ClusterESNodeCard {...(data as unknown as ClusterGroupNodeDataFlat)} hideInnerBorder isLoading={Boolean((data as unknown as { isLoading?: boolean }).isLoading)} />
+        <Handle type="source" position={Position.Bottom} />
+      </div>
+    );
     }
     throw new Error('ClusterESNodeCardFlowWrapper data missing summaryCounts');
   }
@@ -124,7 +124,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
   return (
     <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
       <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
-      <ClusterESNodeCard {...(data as unknown as ClusterGroupNodeDataFlat)} hideInnerBorder isLoading={Boolean((data as any).isLoading)} />
+      <ClusterESNodeCard {...(data as unknown as ClusterGroupNodeDataFlat)} hideInnerBorder isLoading={Boolean((data as unknown as { isLoading?: boolean }).isLoading)} />
       <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
     </div>
   );

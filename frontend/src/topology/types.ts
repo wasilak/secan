@@ -17,8 +17,8 @@ export interface TilePayload {
   lod: LOD;
   version?: string;
   // Minimal node objects; keep as unknown to avoid tight coupling
-  nodes?: any[];
-  edges?: any[];
+  nodes?: unknown[];
+  edges?: unknown[];
 }
 
 export default {};

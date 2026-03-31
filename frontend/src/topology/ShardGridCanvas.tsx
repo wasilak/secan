@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import type { ShardInfo } from '../types/api';
 
-export default function ShardGridCanvas({ shards, onShardClick }: { shards: ShardInfo[]; onShardClick?: (s: ShardInfo, e?: React.MouseEvent) => void }) {
+export default function ShardGridCanvas({ shards, onShardClick: _onShardClick }: { shards: ShardInfo[]; onShardClick?: (s: ShardInfo, e?: React.MouseEvent) => void }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {

@@ -43,7 +43,10 @@ export class RevalidationCoordinator {
       if (!remaining.has(s)) {
         try {
           info.controller.abort();
-        } catch (e) {}
+        } catch (err) {
+          // ignore abort errors but mark var used
+          void err;
+        }
         this.inflight.delete(s);
       }
     }
@@ -83,14 +86,23 @@ export class RevalidationCoordinator {
     for (let i = 0; i < list.length; i += this.batchSize) batches.push(list.slice(i, i + this.batchSize));
 
     // Run batches with limited parallelism
-    const running: Promise<void>[] = [];
+    type TrackedPromise = Promise<void> & { isFinished?: () => boolean };
+    const running: TrackedPromise[] = [];
     for (const batch of batches) {
-      const p = this.fetchBatchWithRetry(batch);
-      running.push(p);
+      const raw = this.fetchBatchWithRetry(batch);
+      const tracked = raw as TrackedPromise;
+      let finished = false;
+      tracked.isFinished = () => finished;
+      // mark finished when settled
+      tracked.then(() => { finished = true; }).catch(() => { finished = true; });
+      running.push(tracked);
       if (running.length >= this.parallelLimit) {
         await Promise.race(running).catch(() => {});
         // remove settled promises
-        for (let i = running.length - 1; i >= 0; i--) if ((running[i] as any).done) running.splice(i, 1);
+        for (let i = running.length - 1; i >= 0; i--) {
+          const r = running[i];
+          if (r.isFinished && r.isFinished()) running.splice(i, 1);
+        }
       }
     }
     // Wait for remaining
@@ -103,10 +115,10 @@ export class RevalidationCoordinator {
       try {
         await this.fetchBatch(batch);
         return;
-      } catch (err) {
+      } catch (_err) {
         attempt += 1;
         if (attempt > this.maxRetries) {
-          console.warn('fetchBatchWithRetry failed after retries', err);
+          console.warn('fetchBatchWithRetry failed after retries', _err);
           return;
         }
         // exponential backoff
@@ -145,7 +157,7 @@ export class RevalidationCoordinator {
     try {
       resp = await fetch(url, { method: 'POST', body: JSON.stringify(body), signal: controller.signal, headers: { 'Content-Type': 'application/json' } });
     } catch (err) {
-      // network or abort
+      // network or abort - ensure we clear inflight markers for these keys
       for (const k of keysToSend) {
         const s = keyToString(k);
         const info = this.inflight.get(s);
@@ -160,7 +172,7 @@ export class RevalidationCoordinator {
     }
 
     const json = await resp.json();
-    const tiles = json.tiles || [];
+    const tiles = (json && json.tiles) || [];
 
     // server returns an entry per requested tile. If tile.unchanged is true or nodes is null,
     // keep existing cache entry (avoid overwriting with empty payload). Otherwise update cache.

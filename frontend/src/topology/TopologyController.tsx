@@ -1,29 +1,40 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useReactFlow } from '@xyflow/react';
 import TileCache from './tileCache';
 import RevalidationCoordinator from './revalidationCoordinator';
-import type { TileKey, TilePayload, LOD } from './types';
+import type { TileKey, LOD } from './types';
 import TOPOLOGY_CONFIG from '../config/topologyConfig';
 
-export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: any[]) => void }) {
+export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: unknown[]) => void }) {
   const rf = useReactFlow();
-  const tileCacheRef = useRef(new TileCache(200));
+  const tileCacheRef = useRef<TileCache | null>(null);
+  const revalRef = useRef<RevalidationCoordinator | null>(null);
   const { id: clusterId } = useParams<{ id: string }>();
-  const revalRef = useRef(new RevalidationCoordinator(tileCacheRef.current, clusterId));
+
+  // Initialize refs only once in an effect to satisfy eslint/react-hooks/refs rule
+  useEffect(() => {
+    if (tileCacheRef.current == null) tileCacheRef.current = new TileCache(200);
+    if (revalRef.current == null) revalRef.current = new RevalidationCoordinator(tileCacheRef.current as TileCache, clusterId);
+    // Ensure clusterId is updated on coordinator whenever clusterId changes
+    if (revalRef.current) revalRef.current.setClusterId(clusterId);
+  }, [clusterId]);
 
   // Ensure RevalidationCoordinator knows about clusterId changes (e.g., navigating between clusters
   // without remounting the controller). This updates the internal URL used for tile requests.
   useEffect(() => {
     if (revalRef.current) revalRef.current.setClusterId(clusterId);
   }, [clusterId]);
-  const [visibleNodes, setVisibleNodes] = useState<any[]>([]);
+  // visibleNodes state was previously used for debugging; not required here
+  const [, setVisibleNodes] = useState<unknown[]>([]);
   const subscribedTilesRef = useRef<TileKey[]>([]);
   const subscriptionIdRef = useRef<number | null>(null);
 
-  const computeTilesForViewport = useCallback((viewport: any, tileSize = TOPOLOGY_CONFIG.TILE_SIZE) => {
+  const computeTilesForViewport = useCallback((viewport: unknown, tileSize = TOPOLOGY_CONFIG.TILE_SIZE) => {
     // world coords assumed equal to RF coords here; compute bounding tile indices
-    const { x, y, zoom } = viewport;
+      // Narrow viewport unknown -> expected shape
+      const v = viewport as { x?: number; y?: number; zoom?: number } | undefined;
+      const { x = 0, y = 0, zoom = 1 } = v ?? {};
     // approximate visible bounds: RF viewport center at (x,y) with window size scaled by zoom
     const w = window.innerWidth / Math.max(0.0001, zoom);
     const h = window.innerHeight / Math.max(0.0001, zoom);
@@ -40,15 +51,19 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
   useEffect(() => {
     const reval = revalRef.current;
 
-    reval.onTilePayload((key, payload) => {
+    // Guard: reval may be null during initialization
+    if (!reval) return;
+
+    reval.onTilePayload((_key, _payload) => {
       // Build visible nodes only from currently subscribed tiles
       const subTiles = subscribedTilesRef.current || [];
-      const nodes: any[] = [];
+      type NodeLike = { id: string; [k: string]: unknown };
+      const nodes: NodeLike[] = [];
       const seen = new Set<string>();
 
       // derive viewport bounds from react flow
-      let viewport: any = { x: 0, y: 0, zoom: 1 };
-      try { viewport = rf.getViewport(); } catch (e) {}
+      let viewport: { x: number; y: number; zoom: number } = { x: 0, y: 0, zoom: 1 };
+      try { const vp = rf.getViewport(); viewport = { x: vp.x ?? 0, y: vp.y ?? 0, zoom: vp.zoom ?? 1 }; } catch (_err) { void _err; }
       const w = window.innerWidth / Math.max(0.0001, viewport.zoom);
       const h = window.innerHeight / Math.max(0.0001, viewport.zoom);
       const minX = viewport.x - w / 2;
@@ -57,44 +72,51 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
       const maxY = viewport.y + h / 2;
 
       for (const t of subTiles) {
-        const p = tileCacheRef.current.get(t as TileKey);
+        const p = tileCacheRef.current ? tileCacheRef.current.get(t as TileKey) : undefined;
         if (!p || !p.nodes) continue;
-        for (const n of p.nodes) {
+        for (const nUnknown of (p.nodes ?? []) as unknown[]) {
+          const n = nUnknown as Record<string, unknown>;
           // Basic culling: node position inside viewport bounds
-          if (typeof n.x === 'number' && typeof n.y === 'number') {
-            if (n.x + (n.width || 0) < minX || n.x > maxX || n.y + (n.height || 0) < minY || n.y > maxY) continue;
+          const nx = typeof n.x === 'number' ? (n.x as number) : undefined;
+          const ny = typeof n.y === 'number' ? (n.y as number) : undefined;
+          const nwidth = typeof n.width === 'number' ? (n.width as number) : 0;
+          const nheight = typeof n.height === 'number' ? (n.height as number) : 0;
+          if (typeof nx === 'number' && typeof ny === 'number') {
+            if (nx + nwidth < minX || nx > maxX || ny + nheight < minY || ny > maxY) continue;
           }
-          const id = n.id || `${t.tileX}:${t.tileY}:${JSON.stringify(n)}`;
+          const id = (typeof n.id === 'string' && n.id) || `${t.tileX}:${t.tileY}:${JSON.stringify(n)}`;
           if (seen.has(id)) continue;
           seen.add(id);
 
           // Transform tile node payload into React Flow node shape
-          const flowNode = {
-            id,
-            position: { x: n.x ?? 0, y: n.y ?? 0 },
-            data: {
-              // normalize to legacy wrapper shape: { node, shards, summaryCounts }
-              node: { id: n.id, name: n.name, version: n.version, ip: n.ip },
-              shards: n.shards ?? [],
-              summaryCounts: n.summaryCounts ?? { primary: 0, replica: 0, total: (n.shards && n.shards.length) || 0 },
-              // carry through raw payload for custom handlers
-              __raw: n,
-            },
-            type: 'clusterGroup',
-            // keep width/height so downstream layout/measuring can use them
-            width: n.width,
-            height: n.height,
-          } as any;
+              const flowNode = {
+                id,
+                position: { x: nx ?? 0, y: ny ?? 0 },
+                data: {
+                  node: {
+                    id: typeof n.id === 'string' ? n.id : undefined,
+                    name: typeof n.name === 'string' ? n.name : undefined,
+                    version: typeof n.version === 'string' ? n.version : undefined,
+                    ip: typeof n.ip === 'string' ? n.ip : undefined,
+                  },
+                  shards: Array.isArray(n.shards) ? n.shards : [],
+                  summaryCounts: (typeof n.summaryCounts === 'object' && n.summaryCounts) || { primary: 0, replica: 0, total: Array.isArray(n.shards) ? n.shards.length : 0 },
+                  __raw: n,
+                },
+                type: 'clusterGroup',
+                width: nwidth || undefined,
+                height: nheight || undefined,
+              } as unknown;
 
-          nodes.push(flowNode);
+          nodes.push(flowNode as NodeLike);
         }
       }
 
       setVisibleNodes(nodes);
       // For subscribed tiles that are not yet cached, provide one skeleton node per tile
       const tileSize = TOPOLOGY_CONFIG.TILE_SIZE;
-      for (const t of subTiles) {
-        const p = tileCacheRef.current.get(t as TileKey);
+        for (const t of subTiles) {
+        const p = tileCacheRef.current ? tileCacheRef.current.get(t as TileKey) : undefined;
         if (p && p.nodes) continue;
         const sx = t.tileX * tileSize + tileSize / 2;
         const sy = t.tileY * tileSize + tileSize / 2;
@@ -106,9 +128,9 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
           type: 'clusterGroup',
           width: TOPOLOGY_CONFIG.GROUP_WIDTH,
           height: 140,
-        } as any;
+        } as unknown;
         // avoid duplicates
-        if (!nodes.find((n) => n.id === skid)) nodes.push(skeletonNode);
+        if (!nodes.find((n) => n.id === skid)) nodes.push(skeletonNode as NodeLike);
       }
       onNodesUpdate(nodes);
     });
@@ -120,10 +142,7 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
     };
   }, [onNodesUpdate, rf]);
 
-  function parseKey(s: string) {
-    const [x, y, lod] = s.split(':');
-    return { tileX: Number(x), tileY: Number(y), lod } as TileKey;
-  }
+  // parseKey removed - not used
 
   useEffect(() => {
     let mounted = true;
@@ -145,15 +164,17 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: a
           }
 
           const reval = revalRef.current;
-          // unsubscribe previous
-          if (subscriptionIdRef.current) reval.unsubscribe(subscriptionIdRef.current);
-          subscriptionIdRef.current = reval.subscribeTiles(allTiles);
-          subscribedTilesRef.current = allTiles;
+          if (reval) {
+            // unsubscribe previous
+            if (subscriptionIdRef.current) reval.unsubscribe(subscriptionIdRef.current);
+            subscriptionIdRef.current = reval.subscribeTiles(allTiles);
+            subscribedTilesRef.current = allTiles;
 
-          reval.forceRefresh(allTiles).catch(() => {});
+            reval.forceRefresh(allTiles).catch((_err) => { void _err; });
+          }
         }
-      } catch (e) {
-        // ignore when RF not ready
+      } catch (_err) {
+        void _err; // ignore when RF not ready
       }
     };
 

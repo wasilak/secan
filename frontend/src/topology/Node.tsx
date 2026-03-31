@@ -11,7 +11,7 @@ interface NodeProps {
   nodeId: string;
   mode: LOD;
   minimalData?: { id: string; name: string; summaryCounts?: { total: number } };
-  detailData?: any; // node metadata
+  detailData?: Record<string, unknown> | undefined; // node metadata
   shards?: ShardInfo[];
   onShardClick?: (s: ShardInfo, e?: React.MouseEvent) => void;
 }
@@ -53,7 +53,7 @@ function NodeComponent({ nodeId, mode, minimalData, detailData, shards = [], onS
     onDestinationClick: undefined,
     onShardClick: onShardClick,
     renderDots: false,
-  } as ClusterGroupNodeDataFlat;
+  } as unknown as ClusterGroupNodeDataFlat;
 
   return (
     <div style={{ minWidth: TOPOLOGY_CONFIG.GROUP_WIDTH }}>
