@@ -320,7 +320,9 @@ export function calculateIndexVizLayout(
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',
-        border: '1px solid var(--mantine-color-default-border)',
+        // Do not set border on the RF wrapper; the inner ClusterESNodeCard
+        // should be the authoritative source for the node border. See
+        // canvasLayout.ts for rationale.
         borderRadius: '8px',
         backgroundColor: 'var(--mantine-color-body)',
       },

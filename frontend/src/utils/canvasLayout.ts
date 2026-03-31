@@ -271,9 +271,10 @@ function emitGroupNode(
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',
-        border: isValidDestination
-          ? '2px dashed var(--mantine-color-violet-6)'
-          : '1px solid var(--mantine-color-default-border)',
+        // Do not set border on the RF wrapper; the inner ClusterESNodeCard
+        // is the authoritative source of the visible border. Setting border
+        // here caused a double-border when both wrapper and inner card drew
+        // borders. Avoid inline border to keep a single source of truth.
         borderRadius: '8px',
         backgroundColor: 'var(--mantine-color-body)',
       },
