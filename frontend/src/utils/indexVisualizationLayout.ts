@@ -21,7 +21,7 @@ import { computeHeapPercent, getHeapColor } from './heap';
 import { getShardDotColor } from './colors';
 import { formatBytes } from '../utils/formatters';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
-import { GROUP_WIDTH } from './canvasLayout';
+import { GROUP_WIDTH, estimateGroupMinWidth } from './canvasLayout';
 
 // Simple width estimator for the index header node based on text lengths.
 function estimateIndexNodeWidth(indexName: string, total: number, primary: number, replica: number): number {
@@ -294,20 +294,25 @@ export function calculateIndexVizLayout(
       isUnassigned: nodeKey === UNASSIGNED_KEY,
     };
 
+    // Compute a conservative width hint based on the node's name + badges
+    // so the RF layout can allocate enough horizontal space before the DOM
+    // measurement occurs. This reduces transient truncation / layout flashes
+    // for long node names while still allowing the inner card DOM to size
+    // itself (we only set width hint and minWidth, not a fixed height).
+    const minW = estimateGroupMinWidth(nodeInfo ?? ({} as NodeInfo));
+
     nodes.push({
       id: subgroupId,
       type: 'clusterGroup',
       position: { x: sgX, y: sgY },
-      // Visual width is driven by the inner card (ClusterESNodeCard) which
-      // sets minWidth/width. Do not set RF node width to avoid clipping the
-      // inner card border due to double-sizing / subpixel rounding.
-      // Do not set RF node height: let the DOM/card drive its own height so
-      // React Flow places handles/connectors correctly (avoids clipped borders
-      // and mis-positioned bottom handles due to stale fixed heights).
+      // Provide a width hint so Dagre and the collision resolver allocate
+      // sufficient space initially. We avoid fixing heights — the DOM
+      // continues to drive the actual node height.
+      width: minW,
       draggable: false,
       style: {
         // Provide minWidth to avoid clipping while allowing DOM-driven sizing
-        minWidth: GROUP_WIDTH,
+        minWidth: minW,
         boxSizing: 'border-box',
         overflow: 'visible',
         transition: 'transform 0.4s ease',
