@@ -233,7 +233,7 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: 'var(--mantine-shadow-md)',
-                background: 'var(--mantine-color-white)',
+                background: 'var(--mantine-color-body)',
                 overflow: 'hidden',
               }}
             >
