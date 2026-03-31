@@ -157,6 +157,15 @@ export function Dashboard() {
   // Build cluster summaries from cached stats
   const clusterSummaries: ClusterSummary[] = useMemo(() => {
     return clusters.map((cluster, index) => {
+      const displayName = cluster.name ?? cluster.id;
+      if (!cluster.name) {
+        // Log missing names so the backend/data owner can investigate
+        // Use console.debug so it doesn't spam production logs at info level
+        // but is visible during local development and debugging.
+        // eslint-disable-next-line no-console
+        console.debug(`[Dashboard] cluster ${cluster.id} missing name, falling back to id for display`);
+      }
+
       const statsQuery = clusterStatsQueries[index];
       const stats = statsQuery?.data;
       const error = statsQuery?.error;
@@ -164,7 +173,7 @@ export function Dashboard() {
       if (error) {
         return {
           id: cluster.id,
-          name: cluster.name,
+          name: displayName,
           health: 'unreachable' as const,
           nodes: 0,
           shards: 0,
@@ -178,7 +187,7 @@ export function Dashboard() {
         // Still loading - return placeholder with unknown health
         return {
           id: cluster.id,
-          name: cluster.name,
+          name: displayName,
           health: 'green' as const, // Default while loading
           nodes: 0,
           shards: 0,
@@ -189,7 +198,7 @@ export function Dashboard() {
 
       return {
         id: cluster.id,
-        name: cluster.name,
+        name: displayName,
         health: stats.health,
         nodes: stats.numberOfNodes,
         shards: stats.activeShards,
