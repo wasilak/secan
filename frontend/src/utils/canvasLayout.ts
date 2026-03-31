@@ -16,7 +16,7 @@ import React, { type ReactNode } from 'react';
 import type { GroupingConfig } from './topologyGrouping';
 import { calculateNodeGroups, getGroupLabel } from './topologyGrouping';
 import { sortShards } from './shardOrdering';
-import { SHARD_STATE_COLORS, getShardDotColor, getUnassignedShardColor } from './colors';
+import { getShardDotColor, getUnassignedShardColor } from './colors';
 // Minimal data for ClusterGroupNode — flat, shallow props only for top performance
 export interface ClusterGroupNodeDataFlat {
   id: string;
