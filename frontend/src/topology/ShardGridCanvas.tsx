@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import type { ShardInfo } from '../types/api';
+import { getShardDotColor, getUnassignedShardColor, getShardBorderColor } from '../utils/colors';
 
 export default function ShardGridCanvas({ shards, onShardClick: _onShardClick }: { shards: ShardInfo[]; onShardClick?: (s: ShardInfo, e?: React.MouseEvent) => void }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -16,8 +17,20 @@ export default function ShardGridCanvas({ shards, onShardClick: _onShardClick }:
     shards.forEach((s, i) => {
       const x = (i % cols) * (size + gap);
       const y = Math.floor(i / cols) * (size + gap);
-      ctx.fillStyle = s.state === 'UNASSIGNED' ? '#666' : '#2ecc71';
+      // Use centralized shard color helpers for consistent coloring across views
+      if (s.state === 'UNASSIGNED') {
+        ctx.fillStyle = getUnassignedShardColor(Boolean(s.primary));
+      } else {
+        ctx.fillStyle = getShardDotColor(s.state);
+      }
       ctx.fillRect(x, y, size, size);
+      // Optional border for better separation
+      const border = getShardBorderColor(s.state);
+      if (border && border !== 'transparent') {
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      }
     });
   }, [shards]);
 

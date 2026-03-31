@@ -4,6 +4,7 @@ import ClusterESNodeCard from '../components/ClusterESNodeCard';
 import ShardGridCanvas from './ShardGridCanvas';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import TOPOLOGY_CONFIG from '../config/topologyConfig';
+import { getShardDotColor, getUnassignedShardColor, getShardBorderColor } from '../utils/colors';
 
 export type LOD = 'L0' | 'L1' | 'L2';
 
@@ -60,13 +61,27 @@ function NodeComponent({ nodeId, mode, minimalData, detailData, shards = [], onS
       <ClusterESNodeCard {...cardProps} />
       {mode === 'L2' && shards && shards.length > 0 && (
         <div style={{ padding: '6px 12px' }}>
-          {shards.length > 200 ? (
+              {shards.length > 200 ? (
             <ShardGridCanvas shards={shards} onShardClick={onShardClick} />
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, ${TOPOLOGY_CONFIG.SHARD_SIZE}px)`, gap: TOPOLOGY_CONFIG.SHARD_GAP }}>
-              {shards.map((s, i) => (
-                <div key={i} onClick={(e) => onShardClick?.(s, e)} style={{ width: TOPOLOGY_CONFIG.SHARD_SIZE, height: TOPOLOGY_CONFIG.SHARD_SIZE, background: s.state === 'UNASSIGNED' ? '#666' : '#2ecc71', borderRadius: 2 }} />
-              ))}
+              {shards.map((s, i) => {
+                const bg = s.state === 'UNASSIGNED' ? getUnassignedShardColor(Boolean(s.primary)) : getShardDotColor(s.state);
+                const border = getShardBorderColor(s.state);
+                return (
+                  <div
+                    key={i}
+                    onClick={(e) => onShardClick?.(s, e)}
+                    style={{
+                      width: TOPOLOGY_CONFIG.SHARD_SIZE,
+                      height: TOPOLOGY_CONFIG.SHARD_SIZE,
+                      backgroundColor: bg,
+                      border: border && border !== 'transparent' ? `1px solid ${border}` : 'none',
+                      borderRadius: 2,
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

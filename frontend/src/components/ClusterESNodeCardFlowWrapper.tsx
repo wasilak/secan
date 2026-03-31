@@ -4,6 +4,7 @@ import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { computeHeapPercent, getHeapColor } from '../utils/heap';
 import { formatBytes } from '../utils/formatters';
 import { UNASSIGNED_KEY } from '../utils/canvasLayout';
+import { getUnassignedShardColor } from '../utils/colors';
 import type { ShardInfo, NodeInfo } from '../types/api';
 
 export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeDataFlat }) {
@@ -42,7 +43,9 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     if (replicaCount > 0) badges.push({ label: `${replicaCount} replica` });
 
     const dots = shards.map((shard) => ({
-      color: getIndexHealthColor(shard.index),
+      // Use shard state aware coloring: unassigned shards should use the
+      // centralized unassigned color helper so they differ for primary/replica.
+      color: shard.state === 'UNASSIGNED' ? getUnassignedShardColor(Boolean(shard.primary)) : getIndexHealthColor(shard.index),
       tooltip: (
         <div>
           <div>
