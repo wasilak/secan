@@ -167,7 +167,7 @@ export function Dashboard() {
       if (!displayName) {
         // This is unexpected: the API contract guarantees a cluster name.
         // Log as an error so it's visible in development and can be escalated.
-        // eslint-disable-next-line no-console
+         
         console.error(`[Dashboard] Missing cluster name for cluster ${cluster.id} (neither clusters list nor stats provided a name)`);
       }
 

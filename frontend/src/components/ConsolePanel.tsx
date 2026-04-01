@@ -1,8 +1,8 @@
 import { ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Box, Portal } from '@mantine/core';
 import { useLocation } from 'react-router-dom';
-import { Split, SplitPane } from '@gfazioli/mantine-split-pane';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
+import { useModalManager } from '../contexts/ModalManagerContext';
 import { ConsoleContent } from './ConsoleContent';
 
 import '@gfazioli/mantine-split-pane/styles.css';
@@ -85,15 +85,8 @@ export interface ConsolePanelProps {
  * Requirements: 1, 4
  */
 export function ConsolePanel({ children }: ConsolePanelProps) {
-  const {
-    isOpen,
-    isSticky,
-    isDetached,
-    width,
-    setWidth,
-    clusterId,
-    closePanel,
-  } = useConsolePanel();
+  const { isOpen, isSticky, isDetached, width, clusterId, closePanel } = useConsolePanel();
+  const { overlayZIndex } = useModalManager();
   const location = useLocation();
   const previousPathnameRef = useRef(location.pathname);
   // Ref to the console pane element that will be rendered in a portal
@@ -164,60 +157,59 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
   /**
    * Handle resize end - persist width
    */
-  const handleResizeEnd = useCallback(
-    (sizes: { beforePane: { width: number }; afterPane: { width: number } }) => {
-      // afterPane is the console panel (right side)
-      const newWidth = sizes.afterPane.width;
-      const maxWidth = getMaxWidth();
-      const clampedWidth = Math.max(MIN_CONSOLE_WIDTH, Math.min(newWidth, maxWidth));
-      setWidth(clampedWidth);
-    },
-    [setWidth, getMaxWidth]
-  );
+  // Resize handlers were removed: split-pane is not used in current layout.
 
-  /**
-   * Handle resize during drag - real-time update without persistence
-   */
-  const handleResizing = useCallback(
-    (_sizes: { beforePane: { width: number }; afterPane: { width: number } }) => {
-      // Optional: Could update state for real-time feedback
-      // For now, we only persist on resize end for performance
-    },
-    []
-  );
+  // Inline console (pinned/sticky) should render as a right-most column
+  // Portal console (detached/drawer) renders only when not pinned
+  // Keep inline console visible when pinned (sticky) regardless of detached state.
+  // This ensures a pinned sidebar console remains visible even when a modal/detached
+  // console is opened on top.
+  const showInlineConsole = isOpen && clusterId && isSticky;
+  const showPortalConsole = isOpen && clusterId && !isDetached && !isSticky;
 
-  const showConsole = isOpen && clusterId && !isDetached;
-
-  // When console is not shown, render children directly without height constraints
-  // to allow normal page scrolling. We still render the portal root to ensure
-  // the click-outside detection can reference the portal node when it exists.
   return (
     <>
       <style>{customResizerStyles}</style>
 
-      {/* Main content always rendered; console drawer is portalized separately */}
+      {/* Main content always rendered; when pinned we render the console inline as a right column */}
       <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>
-        <Split style={{ height: '100%', width: '100%' }}>
-          {/* Main content pane - grows to fill available space */}
-          <SplitPane grow minWidth={200} style={{ overflow: 'auto' }}>
-            {children}
-          </SplitPane>
+        <div style={{ display: 'flex', height: '100%', width: '100%' }}>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>{children}</div>
 
-          {/* Resizer handle placeholder - the visible resizer is rendered inside portal console */}
-          {/* Keep layout stable by reserving small space when console is visible */}
-          <div style={{ width: showConsole ? '4px' : 0 }} />
-        </Split>
+          {showInlineConsole && (
+            <div
+              id={portalId}
+              ref={consolePaneRef}
+              className="console-pane-enter console-pane-enter-active"
+              style={{
+                width: `${width}px`,
+                minWidth: `${MIN_CONSOLE_WIDTH}px`,
+                maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: 'var(--mantine-shadow-md)',
+                background: 'var(--mantine-color-body)',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+                <ConsoleContent clusterId={clusterId} />
+              </div>
+            </div>
+          )}
+        </div>
       </Box>
 
-      {/* Portalized console drawer: mounted at document root to avoid stacking context issues */}
+      {/* Portalized console drawer: mounted at document root to avoid stacking context issues. */}
       <Portal>
-        {showConsole && (() => {
+        {showPortalConsole && (() => {
           // Drawer mode: not draggable, default to 40% of viewport width
           const rawDrawerWidth = Math.round(window.innerWidth * DRAWER_DEFAULT_WIDTH_PERCENT);
           const clampedWidth = Math.max(MIN_CONSOLE_WIDTH, Math.min(rawDrawerWidth, getMaxWidth()));
 
           return (
-          <div
+            <div
               id={portalId}
               ref={consolePaneRef}
               className="console-pane-enter console-pane-enter-active"
@@ -230,9 +222,7 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
                 width: `${clampedWidth}px`,
                 maxWidth: `${MAX_CONSOLE_WIDTH_PERCENT}vw`,
                 // Allow context to override z-index when needed (e.g., forced detached over modals)
-                zIndex: (typeof (window as any).__SE_CAN_CONSOLE_Z_INDEX__ !== 'undefined')
-                  ? (window as any).__SE_CAN_CONSOLE_Z_INDEX__
-                  : 10500,
+                zIndex: typeof overlayZIndex !== 'undefined' ? overlayZIndex : 10500,
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: 'var(--mantine-shadow-md)',

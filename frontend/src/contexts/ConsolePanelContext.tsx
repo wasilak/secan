@@ -7,6 +7,7 @@ import {
   useRef,
   ReactNode,
 } from 'react';
+import { useModalManager } from '../contexts/ModalManagerContext';
 import { useParams } from 'react-router-dom';
 import { usePreferences } from '../hooks/usePreferences';
 import { ClusterConsoleState } from '../types/preferences';
@@ -172,15 +173,104 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
   // Refs used for modal-forced detached behaviour
   const wasDetachedDueToModalRef = useRef(false);
   const previousDetachedStateRef = useRef<boolean | null>(null);
+  // previously used MutationObserver - retained for reference but currently unused
+  // Keep the ref to avoid changing the module shape used in other places
+  // but mark it as intentionally unused to satisfy lint.
   const observerRef = useRef<MutationObserver | null>(null);
+  void observerRef;
+  // Refs to keep latest open/detached values for the global key handler
+  const isOpenRef = useRef<boolean>(false);
+  const isDetachedRef = useRef<boolean>(false);
+  // Track whether any modal is present in the DOM
+  const modalActiveRef = useRef<boolean>(false);
+  const modalIsOpenRef = useRef<boolean>(false);
+  // Remember previous pinned (sticky) and open state when a modal appears so we can restore
+  const previousPinnedStateRef = useRef<boolean | null>(null);
+  const previousOpenStateRef = useRef<boolean | null>(null);
 
-  // Overlay z-index when forcing detached above modals (computed when needed)
-  const [overlayZIndex, setOverlayZIndex] = useState<number | undefined>(undefined);
+  // Subscribe to modal manager for modal open state and overlay z-index management
+  const { isModalOpen, setOverlayZIndex: setManagerOverlayZIndex } = useModalManager();
 
   // Update ref whenever state changes
   useEffect(() => {
     currentStateRef.current = currentState;
   }, [currentState]);
+
+  // Keep refs in sync with state so the keydown handler (attached once) can
+  // read latest values without relying on stale closure variables.
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useEffect(() => {
+    isDetachedRef.current = isDetached;
+  }, [isDetached]);
+
+  /**
+   * Detect modal presence across the document and automatically hide/restore
+   * the sidebar console when modals appear/disappear.
+   *
+   * Behavior:
+   * - When any modal appears: hide the side console (regardless of pinned)
+   *   and remember previous pinned/open state so it can be restored later.
+   * - When all modals disappear: restore the side console if it was pinned
+   *   before the modal appeared. Also revert any forced detached overlay.
+   */
+  // Keep a ref in sync with ModalManager so the key handler can read it without stale closures
+  useEffect(() => {
+    modalIsOpenRef.current = isModalOpen;
+  }, [isModalOpen]);
+
+  // Subscribe to ModalManager open/close events instead of DOM mutation observer
+  useEffect(() => {
+    // If a modal just opened, hide the sidebar console and remember previous state
+    if (isModalOpen && !modalActiveRef.current) {
+      modalActiveRef.current = true;
+      previousPinnedStateRef.current = currentStateRef.current?.stickyMode ?? false;
+      previousOpenStateRef.current = isOpenRef.current;
+
+      if (isOpenRef.current) {
+        setIsOpen(false);
+        isOpenRef.current = false;
+      }
+    }
+
+    // If all modals closed, restore previous console state and clear any forced overlay
+    if (!isModalOpen && modalActiveRef.current) {
+      modalActiveRef.current = false;
+
+      if (wasDetachedDueToModalRef.current) {
+        const prevDetached = previousDetachedStateRef.current;
+        setIsDetached(prevDetached ?? false);
+        isDetachedRef.current = !!prevDetached;
+
+        const wasPinned = previousPinnedStateRef.current;
+        if (wasPinned) {
+          setIsOpen(true);
+          isOpenRef.current = true;
+        } else {
+          const prevOpen = previousOpenStateRef.current;
+          if (prevOpen) {
+            setIsOpen(true);
+            isOpenRef.current = true;
+          }
+        }
+
+        wasDetachedDueToModalRef.current = false;
+        previousDetachedStateRef.current = null;
+        // clear manager overlay override
+        setManagerOverlayZIndex(undefined);
+      } else {
+        if (previousPinnedStateRef.current) {
+          setIsOpen(true);
+          isOpenRef.current = true;
+        }
+      }
+
+      previousPinnedStateRef.current = null;
+      previousOpenStateRef.current = null;
+    }
+  }, [isModalOpen, setManagerOverlayZIndex]);
 
   /**
    * Save current cluster state to preferences
@@ -421,68 +511,43 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
       if (event.key === '`' || event.key === '~') {
         event.preventDefault();
         event.stopPropagation();
-        // If any modal is open, force detached mode and open the console overlay
-        const isAnyModalOpen = () =>
-          !!document.querySelector('[role="dialog"], [aria-modal="true"], .mantine-Modal-root, .mantine-Modal-content');
+        // If modal manager says a modal is open, open the detached modal console instead
+        if (modalIsOpenRef.current) {
+          modalActiveRef.current = true;
+          if (!wasDetachedDueToModalRef.current) {
+            previousDetachedStateRef.current = isDetachedRef.current;
+            wasDetachedDueToModalRef.current = true;
 
-        if (isAnyModalOpen()) {
-          // Save previous detached state so we can revert later
-          previousDetachedStateRef.current = isDetached;
-          wasDetachedDueToModalRef.current = true;
+            setIsDetached(true);
+            isDetachedRef.current = true;
+            setIsOpen(true);
+            isOpenRef.current = true;
 
-          // Force detached overlay mode and open
-          setIsDetached(true);
-          setIsOpen(true);
+            // Compute z-index above existing modals and export via manager
+            try {
+              const nodes = Array.from(document.querySelectorAll('[role="dialog"], .mantine-Modal-root')) as HTMLElement[];
+              const maxZ = nodes.reduce((max, n) => {
+                const z = parseInt(window.getComputedStyle(n).zIndex || '0', 10);
+                return Number.isFinite(z) ? Math.max(max, z) : max;
+              }, 1000);
+              const resolved = Math.max(20000, maxZ + 20);
+              setManagerOverlayZIndex(resolved);
+            } catch {
+              setManagerOverlayZIndex(20000);
+            }
 
-          // Compute a z-index that is above existing modals
-          try {
-            const nodes = Array.from(document.querySelectorAll('[role="dialog"], .mantine-Modal-root')) as HTMLElement[];
-            const maxZ = nodes.reduce((max, n) => {
-              const z = parseInt(window.getComputedStyle(n).zIndex || '0', 10);
-              return Number.isFinite(z) ? Math.max(max, z) : max;
-            }, 1000);
-            setOverlayZIndex(maxZ + 20);
-            // Expose a global override that ConsolePanel reads to set z-index in the portal
-            // This avoids passing additional props down and keeps the portal self-contained.
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            window.__SE_CAN_CONSOLE_Z_INDEX__ = maxZ + 20;
-          } catch (e) {
-            setOverlayZIndex(11000);
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            window.__SE_CAN_CONSOLE_Z_INDEX__ = 11000;
+            notifications.show({ title: 'Console (detached)', message: 'Opened console in detached mode because a modal is active', color: 'blue' });
           }
 
-          notifications.show({ title: 'Console (detached)', message: 'Opened console in detached mode because a modal is active', color: 'blue' });
-
-          // Watch for modal removal to revert detached state
-          if (!observerRef.current) {
-            observerRef.current = new MutationObserver(() => {
-              if (!isAnyModalOpen() && wasDetachedDueToModalRef.current) {
-                // Revert detached state to previous preference
-                const prev = previousDetachedStateRef.current;
-                if (prev !== null && prev !== undefined) {
-                  setIsDetached(prev);
-                }
-                wasDetachedDueToModalRef.current = false;
-                previousDetachedStateRef.current = null;
-                if (observerRef.current) {
-                  observerRef.current.disconnect();
-                  observerRef.current = null;
-                }
-                setOverlayZIndex(undefined);
-                // clean up global override
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                delete (window as any).__SE_CAN_CONSOLE_Z_INDEX__;
-              }
-            });
-            observerRef.current.observe(document.body, { childList: true, subtree: true });
-          }
+          // While modals are active, we don't toggle the sidebar console here.
           return;
         }
 
+        // If no modal and console is pinned, disable the shortcut
+        const pinned = currentStateRef.current?.stickyMode ?? false;
+        if (pinned) return;
+
+        // Otherwise toggle the console normally
         togglePanel();
       }
     };
@@ -490,7 +555,7 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
     // Use capture phase to ensure this handler runs before modal handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [togglePanel]);
+  }, [togglePanel, setManagerOverlayZIndex]);
 
   /**
    * Cleanup timeout on unmount

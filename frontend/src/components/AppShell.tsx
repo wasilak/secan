@@ -39,6 +39,7 @@ import { RefreshControl } from './RefreshControl';
 import { DrawerControls } from './DrawerControls';
 import { ConsolePanel } from './ConsolePanel';
 import { ConsolePanelProvider } from '../contexts/ConsolePanelContext';
+import { ModalManagerProvider } from '../contexts/ModalManagerContext';
 import { ConsoleModal } from './ConsoleModal';
 import { apiClient } from '../api/client';
 import { useRefreshInterval } from '../contexts/RefreshContext';
@@ -722,7 +723,8 @@ export function AppShell() {
   };
 
   return (
-    <ConsolePanelProvider>
+    <ModalManagerProvider>
+      <ConsolePanelProvider>
       <MantineAppShell
         header={{ height: { base: 56, sm: 60 } }}
         navbar={
@@ -842,8 +844,7 @@ export function AppShell() {
         
         {/* Console Modal - renders when console is in detached mode */}
         <ConsoleModal />
-      </MantineAppShell>
-
+        </MantineAppShell>
       {/* Drawer Navigation (when not pinned) */}
       <Drawer
         opened={drawerOpened && !isPinned}
@@ -910,6 +911,7 @@ export function AppShell() {
           </div>
         </div>
       </Drawer>
-    </ConsolePanelProvider>
+      </ConsolePanelProvider>
+    </ModalManagerProvider>
   );
 }

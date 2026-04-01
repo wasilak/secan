@@ -416,7 +416,7 @@ export function CanvasTopologyView({
       onDestinationClick,
       getIndexHealthColor,
     });
-  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
+  }, [nodes, filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
   console.debug(
     'CanvasTopologyView layoutNodes onNodeClick present?',

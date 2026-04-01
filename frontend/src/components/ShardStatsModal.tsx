@@ -1,7 +1,8 @@
-import { Modal, Stack, Group, Text, Badge, Table, Box, Loader, Alert } from '@mantine/core';
+import { Stack, Group, Text, Badge, Table, Box, Loader, Alert } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManagedModal } from './ManagedModal';
 import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
 import { DURATIONS, EASINGS } from '../lib/transitions';
@@ -210,7 +211,7 @@ export function ShardStatsModal({
   return (
     <AnimatePresence>
       {opened && (
-        <Modal
+        <ManagedModal
           opened={opened}
           onClose={onClose}
           zIndex={isLayered ? 300 : 200}
@@ -226,7 +227,6 @@ export function ShardStatsModal({
           }
           size="lg"
           centered
-
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -439,8 +439,8 @@ export function ShardStatsModal({
           </Box>
         )}
             </Stack>
-          </motion.div>
-        </Modal>
+            </motion.div>
+        </ManagedModal>
       )}
     </AnimatePresence>
   );

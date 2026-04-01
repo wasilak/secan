@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Stack, LoadingOverlay, Alert, Button, Group, Modal, Text, Grid } from '@mantine/core';
+import { Stack, Alert, Button, Group, Modal, Text, Grid, Table } from '@mantine/core';
 import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { TaskDetailsModal } from './TaskDetailsModal';
 import { TaskStatsCards } from './TaskStatsCards';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
+import TableSkeleton from './TableSkeleton';
 
 /**
  * Tasks tab container component
@@ -238,10 +239,25 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
               </Group>
             )}
 
-            {/* Table with Loading Overlay */}
+            {/* Table or skeleton while loading */}
             <div style={{ position: 'relative' }}>
-              <LoadingOverlay visible={isLoading} zIndex={1000} />
-              {sortedTasks.length === 0 ? (
+              {isLoading ? (
+                <Table striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ width: '2.5rem' }} />
+                      <Table.Th>Node ID</Table.Th>
+                      <Table.Th>Task ID</Table.Th>
+                      <Table.Th>Type</Table.Th>
+                      <Table.Th>Action</Table.Th>
+                      <Table.Th>Start Time</Table.Th>
+                      <Table.Th>Running Time</Table.Th>
+                      <Table.Th>Cancellable</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <TableSkeleton columnCount={8} rowCount={6} />
+                </Table>
+              ) : sortedTasks.length === 0 ? (
                 <Text c="dimmed" ta="center" py="xl">
                   No tasks match your filters
                 </Text>

@@ -1,6 +1,7 @@
 import { Box, BoxProps } from '@mantine/core';
 import { ReactNode, useMemo, memo } from 'react';
 import { useDrawer } from '../contexts/DrawerContext';
+import { useConsolePanel } from '../contexts/ConsolePanelContext';
 
 /**
  * FullWidthContainer component provides a full-width layout with responsive padding
@@ -49,6 +50,23 @@ export const FullWidthContainer = memo(function FullWidthContainer({
 }: FullWidthContainerProps) {
   const { isPinned, drawerWidth } = useDrawer();
 
+  // Attempt to read console pinned state to account for a pinned console reducing
+  // available content width. The ConsolePanelProvider may not be present in some
+  // test renderers, so we call the hook inside a try/catch and fall back to
+  // "no pinned console" when the hook isn't available.
+  let consolePinned = false;
+  let consoleWidthPx = 0;
+  try {
+    const consoleCtx = useConsolePanel();
+    consolePinned = consoleCtx.isSticky;
+    consoleWidthPx = consoleCtx.width;
+  } catch {
+    // Not within ConsolePanelProvider - tests or other consumers may render this
+    // component standalone. In that case, behave as if no console is pinned.
+    consolePinned = false;
+    consoleWidthPx = 0;
+  }
+
   // Memoize default padding to avoid recreation on every render
   const defaultPadding = useMemo(
     () => ({
@@ -69,19 +87,26 @@ export const FullWidthContainer = memo(function FullWidthContainer({
     if (constrainToParent) {
       return '100%';
     }
-    if (!isPinned) {
+    if (!isPinned && !consolePinned) {
       return '100%';
     }
-    return `calc(100vw - ${drawerWidth.base}px)`;
-  }, [constrainToParent, isPinned, drawerWidth.base]);
+
+    // Subtract pinned drawer and/or pinned console widths from viewport
+    const leftDrawer = isPinned ? drawerWidth.base : 0;
+    const rightConsole = consolePinned ? consoleWidthPx : 0;
+    return `calc(100vw - ${leftDrawer}px - ${rightConsole}px)`;
+  }, [constrainToParent, isPinned, drawerWidth.base, consolePinned, consoleWidthPx]);
 
   // Memoize max width calculation
   const calculatedMaxWidth = useMemo(() => {
     if (constrainToParent) {
       return '100%';
     }
-    return isPinned ? `calc(100vw - ${drawerWidth.base}px)` : '100%';
-  }, [constrainToParent, isPinned, drawerWidth.base]);
+    if (!isPinned && !consolePinned) return '100%';
+    const leftDrawer = isPinned ? drawerWidth.base : 0;
+    const rightConsole = consolePinned ? consoleWidthPx : 0;
+    return `calc(100vw - ${leftDrawer}px - ${rightConsole}px)`;
+  }, [constrainToParent, isPinned, drawerWidth.base, consolePinned, consoleWidthPx]);
 
   // Memoize padding style
   const paddingStyle = useMemo(() => {
@@ -120,10 +145,14 @@ export const FullWidthContainer = memo(function FullWidthContainer({
   return (
     <Box
       {...boxProps}
+      className="fullwidth-container"
+      data-console-pinned={consolePinned}
       style={combinedStyle}
       p={typeof resolvedPadding === 'object' ? resolvedPadding : undefined}
     >
-      {children}
+      <div className="fullwidth-container-inner" style={{ width: '100%' }}>
+        {children}
+      </div>
     </Box>
   );
 });

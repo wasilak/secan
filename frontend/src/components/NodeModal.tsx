@@ -2,6 +2,7 @@ import { Modal, Group, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManagedModalRoot } from './ManagedModalRoot';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
@@ -143,7 +144,7 @@ export function NodeModal({
   return (
     <AnimatePresence>
       {opened && (
-        <Modal.Root opened={opened} onClose={onClose} size="90%" zIndex={zIndex}>
+        <ManagedModalRoot opened={opened} onClose={onClose} size="90%" zIndex={zIndex}>
           <Modal.Overlay />
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -208,8 +209,8 @@ export function NodeModal({
                 )}
               </Modal.Body>
             </Modal.Content>
-          </motion.div>
-        </Modal.Root>
+            </motion.div>
+        </ManagedModalRoot>
       )}
     </AnimatePresence>
   );

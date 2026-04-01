@@ -70,6 +70,7 @@ import { TIME_RANGE_PRESETS } from '../components/TimeRangePicker';
 import { ShardStatsCards } from '../components/ShardStatsCards';
 import { sortNodesMasterFirst } from '../utils/node-sorting';
 import { TablePagination } from '../components/TablePagination';
+import TableSkeleton from '../components/TableSkeleton';
 import { MasterIndicator } from '../components/MasterIndicator';
 import { RoleIcons } from '../components/RoleIcons';
 import { BulkOperationsMenu } from '../components/BulkOperationsMenu';
@@ -1609,12 +1610,83 @@ export const NodesList = memo(function NodesList({
     return sorted;
   }, [filteredNodes, nodesSortColumn, nodesSortDirection]);
 
-  if (loading && !nodes) {
+  // While the query is loading, render table skeleton rows but keep headers and
+  // surrounding controls visible. Do not show "No data" until loading finishes.
+  if (loading) {
     return (
-      <Stack gap="xs">
-        <Skeleton height={60} radius="sm" />
-        <Skeleton height={60} radius="sm" />
-        <Skeleton height={60} radius="sm" />
+      <Stack gap="md">
+        {!hideStats && <NodeStatsCards nodes={[]} />}
+
+        <Card shadow="sm" padding="lg">
+          <ScrollArea w="100%">
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="name"
+                      label="Name"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                  {expandedView && <Table.Th>Node ID</Table.Th>}
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="roles"
+                      label="Roles"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>Version</Table.Th>
+                  {expandedView && <Table.Th>IP Address</Table.Th>}
+                  {expandedView && <Table.Th>Tags</Table.Th>}
+                  <Table.Th>Load</Table.Th>
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="uptime"
+                      label="Uptime"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="heap"
+                      label="Heap Usage"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="disk"
+                      label="Disk Usage"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <NodesSortableHeader
+                      column="cpu"
+                      label="CPU"
+                      sortColumn={nodesSortColumn}
+                      sortDirection={nodesSortDirection}
+                      onSort={handleNodesSortColumn}
+                    />
+                  </Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <TableSkeleton columnCount={expandedView ? 12 : 9} rowCount={6} />
+            </Table>
+          </ScrollArea>
+        </Card>
       </Stack>
     );
   }
@@ -1631,7 +1703,7 @@ export const NodesList = memo(function NodesList({
   // Only show "No nodes found" if there are truly no nodes AND no filters active
   const hasActiveFilters = searchQuery || selectedRoles.length < availableRoles.length;
 
-  if ((!nodes || nodes.length === 0) && !hasActiveFilters && !loading) {
+  if ((!nodes || nodes.length === 0) && !hasActiveFilters) {
     return <Text c="dimmed">No nodes found</Text>;
   }
 
@@ -2398,12 +2470,47 @@ export const IndicesList = memo(function IndicesList({
     return indicesSortDirection === 'asc' ? compareResult : -compareResult;
   });
 
+  // When loading, keep the table header and controls visible but render
+  // skeleton rows in the tbody. This prevents flashing "No data" when
+  // callers pass an empty array while the query is still in-flight.
   if (loading && !indices) {
     return (
-      <Stack gap="xs">
-        <Skeleton height={60} radius="sm" />
-        <Skeleton height={60} radius="sm" />
-        <Skeleton height={60} radius="sm" />
+      <Stack gap="md">
+        {count > 0 && (
+          <Group justify="space-between" p="md" style={{ backgroundColor: 'var(--mantine-color-blue-light)', borderRadius: '0.5rem' }}>
+            <Text size="sm" fw={500}>
+              {count} index{count !== 1 ? 's' : ''} selected
+            </Text>
+            <BulkOperationsMenu
+              selectedIndices={selectedIndices}
+              indices={indices || []}
+              onOperationSelect={handleBulkOperationSelect}
+            />
+          </Group>
+        )}
+
+        <Card shadow="sm" padding="lg">
+          <ScrollArea w="100%">
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>
+                    <Checkbox aria-label="Select all indices" />
+                  </Table.Th>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Health</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Documents</Table.Th>
+                  <Table.Th>Size</Table.Th>
+                  <Table.Th>Shards</Table.Th>
+                  <Table.Th>Unassigned</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <TableSkeleton columnCount={9} rowCount={6} />
+            </Table>
+          </ScrollArea>
+        </Card>
       </Stack>
     );
   }
@@ -2416,6 +2523,7 @@ export const IndicesList = memo(function IndicesList({
     );
   }
 
+  // Render table normally; show empty table + message when no indices.
   return (
     <Stack gap="md">
       {/* Bulk operations bar - shown when indices are selected */}
@@ -2433,72 +2541,77 @@ export const IndicesList = memo(function IndicesList({
       )}
 
       {/* Always show table with filters - even if no indices match */}
-      <Card shadow="sm" padding="lg">
-        <ScrollArea w="100%">
-          <Table striped highlightOnHover>
-          <Table.Thead>
-              <Table.Tr>
-                <Table.Th>
-                  <Checkbox
-                    aria-label="Select all indices"
-                    checked={count > 0 && count === sortedIndices.length}
-                    indeterminate={count > 0 && count < sortedIndices.length}
-                    onChange={handleBulkSelectAll}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </Table.Th>
-                <Table.Th>
-                  <SortableHeader
-                    column="name"
-                    label="Name"
-                    sortColumn={indicesSortColumn}
-                    sortDirection={indicesSortDirection}
-                    onSort={handleIndicesSortColumn}
-                  />
-                </Table.Th>
-                <Table.Th>
-                  <SortableHeader
-                    column="health"
-                    label="Health"
-                    sortColumn={indicesSortColumn}
-                    sortDirection={indicesSortDirection}
-                    onSort={handleIndicesSortColumn}
-                  />
-                </Table.Th>
-                <Table.Th>
-                  <SortableHeader
-                    column="status"
-                    label="Status"
-                    sortColumn={indicesSortColumn}
-                    sortDirection={indicesSortDirection}
-                    onSort={handleIndicesSortColumn}
-                  />
-                </Table.Th>
-                <Table.Th>
-                  <SortableHeader
-                    column="documents"
-                    label="Documents"
-                    sortColumn={indicesSortColumn}
-                    sortDirection={indicesSortDirection}
-                    onSort={handleIndicesSortColumn}
-                  />
-                </Table.Th>
-                <Table.Th>
-                  <SortableHeader
-                    column="size"
-                    label="Size"
-                    sortColumn={indicesSortColumn}
-                    sortDirection={indicesSortDirection}
-                    onSort={handleIndicesSortColumn}
-                  />
-                </Table.Th>
-                <Table.Th>Shards</Table.Th>
-                <Table.Th>Unassigned</Table.Th>
-                <Table.Th>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {sortedIndices.map((index) => {
+        <Card shadow="sm" padding="lg">
+          <ScrollArea w="100%">
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>
+                    <Checkbox
+                      aria-label="Select all indices"
+                      checked={count > 0 && count === sortedIndices.length}
+                      indeterminate={count > 0 && count < sortedIndices.length}
+                      onChange={handleBulkSelectAll}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader
+                      column="name"
+                      label="Name"
+                      sortColumn={indicesSortColumn}
+                      sortDirection={indicesSortDirection}
+                      onSort={handleIndicesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader
+                      column="health"
+                      label="Health"
+                      sortColumn={indicesSortColumn}
+                      sortDirection={indicesSortDirection}
+                      onSort={handleIndicesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader
+                      column="status"
+                      label="Status"
+                      sortColumn={indicesSortColumn}
+                      sortDirection={indicesSortDirection}
+                      onSort={handleIndicesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader
+                      column="documents"
+                      label="Documents"
+                      sortColumn={indicesSortColumn}
+                      sortDirection={indicesSortDirection}
+                      onSort={handleIndicesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>
+                    <SortableHeader
+                      column="size"
+                      label="Size"
+                      sortColumn={indicesSortColumn}
+                      sortDirection={indicesSortDirection}
+                      onSort={handleIndicesSortColumn}
+                    />
+                  </Table.Th>
+                  <Table.Th>Shards</Table.Th>
+                  <Table.Th>Unassigned</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+
+              {/* If loading, show table skeleton rows. Otherwise render rows. */}
+              {loading ? (
+                <TableSkeleton columnCount={9} rowCount={6} />
+              ) : (
+                <Table.Tbody>
+                  {sortedIndices.map((index) => {
                 const unassignedCount = unassignedByIndex[index.name]?.length || 0;
                 const hasUnassigned = unassignedCount > 0;
 
@@ -2690,6 +2803,7 @@ export const IndicesList = memo(function IndicesList({
                 );
               })}
             </Table.Tbody>
+          )}
           </Table>
         </ScrollArea>
       </Card>
@@ -3106,9 +3220,38 @@ export const ShardsList = memo(function ShardsList({
 
   if (loading && !shards) {
     return (
-      <Stack gap="xs">
-        <Skeleton height={40} radius="sm" />
-        <Skeleton height={200} radius="sm" />
+      <Stack gap="md">
+        {!hideStats && (
+          <ShardStatsCards
+            stats={{
+              totalShards: 0,
+              primaryShards: 0,
+              replicaShards: 0,
+              unassignedShards: 0,
+              relocatingShards: 0,
+              initializingShards: 0,
+            }}
+          />
+        )}
+
+        <Card shadow="sm" padding="lg">
+          <ScrollArea w="100%">
+            <Table striped highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Index</Table.Th>
+                  <Table.Th>Shard</Table.Th>
+                  <Table.Th>Type</Table.Th>
+                  <Table.Th>State</Table.Th>
+                  <Table.Th>Node</Table.Th>
+                  <Table.Th>Documents</Table.Th>
+                  <Table.Th>Size</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <TableSkeleton columnCount={7} rowCount={8} />
+            </Table>
+          </ScrollArea>
+        </Card>
       </Stack>
     );
   }

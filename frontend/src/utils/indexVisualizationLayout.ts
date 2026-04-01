@@ -21,7 +21,7 @@ import { computeHeapPercent, getHeapColor } from './heap';
 import { getShardDotColor } from './colors';
 import { formatBytes } from '../utils/formatters';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
-import { GROUP_WIDTH, estimateGroupMinWidth } from './canvasLayout';
+import { estimateGroupMinWidth } from './canvasLayout';
 
 // Simple width estimator for the index header node based on text lengths.
 function estimateIndexNodeWidth(indexName: string, total: number, primary: number, replica: number): number {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Modal, Stack, Text, Group, Button, Badge, ScrollArea, Box, Divider } from '@mantine/core';
+import { Stack, Text, Group, Button, Badge, ScrollArea, Box, Divider } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManagedModal } from './ManagedModal';
 import {
   validateBulkOperation,
   getBulkOperationDisplayName,
@@ -114,7 +115,7 @@ export function BulkOperationConfirmModal({
   return (
     <AnimatePresence>
       {opened && (
-        <Modal
+        <ManagedModal
           opened={opened}
           onClose={onClose}
           title={`Bulk ${operationName} Operation`}
@@ -122,7 +123,6 @@ export function BulkOperationConfirmModal({
           size="lg"
           aria-labelledby="bulk-operation-modal-title"
           aria-describedby="bulk-operation-modal-description"
-
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -217,7 +217,7 @@ export function BulkOperationConfirmModal({
         </Group>
             </Stack>
           </motion.div>
-        </Modal>
+        </ManagedModal>
       )}
     </AnimatePresence>
   );

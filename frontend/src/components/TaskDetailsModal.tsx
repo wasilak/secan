@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import type { ReactElement } from 'react';
-import { Modal, Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
+import { Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManagedModal } from './ManagedModal';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
@@ -48,13 +48,16 @@ export function TaskDetailsModal({
   isOpen,
   onClose,
   clusterId,
-}: TaskDetailsModalProps): ReactElement {
+}: TaskDetailsModalProps): React.ReactElement | null {
+  // Hooks must be called unconditionally
   const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // allow null return when no task is provided (handled after hooks)
+
   useEffect(() => {
-    if (!task || !isOpen) {
+    if (!isOpen || !task) {
       return;
     }
 
@@ -65,7 +68,9 @@ export function TaskDetailsModal({
       try {
         setIsLoading(true);
         setError(null);
-        const taskId = `${task.node}:${task.id}`;
+        // Capture current task to avoid TS complaining about potential null
+        const currentTask = task;
+        const taskId = `${currentTask.node}:${currentTask.id}`;
         const response = await apiClient.getTaskDetails(clusterId, taskId);
         if (signal.aborted) return;
         setTaskDetails(response.task);
@@ -88,7 +93,7 @@ export function TaskDetailsModal({
   }, [task, isOpen, clusterId]);
 
   if (!task) {
-    return <Modal opened={false} onClose={onClose} />;
+    return null;
   }
 
   const runningTime = Date.now() - task.start_time_in_millis;
@@ -96,13 +101,12 @@ export function TaskDetailsModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <Modal
+        <ManagedModal
           opened={isOpen}
           onClose={onClose}
           title={`Task Details: ${task.id}`}
           size="xl"
           centered
-
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -215,8 +219,8 @@ export function TaskDetailsModal({
           </Tabs>
         ) : null}
             </Stack>
-          </motion.div>
-        </Modal>
+            </motion.div>
+        </ManagedModal>
       )}
     </AnimatePresence>
   );

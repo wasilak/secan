@@ -1,7 +1,8 @@
 import React from 'react';
-import { Modal, Text, Button, Group, Stack, Box, Alert } from '@mantine/core';
+import { Text, Button, Group, Stack, Box, Alert } from '@mantine/core';
 import { IconAlertTriangle, IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ManagedModal } from './ManagedModal';
 import type { ShardInfo, NodeWithShards } from '../types/api';
 import { DURATIONS, EASINGS } from '../lib/transitions';
 
@@ -87,7 +88,7 @@ export function RelocationConfirmDialog({
   opened,
   onClose,
   onConfirm,
-}: RelocationConfirmDialogProps): React.JSX.Element {
+}: RelocationConfirmDialogProps): React.ReactElement | null {
   const [loading, setLoading] = React.useState(false);
   const [validationError, setValidationError] = React.useState<string | null>(null);
 
@@ -122,20 +123,13 @@ export function RelocationConfirmDialog({
 
   // Don't render if required data is missing
   if (!shard || !sourceNode || !destinationNode) {
-    return <></>;
+    return null;
   }
 
   return (
     <AnimatePresence>
       {opened && (
-        <Modal
-          opened={opened}
-          onClose={onClose}
-          title="Confirm Shard Relocation"
-          size="md"
-          centered
-
-        >
+        <ManagedModal opened={opened} onClose={onClose} title="Confirm Shard Relocation" size="md" centered>
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -279,8 +273,8 @@ export function RelocationConfirmDialog({
           </Button>
         </Group>
             </Stack>
-          </motion.div>
-        </Modal>
+            </motion.div>
+        </ManagedModal>
       )}
     </AnimatePresence>
   );
