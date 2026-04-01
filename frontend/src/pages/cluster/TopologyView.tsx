@@ -13,13 +13,15 @@ import type { GroupingAttribute, GroupingConfig } from '../../utils/topologyGrou
 import type { ModalData } from '../../hooks/useModalStack';
 import { extractLabelFromTag } from '../../utils/topologyGrouping';
 import { SHARD_STATE_COLORS, getShardTypeColor } from '../../utils/colors';
-import type { NodeInfo, ShardInfo, IndexInfo } from '../../types/api';
+import type { NodeInfo, ShardInfo, IndexInfo, NodeShardSummary } from '../../types/api';
 import { GroupingControl } from '../../components/Topology/GroupingControl';
 
 interface TopologyViewProps {
   allNodesArray: NodeInfo[];
   allIndicesArray: IndexInfo[] | undefined;
   allShards: ShardInfo[] | undefined;
+  /** Per-node shard count summary for the canvas view (no full ShardInfo objects). */
+  shardSummary?: NodeShardSummary[];
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams, options?: { replace?: boolean }) => void;
   topologyViewType: 'node' | 'index' | 'canvas';
@@ -70,6 +72,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     allNodesArray,
     allIndicesArray,
     allShards,
+    shardSummary,
     searchParams,
     setSearchParams,
     topologyViewType,
@@ -262,7 +265,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             ) : topologyViewType === 'canvas' ? (
               <CanvasTopologyView
                 nodes={allNodesArray}
-                shards={allShards || []}
+                shardSummary={shardSummary ?? []}
                 indices={allIndicesArray || []}
                 searchParams={searchParams}
                 onShardClick={handleTopologyShardClick}

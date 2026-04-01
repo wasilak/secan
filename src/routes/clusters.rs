@@ -21,10 +21,11 @@ pub mod transform;
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
-    transform_cluster_stats, transform_indices_from_cat, transform_node_detail_stats,
-    transform_nodes, transform_routing_nodes_to_shards, transform_shards, ClusterStatsResponse,
-    IndexInfoResponse, NodeDetailStatsResponse, NodeInfoResponse, PaginatedShardsResponse,
-    PaginatedShardsWithNodes, ShardInfoResponse,
+    aggregate_shards_by_node, transform_cluster_stats, transform_indices_from_cat,
+    transform_node_detail_stats, transform_nodes, transform_routing_nodes_to_shards,
+    transform_shards, ClusterStatsResponse, IndexInfoResponse, NodeDetailStatsResponse,
+    NodeInfoResponse, NodeShardSummary, PaginatedShardsResponse, PaginatedShardsWithNodes,
+    ShardInfoResponse,
 };
 
 /// Shared application state for cluster routes
@@ -2449,6 +2450,81 @@ pub async fn get_shards(
     let response = PaginatedShardsWithNodes::new(&paginated_shards, nodes_vec);
 
     Ok(Json(response))
+}
+
+/// Get per-node shard count summary for a cluster
+///
+/// Returns a lightweight summary of primary, replica, and unassigned shard counts
+/// per node. Uses a single `_cat/shards` call and aggregates client-side.
+/// Does not return individual shard objects — use `/nodes/{node_id}/shards` for that.
+///
+/// # Requirements
+///
+/// Validates: Requirements 4.9
+#[utoipa::path(
+    get,
+    path = "/clusters/{cluster_id}/nodes/shard-summary",
+    params(
+        ("cluster_id" = String, Path, description = "Cluster ID")
+    ),
+    responses(
+        (status = 200, body = Vec<NodeShardSummary>),
+        (status = 400, body = ClusterErrorResponse),
+        (status = 401, body = ClusterErrorResponse),
+        (status = 404, body = ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
+#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+pub async fn get_nodes_shard_summary(
+    State(state): State<ClusterState>,
+    Path(cluster_id): Path<String>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+) -> Result<Json<Vec<NodeShardSummary>>, ClusterErrorResponse> {
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        "Getting per-node shard summary"
+    );
+
+    check_cluster_access(&cluster_id, &user_ext)?;
+
+    let cluster = state
+        .cluster_manager
+        .get_cluster(&cluster_id)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                cluster_id = %cluster_id,
+                error = %e,
+                "Cluster not found"
+            );
+            ClusterErrorResponse {
+                error: "cluster_not_found".to_string(),
+                message: format!("Cluster '{}' not found: {}", cluster_id, e),
+            }
+        })?;
+
+    let shards_data = cluster.cat_shards().await.map_err(|e| {
+        tracing::error!(
+            cluster_id = %cluster_id,
+            error = %e,
+            "Failed to fetch cat shards for shard summary"
+        );
+        ClusterErrorResponse {
+            error: "shards_failed".to_string(),
+            message: format!("Failed to get shard information: {}", e),
+        }
+    })?;
+
+    let summary = aggregate_shards_by_node(&shards_data);
+
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        node_count = summary.len(),
+        "Per-node shard summary retrieved successfully"
+    );
+
+    Ok(Json(summary))
 }
 
 /// Get shards allocated on a specific node

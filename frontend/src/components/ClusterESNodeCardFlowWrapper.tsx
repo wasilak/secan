@@ -1,5 +1,6 @@
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, useStore } from '@xyflow/react';
 import ClusterESNodeCard from './ClusterESNodeCard';
+import ShardPills from './ShardPills';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { computeHeapPercent, getHeapColor } from '../utils/heap';
 import { formatBytes } from '../utils/formatters';
@@ -8,6 +9,8 @@ import { getUnassignedShardColor, getShardDotColor } from '../utils/colors';
 import type { ShardInfo, NodeInfo } from '../types/api';
 
 export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeDataFlat }) {
+  // useStore must be called unconditionally before any early returns (React hooks rule).
+  const isL0 = useStore((s) => s.transform[2] <= 0.85);
   const data = props.data as unknown as Record<string, unknown> | null;
   if (!data) {
      
@@ -16,6 +19,34 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       throw new Error('ClusterESNodeCardFlowWrapper received no data');
     }
     return <></>;
+  }
+
+  // L0: compact glyph — name + shard pills footer, no inner borders.
+  // Avoids rendering the full card at very low zoom levels.
+  if (isL0) {
+    const counts = data['summaryCounts'] as { primary?: number; replica?: number; total?: number } | undefined;
+    const total = counts?.total ?? 0;
+    const primary = counts?.primary;
+    const replica = counts?.replica;
+    const name =
+      (data['name'] as string | undefined) ??
+      ((data['node'] as { name?: string } | undefined)?.name) ??
+      '...';
+    return (
+      <div style={{
+        width: 200,
+        padding: '8px 10px',
+        boxSizing: 'border-box',
+        borderRadius: 8,
+        backgroundColor: 'var(--mantine-color-body)',
+        border: '1px solid var(--mantine-color-default-border)',
+      }}>
+        <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
+        <div style={{ fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 6 }}>{name}</div>
+        <ShardPills total={total} primary={primary} replica={replica} size="xs" />
+        <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
+      </div>
+    );
   }
 
   // Compatibility: index visualization emits { node, shards, onShardClick, getIndexHealthColor }

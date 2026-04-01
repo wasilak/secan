@@ -24,6 +24,7 @@ export const queryKeys = {
     nodes: (page?: number, perPage?: number, filters?: string | object) => ['cluster', id, 'nodes', page, perPage, filters] as const,
     indices: (page?: number, filters?: string | object, all?: boolean) => ['cluster', id, 'indices', page, filters, all] as const,
     shards: (page?: number, filters?: string | object, indexName?: string) => ['cluster', id, 'shards', page, filters, indexName] as const,
+    nodeShardSummary: () => ['cluster', id, 'nodes', 'shard-summary'] as const,
     snapshots: (repository?: string) => ['cluster', id, 'snapshots', repository] as const,
     tasks: (filters?: string | object) => ['cluster', id, 'tasks', filters] as const,
     templates: () => ['cluster', id, 'templates'] as const,

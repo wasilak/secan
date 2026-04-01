@@ -294,6 +294,11 @@ impl Server {
                 "/api/clusters/{id}/nodes/{node_id}/shards",
                 get(crate::routes::clusters::get_node_shards),
             )
+            // Lightweight per-node shard count summary
+            .route(
+                "/api/clusters/{id}/nodes/shard-summary",
+                get(crate::routes::clusters::get_nodes_shard_summary),
+            )
             // Shard relocation endpoint
             .route(
                 "/api/clusters/{id}/shards/relocate",

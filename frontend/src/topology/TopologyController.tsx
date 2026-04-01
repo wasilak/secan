@@ -5,26 +5,11 @@ import TileCache from './tileCache';
 import RevalidationCoordinator from './revalidationCoordinator';
 import type { TileKey, LOD } from './types';
 import TOPOLOGY_CONFIG from '../config/topologyConfig';
-import { GROUP_WIDTH, ESTIMATED_GROUP_HEIGHT } from '../utils/canvasLayout';
 
-// Exported for unit testing: determine whether L2 should be allowed given zoom and
-// viewport size. Conservative: counts partially visible nodes using Math.ceil.
-export function determineAllowedLod(zoom: number, viewportWidth: number, viewportHeight: number, baseLod: LOD): LOD {
-  let lod: LOD = baseLod;
-  if (lod === 'L2') {
-    try {
-      const w = viewportWidth / Math.max(0.0001, zoom);
-      const h = viewportHeight / Math.max(0.0001, zoom);
-      const estCols = Math.ceil(w / GROUP_WIDTH);
-      const estRows = Math.ceil(h / ESTIMATED_GROUP_HEIGHT);
-      const estCapacity = Math.max(1, estCols * estRows);
-      if (estCapacity > 1) lod = 'L1';
-    } catch (_err) {
-      void _err;
-      lod = 'L1';
-    }
-  }
-  return lod;
+// Exported for unit testing: pass baseLod through unchanged.
+// The backend controls what shard data to send per LOD; no client-side capacity guard needed.
+export function determineAllowedLod(_zoom: number, _viewportWidth: number, _viewportHeight: number, baseLod: LOD): LOD {
+  return baseLod;
 }
 
 export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: unknown[]) => void }) {
@@ -124,6 +109,23 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
           else if (tileShardsMap && nodeId && Array.isArray(tileShardsMap[nodeId])) nodeShards = tileShardsMap[nodeId];
           else if (tileShardsMap && nodeName && Array.isArray(tileShardsMap[nodeName])) nodeShards = tileShardsMap[nodeName];
 
+          // Fallback: node was found in a ring tile (LOD=L1, no shards map).
+          // Scan all subscribed L2 tiles for a shards entry keyed by this node's
+          // id or name. This handles the case where the viewport center tile does
+          // not geometrically contain the node (backend positions nodes starting
+          // at world (0,0) in 64px increments, independent of frontend canvas
+          // coords), so the node is only present in a ring tile at L1.
+          if (nodeShards === undefined) {
+            for (const otherTile of subTiles) {
+              if (otherTile.lod !== 'L2') continue;
+              const otherP = tileCacheRef.current?.get(otherTile as TileKey);
+              const otherShardsMap = otherP?.shards as Record<string, unknown[]> | undefined;
+              if (!otherShardsMap) continue;
+              if (nodeId && Array.isArray(otherShardsMap[nodeId])) { nodeShards = otherShardsMap[nodeId]; break; }
+              if (nodeName && Array.isArray(otherShardsMap[nodeName])) { nodeShards = otherShardsMap[nodeName]; break; }
+            }
+          }
+
           const summaryCounts = (typeof n.summaryCounts === 'object' && n.summaryCounts)
             ? n.summaryCounts
             : (nodeShards && nodeShards.length > 0)
@@ -136,7 +138,11 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
             })()
             : undefined;
 
-          // Transform tile node payload into React Flow node shape
+          // Transform tile node payload into React Flow node shape.
+          // Only include `shards` key when shards are actually resolved — if we
+          // always set `shards: undefined`, the `hasOwnProperty` guard in
+          // CanvasTopologyView would pass (key present) but the `!== undefined`
+          // check would block the merge, so shards would never reach the card.
           const flowNode = {
             id,
             position: { x: nx ?? 0, y: ny ?? 0 },
@@ -147,7 +153,7 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
                 version: typeof n.version === 'string' ? n.version : undefined,
                 ip: typeof n.ip === 'string' ? n.ip : undefined,
               },
-              shards: nodeShards,
+              ...(nodeShards !== undefined ? { shards: nodeShards } : {}),
               summaryCounts,
               __raw: n,
             },

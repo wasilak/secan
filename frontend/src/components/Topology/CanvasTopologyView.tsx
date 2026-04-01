@@ -18,13 +18,10 @@ import {
 import '@xyflow/react/dist/style.css';
 import '../../styles/reactflow-overrides.css';
 import { Box, Skeleton } from '@mantine/core';
-import type { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
+import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
-// Debug: ensure wrapper imported
-console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
-import { calculateCanvasLayout, UNASSIGNED_KEY, estimateGroupMinWidth } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, estimateGroupMinWidth } from '../../utils/canvasLayout';
 import TOPOLOGY_CONFIG from '../../config/topologyConfig';
-import { sortShards } from '../../utils/shardOrdering';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -55,7 +52,12 @@ interface CanvasTopologyViewProps {
   onNodeDragStart?: () => void;
   onNodeDragStop?: () => void;
   nodes: NodeInfo[];
-  shards: ShardInfo[];
+  /**
+   * Per-node shard count summary from the lightweight shard-summary endpoint.
+   * Used for badge totals at L0/L1 zoom. Full shard arrays are provided by the
+   * tile system at L2 zoom. No full ShardInfo[] is needed here.
+   */
+  shardSummary?: NodeShardSummary[];
   indices: IndexInfo[];
   searchParams: URLSearchParams;
   onShardClick?: (shard: ShardInfo, event: React.MouseEvent) => void;
@@ -278,16 +280,16 @@ export function CanvasTopologyView({
   onNodeDragStart,
   onNodeDragStop,
   nodes = [],
-  shards = [],
+  shardSummary = [],
   indices = [],
-  searchParams,
+  searchParams: _searchParams,
   onShardClick,
   onNodeClick,
   onPaneClick,
   relocationMode,
   validDestinationNodes,
   onDestinationClick,
-  indexNameFilter,
+  indexNameFilter: _indexNameFilter,
   nodeNameFilter,
   matchesWildcard,
   isLoading = false,
@@ -325,153 +327,33 @@ export function CanvasTopologyView({
     return nodes.filter((node) => matchesWildcard(node.name, nodeNameFilter));
   }, [nodes, matchesWildcard, nodeNameFilter]);
 
-  // ── Filter: indices (mirror DotBasedTopologyView) ─────────────────────────
-  const filteredIndices = useMemo(() => {
-    const showClosed  = searchParams.get('showClosed')  === 'true';
-    const showSpecial = searchParams.get('showSpecial') === 'true';
-    return indices.filter((index) => {
-      if (indexNameFilter && matchesWildcard && !matchesWildcard(index.name, indexNameFilter)) return false;
-      if (!showClosed  && index.status !== 'open')        return false;
-      if (!showSpecial && index.name.startsWith('.'))     return false;
-      return true;
-    });
-  }, [indices, indexNameFilter, matchesWildcard, searchParams]);
-
-  // ── Filter: shard states ──────────────────────────────────────────────────
-  const selectedShardStates = useMemo(() => {
-    const ALL = ['STARTED', 'UNASSIGNED', 'INITIALIZING', 'RELOCATING'] as const;
-    const param = searchParams.get('shardStates');
-    return param ? param.split(',').filter(Boolean) : Array.from(ALL);
-  }, [searchParams]);
-
-  // ── shardsByNode map ──────────────────────────────────────────────────────
-  const shardsByNode = useMemo(() => {
-    const filteredSet = new Set(filteredIndices.map((i) => i.name));
-    const filtered = sortShards(
-      shards.filter((shard) => {
-        if (shard.state === 'RELOCATING') return filteredSet.has(shard.index);
-        if (!selectedShardStates.includes(shard.state)) return false;
-        if (!filteredSet.has(shard.index)) return false;
-        return true;
-      }),
-    );
-    const acc = filtered.reduce((acc, shard) => {
-      const key = shard.node ?? UNASSIGNED_KEY;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(shard);
-      return acc;
-    }, {} as Record<string, ShardInfo[]>);
+  // ── summaryByNode map (from lightweight shard-summary endpoint) ───────────
+  // Maps nodeId → { primary, replica, unassigned, total } for badge fallback
+  // at L0/L1 zoom. No full ShardInfo arrays are ever held in memory here.
+  const summaryByNode = useMemo(() => {
+    const acc: Record<string, NodeShardSummary> = {};
+    for (const summary of shardSummary) {
+      acc[summary.nodeId] = summary;
+      // Also index by nodeName for lookups where only name is available
+      if (summary.nodeName !== summary.nodeId) {
+        acc[summary.nodeName] = summary;
+      }
+    }
     return acc;
-  }, [shards, filteredIndices, selectedShardStates]);
+  }, [shardSummary]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
     // Base layout from authoritative node list to keep node cards present and
     // stable while tile payloads arrive. We'll overlay tile-provided details
     // (shards, summaryCounts, isLoading) onto these base nodes when available.
-
-    // Two-pass layout to preserve global shard totals for nodes that are
-    // not covered by tile-provided nodes. The previous single boolean check
-    // suppressed global totals whenever any tile nodes were present which
-    // produced a mid-state where some nodes lost their shard totals while
-    // other tiles were still loading. We compute a preliminary layout using
-    // global shards to obtain stable positions, then decide per-node whether
-    // to remove global shard totals for nodes covered by tiles (or skeletons),
-    // and finally recompute the layout with the pruned shards map.
-
-    // Preliminary layout using global shards so we can compute node positions
-    const prelimLayout = calculateCanvasLayout({
-      clusterNodes: filteredNodes,
-      shardsByNode,
-      groupingConfig,
-      onNodeClick,
-      onShardClick: onShardClick
-        ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
-        : undefined,
-      relocationMode,
-      validDestinationNodes,
-      onDestinationClick,
-      getIndexHealthColor,
-    });
-
-    // If no tile system is active yet, return the global-shards layout
-    if (!visibleNodesFromTiles) return prelimLayout;
-
-    // Build sets for tile-covered nodes (ids and names) and skeleton tile rects
-    const tileNodeKeys = new Set<string>();
-    const skeletonRects: Array<{ minx: number; miny: number; maxx: number; maxy: number }> = [];
-    const tileSize = TOPOLOGY_CONFIG.TILE_SIZE;
-    for (const tn of visibleNodesFromTiles) {
-      const tid = (tn as any).id as string | undefined;
-      if (typeof tid === 'string' && tid.startsWith('skeleton:')) {
-        const parts = tid.split(':');
-        const tx = Number(parts[1]);
-        const ty = Number(parts[2]);
-        const minx = tx * tileSize;
-        const miny = ty * tileSize;
-        const maxx = minx + tileSize;
-        const maxy = miny + tileSize;
-        skeletonRects.push({ minx, miny, maxx, maxy });
-        continue;
-      }
-
-      // Normal tile node: try to extract id/name from data node payload
-      const existing = (tn as any).data || {};
-      const explicitNode = existing.node as Record<string, unknown> | undefined;
-      if (explicitNode) {
-        const nid = explicitNode.id as string | undefined;
-        const nname = explicitNode.name as string | undefined;
-        if (nid) tileNodeKeys.add(nid);
-        if (nname) tileNodeKeys.add(nname);
-      }
-      // Also consider raw node fields on the tile node object itself
-      const rawNodeId = (tn as any).id as string | undefined;
-      const rawName = (tn as any).name as string | undefined;
-      if (rawNodeId && !rawNodeId.startsWith('skeleton:')) tileNodeKeys.add(rawNodeId);
-      if (rawName) tileNodeKeys.add(rawName);
-    }
-
-    // Build a per-node shards map that keeps global totals only for nodes not
-    // covered by tiles (either explicit tile nodes or skeleton tile areas).
-    const prunedShardsByNode: Record<string, ShardInfo[]> = {};
-    for (const key of Object.keys(shardsByNode)) {
-      const shardList = (shardsByNode as any)[key] as ShardInfo[];
-      // Find the corresponding prelim layout node (by id or name) to check
-      // for spatial overlap with skeleton rectangles.
-      const mapped = (prelimLayout as any[]).find((bn: any) => (bn.id === key) || (bn.data && bn.data.node && bn.data.node.name === key));
-      let covered = false;
-      if (mapped) {
-        // If tile explicitly provided this node (by id or name), mark covered
-        const mappedId = mapped.id as string | undefined;
-        const mappedName = mapped.data?.node?.name as string | undefined;
-        if ((mappedId && tileNodeKeys.has(mappedId)) || (mappedName && tileNodeKeys.has(mappedName))) {
-          covered = true;
-        } else {
-          // Check skeleton coverage
-          const bx = (mapped.position?.x as number) ?? 0;
-          const by = (mapped.position?.y as number) ?? 0;
-          const bw = (mapped as any).width ?? estimateGroupMinWidth(((mapped as any).data?.node) || {});
-          const bh = (mapped as any).height ?? 140;
-          for (const r of skeletonRects) {
-            if (!(bx + bw < r.minx || bx > r.maxx || by + bh < r.miny || by > r.maxy)) {
-              covered = true;
-              break;
-            }
-          }
-        }
-      } else {
-        // If no mapping found, be conservative and keep global shards for this key
-        covered = false;
-      }
-
-      if (!covered) prunedShardsByNode[key] = shardList;
-    }
-
-    // Recompute the authoritative base layout using the pruned shards map so
-    // that only nodes covered by tiles will have their shard details suppressed.
+    //
+    // No full shard arrays are passed to calculateCanvasLayout on the canvas view:
+    // individual shard pills are provided by the tile system at L2 zoom.
+    // Badge totals (summaryCounts) come from summaryByNode (lightweight endpoint).
     const baseLayout = calculateCanvasLayout({
       clusterNodes: filteredNodes,
-      shardsByNode: prunedShardsByNode,
+      shardsByNode: {},
       groupingConfig,
       onNodeClick,
       onShardClick: onShardClick
@@ -482,12 +364,30 @@ export function CanvasTopologyView({
       onDestinationClick,
       getIndexHealthColor,
     });
+
+    // If no tile system is active yet, apply summary counts to base nodes and return
+    if (!visibleNodesFromTiles) {
+      baseLayout.forEach((bn) => {
+        const nodeId = (bn as any).id as string | undefined;
+        const nodeName = (bn as any).data?.name as string | undefined;
+        const summary = (nodeId && summaryByNode[nodeId]) ?? (nodeName && summaryByNode[nodeName]);
+        if (summary) {
+          (bn as any).data = {
+            ...(bn as any).data,
+            summaryCounts: { primary: summary.primary, replica: summary.replica, total: summary.total },
+          };
+        }
+      });
+      return baseLayout;
+    }
+
+    const tileSize = TOPOLOGY_CONFIG.TILE_SIZE;
 
     // Build index by id/name for quick overlays
     const baseIndexByKey = new Map<string, number>();
     baseLayout.forEach((bn, idx) => {
       baseIndexByKey.set((bn as any).id, idx);
-      const name = (bn as any).data?.node?.name as string | undefined;
+      const name = (bn as any).data?.name as string | undefined;
       if (name) baseIndexByKey.set(name, idx);
     });
 
@@ -551,16 +451,15 @@ export function CanvasTopologyView({
         if (existing && Object.prototype.hasOwnProperty.call(existing, 'summaryCounts') && existing.summaryCounts !== undefined) {
           merged.summaryCounts = existing.summaryCounts;
         } else {
-          // Fallback: if the tile did not explicitly provide summaryCounts, try
-          // to use the global shardsByNode totals as a non-invasive fallback so
-          // the node card still shows shard totals while tile-level details
-          // are loading. We intentionally do NOT attach the full shards array
-          // from global data (that would defeat lazy-loading), only the totals.
+          // Fallback: if the tile did not explicitly provide summaryCounts, use
+          // the lightweight summary endpoint totals so the node card still shows
+          // shard counts while tile-level details are loading.
+          // No full shard arrays are used here — only pre-aggregated counts.
           try {
             const nodeId = (merged.node && (merged.node as any).id) ?? (merged.node && (merged.node as any).name) ?? (tn as any).id;
-            const globalShards = (shardsByNode as any)[nodeId] ?? (merged.node && (shardsByNode as any)[(merged.node as any).name]);
-            if (Array.isArray(globalShards) && globalShards.length > 0) {
-              merged.summaryCounts = { primary: (globalShards as any[]).filter((s: any) => !!s.primary).length, replica: (globalShards as any[]).filter((s: any) => !s.primary).length, total: (globalShards as any[]).length };
+            const summary = summaryByNode[nodeId] ?? (merged.node && summaryByNode[(merged.node as any).name]);
+            if (summary) {
+              merged.summaryCounts = { primary: summary.primary, replica: summary.replica, total: summary.total };
             }
           } catch (_err) { void _err; }
         }
@@ -586,12 +485,7 @@ export function CanvasTopologyView({
     }
 
     return baseLayout as Node[];
-  }, [filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
-  // Debug: log whether layout nodes include onNodeClick handler in their data payloads
-  console.debug(
-    'CanvasTopologyView layoutNodes onNodeClick present?',
-    layoutNodes.map(n => ({ id: n.id, onNodeClick: (n as any).data ? !!(n as any).data?.onNodeClick : undefined }))
-  );
+  }, [filteredNodes, summaryByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
 

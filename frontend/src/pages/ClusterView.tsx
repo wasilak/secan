@@ -56,6 +56,7 @@ import { useFaviconManager } from '../hooks/useFaviconManager';
 import { useClusterName } from '../hooks/useClusterName';
 import { useShardAllocation } from '../hooks/useShardAllocation';
 import { usePerNodeShards } from '../hooks/usePerNodeShards';
+import { useNodesShardSummary } from '../hooks/useNodesShardSummary';
 import { useClusterIndices } from '../hooks/useClusterIndices';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { useConsolePanel } from '../contexts/ConsolePanelContext';
@@ -944,17 +945,25 @@ export function ClusterView() {
   // Calculate hidden indices count from ALL indices (for statistics tab)
   const hiddenIndicesCount = allIndicesArray.filter((idx) => idx.name.startsWith('.')).length;
 
-  // Progressive shard loading per node for topology view (prevents OOM)
+  // Progressive shard loading per node for topology view (prevents OOM).
+  // Disabled on canvas view — the canvas uses the lightweight shard summary instead.
   const nodeIdsForShards = useMemo(() => allNodesArray.map(n => n.id), [allNodesArray]);
   const {
     allShards,
     isInitialLoading: allShardsLoading,
     firstError: allShardsError,
-  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology', 4);
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && topologyViewType !== 'canvas', 4);
+
+  // Lightweight per-node shard count summary for the canvas topology view.
+  // Issues a single _cat/shards request on the backend rather than one request
+  // per node. Only enabled when the canvas sub-view is active.
+  const { data: canvasShardSummary = [] } = useNodesShardSummary(id, {
+    enabled: !!id && activeView === 'topology' && topologyViewType === 'canvas',
+    refetchInterval: refreshInterval,
+  });
 
   // Additionally fetch cluster-level UNASSIGNED shards only (paged collector).
-  // This is a single extra request flow (or a few small pages) to pick up
-  // unassigned shards that are not returned by per-node progressive loader.
+  // Disabled on canvas view — unassigned counts are included in canvasShardSummary.
   const {
     data: unassignedClusterShards = [],
   } = useQuery<ShardInfo[]>({
@@ -978,7 +987,7 @@ export function ClusterView() {
 
       return collected;
     },
-    enabled: !!id && activeView === 'topology',
+    enabled: !!id && activeView === 'topology' && topologyViewType !== 'canvas',
     refetchInterval: refreshInterval,
     staleTime: 5 * 60 * 1000,
     placeholderData: () => [],
@@ -1113,6 +1122,7 @@ export function ClusterView() {
             allNodesArray={allNodesArray}
             allIndicesArray={allIndicesArray}
           allShards={mergedAllShards}
+            shardSummary={canvasShardSummary}
             searchParams={searchParams}
             setSearchParams={setSearchParams}
             topologyViewType={topologyViewType}

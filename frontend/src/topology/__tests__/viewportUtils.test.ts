@@ -1,22 +1,20 @@
 import { determineAllowedLod } from '../TopologyController';
 
 describe('determineAllowedLod', () => {
-  it('downgrades L2 to L1 when viewport can show more than one node (conservative)', () => {
-    // Use a zoom that would normally produce L2
+  it('passes L2 through unchanged regardless of viewport size', () => {
+    // Previously had a capacity guard; now removed — backend controls LOD data
     const zoom = 1.0;
-    // Large viewport so capacity > 1
     const viewportWidth = 2000;
     const viewportHeight = 1200;
     const res = determineAllowedLod(zoom, viewportWidth, viewportHeight, 'L2');
-    expect(res).toBe('L1');
+    expect(res).toBe('L2');
   });
 
-  it('allows L2 when viewport fits only one node partially', () => {
-    const zoom = 2.0; // zoomed in
-    const viewportWidth = 300; // small viewport in world coords at zoom
-    const viewportHeight = 200; // short height so only one row fits
+  it('allows L2 at high zoom', () => {
+    const zoom = 2.0;
+    const viewportWidth = 300;
+    const viewportHeight = 200;
     const res = determineAllowedLod(zoom, viewportWidth, viewportHeight, 'L2');
-    // For tiny viewport at high zoom we expect L2 allowed
     expect(res).toBe('L2');
   });
 

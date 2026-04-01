@@ -9,6 +9,7 @@ import {
   NodeDetailStats,
   IndexInfo,
   ShardInfo,
+  NodeShardSummary,
   PaginatedShardsWithNodes,
   LoginRequest,
   ApiError,
@@ -592,6 +593,25 @@ export class ApiClient {
     return this.executeWithRetry(async () => {
       const response = await this.client.get<ShardInfo[]>(
         `/clusters/${clusterId}/nodes/${nodeId}/shards`
+      );
+      return response.data;
+    });
+  }
+
+  /**
+   * Get per-node shard count summary (lightweight — no full ShardInfo objects).
+   *
+   * Uses a single _cat/shards call on the backend and returns aggregated
+   * primary/replica/unassigned counts per node. Designed for the canvas
+   * topology view at L0/L1 zoom where only badge totals are needed and
+   * fetching full shard arrays would cause OOM on large clusters.
+   *
+   * Requirements: 4.9
+   */
+  async getNodesShardSummary(clusterId: string): Promise<NodeShardSummary[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<NodeShardSummary[]>(
+        `/clusters/${clusterId}/nodes/shard-summary`
       );
       return response.data;
     });

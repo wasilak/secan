@@ -1626,6 +1626,90 @@ pub struct ShardInfo {
     pub store: u64,
 }
 
+/// Per-node shard count summary (lightweight — no individual shard objects)
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct NodeShardSummary {
+    #[serde(rename = "nodeId")]
+    pub node_id: String,
+    #[serde(rename = "nodeName")]
+    pub node_name: String,
+    pub primary: u32,
+    pub replica: u32,
+    pub unassigned: u32,
+    pub total: u32,
+}
+
+/// Aggregate _cat/shards response into per-node shard count summaries.
+///
+/// Each entry in the returned Vec corresponds to one node that has at least one
+/// assigned shard. Unassigned shards (where `node` is null/empty) are rolled up
+/// into a synthetic entry with `node_id = "__unassigned__"` and
+/// `node_name = "Unassigned"`.
+///
+/// # Arguments
+/// * `cat_shards` – raw JSON array returned by `/_cat/shards?format=json`
+pub fn aggregate_shards_by_node(cat_shards: &Value) -> Vec<NodeShardSummary> {
+    use std::collections::HashMap;
+
+    // node_name -> (primary, replica, unassigned)
+    let mut map: HashMap<String, (u32, u32, u32)> = HashMap::new();
+
+    if let Some(shards_array) = cat_shards.as_array() {
+        for shard in shards_array {
+            let node_name = shard["node"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .unwrap_or("__unassigned__")
+                .to_string();
+
+            let state = shard["state"].as_str().unwrap_or("UNASSIGNED");
+            let is_primary = shard["prirep"].as_str().map(|s| s == "p").unwrap_or(false);
+            let is_unassigned = state == "UNASSIGNED";
+
+            let entry = map.entry(node_name).or_insert((0, 0, 0));
+            if is_unassigned {
+                entry.2 += 1;
+            } else if is_primary {
+                entry.0 += 1;
+            } else {
+                entry.1 += 1;
+            }
+        }
+    }
+
+    let mut result: Vec<NodeShardSummary> = map
+        .into_iter()
+        .map(|(node_name, (primary, replica, unassigned))| {
+            let (node_id, display_name) = if node_name == "__unassigned__" {
+                ("__unassigned__".to_string(), "Unassigned".to_string())
+            } else {
+                (node_name.clone(), node_name)
+            };
+            NodeShardSummary {
+                node_id,
+                node_name: display_name,
+                primary,
+                replica,
+                unassigned,
+                total: primary + replica + unassigned,
+            }
+        })
+        .collect();
+
+    // Stable output: real nodes first (alphabetical), unassigned last
+    result.sort_by(|a, b| {
+        let a_unassigned = a.node_id == "__unassigned__";
+        let b_unassigned = b.node_id == "__unassigned__";
+        match (a_unassigned, b_unassigned) {
+            (true, false) => std::cmp::Ordering::Greater,
+            (false, true) => std::cmp::Ordering::Less,
+            _ => a.node_id.cmp(&b.node_id),
+        }
+    });
+
+    result
+}
+
 /// Indexing statistics
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct IndexingStats {

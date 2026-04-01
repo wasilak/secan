@@ -321,6 +321,23 @@ export interface ShardInfo {
 }
 
 /**
+ * Per-node shard count summary (lightweight — no individual shard objects).
+ * Returned by GET /clusters/:id/nodes/shard-summary.
+ * Used by CanvasTopologyView at L0/L1 zoom to show badge totals without
+ * fetching full ShardInfo arrays.
+ *
+ * Requirements: 4.9
+ */
+export interface NodeShardSummary {
+  nodeId: string;
+  nodeName: string;
+  primary: number;
+  replica: number;
+  unassigned: number;
+  total: number;
+}
+
+/**
  * Detailed shard statistics
  * Extends ShardInfo with additional metrics from shard stats API
  * Requirements: 4.6
