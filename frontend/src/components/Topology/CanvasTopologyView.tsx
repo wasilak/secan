@@ -351,7 +351,10 @@ export function CanvasTopologyView({
 
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
-    if (visibleNodesFromTiles) {
+    // Use tile-provided nodes when we actually have tile data (non-empty).
+    // An empty array means tile system has reported no nodes yet; fall back
+    // to calculateCanvasLayout in that case to avoid rendering an empty canvas.
+    if (visibleNodesFromTiles && visibleNodesFromTiles.length > 0) {
       // Build a lookup of full NodeInfo from the nodes prop so we can
       // enrich tile-provided compact payloads with the authoritative node
       // metadata (version, roles, metrics) available from the main nodes list.

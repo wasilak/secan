@@ -5,6 +5,27 @@ import TileCache from './tileCache';
 import RevalidationCoordinator from './revalidationCoordinator';
 import type { TileKey, LOD } from './types';
 import TOPOLOGY_CONFIG from '../config/topologyConfig';
+import { GROUP_WIDTH, ESTIMATED_GROUP_HEIGHT } from '../utils/canvasLayout';
+
+// Exported for unit testing: determine whether L2 should be allowed given zoom and
+// viewport size. Conservative: counts partially visible nodes using Math.ceil.
+export function determineAllowedLod(zoom: number, viewportWidth: number, viewportHeight: number, baseLod: LOD): LOD {
+  let lod: LOD = baseLod;
+  if (lod === 'L2') {
+    try {
+      const w = viewportWidth / Math.max(0.0001, zoom);
+      const h = viewportHeight / Math.max(0.0001, zoom);
+      const estCols = Math.ceil(w / GROUP_WIDTH);
+      const estRows = Math.ceil(h / ESTIMATED_GROUP_HEIGHT);
+      const estCapacity = Math.max(1, estCols * estRows);
+      if (estCapacity > 1) lod = 'L1';
+    } catch (_err) {
+      void _err;
+      lod = 'L1';
+    }
+  }
+  return lod;
+}
 
 export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: unknown[]) => void }) {
   const rf = useReactFlow();
@@ -32,9 +53,9 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
 
   const computeTilesForViewport = useCallback((viewport: unknown, tileSize = TOPOLOGY_CONFIG.TILE_SIZE) => {
     // world coords assumed equal to RF coords here; compute bounding tile indices
-      // Narrow viewport unknown -> expected shape
-      const v = viewport as { x?: number; y?: number; zoom?: number } | undefined;
-      const { x = 0, y = 0, zoom = 1 } = v ?? {};
+    const v = viewport as { x?: number; y?: number; zoom?: number } | undefined;
+    const { x = 0, y = 0, zoom = 1 } = v ?? {};
+
     // approximate visible bounds: RF viewport center at (x,y) with window size scaled by zoom
     const w = window.innerWidth / Math.max(0.0001, zoom);
     const h = window.innerHeight / Math.max(0.0001, zoom);
@@ -43,7 +64,11 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
     const minY = Math.floor((y - h / 2) / tileSize);
     const maxY = Math.floor((y + h / 2) / tileSize);
     const tiles: TileKey[] = [];
-    const lod: LOD = zoom > 0.7 ? 'L2' : zoom > 0.35 ? 'L1' : 'L0';
+
+    // Base zoom-based LOD
+    const baseLod: LOD = zoom > 0.7 ? 'L2' : zoom > 0.35 ? 'L1' : 'L0';
+    const lod = determineAllowedLod(zoom, window.innerWidth, window.innerHeight, baseLod);
+
     for (let tx = minX; tx <= maxX; tx++) for (let ty = minY; ty <= maxY; ty++) tiles.push({ tileX: tx, tileY: ty, lod });
     return { tiles, lod };
   }, []);
@@ -160,7 +185,14 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
           const allTiles: TileKey[] = [];
           const ring = 1;
           for (const t of tiles) {
-            for (let dx = -ring; dx <= ring; dx++) for (let dy = -ring; dy <= ring; dy++) allTiles.push({ tileX: t.tileX + dx, tileY: t.tileY + dy, lod: t.lod });
+            for (let dx = -ring; dx <= ring; dx++) {
+              for (let dy = -ring; dy <= ring; dy++) {
+                // If center tile was granted L2, downgrade neighbor prefetch tiles to L1
+                const isCenter = dx === 0 && dy === 0;
+                const neighborLod: LOD = (!isCenter && t.lod === 'L2') ? 'L1' : t.lod;
+                allTiles.push({ tileX: t.tileX + dx, tileY: t.tileY + dy, lod: neighborLod });
+              }
+            }
           }
 
           const reval = revalRef.current;
