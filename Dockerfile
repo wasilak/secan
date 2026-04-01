@@ -36,6 +36,9 @@ RUN mkdir src && \
 # Copy source from root
 COPY src ./src
 
+# Copy backend directory so include!(concat!(env!("CARGO_MANIFEST_DIR"), "/backend/..")) works
+COPY backend ./backend
+
 # Copy frontend assets from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
