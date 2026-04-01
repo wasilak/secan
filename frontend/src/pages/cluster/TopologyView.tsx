@@ -60,6 +60,11 @@ interface TopologyViewProps {
   pushModal: (modal: ModalData) => void;
   setRelocationConfirmOpened: (open: boolean) => void;
   handleTopologyConfirmRelocation: () => void;
+  /**
+   * Called when the canvas zoom crosses the L2 threshold (0.7).
+   * Used by ClusterView to gate the expensive per-node shard fetching.
+   */
+  onZoomChange?: (zoom: number) => void;
 }
 
 export function TopologyView(props: TopologyViewProps): ReactElement {
@@ -110,6 +115,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     pushModal,
     setRelocationConfirmOpened,
     handleTopologyConfirmRelocation,
+    onZoomChange,
   } = props;
 
   const labelTags = Array.from(
@@ -266,11 +272,13 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
               <CanvasTopologyView
                 nodes={allNodesArray}
                 shardSummary={shardSummary ?? []}
+                allShards={allShards}
                 indices={allIndicesArray || []}
                 searchParams={searchParams}
                 onShardClick={handleTopologyShardClick}
                 onNodeClick={openNodeModal}
                 onPaneClick={handleTopologyContextMenuClose}
+                onZoomChange={onZoomChange}
                 relocationMode={relocationMode}
                 validDestinationNodes={validDestinationNodes}
                 onDestinationClick={handleTopologyDestinationClick}

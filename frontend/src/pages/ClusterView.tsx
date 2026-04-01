@@ -216,6 +216,10 @@ export function ClusterView() {
   const [topologyContextMenuShard, setTopologyContextMenuShard] = useState<ShardInfo | null>(null);
   const [topologyContextMenuPosition, setTopologyContextMenuPosition] = useState({ x: 0, y: 0 });
   const [topologyContextMenuOpened, setTopologyContextMenuOpened] = useState(false);
+  // Tracks whether the canvas topology is at L2 zoom (> 0.7 — shard dots visible).
+  // Used to gate the expensive per-node shard fetching.
+  const [canvasIsL2, setCanvasIsL2] = useState(false);
+  const handleCanvasZoomChange = useCallback((z: number) => setCanvasIsL2(z > 0.7), []);
 
   // Shared shard allocation state
   // Always fetch cluster settings so the AllocationLockIndicator in the header
@@ -952,7 +956,7 @@ export function ClusterView() {
     allShards,
     isInitialLoading: allShardsLoading,
     firstError: allShardsError,
-  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && topologyViewType !== 'canvas', 4);
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && (topologyViewType !== 'canvas' || canvasIsL2), 4);
 
   // Lightweight per-node shard count summary for the canvas topology view.
   // Issues a single _cat/shards request on the backend rather than one request
@@ -1160,8 +1164,9 @@ export function ClusterView() {
             openNodeModal={openNodeModal}
             pushModal={pushModal}
             setRelocationConfirmOpened={setRelocationConfirmOpened}
-            handleTopologyConfirmRelocation={handleTopologyConfirmRelocation}
-          />
+             handleTopologyConfirmRelocation={handleTopologyConfirmRelocation}
+             onZoomChange={handleCanvasZoomChange}
+           />
         </AppErrorBoundary>
       )}
 

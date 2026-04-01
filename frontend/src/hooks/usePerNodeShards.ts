@@ -38,10 +38,19 @@ export function usePerNodeShards(
 
   // Reset when cluster or nodes change
   useEffect(() => {
-    if (!clusterId || nodeIds.length === 0) {
+    if (!clusterId || nodeIds.length === 0 || !enabled) {
+      // Clear all shard data when disabled (zoom-out), changing cluster, or no nodes.
+      // Aborting in-flight requests frees backend resources; clearing state frees
+      // frontend memory — critical for clusters with 9k+ shards.
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       setNodeShards({});
       setIsComplete(false);
+      setIsInitialLoading(true);
       loadedNodesRef.current.clear();
+      // Reset so next enable shows the loading skeleton (fresh fetch on re-entry)
+      hasEverCompletedRef.current = false;
       return;
     }
 
