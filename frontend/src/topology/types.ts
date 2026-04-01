@@ -18,7 +18,11 @@ export interface TilePayload {
   version?: string;
   // Minimal node objects; keep as unknown to avoid tight coupling
   nodes?: unknown[];
+  // Server-side may return nodes_meta; allow either field for compatibility
+  nodesMeta?: unknown[];
   edges?: unknown[];
+  // Optional mapping nodeId -> shards array (present for L2 tiles)
+  shards?: Record<string, unknown[]>;
 }
 
 export default {};

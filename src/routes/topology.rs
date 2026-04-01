@@ -6,8 +6,9 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-mod generator;
+pub mod generator;
 mod layout;
 
 use generator::generate_tiles;
@@ -15,7 +16,7 @@ use tokio::sync::OwnedSemaphorePermit;
 
 // Use camelCase JSON keys so frontend can keep using the same shape while keeping
 // idiomatic Rust field names.
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TileRequestEntry {
     pub x: i32,
@@ -24,18 +25,31 @@ pub struct TileRequestEntry {
     pub client_version: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TileBatchRequest {
     pub tile_requests: Vec<TileRequestEntry>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TileBatchResponse {
     pub tiles: Vec<generator::TilePayload>,
     pub server_version: String,
 }
+
+#[utoipa::path(
+    post,
+    path = "/clusters/{cluster_id}/topology/tiles",
+    params(("cluster_id" = String, Path, description = "Cluster ID")),
+    request_body = TileBatchRequest,
+    responses(
+        (status = 200, body = TileBatchResponse),
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse)
+    ),
+    tag = "Clusters"
+)]
 
 /// POST /topology/tiles
 /// Currently uses a minimal server-side generator that computes positions by
@@ -46,10 +60,7 @@ pub async fn post_tiles(
     Path(cluster_id): Path<String>,
     user_ext: Option<Extension<AuthenticatedUser>>,
     Json(body): Json<TileBatchRequest>,
-) -> Result<
-    (axum::http::StatusCode, Json<TileBatchResponse>),
-    crate::routes::clusters::ClusterErrorResponse,
-> {
+) -> Result<impl IntoResponse, crate::routes::clusters::ClusterErrorResponse> {
     // Enforce cluster access for the requesting user (Open mode allows all access)
     crate::routes::clusters::check_cluster_access(&cluster_id, &user_ext)?;
 
@@ -157,8 +168,10 @@ pub async fn post_tiles(
                                     .unwrap_or(false);
                                 if client_matches {
                                     payload.unchanged = true;
-                                    payload.nodes = None;
+                                    // Clear heavy payload bodies when unchanged
+                                    payload.nodes_meta = None;
                                     payload.edges = None;
+                                    payload.shards = None;
                                 } else {
                                     payload.unchanged = false;
                                 }
@@ -248,17 +261,37 @@ pub async fn post_tiles(
                 lod: (*lod).to_string(),
                 version: version.clone(),
                 unchanged: client_matches,
-                nodes: None,
+                nodes_meta: None,
                 edges: None,
+                shards: None,
             });
         }
     }
 
-    let resp = TileBatchResponse {
+    let response = TileBatchResponse {
         tiles,
         server_version: "dev".to_string(),
     };
-    Ok((axum::http::StatusCode::OK, Json(resp)))
+
+    // Proactively set cache-control headers to avoid browsers/proxies serving
+    // stale tile payloads. Clients should still rely on the payload's version
+    // string for definitive cache semantics, but instructing intermediaries
+    // not to store tile responses reduces risk of cache-based misinformation.
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store, must-revalidate"),
+    );
+    headers.insert(
+        axum::http::header::PRAGMA,
+        axum::http::HeaderValue::from_static("no-cache"),
+    );
+    headers.insert(
+        axum::http::header::EXPIRES,
+        axum::http::HeaderValue::from_static("0"),
+    );
+
+    Ok((axum::http::StatusCode::OK, headers, Json(response)))
 }
 
 pub async fn get_node(

@@ -22,6 +22,8 @@ use utoipa::OpenApi;
         // Cluster routes
         crate::routes::clusters::list_clusters,
         crate::routes::clusters::get_cluster_stats,
+        // Topology tiles
+        crate::routes::topology::post_tiles,
         crate::routes::clusters::get_cluster_settings,
         crate::routes::clusters::update_cluster_settings,
         crate::routes::clusters::get_nodes,
@@ -64,6 +66,12 @@ use utoipa::OpenApi;
             crate::routes::clusters::transform::IndexInfoResponse,
             crate::routes::clusters::transform::ShardInfoResponse,
             crate::routes::clusters::transform::NodeDetailStatsResponse,
+            // Topology tile types
+            crate::routes::topology::generator::TilePayload,
+            crate::routes::topology::generator::TileNodeMeta,
+            crate::routes::topology::TileBatchResponse,
+            crate::routes::topology::TileBatchRequest,
+            crate::routes::topology::TileRequestEntry,
             // Task types
             crate::routes::clusters::tasks::TaskInfo,
             crate::routes::clusters::tasks::TasksListResponse,

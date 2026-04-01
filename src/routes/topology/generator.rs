@@ -3,17 +3,62 @@ use crate::routes::clusters::transform::{NodeInfoResponse, ShardInfoResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use utoipa::ToSchema;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
+/// TilePayload is the per-tile response sent to clients. It is JSON-valued
+/// in practice (nodes_meta and shards use serde_json::Value) but we derive
+/// ToSchema here so utoipa can include a schema for OpenAPI generation.
 pub struct TilePayload {
     pub x: i32,
     pub y: i32,
     pub lod: String,
     pub version: String,
     pub unchanged: bool,
-    pub nodes: Option<Value>,
+    /// Lightweight nodes metadata (no heavy per-node shard arrays).
+    pub nodes_meta: Option<Value>,
     pub edges: Option<Value>,
+    /// Optional mapping of nodeId -> shards array. Present for L2 tiles.
+    pub shards: Option<Value>,
+}
+
+// The following structs are schema-only helpers to improve the generated
+// OpenAPI documentation. They are not used at runtime for serialization in
+// the generator (which uses serde_json::Value for flexibility), but having
+// these types available allows utoipa to produce clearer component schemas.
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TileNodeMeta {
+    pub id: String,
+    pub x: i64,
+    pub y: i64,
+    pub width: i64,
+    pub height: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = "node-1")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = json!("{ \"heapPercent\": 42 }"))]
+    pub metrics: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(example = json!({ "primary": 2, "replica": 6, "total": 8 }))]
+    pub summary_counts: Option<serde_json::Value>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TileShard {
+    #[schema(example = "my-index")]
+    pub index: String,
+    #[schema(example = 0)]
+    pub shard: u32,
+    #[schema(example = true)]
+    pub primary: bool,
+    #[schema(example = "STARTED")]
+    pub state: String,
 }
 
 /// Minimal generator: given transformed nodes and shards, compute positions,
@@ -45,6 +90,10 @@ pub fn generate_tiles(
         let mut matched = Vec::new();
         // Canonical entries used for deterministic version hashing
         let mut canonical_entries: Vec<String> = Vec::new();
+        // Map node id -> shard JSON array for L2. We populate this per-tile when L2 is requested.
+        let mut shards_map: std::collections::HashMap<String, Vec<Value>> =
+            std::collections::HashMap::new();
+
         for node in nodes.iter() {
             if let Some(p) = pos_map.get(&node.id) {
                 let nx1 = p.x;
@@ -85,6 +134,7 @@ pub fn generate_tiles(
                         total_count = shards.len() as i64;
                         primary_count = shards.iter().filter(|s| s.primary).count() as i64;
                         replica_count = total_count - primary_count;
+                        // Record shard objects in per-tile shards_map keyed by node.id
                         let s: Vec<Value> = shards
                             .into_iter()
                             .map(|sh| {
@@ -96,7 +146,7 @@ pub fn generate_tiles(
                                 })
                             })
                             .collect();
-                        n["shards"] = serde_json::Value::Array(s);
+                        shards_map.insert(node.id.clone(), s);
                     } else {
                         if let Some(vec) = shards_by_node
                             .get(&node.name)
@@ -175,13 +225,24 @@ pub fn generate_tiles(
             .map(|cv| cv == &full_version)
             .unwrap_or(false);
 
+        // Convert shards_map into a serde Value map for the payload (if non-empty)
+        let shards_value = if shards_map.is_empty() {
+            None
+        } else {
+            let mut map = serde_json::Map::new();
+            for (k, v) in shards_map.into_iter() {
+                map.insert(k, serde_json::Value::Array(v));
+            }
+            Some(serde_json::Value::Object(map))
+        };
+
         let payload = TilePayload {
             x: *x,
             y: *y,
             lod: (*lod).to_string(),
             version: full_version.clone(),
             unchanged: client_matches,
-            nodes: if client_matches {
+            nodes_meta: if client_matches {
                 None
             } else {
                 Some(serde_json::Value::Array(matched))
@@ -191,6 +252,7 @@ pub fn generate_tiles(
             } else {
                 Some(serde_json::json!([]))
             },
+            shards: shards_value,
         };
 
         out.push(payload);

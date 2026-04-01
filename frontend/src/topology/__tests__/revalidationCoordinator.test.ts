@@ -18,7 +18,7 @@ test('RevalidationCoordinator fetches and caches tiles, honors unchanged', async
   const originalFetch = globalThis.fetch;
   (globalThis as any).fetch = async () => ({
     ok: true,
-    json: async () => ({ tiles: [{ x: 0, y: 0, lod: 'L1', version: 'v1', unchanged: false, nodes: [{ id: 'n1', x: 10, y: 20 }] }] }),
+    json: async () => ({ tiles: [{ x: 0, y: 0, lod: 'L1', version: 'v1', unchanged: false, nodesMeta: [{ id: 'n1', x: 10, y: 20 }] }] }),
   } as any);
 
   await reval.forceRefresh([tile]);
@@ -28,7 +28,7 @@ test('RevalidationCoordinator fetches and caches tiles, honors unchanged', async
   // Now mock fetch to indicate unchanged
   (globalThis as any).fetch = async () => ({
     ok: true,
-    json: async () => ({ tiles: [{ x: 0, y: 0, lod: 'L1', version: 'v1', unchanged: true, nodes: null }] }),
+    json: async () => ({ tiles: [{ x: 0, y: 0, lod: 'L1', version: 'v1', unchanged: true, nodesMeta: null }] }),
   } as any);
 
   const prevCalled = called;

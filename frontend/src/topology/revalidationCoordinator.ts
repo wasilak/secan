@@ -155,7 +155,21 @@ export class RevalidationCoordinator {
 
     let resp: Response;
     try {
-      resp = await fetch(url, { method: 'POST', body: JSON.stringify(body), signal: controller.signal, headers: { 'Content-Type': 'application/json' } });
+      // Use cache: 'no-store' to prevent browser/proxy caches from returning stale
+      // tile payloads. Also set Cache-Control/Pragma headers for intermediaries.
+      resp = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+        // no-store ensures the browser doesn't store the response in its HTTP cache
+        cache: 'no-store',
+      });
     } catch (err) {
       // network or abort - ensure we clear inflight markers for these keys
       for (const k of keysToSend) {
@@ -174,13 +188,14 @@ export class RevalidationCoordinator {
     const json = await resp.json();
     const tiles = (json && json.tiles) || [];
 
-    // server returns an entry per requested tile. If tile.unchanged is true or nodes is null,
+    // server returns an entry per requested tile. If tile.unchanged is true or nodes_meta is null,
     // keep existing cache entry (avoid overwriting with empty payload). Otherwise update cache.
     for (const t of tiles) {
       const key: TileKey = { tileX: t.x, tileY: t.y, lod: t.lod };
       const s = keyToString(key);
 
-      const unchanged = !!t.unchanged || t.nodes == null;
+      // server uses nodes_meta and shards fields; translate into the client shape
+      const unchanged = !!t.unchanged || t.nodesMeta == null;
       if (unchanged) {
         // leave cache alone; just notify using existing cached payload if present
         const existing = this.tileCache.get(key as TileKey);
@@ -189,7 +204,19 @@ export class RevalidationCoordinator {
         continue;
       }
 
-      const payload: TilePayload = { tileX: t.x, tileY: t.y, lod: t.lod, version: t.version, nodes: t.nodes, edges: t.edges };
+      // Build a client-facing payload: map nodesMeta -> nodes, and include shards map under 'shards'
+      const payload: TilePayload = {
+        tileX: t.x,
+        tileY: t.y,
+        lod: t.lod,
+        version: t.version,
+        nodes: t.nodesMeta,
+        edges: t.edges,
+        // Preserve shards map if present so callers that inspect t.shards can use it
+        // Note: TilePayload type may be loose (unknown[]) so we keep as-is
+        // @ts-ignore - allow passing through shards to payload if present
+        shards: t.shards,
+      };
       this.tileCache.put(key, payload);
       if (this.onTileCb) this.onTileCb(key, payload);
       // clear inflight for this key

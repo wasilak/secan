@@ -23,6 +23,7 @@ import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 // Debug: ensure wrapper imported
 console.log('CanvasTopologyView imported ClusterESNodeCardFlowWrapper', typeof ClusterESNodeCardFlowWrapper);
 import { calculateCanvasLayout, UNASSIGNED_KEY, estimateGroupMinWidth } from '../../utils/canvasLayout';
+import TOPOLOGY_CONFIG from '../../config/topologyConfig';
 import { sortShards } from '../../utils/shardOrdering';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
@@ -34,6 +35,20 @@ import TopologyController from '../../topology/TopologyController';
 // which surfaces as the minified React error #310 in production.
 const nodeTypes: NodeTypes = {
   clusterGroup: ClusterESNodeCardFlowWrapper,
+};
+
+// Testable helpers: determine tile-driven presence & skeleton markers.
+// Exported for unit tests and to keep the presence logic explicit.
+export const isSkeletonNode = (n: any): boolean => {
+  const id = n?.id;
+  return typeof id === 'string' && id.startsWith('skeleton:');
+};
+
+export const hasTileNodesFromVisible = (visible: any[] | null): boolean => {
+  // Treat any non-empty array as tile-driven presence. This includes
+  // skeleton markers (id startsWith 'skeleton:') inserted by TopologyController
+  // for subscribed-but-not-yet-cached tiles.
+  return Array.isArray(visible) && visible.length > 0;
 };
 
 interface CanvasTopologyViewProps {
@@ -351,62 +366,21 @@ export function CanvasTopologyView({
 
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
-    // Use tile-provided nodes when we actually have tile data (non-empty).
-    // An empty array means tile system has reported no nodes yet; fall back
-    // to calculateCanvasLayout in that case to avoid rendering an empty canvas.
-    if (visibleNodesFromTiles && visibleNodesFromTiles.length > 0) {
-      // Build a lookup of full NodeInfo from the nodes prop so we can
-      // enrich tile-provided compact payloads with the authoritative node
-      // metadata (version, roles, metrics) available from the main nodes list.
-      const nodesByKey = new Map<string, typeof nodes[0]>();
-      nodes.forEach((nn) => {
-        if (nn.id) nodesByKey.set(nn.id, nn);
-        if (nn.name) nodesByKey.set(nn.name, nn);
-      });
-      // Helper: merge objects preferring defined values so compact tile payloads
-      // that intentionally set fields to `undefined` do not wipe authoritative
-      // values from the nodes prop.
-      const mergePreferDefined = (...objs: Array<Record<string, unknown> | undefined>) => {
-        const out: Record<string, unknown> = {};
-        for (const obj of objs) {
-          if (!obj) continue;
-          Object.keys(obj).forEach((k) => {
-            const v = (obj as Record<string, unknown>)[k];
-            if (v !== undefined) out[k] = v;
-          });
-        }
-        return out as Record<string, unknown>;
-      };
-      // Use nodes produced by tile system when available; inject helpers and
-      // handlers so downstream wrappers (ClusterESNodeCardFlowWrapper) can
-      // color shard dots and handle interactions (open node modal / shard ctx menu).
-      return visibleNodesFromTiles.map((n) => {
-        const existing = (n as any).data || {};
-        // Node identity may be provided under existing.node (compact) or
-        // as the RF node id. Prefer explicit compact fields, but fall back
-        // to the authoritative nodes list when tile payloads are compact.
-        const explicitNode = existing.node as Record<string, unknown> | undefined;
-        const rawNode = existing.__raw as Record<string, unknown> | undefined;
-        const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (n as any).id;
-        const fallbackNode = nodeKey ? nodesByKey.get(String(nodeKey)) : undefined;
-        // Merge with precedence: fallback (authoritative nodes) <- raw <- explicit
-        const mergedNode = mergePreferDefined(fallbackNode as Record<string, unknown> | undefined, rawNode, explicitNode);
-        const minW = estimateGroupMinWidth(mergedNode as any);
-        return {
-          ...n,
-          data: {
-            ...existing,
-            node: mergedNode,
-            getIndexHealthColor,
-            onNodeClick: existing?.onNodeClick ?? onNodeClick,
-            onShardClick: existing?.onShardClick ?? onShardClick,
-            onDestinationClick: existing?.onDestinationClick ?? onDestinationClick,
-          },
-          width: minW,
-        } as any;
-      });
-    }
-    return calculateCanvasLayout({
+    // Base layout from authoritative node list to keep node cards present and
+    // stable while tile payloads arrive. We'll overlay tile-provided details
+    // (shards, summaryCounts, isLoading) onto these base nodes when available.
+
+    // Two-pass layout to preserve global shard totals for nodes that are
+    // not covered by tile-provided nodes. The previous single boolean check
+    // suppressed global totals whenever any tile nodes were present which
+    // produced a mid-state where some nodes lost their shard totals while
+    // other tiles were still loading. We compute a preliminary layout using
+    // global shards to obtain stable positions, then decide per-node whether
+    // to remove global shard totals for nodes covered by tiles (or skeletons),
+    // and finally recompute the layout with the pruned shards map.
+
+    // Preliminary layout using global shards so we can compute node positions
+    const prelimLayout = calculateCanvasLayout({
       clusterNodes: filteredNodes,
       shardsByNode,
       groupingConfig,
@@ -419,6 +393,199 @@ export function CanvasTopologyView({
       onDestinationClick,
       getIndexHealthColor,
     });
+
+    // If no tile system is active yet, return the global-shards layout
+    if (!visibleNodesFromTiles) return prelimLayout;
+
+    // Build sets for tile-covered nodes (ids and names) and skeleton tile rects
+    const tileNodeKeys = new Set<string>();
+    const skeletonRects: Array<{ minx: number; miny: number; maxx: number; maxy: number }> = [];
+    const tileSize = TOPOLOGY_CONFIG.TILE_SIZE;
+    for (const tn of visibleNodesFromTiles) {
+      const tid = (tn as any).id as string | undefined;
+      if (typeof tid === 'string' && tid.startsWith('skeleton:')) {
+        const parts = tid.split(':');
+        const tx = Number(parts[1]);
+        const ty = Number(parts[2]);
+        const minx = tx * tileSize;
+        const miny = ty * tileSize;
+        const maxx = minx + tileSize;
+        const maxy = miny + tileSize;
+        skeletonRects.push({ minx, miny, maxx, maxy });
+        continue;
+      }
+
+      // Normal tile node: try to extract id/name from data node payload
+      const existing = (tn as any).data || {};
+      const explicitNode = existing.node as Record<string, unknown> | undefined;
+      if (explicitNode) {
+        const nid = explicitNode.id as string | undefined;
+        const nname = explicitNode.name as string | undefined;
+        if (nid) tileNodeKeys.add(nid);
+        if (nname) tileNodeKeys.add(nname);
+      }
+      // Also consider raw node fields on the tile node object itself
+      const rawNodeId = (tn as any).id as string | undefined;
+      const rawName = (tn as any).name as string | undefined;
+      if (rawNodeId && !rawNodeId.startsWith('skeleton:')) tileNodeKeys.add(rawNodeId);
+      if (rawName) tileNodeKeys.add(rawName);
+    }
+
+    // Build a per-node shards map that keeps global totals only for nodes not
+    // covered by tiles (either explicit tile nodes or skeleton tile areas).
+    const prunedShardsByNode: Record<string, ShardInfo[]> = {};
+    for (const key of Object.keys(shardsByNode)) {
+      const shardList = (shardsByNode as any)[key] as ShardInfo[];
+      // Find the corresponding prelim layout node (by id or name) to check
+      // for spatial overlap with skeleton rectangles.
+      const mapped = (prelimLayout as any[]).find((bn: any) => (bn.id === key) || (bn.data && bn.data.node && bn.data.node.name === key));
+      let covered = false;
+      if (mapped) {
+        // If tile explicitly provided this node (by id or name), mark covered
+        const mappedId = mapped.id as string | undefined;
+        const mappedName = mapped.data?.node?.name as string | undefined;
+        if ((mappedId && tileNodeKeys.has(mappedId)) || (mappedName && tileNodeKeys.has(mappedName))) {
+          covered = true;
+        } else {
+          // Check skeleton coverage
+          const bx = (mapped.position?.x as number) ?? 0;
+          const by = (mapped.position?.y as number) ?? 0;
+          const bw = (mapped as any).width ?? estimateGroupMinWidth(((mapped as any).data?.node) || {});
+          const bh = (mapped as any).height ?? 140;
+          for (const r of skeletonRects) {
+            if (!(bx + bw < r.minx || bx > r.maxx || by + bh < r.miny || by > r.maxy)) {
+              covered = true;
+              break;
+            }
+          }
+        }
+      } else {
+        // If no mapping found, be conservative and keep global shards for this key
+        covered = false;
+      }
+
+      if (!covered) prunedShardsByNode[key] = shardList;
+    }
+
+    // Recompute the authoritative base layout using the pruned shards map so
+    // that only nodes covered by tiles will have their shard details suppressed.
+    const baseLayout = calculateCanvasLayout({
+      clusterNodes: filteredNodes,
+      shardsByNode: prunedShardsByNode,
+      groupingConfig,
+      onNodeClick,
+      onShardClick: onShardClick
+        ? (shard: ShardInfo, event?: React.MouseEvent) => onShardClick(shard, event!)
+        : undefined,
+      relocationMode,
+      validDestinationNodes,
+      onDestinationClick,
+      getIndexHealthColor,
+    });
+
+    // Build index by id/name for quick overlays
+    const baseIndexByKey = new Map<string, number>();
+    baseLayout.forEach((bn, idx) => {
+      baseIndexByKey.set((bn as any).id, idx);
+      const name = (bn as any).data?.node?.name as string | undefined;
+      if (name) baseIndexByKey.set(name, idx);
+    });
+
+    // Reset isLoading flags
+    baseLayout.forEach((bn) => {
+      (bn as any).data = { ...(bn as any).data, isLoading: false };
+    });
+
+    // Apply overlays from tile-provided nodes, and map skeleton nodes to base nodes
+    for (const tn of visibleNodesFromTiles) {
+      const existing = (tn as any).data || {};
+
+      // Special-case skeleton markers produced by TopologyController when a
+      // subscribed tile is not yet cached. Id format: "skeleton:tx:ty"
+      const tid = (tn as any).id as string | undefined;
+      if (typeof tid === 'string' && tid.startsWith('skeleton:')) {
+        const parts = tid.split(':');
+        const tx = Number(parts[1]);
+        const ty = Number(parts[2]);
+        const minx = tx * tileSize;
+        const miny = ty * tileSize;
+        const maxx = minx + tileSize;
+        const maxy = miny + tileSize;
+        // Mark any base node overlapping this tile as loading so the card
+        // shows shard skeletons instead of disappearing/reflowing.
+        baseLayout.forEach((bn) => {
+          const bx = (bn.position?.x as number) ?? 0;
+          const by = (bn.position?.y as number) ?? 0;
+          const bw = (bn as any).width ?? estimateGroupMinWidth(((bn as any).data?.node) || {});
+          const bh = (bn as any).height ?? 140;
+          if (!(bx + bw < minx || bx > maxx || by + bh < miny || by > maxy)) {
+            (bn as any).data = { ...(bn as any).data, isLoading: true };
+          }
+        });
+        continue;
+      }
+
+      // Normal tile-provided node: overlay into base layout if matching, else append
+      const explicitNode = existing.node as Record<string, unknown> | undefined;
+      const rawNode = existing.__raw as Record<string, unknown> | undefined;
+      const nodeKey = explicitNode?.id ?? explicitNode?.name ?? (tn as any).id;
+      const idx = nodeKey ? baseIndexByKey.get(String(nodeKey)) : undefined;
+      if (idx !== undefined) {
+        const target = baseLayout[idx] as any;
+        // Start from existing target data so we preserve authoritative fields
+        const merged: Record<string, unknown> = { ...(target.data || {}) };
+
+        // Merge node-level overrides only when tile provides any node info
+        if (rawNode || explicitNode) {
+          merged.node = { ...(target.data?.node || {}), ...(rawNode || {}), ...(explicitNode || {}) };
+        }
+
+        // Only attach shards/summaryCounts if the tile explicitly provided them.
+        // This avoids inserting `shards: undefined` which would cause the
+        // ClusterESNodeCardFlowWrapper to treat the payload as a tile-shape and
+        // reconstruct the flat data from the (often sparse) node object,
+        // losing authoritative top-level metadata.
+        if (existing && Object.prototype.hasOwnProperty.call(existing, 'shards') && existing.shards !== undefined) {
+          merged.shards = existing.shards;
+        }
+        if (existing && Object.prototype.hasOwnProperty.call(existing, 'summaryCounts') && existing.summaryCounts !== undefined) {
+          merged.summaryCounts = existing.summaryCounts;
+        } else {
+          // Fallback: if the tile did not explicitly provide summaryCounts, try
+          // to use the global shardsByNode totals as a non-invasive fallback so
+          // the node card still shows shard totals while tile-level details
+          // are loading. We intentionally do NOT attach the full shards array
+          // from global data (that would defeat lazy-loading), only the totals.
+          try {
+            const nodeId = (merged.node && (merged.node as any).id) ?? (merged.node && (merged.node as any).name) ?? (tn as any).id;
+            const globalShards = (shardsByNode as any)[nodeId] ?? (merged.node && (shardsByNode as any)[(merged.node as any).name]);
+            if (Array.isArray(globalShards) && globalShards.length > 0) {
+              merged.summaryCounts = { primary: (globalShards as any[]).filter((s: any) => !!s.primary).length, replica: (globalShards as any[]).filter((s: any) => !s.primary).length, total: (globalShards as any[]).length };
+            }
+          } catch (_err) { void _err; }
+        }
+
+        // Preserve explicit isLoading only when tile signalled it; otherwise keep existing
+        if (existing && Object.prototype.hasOwnProperty.call(existing, 'isLoading')) {
+          merged.isLoading = (existing as any).isLoading;
+        }
+
+        merged.getIndexHealthColor = target.data?.getIndexHealthColor ?? getIndexHealthColor;
+        merged.onNodeClick = target.data?.onNodeClick ?? existing?.onNodeClick ?? onNodeClick;
+        merged.onShardClick = target.data?.onShardClick ?? existing?.onShardClick ?? onShardClick;
+        merged.onDestinationClick = target.data?.onDestinationClick ?? existing?.onDestinationClick ?? onDestinationClick;
+
+        target.data = merged;
+      } else {
+        const merged = { ...tn } as any;
+        const explicit = (merged.data || {}).node || {};
+        const minW = estimateGroupMinWidth(explicit as any);
+        merged.width = minW;
+        baseLayout.push(merged as any);
+      }
+    }
+
+    return baseLayout as Node[];
   }, [nodes, filteredNodes, shardsByNode, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, visibleNodesFromTiles]);
   // Debug: log whether layout nodes include onNodeClick handler in their data payloads
   console.debug(

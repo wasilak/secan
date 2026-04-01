@@ -79,7 +79,8 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
     // Guard: reval may be null during initialization
     if (!reval) return;
 
-    reval.onTilePayload((_key, _payload) => {
+    // Helper: rebuild visible nodes from current tile cache and subscribed tiles.
+    const rebuildVisibleNodesFromCache = () => {
       // Build visible nodes only from currently subscribed tiles
       const subTiles = subscribedTilesRef.current || [];
       type NodeLike = { id: string; [k: string]: unknown };
@@ -99,6 +100,8 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
       for (const t of subTiles) {
         const p = tileCacheRef.current ? tileCacheRef.current.get(t as TileKey) : undefined;
         if (!p || !p.nodes) continue;
+        // tile-level shards map (nodeId -> shards[]) when provided by server for L2
+        const tileShardsMap = (p as any).shards as Record<string, unknown[]> | undefined;
         for (const nUnknown of (p.nodes ?? []) as unknown[]) {
           const n = nUnknown as Record<string, unknown>;
           // Basic culling: node position inside viewport bounds
@@ -113,35 +116,39 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
           if (seen.has(id)) continue;
           seen.add(id);
 
+          // Resolve per-node shards: prefer node-embedded shards, else tile-level shards map
+          const nodeId = typeof (n as any).id === 'string' ? (n as any).id as string : undefined;
+          const nodeName = typeof (n as any).name === 'string' ? (n as any).name as string : undefined;
+          let nodeShards: unknown[] | undefined;
+          if (Array.isArray((n as any).shards)) nodeShards = (n as any).shards as unknown[];
+          else if (tileShardsMap && nodeId && Array.isArray(tileShardsMap[nodeId])) nodeShards = tileShardsMap[nodeId];
+          else if (tileShardsMap && nodeName && Array.isArray(tileShardsMap[nodeName])) nodeShards = tileShardsMap[nodeName];
+
+          const summaryCounts = (typeof n.summaryCounts === 'object' && n.summaryCounts)
+            ? n.summaryCounts
+            : (nodeShards && nodeShards.length > 0)
+              ? { primary: (nodeShards as any[]).filter((s: any) => s.primary).length, replica: (nodeShards as any[]).filter((s: any) => !s.primary).length, total: (nodeShards as any[]).length }
+              : undefined;
+
           // Transform tile node payload into React Flow node shape
-              const flowNode = {
-                id,
-                position: { x: nx ?? 0, y: ny ?? 0 },
-              data: {
-                node: {
-                  id: typeof n.id === 'string' ? n.id : undefined,
-                  name: typeof n.name === 'string' ? n.name : undefined,
-                  version: typeof n.version === 'string' ? n.version : undefined,
-                  ip: typeof n.ip === 'string' ? n.ip : undefined,
-                },
-                // Only include shards array when provided by the tile payload. If absent,
-                // leave undefined so callers can decide whether to show totals or a
-                // lightweight fallback UI (avoids showing "shards 0" incorrectly).
-                shards: Array.isArray(n.shards) ? n.shards : undefined,
-                // Use provided summaryCounts when present. If absent but shards array
-                // exists compute counts from shards. Otherwise leave undefined so the
-                // UI can render a lightweight placeholder instead of "0 shards".
-                summaryCounts: (typeof n.summaryCounts === 'object' && n.summaryCounts)
-                  ? n.summaryCounts
-                  : (Array.isArray(n.shards) && n.shards.length > 0)
-                    ? { primary: (n.shards as any[]).filter((s: any) => s.primary).length, replica: (n.shards as any[]).filter((s: any) => !s.primary).length, total: (n.shards as any[]).length }
-                    : undefined,
-                __raw: n,
+          const flowNode = {
+            id,
+            position: { x: nx ?? 0, y: ny ?? 0 },
+            data: {
+              node: {
+                id: typeof n.id === 'string' ? n.id : undefined,
+                name: typeof n.name === 'string' ? n.name : undefined,
+                version: typeof n.version === 'string' ? n.version : undefined,
+                ip: typeof n.ip === 'string' ? n.ip : undefined,
               },
-                type: 'clusterGroup',
-                width: nwidth || undefined,
-                height: nheight || undefined,
-              } as unknown;
+              shards: nodeShards,
+              summaryCounts,
+              __raw: n,
+            },
+            type: 'clusterGroup',
+            width: nwidth || undefined,
+            height: nheight || undefined,
+          } as unknown;
 
           nodes.push(flowNode as NodeLike);
         }
@@ -150,7 +157,7 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
       setVisibleNodes(nodes);
       // For subscribed tiles that are not yet cached, provide one skeleton node per tile
       const tileSize = TOPOLOGY_CONFIG.TILE_SIZE;
-        for (const t of subTiles) {
+      for (const t of subTiles) {
         const p = tileCacheRef.current ? tileCacheRef.current.get(t as TileKey) : undefined;
         if (p && p.nodes) continue;
         const sx = t.tileX * tileSize + tileSize / 2;
@@ -159,7 +166,9 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
         const skeletonNode = {
           id: skid,
           position: { x: sx, y: sy },
-          data: { node: { id: skid, name: 'Loading...' }, shards: [], summaryCounts: { primary: 0, replica: 0, total: 0 }, isLoading: true },
+          // Only set minimal data and isLoading flag. Do not inject empty shards
+          // or summaryCounts as that may incorrectly overwrite base node metadata.
+          data: { node: { id: skid, name: 'Loading...' }, isLoading: true, __tile: { x: t.tileX, y: t.tileY, lod: t.lod } },
           type: 'clusterGroup',
           width: TOPOLOGY_CONFIG.GROUP_WIDTH,
           height: 140,
@@ -168,6 +177,11 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
         if (!nodes.find((n) => n.id === skid)) nodes.push(skeletonNode as NodeLike);
       }
       onNodesUpdate(nodes);
+    };
+
+    // Register callback to rebuild when the coordinator notifies of tile payloads
+    reval.onTilePayload((_key, _payload) => {
+      rebuildVisibleNodesFromCache();
     });
 
     // start auto refresh

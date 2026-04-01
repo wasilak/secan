@@ -1,4 +1,4 @@
-import { Group, Text, Badge, Divider, Flex, Box, Tooltip } from '@mantine/core';
+import { Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton } from '@mantine/core';
 import ShardPills from './ShardPills';
 import type { ShardInfo } from '../types/api';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
@@ -208,56 +208,76 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
 
       <Divider mb={6} />
 
-        {renderDots !== false && dots.length > 0 && (
+        {/* If the node/card is currently loading shard details, show a small
+            in-card skeleton for the shard area to avoid layout flashes and to
+            communicate loading state. Otherwise render real shard dots when
+            available. */}
+        {isLoading ? (
           <Flex gap={3} wrap="wrap" mb={6}>
-            {dots.map((dot, idx) => (
-            <Tooltip
-              key={idx}
-              label={dot.tooltip}
-              withArrow
-              withinPortal
-            >
-              <Box
-                className="secan-shard-dot"
-                style={{
-                  width: 14,
-                  height: 14,
-                  backgroundColor: dot.color,
-                  borderRadius: 2,
-                  opacity: dot.primary ? 1 : 0.5,
-                  boxShadow: dot.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
-                  flexShrink: 0,
-                  cursor: onShardClick ? 'pointer' : 'default',
-                }}
-                onClick={(e: MouseEvent) => {
-                  if (onShardClick) {
-                    e.stopPropagation();
-                    onShardClick(dot.shard as ShardInfo, e);
-                  }
-                }}
-                onContextMenu={(e: MouseEvent) => {
-                  // Right-click should also open the shard context menu
-                  if (onShardClick) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onShardClick(dot.shard as ShardInfo, e);
-                  }
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              />
-            </Tooltip>
-          ))}
-        </Flex>
-      )}
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <Skeleton key={idx} width={14} height={14} radius="sm" />
+            ))}
+          </Flex>
+        ) : (
+          renderDots !== false && dots.length > 0 && (
+            <Flex gap={3} wrap="wrap" mb={6}>
+              {dots.map((dot, idx) => (
+                <Tooltip
+                  key={idx}
+                  label={dot.tooltip}
+                  withArrow
+                  withinPortal
+                >
+                  <Box
+                    className="secan-shard-dot"
+                    style={{
+                      width: 14,
+                      height: 14,
+                      backgroundColor: dot.color,
+                      borderRadius: 2,
+                      opacity: dot.primary ? 1 : 0.5,
+                      boxShadow: dot.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
+                      flexShrink: 0,
+                      cursor: onShardClick ? 'pointer' : 'default',
+                    }}
+                    onClick={(e: MouseEvent) => {
+                      if (onShardClick) {
+                        e.stopPropagation();
+                        onShardClick(dot.shard as ShardInfo, e);
+                      }
+                    }}
+                    onContextMenu={(e: MouseEvent) => {
+                      // Right-click should also open the shard context menu
+                      if (onShardClick) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onShardClick(dot.shard as ShardInfo, e);
+                      }
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  />
+                </Tooltip>
+              ))}
+            </Flex>
+          )
+        )}
 
       {/*
         Avoid rendering a misleading "0 shards" pill when no shard details are
         available. Show shard pills only when there is at least one shard or the
         caller explicitly disables suppression.
       */}
-      {!props.suppressShardSummary && sc.total > 0 && (
-        <ShardPills total={sc.total} primary={sc.primary} replica={sc.replica} size="xs" />
+      {/* Render totals pill when available, but if we are loading show a
+          lightweight skeleton in its place so users know counts are being
+          fetched. We still avoid rendering a misleading "0 shards" pill when
+          suppression is requested. */}
+      {isLoading ? (
+        <Skeleton width={80} height={16} />
+      ) : (
+        !props.suppressShardSummary && sc.total > 0 && (
+          <ShardPills total={sc.total} primary={sc.primary} replica={sc.replica} size="xs" />
+        )
       )}
     </div>
   );
