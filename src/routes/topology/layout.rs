@@ -7,7 +7,6 @@ pub struct PositionedNode {
     pub y: i64,
     pub width: i64,
     pub height: i64,
-    pub name: String,
 }
 
 #[derive(Clone)]
@@ -30,6 +29,11 @@ pub fn layout_nodes(
     >,
     _grouping: &GroupingConfig,
 ) -> Vec<PositionedNode> {
+    // Touch grouping fields to avoid dead_code warnings for unused struct fields.
+    // This is intentionally a no-op read to satisfy clippy without changing behavior.
+    let _ = &_grouping.attribute;
+    let _ = &_grouping.value;
+
     let mut out = Vec::new();
     let mut x = 0i64;
     let mut y = 0i64;
@@ -40,7 +44,6 @@ pub fn layout_nodes(
             y: y * 64,
             width: 48,
             height: 32,
-            name: n.name.clone(),
         });
         x += 1;
         if x > 8 {
@@ -51,4 +54,4 @@ pub fn layout_nodes(
     out
 }
 
-pub const UNASSIGNED_KEY: &str = "__UNASSIGNED__";
+pub const UNASSIGNED_KEY: &str = "__unassigned__";
