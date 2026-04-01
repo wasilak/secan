@@ -216,9 +216,12 @@ export function ClusterView() {
   const [topologyContextMenuOpened, setTopologyContextMenuOpened] = useState(false);
 
   // Shared shard allocation state
+  // Always fetch cluster settings so the AllocationLockIndicator in the header
+  // can render immediately on any cluster page (nodes/indices/shards/tasks).
+  // Only enable frequent refetching when overview/topology views are active.
   const { data: clusterSettings } = useClusterSettings(id ?? '', {
-    enabled: !!id && (activeView === 'overview' || activeView === 'topology'),
-    refetchInterval: refreshInterval,
+    enabled: !!id,
+    refetchInterval: activeView === 'overview' || activeView === 'topology' ? refreshInterval : false,
     staleTime: 0,
     refetchOnWindowFocus: false,
     refetchOnMount: true,
