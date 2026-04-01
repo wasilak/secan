@@ -115,7 +115,7 @@ const COLUMN_WIDTH = GROUP_WIDTH + HORIZONTAL_GAP;
 // floating label; CONTAINER_PADDING_BOTTOM adds breathing room at the bottom.
 const CONTAINER_PADDING_X = 12;
 const CONTAINER_PADDING_TOP = 36;
-const CONTAINER_PADDING_BOTTOM = 16;
+export const CONTAINER_PADDING_BOTTOM = 16;
 
 // Estimated single-row group height used as a sensible fallback by layout
 // consumers that need a non-content-driven height (eg. dagre layout).

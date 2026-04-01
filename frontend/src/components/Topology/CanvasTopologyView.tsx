@@ -5,7 +5,6 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
-  MiniMap,
   BackgroundVariant,
   useNodesInitialized,
   useReactFlow,
@@ -22,7 +21,7 @@ import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 import { GroupContainerNode } from './GroupContainerNode';
-import { calculateCanvasLayout } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, ESTIMATED_GROUP_HEIGHT } from '../../utils/canvasLayout';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -255,6 +254,65 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     return () => { cancelled = true; };
   }, [flowNodes, setFlowNodes, usePrecomputedLayout]);
 
+  // ── Grouped layout: resize groupContainer nodes to fit measured children ──
+  // After RF measures actual child node heights (node.measured.height), we
+  // recompute each container's style.height so children never overflow the
+  // container border.  Runs only when usePrecomputedLayout is true (i.e. a
+  // grouping attribute is active).  Exits early until every non-container node
+  // is fully measured to avoid a resize loop from partial data.
+  useEffect(() => {
+    if (!usePrecomputedLayout) return;
+
+    const nodesArr = flowNodes as unknown as Array<Record<string, unknown>>;
+    if (nodesArr.length === 0) return;
+
+    // Wait until all child nodes (non-containers) are measured
+    const childNodes = nodesArr.filter((n) => (n.type as string) !== 'groupContainer');
+    const allMeasured = childNodes.every((n) => {
+      const m = (n as any).measured;
+      return !!m && (m as any).width > 0 && (m as any).height > 0;
+    });
+    if (!allMeasured) return;
+
+    // Build parent → children map
+    const childrenByParent = new Map<string, Array<Record<string, unknown>>>();
+    nodesArr.forEach((n) => {
+      const pid = (n as any).parentId as string | undefined;
+      if (!pid) return;
+      if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+      childrenByParent.get(pid)!.push(n);
+    });
+
+    let changed = false;
+    const updated = nodesArr.map((n) => {
+      if ((n.type as string) !== 'groupContainer') return n;
+      const children = childrenByParent.get(n.id as string) ?? [];
+      if (children.length === 0) return n;
+
+      const neededHeight = children.reduce((max, child) => {
+        const pos = (child as any).position as { x: number; y: number } | undefined;
+        const measuredH = (child as any).measured?.height as number | undefined;
+        const childBottom = (pos?.y ?? 0) + (measuredH ?? ESTIMATED_GROUP_HEIGHT);
+        return Math.max(max, childBottom);
+      }, 0) + CONTAINER_PADDING_BOTTOM;
+
+      const currentH = ((n as any).style as { height?: number } | undefined)?.height;
+      if (Math.abs((currentH as number ?? 0) - neededHeight) > 2) {
+        changed = true;
+        return {
+          ...n,
+          style: { ...(n as any).style, height: neededHeight },
+        };
+      }
+      return n;
+    });
+
+    if (changed) {
+      setFlowNodes(updated as unknown as Node[]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowNodes, usePrecomputedLayout]);
+
   return (
     <ReactFlow
       className="secan-reactflow"
@@ -283,13 +341,6 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
         color="var(--mantine-color-gray-4)"
       />
       <Controls showInteractive={false} />
-      <MiniMap
-        nodeStrokeWidth={0}
-        nodeColor="var(--mantine-color-blue-3)"
-        maskColor="rgba(0,0,0,0.06)"
-        zoomable
-        pannable
-      />
     </ReactFlow>
   );
 }
