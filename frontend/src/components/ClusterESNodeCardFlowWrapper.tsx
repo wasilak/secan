@@ -43,11 +43,35 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     // Precedence: rawNode overrides nothing, explicitNode overrides raw, but
     // do not replace defined values with undefined. Merge order: raw <- explicit
     const nodeInfo = mergePreferDefined(rawNode, explicitNode) as Partial<NodeInfo>;
-    const shards = Array.isArray(data['shards']) ? (data['shards'] as ShardInfo[]) : [];
+    const providedShards = Array.isArray(data['shards']) ? (data['shards'] as ShardInfo[]) : undefined;
+    const providedSummary = (data['summaryCounts'] as { primary?: number; replica?: number; total?: number } | undefined) ?? undefined;
 
-    const primaryCount = shards.filter((s) => s.primary).length;
-    const replicaCount = shards.filter((s) => !s.primary).length;
-    const totalShards = shards.length;
+    // Decide what to show: prefer explicit shards array (detailed). If absent,
+    // but summaryCounts present, show totals (badges) without dots. If neither
+    // present, fall back to zeros.
+    let shards: ShardInfo[] = [];
+    let primaryCount = 0;
+    let replicaCount = 0;
+    let totalShards = 0;
+    let showDots = false;
+
+    if (providedShards && providedShards.length > 0) {
+      shards = providedShards;
+      primaryCount = shards.filter((s) => s.primary).length;
+      replicaCount = shards.filter((s) => !s.primary).length;
+      totalShards = shards.length;
+      showDots = true;
+    } else if (providedSummary) {
+      primaryCount = providedSummary.primary ?? 0;
+      replicaCount = providedSummary.replica ?? 0;
+      totalShards = providedSummary.total ?? (primaryCount + replicaCount);
+      showDots = false;
+    } else {
+      primaryCount = 0;
+      replicaCount = 0;
+      totalShards = 0;
+      showDots = false;
+    }
 
     const heapPercent = computeHeapPercent(nodeInfo.heapUsed as number | undefined, nodeInfo.heapMax as number | undefined);
     const heapColor = getHeapColor(heapPercent);
@@ -64,7 +88,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     if (primaryCount > 0) badges.push({ label: `${primaryCount} primary` });
     if (replicaCount > 0) badges.push({ label: `${replicaCount} replica` });
 
-    const dots = shards.map((shard) => ({
+    const dots = showDots ? shards.map((shard) => ({
       // Use shard state based coloring: UNASSIGNED distinguishes primary/replica,
       // otherwise use the shard state color helper (STARTED, INITIALIZING, RELOCATING).
       color: shard.state === 'UNASSIGNED' ? getUnassignedShardColor(Boolean(shard.primary)) : getShardDotColor(shard.state),
@@ -82,7 +106,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       ),
       primary: shard.primary,
       shard,
-    }));
+    })) : [];
 
     const isUnassigned = nodeInfo.id === UNASSIGNED_KEY || nodeInfo.name === 'Unassigned';
 
@@ -111,7 +135,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       onNodeClick: (data['onNodeClick'] as ((id: string) => void) | undefined) ?? undefined,
       onDestinationClick: (data['onDestinationClick'] as ((id: string) => void) | undefined) ?? undefined,
       onShardClick: (data['onShardClick'] as ((s: ShardInfo, e?: React.MouseEvent) => void) | undefined) ?? undefined,
-      renderDots: true,
+      renderDots: showDots,
       isUnassigned,
     };
 

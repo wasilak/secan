@@ -290,6 +290,8 @@ export function DotBasedTopologyView({
     const replicaCount = sortedShards.filter(s => !s.primary).length;
     const totalShards = sortedShards.length;
 
+    // If detailed shards are not yet available, but we know totals, show totals
+    // with no shard dots. Otherwise show full details.
     const badges: Array<{ label: string; color?: string }> = [{ label: `${totalShards} shards` }];
     if (primaryCount > 0) badges.push({ label: `${primaryCount} primary`, color: 'blue' });
     if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });

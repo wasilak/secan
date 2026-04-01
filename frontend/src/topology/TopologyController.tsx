@@ -117,17 +117,27 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
               const flowNode = {
                 id,
                 position: { x: nx ?? 0, y: ny ?? 0 },
-                data: {
-                  node: {
-                    id: typeof n.id === 'string' ? n.id : undefined,
-                    name: typeof n.name === 'string' ? n.name : undefined,
-                    version: typeof n.version === 'string' ? n.version : undefined,
-                    ip: typeof n.ip === 'string' ? n.ip : undefined,
-                  },
-                  shards: Array.isArray(n.shards) ? n.shards : [],
-                  summaryCounts: (typeof n.summaryCounts === 'object' && n.summaryCounts) || { primary: 0, replica: 0, total: Array.isArray(n.shards) ? n.shards.length : 0 },
-                  __raw: n,
+              data: {
+                node: {
+                  id: typeof n.id === 'string' ? n.id : undefined,
+                  name: typeof n.name === 'string' ? n.name : undefined,
+                  version: typeof n.version === 'string' ? n.version : undefined,
+                  ip: typeof n.ip === 'string' ? n.ip : undefined,
                 },
+                // Only include shards array when provided by the tile payload. If absent,
+                // leave undefined so callers can decide whether to show totals or a
+                // lightweight fallback UI (avoids showing "shards 0" incorrectly).
+                shards: Array.isArray(n.shards) ? n.shards : undefined,
+                // Use provided summaryCounts when present. If absent but shards array
+                // exists compute counts from shards. Otherwise leave undefined so the
+                // UI can render a lightweight placeholder instead of "0 shards".
+                summaryCounts: (typeof n.summaryCounts === 'object' && n.summaryCounts)
+                  ? n.summaryCounts
+                  : (Array.isArray(n.shards) && n.shards.length > 0)
+                    ? { primary: (n.shards as any[]).filter((s: any) => s.primary).length, replica: (n.shards as any[]).filter((s: any) => !s.primary).length, total: (n.shards as any[]).length }
+                    : undefined,
+                __raw: n,
+              },
                 type: 'clusterGroup',
                 width: nwidth || undefined,
                 height: nheight || undefined,
