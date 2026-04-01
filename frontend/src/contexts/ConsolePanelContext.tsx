@@ -511,8 +511,33 @@ export function ConsolePanelProvider({ children }: ConsolePanelProviderProps) {
       if (event.key === '`' || event.key === '~') {
         event.preventDefault();
         event.stopPropagation();
-        // If modal manager says a modal is open, open the detached modal console instead
-        if (modalIsOpenRef.current) {
+        // Check DOM directly for visible dialogs as a fast, synchronous
+        // heuristic. This ensures keyboard handling responds immediately
+        // even if the ModalManager or MutationObserver hasn't updated yet.
+        const isDomDialogVisible = (() => {
+          try {
+            const nodes = Array.from(document.querySelectorAll('[role="dialog"], [aria-modal="true"]')) as HTMLElement[];
+            return nodes.some((n) => {
+              try {
+                const rect = n.getBoundingClientRect ? n.getBoundingClientRect() : null;
+                if (rect && (rect.width > 0 || rect.height > 0)) return true;
+                const style = window.getComputedStyle ? window.getComputedStyle(n) : ({} as CSSStyleDeclaration);
+                if (style.display === 'none') return false;
+                if (style.visibility === 'hidden') return false;
+                if ((n as HTMLElement).offsetWidth > 0 || (n as HTMLElement).offsetHeight > 0) return true;
+                return false;
+              } catch {
+                return false;
+              }
+            });
+          } catch {
+            return false;
+          }
+        })();
+
+        // If a modal is visible according to either the manager or direct DOM
+        // detection, open the detached modal console instead
+        if (modalIsOpenRef.current || isDomDialogVisible) {
           modalActiveRef.current = true;
           if (!wasDetachedDueToModalRef.current) {
             previousDetachedStateRef.current = isDetachedRef.current;

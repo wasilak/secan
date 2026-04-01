@@ -147,10 +147,10 @@ export const FullWidthContainer = memo(function FullWidthContainer({
       {...boxProps}
       className="fullwidth-container"
       data-console-pinned={consolePinned}
-      style={combinedStyle}
+      style={{ width: combinedStyle.width, maxWidth: combinedStyle.maxWidth, transition: combinedStyle.transition }}
       p={typeof resolvedPadding === 'object' ? resolvedPadding : undefined}
     >
-      <div className="fullwidth-container-inner" style={{ width: '100%' }}>
+      <div className="fullwidth-container-inner" style={{ width: '100%', ...style, ...(typeof resolvedPadding === 'string' ? { padding: resolvedPadding } : {}) }}>
         {children}
       </div>
     </Box>
