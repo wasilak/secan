@@ -343,6 +343,79 @@ html {
   }
 }
 
+/* When side console is pinned and content area is reduced, allow tables to scroll horizontally
+   to avoid layout overflow. We avoid changing table display (keeps proper table layout).
+   Instead make Mantine's Table root wrapper scrollable and ensure the inner <table>
+   keeps a min-width so it can overflow horizontally when its contents require more space. */
+.fullwidth-container[data-console-pinned="true"] .mantine-Table-root {
+  overflow-x: auto; /* enable horizontal scrolling on the Table wrapper */
+  -webkit-overflow-scrolling: touch;
+}
+
+.fullwidth-container[data-console-pinned="true"] .mantine-Table-root > table {
+  min-width: max-content; /* allow table to size to content and trigger horizontal overflow */
+}
+
+/* Fix flexbox clipping: allow flex children to shrink so inner scroll areas can show overflow */
+.fullwidth-container[data-console-pinned="true"] .mantine-Stack-root,
+.fullwidth-container[data-console-pinned="true"] .mantine-Group-root,
+.fullwidth-container[data-console-pinned="true"] .mantine-Card-root,
+.fullwidth-container[data-console-pinned="true"] .mantine-ScrollArea-root {
+  min-width: 0;
+}
+
+/* Ensure Mantine ScrollArea viewport allows horizontal scrolling when console is pinned */
+.fullwidth-container[data-console-pinned="true"] .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
+  /* Ensure horizontal scrolling is available even when Mantine sets inline overflow styles.
+     Use !important because Mantine sometimes writes inline 'overflow: scroll' on this element. */
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  min-width: 0; /* allow flex children to shrink and show the scrollbar */
+}
+
+/* Also ensure plain table elements inside ScrollArea get a min-width so they can overflow */
+.fullwidth-container[data-console-pinned="true"] .mantine-ScrollArea-root .mantine-Table-table,
+.fullwidth-container[data-console-pinned="true"] .mantine-Table-table {
+  min-width: max-content;
+}
+
+/* Optional: prevent cells from wrapping so horizontal scroll is predictable */
+.fullwidth-container[data-console-pinned="true"] .mantine-Table-table th,
+.fullwidth-container[data-console-pinned="true"] .mantine-Table-table td {
+  white-space: nowrap;
+}
+
+/* Global defensive rules: ensure tables inside Mantine ScrollArea keep their intrinsic width
+   so horizontal scrolling is available on desktop when content is wider than the container.
+   We limit this to desktop (>=768px) to preserve mobile stacked/tablet behaviour. */
+@media (min-width: 768px) {
+  .mantine-ScrollArea-root .mantine-Table-table,
+  .mantine-Table-root > table,
+  .mantine-Table-table {
+    min-width: max-content !important; /* don't let the table shrink below its content */
+    table-layout: auto !important;
+  }
+
+  .mantine-ScrollArea-root .mantine-Table-table th,
+  .mantine-ScrollArea-root .mantine-Table-table td,
+  .mantine-Table-table th,
+  .mantine-Table-table td {
+    white-space: nowrap !important; /* prevent wrapping that causes columns to compress */
+  }
+}
+
+/* Ensure inner container can shrink when console is pinned so scrollbars appear
+   instead of letting children overflow the flex item. */
+.fullwidth-container[data-console-pinned="true"] .fullwidth-container-inner {
+  min-width: 0;
+}
+
+/* Defensive: ensure ScrollArea content can grow beyond viewport and trigger scrolling */
+.fullwidth-container[data-console-pinned="true"] .mantine-ScrollArea-root .mantine-ScrollArea-content {
+  min-width: 0;
+}
+
 /* Clickable text — pointer cursor + underline on hover */
 .clickable-name {
   cursor: pointer;
@@ -384,5 +457,84 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
 @media (min-width: 992px) {
   .monaco-editor-responsive {
     height: 500px;
+  }
+}
+
+/* Make horizontal scrollbars more visible and provide a persistent visual hint
+   so users notice there is overflow to the right. This uses vendor scrollbar
+   styling where available and a subtle gradient overlay as an extra hint.
+   Limited to desktop sizes to avoid mobile clutter. */
+@media (min-width: 768px) {
+  .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100,100,100,0.6) rgba(0,0,0,0.04);
+  }
+
+  /* WebKit-based browsers */
+  .mantine-ScrollArea-root .mantine-ScrollArea-viewport::-webkit-scrollbar {
+    height: 12px;
+  }
+  .mantine-ScrollArea-root .mantine-ScrollArea-viewport::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.04);
+    border-radius: 6px;
+  }
+  .mantine-ScrollArea-root .mantine-ScrollArea-viewport::-webkit-scrollbar-thumb {
+    background: rgba(100,100,100,0.6);
+    border-radius: 6px;
+    border: 3px solid rgba(0,0,0,0);
+    background-clip: padding-box;
+  }
+
+  /* Subtle persistent gradient on the right edge of scroll areas to hint at overflow.
+     It's pointer-events:none so it doesn't block interaction. */
+  .mantine-ScrollArea-root {
+    position: relative;
+  }
+  .mantine-ScrollArea-root::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 18px;
+    pointer-events: none;
+    background: linear-gradient(to left, rgba(0,0,0,0.06), rgba(0,0,0,0));
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+  }
+}
+
+/* Desktop defensive overrides for Mantine ScrollArea + Table interaction.
+   Ensures tables can be wider than their flex parents and trigger horizontal scrolling. */
+@media (min-width: 768px) {
+  /* Allow flex containers to shrink so scrollable children can show scrollbars */
+  .mantine-Card-root,
+  .mantine-Stack-root,
+  .mantine-Group-root,
+  .mantine-ScrollArea-root,
+  .mantine-Table-root {
+    min-width: 0 !important;
+  }
+
+  /* Let ScrollArea content size to its children (tables) instead of forcing 100% width */
+  .mantine-ScrollArea-root .mantine-ScrollArea-content {
+    min-width: max-content !important;
+    width: auto !important;
+  }
+
+  /* Ensure tables inside ScrollArea keep intrinsic width and don't wrap */
+  .mantine-ScrollArea-root .mantine-Table-table,
+  .mantine-ScrollArea-root .mantine-Table-table th,
+  .mantine-ScrollArea-root .mantine-Table-table td {
+    min-width: max-content !important;
+    white-space: nowrap !important;
+    table-layout: auto !important;
+  }
+
+  /* Make viewport scrollable if content overflows */
+  .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
   }
 }
