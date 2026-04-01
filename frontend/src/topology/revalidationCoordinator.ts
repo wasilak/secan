@@ -214,7 +214,6 @@ export class RevalidationCoordinator {
         edges: t.edges,
         // Preserve shards map if present so callers that inspect t.shards can use it
         // Note: TilePayload type may be loose (unknown[]) so we keep as-is
-        // @ts-ignore - allow passing through shards to payload if present
         shards: t.shards,
       };
       this.tileCache.put(key, payload);

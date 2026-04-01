@@ -60,7 +60,14 @@ pub async fn post_tiles(
     Path(cluster_id): Path<String>,
     user_ext: Option<Extension<AuthenticatedUser>>,
     Json(body): Json<TileBatchRequest>,
-) -> Result<impl IntoResponse, crate::routes::clusters::ClusterErrorResponse> {
+) -> Result<
+    (
+        axum::http::StatusCode,
+        axum::http::HeaderMap,
+        Json<TileBatchResponse>,
+    ),
+    crate::routes::clusters::ClusterErrorResponse,
+> {
     // Enforce cluster access for the requesting user (Open mode allows all access)
     crate::routes::clusters::check_cluster_access(&cluster_id, &user_ext)?;
 

@@ -101,7 +101,7 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
         const p = tileCacheRef.current ? tileCacheRef.current.get(t as TileKey) : undefined;
         if (!p || !p.nodes) continue;
         // tile-level shards map (nodeId -> shards[]) when provided by server for L2
-        const tileShardsMap = (p as any).shards as Record<string, unknown[]> | undefined;
+        const tileShardsMap = p?.shards as Record<string, unknown[]> | undefined;
         for (const nUnknown of (p.nodes ?? []) as unknown[]) {
           const n = nUnknown as Record<string, unknown>;
           // Basic culling: node position inside viewport bounds
@@ -117,18 +117,24 @@ export function TopologyController({ onNodesUpdate }: { onNodesUpdate: (nodes: u
           seen.add(id);
 
           // Resolve per-node shards: prefer node-embedded shards, else tile-level shards map
-          const nodeId = typeof (n as any).id === 'string' ? (n as any).id as string : undefined;
-          const nodeName = typeof (n as any).name === 'string' ? (n as any).name as string : undefined;
+          const nodeId = typeof n.id === 'string' ? n.id as string : undefined;
+          const nodeName = typeof n.name === 'string' ? n.name as string : undefined;
           let nodeShards: unknown[] | undefined;
-          if (Array.isArray((n as any).shards)) nodeShards = (n as any).shards as unknown[];
+          if (Array.isArray(n.shards)) nodeShards = n.shards as unknown[];
           else if (tileShardsMap && nodeId && Array.isArray(tileShardsMap[nodeId])) nodeShards = tileShardsMap[nodeId];
           else if (tileShardsMap && nodeName && Array.isArray(tileShardsMap[nodeName])) nodeShards = tileShardsMap[nodeName];
 
           const summaryCounts = (typeof n.summaryCounts === 'object' && n.summaryCounts)
             ? n.summaryCounts
             : (nodeShards && nodeShards.length > 0)
-              ? { primary: (nodeShards as any[]).filter((s: any) => s.primary).length, replica: (nodeShards as any[]).filter((s: any) => !s.primary).length, total: (nodeShards as any[]).length }
-              : undefined;
+            ? (() => {
+              const arr = nodeShards as unknown[];
+              const total = arr.length;
+              const primary = arr.filter((s) => Boolean((s as Record<string, unknown>).primary)).length;
+              const replica = total - primary;
+              return { primary, replica, total };
+            })()
+            : undefined;
 
           // Transform tile node payload into React Flow node shape
           const flowNode = {

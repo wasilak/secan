@@ -50,10 +50,10 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     // but summaryCounts present, show totals (badges) without dots. If neither
     // present, fall back to zeros.
     let shards: ShardInfo[] = [];
-    let primaryCount = 0;
-    let replicaCount = 0;
-    let totalShards = 0;
-    let showDots = false;
+    let primaryCount: number;
+    let replicaCount: number;
+    let totalShards: number;
+    let showDots: boolean;
 
     if (providedShards && providedShards.length > 0) {
       shards = providedShards;

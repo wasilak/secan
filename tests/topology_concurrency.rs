@@ -91,7 +91,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
                 serde_json::from_slice(&body_bytes).expect("parse error body JSON");
             assert_eq!(v["error"], "generation_concurrency_limited");
         }
-        Ok((status, _)) => panic!("expected error but got success: {}", status),
+        Ok((status, ..)) => panic!("expected error but got success: {}", status),
     }
 
     // Release permit so we can generate and populate the cache
@@ -102,7 +102,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
     let path_ex = AxPath("cluster-a".to_string());
     let json_ex = axum::Json(make_tbreq());
     let gen_res = secan::routes::topology::post_tiles(state_ex, path_ex, None, json_ex).await;
-    let (status, body) = gen_res.expect("generation should succeed");
+    let (status, _headers, body) = gen_res.expect("generation should succeed");
     assert_eq!(status, axum::http::StatusCode::OK);
     assert!(!body.tiles.is_empty());
 
@@ -146,6 +146,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
     let cached_res = secan::routes::topology::post_tiles(state_ex, path_ex, None, json_ex)
         .await
         .expect("cached request should succeed");
+    // cached_res is (StatusCode, HeaderMap, Json(TileBatchResponse))
     assert_eq!(cached_res.0, axum::http::StatusCode::OK);
 
     // Release permit
