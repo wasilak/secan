@@ -131,6 +131,7 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
       summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShards },
       badges,
       dots,
+      suppressShardSummary: totalShards === 0 && !showDots,
       // Allow node click handler when provided by layout/data
       onNodeClick: (data['onNodeClick'] as ((id: string) => void) | undefined) ?? undefined,
       onDestinationClick: (data['onDestinationClick'] as ((id: string) => void) | undefined) ?? undefined,

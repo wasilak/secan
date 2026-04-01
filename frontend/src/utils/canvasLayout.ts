@@ -53,6 +53,8 @@ export interface ClusterGroupNodeDataFlat {
     // Include shard info so node renderer can emit shard-specific interactions
     shard: ShardInfo;
   }>;
+  /** When true, UI should not display shard summary pills (used to avoid showing "0 shards") */
+  suppressShardSummary?: boolean;
 
   // Handlers (should be stable and at most one or two, for simple id click)
   onNodeClick?: (nodeId: string) => void;
@@ -123,6 +125,12 @@ export interface CanvasLayoutInput {
   validDestinationNodes?: string[];
   onDestinationClick?: (nodeId: string) => void;
   getIndexHealthColor?: (indexName: string) => string;
+  /**
+   * When true, do not show shard summary badges/pills when the shard list for
+   * a node is empty. Used by Canvas tile fallback when tiles are not yet
+   * providing shard details to avoid misleading "0 shards" pills.
+   */
+  hideShardSummaryWhenEmpty?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

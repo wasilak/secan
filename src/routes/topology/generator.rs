@@ -68,12 +68,23 @@ pub fn generate_tiles(
                         n["metrics"] = serde_json::json!({"heapPercent": node.heap_percent});
                     }
 
+                    // Provide lightweight shard summary counts for L1 (and L2 as well).
+                    // For L2 we still emit the full shards array, but include counts too
+                    // so clients that only want totals can use them without parsing the
+                    // full array.
+                    let mut primary_count: i64 = 0;
+                    let mut replica_count: i64 = 0;
+                    let mut total_count: i64 = 0;
+
                     if *lod == "L2" {
                         let shards = shards_by_node
                             .get(&node.name)
                             .or_else(|| shards_by_node.get(&node.id))
                             .cloned()
                             .unwrap_or_default();
+                        total_count = shards.len() as i64;
+                        primary_count = shards.iter().filter(|s| s.primary).count() as i64;
+                        replica_count = total_count - primary_count;
                         let s: Vec<Value> = shards
                             .into_iter()
                             .map(|sh| {
@@ -86,7 +97,19 @@ pub fn generate_tiles(
                             })
                             .collect();
                         n["shards"] = serde_json::Value::Array(s);
+                    } else {
+                        if let Some(vec) = shards_by_node
+                            .get(&node.name)
+                            .or_else(|| shards_by_node.get(&node.id))
+                        {
+                            total_count = vec.len() as i64;
+                            primary_count = vec.iter().filter(|s| s.primary).count() as i64;
+                            replica_count = total_count - primary_count;
+                        }
                     }
+
+                    // Attach summaryCounts so clients can render totals cheaply.
+                    n["summaryCounts"] = serde_json::json!({"primary": primary_count, "replica": replica_count, "total": total_count});
 
                     // push node JSON for response
                     matched.push(n);

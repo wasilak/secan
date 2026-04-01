@@ -251,7 +251,14 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
         </Flex>
       )}
 
-      <ShardPills total={sc.total} primary={sc.primary} replica={sc.replica} size="xs" />
+      {/*
+        Avoid rendering a misleading "0 shards" pill when no shard details are
+        available. Show shard pills only when there is at least one shard or the
+        caller explicitly disables suppression.
+      */}
+      {!props.suppressShardSummary && sc.total > 0 && (
+        <ShardPills total={sc.total} primary={sc.primary} replica={sc.replica} size="xs" />
+      )}
     </div>
   );
 }
