@@ -293,7 +293,7 @@ export function ClusterView() {
   };
 
   // Wildcard pattern matching (Elasticsearch cat API style)
-  const matchesWildcard = (text: string, pattern: string): boolean => {
+  const matchesWildcard = useCallback((text: string, pattern: string): boolean => {
     if (!pattern) return true;
     const regexPattern = pattern
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
@@ -301,7 +301,7 @@ export function ClusterView() {
       .replace(/\?/g, '.');
     const regex = new RegExp(regexPattern, 'i');
     return regex.test(text);
-  };
+  }, []);
 
   // Extract modal IDs from search params (no path change = no remount)
   const nodeIdFromPath = searchParams.get('nodeModal');
@@ -915,13 +915,27 @@ export function ClusterView() {
   // regardless of node role filters applied to the nodes list
   const allNodesArray = useMemo(() => allNodesUnfiltered?.items ?? [], [allNodesUnfiltered]);
 
-  const selectedShardStates =
-    searchParams.get('shardStates')?.split(',').filter(Boolean) || [
-      'STARTED',
-      'INITIALIZING',
-      'RELOCATING',
-      'UNASSIGNED',
-    ];
+  const selectedShardStates = useMemo(
+    () =>
+      searchParams.get('shardStates')?.split(',').filter(Boolean) || [
+        'STARTED',
+        'INITIALIZING',
+        'RELOCATING',
+        'UNASSIGNED',
+      ],
+    [searchParams],
+  );
+
+  // True when any topology filter deviates from the "show everything" default.
+  // Used to trigger full shard loading in canvas view even below L2 zoom,
+  // so stats cards can show accurate filtered counts.
+  const hasAnyFilter =
+    !!indexNameFilter ||
+    !!nodeNameFilter ||
+    selectedShardStates.length < 4;
+
+  // Whether special (dot-prefixed) indices are shown — read from URL for stats computation.
+  const showSpecialIndices = searchParams.get('showSpecial') === 'true';
 
   const handleTopologyGroupingChange = useCallback((attribute: GroupingAttribute, value?: string) => {
     setTopologyGroupingConfig({ attribute, value });
@@ -944,7 +958,10 @@ export function ClusterView() {
   });
 
   // Use all indices for topology
-  const allIndicesArray: IndexInfo[] = allIndicesPaginated?.items ?? [];
+  const allIndicesArray: IndexInfo[] = useMemo(
+    () => allIndicesPaginated?.items ?? [],
+    [allIndicesPaginated],
+  );
   
   // Calculate hidden indices count from ALL indices (for statistics tab)
   const hiddenIndicesCount = allIndicesArray.filter((idx) => idx.name.startsWith('.')).length;
@@ -956,7 +973,7 @@ export function ClusterView() {
     allShards,
     isInitialLoading: allShardsLoading,
     firstError: allShardsError,
-  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && (topologyViewType !== 'canvas' || canvasIsL2), 4);
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && (topologyViewType !== 'canvas' || canvasIsL2 || hasAnyFilter), 4);
 
   // Lightweight per-node shard count summary for the canvas topology view.
   // Issues a single _cat/shards request on the backend rather than one request
@@ -991,7 +1008,7 @@ export function ClusterView() {
 
       return collected;
     },
-    enabled: !!id && activeView === 'topology' && topologyViewType !== 'canvas',
+    enabled: !!id && activeView === 'topology',
     refetchInterval: refreshInterval,
     staleTime: 5 * 60 * 1000,
     placeholderData: () => [],
@@ -1000,6 +1017,56 @@ export function ClusterView() {
   const mergedAllShards = useMemo(() => mergeShardLists(allShards, unassignedClusterShards), [allShards, unassignedClusterShards]);
 
   // mergedAllShards now contains per-node shards plus cluster-level unassigned shards
+
+  // ── Filter-aware, zoom-independent stats for TopologyStatsCards ───────────────
+  // Stats are computed from full shard data when available (filters active or L2 zoom),
+  // or fall back to the lightweight canvasShardSummary + unassigned counts when full
+  // data is not loaded (canvas at L0/L1 with no active filters).
+
+  const statsNodeCount = useMemo(() => {
+    const dataNodes = allNodesArray.filter((n) => n.roles.includes('data'));
+    if (!nodeNameFilter) return dataNodes.length;
+    return dataNodes.filter((n) => matchesWildcard(n.name, nodeNameFilter)).length;
+  }, [allNodesArray, nodeNameFilter, matchesWildcard]);
+
+  const statsIndexCount = useMemo(() => {
+    let arr = allIndicesArray;
+    if (!showSpecialIndices) arr = arr.filter((i) => !i.name.startsWith('.'));
+    if (indexNameFilter) arr = arr.filter((i) => matchesWildcard(i.name, indexNameFilter));
+    return arr.length;
+  }, [allIndicesArray, indexNameFilter, showSpecialIndices, matchesWildcard]);
+
+  const { statsShardCount, statsPrimaryCount, statsReplicaCount, statsUnassignedCount } = useMemo(() => {
+    if (mergedAllShards.length > 0) {
+      // Full shard data available — apply all active filters.
+      const filtered = mergedAllShards.filter((s) => {
+        if (!selectedShardStates.includes(s.state)) return false;
+        if (indexNameFilter && !matchesWildcard(s.index, indexNameFilter)) return false;
+        if (nodeNameFilter) {
+          // Unassigned shards have no node — exclude them when a node filter is active.
+          if (!s.node || !matchesWildcard(s.node, nodeNameFilter)) return false;
+        }
+        return true;
+      });
+      return {
+        statsShardCount: filtered.length,
+        statsPrimaryCount: filtered.filter((s) => s.primary).length,
+        statsReplicaCount: filtered.filter((s) => !s.primary).length,
+        statsUnassignedCount: filtered.filter((s) => s.state === 'UNASSIGNED').length,
+      };
+    }
+    // Full shards not loaded (canvas at L0/L1, no active filters).
+    // Derive approximate totals from the lightweight canvasShardSummary + unassignedClusterShards.
+    const summaryPrimary = canvasShardSummary.reduce((acc, s) => acc + s.primary, 0);
+    const summaryReplica = canvasShardSummary.reduce((acc, s) => acc + s.replica, 0);
+    const unassignedCount = unassignedClusterShards.length;
+    return {
+      statsShardCount: summaryPrimary + summaryReplica + unassignedCount,
+      statsPrimaryCount: summaryPrimary,
+      statsReplicaCount: summaryReplica,
+      statsUnassignedCount: unassignedCount,
+    };
+  }, [mergedAllShards, selectedShardStates, indexNameFilter, nodeNameFilter, matchesWildcard, canvasShardSummary, unassignedClusterShards]);
 
   if (!id) {
     return (
@@ -1127,6 +1194,12 @@ export function ClusterView() {
             allIndicesArray={allIndicesArray}
           allShards={mergedAllShards}
             shardSummary={canvasShardSummary}
+            statsNodeCount={statsNodeCount}
+            statsIndexCount={statsIndexCount}
+            statsShardCount={statsShardCount}
+            statsPrimaryCount={statsPrimaryCount}
+            statsReplicaCount={statsReplicaCount}
+            statsUnassignedCount={statsUnassignedCount}
             searchParams={searchParams}
             setSearchParams={setSearchParams}
             topologyViewType={topologyViewType}
@@ -1139,6 +1212,7 @@ export function ClusterView() {
             setNodeNameFilter={setNodeNameFilter}
             selectedShardStates={selectedShardStates}
             matchesWildcard={matchesWildcard}
+            showSpecialIndices={showSpecialIndices}
             nodesLoading={nodesLoading}
             allIndicesLoading={allIndicesLoading}
             allShardsLoading={allShardsLoading}

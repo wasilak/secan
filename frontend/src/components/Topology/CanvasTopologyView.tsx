@@ -66,7 +66,11 @@ interface CanvasTopologyViewProps {
   onDestinationClick?: (nodeId: string) => void;
   indexNameFilter?: string;
   nodeNameFilter?: string;
+  /** Shard states to include in L2 dot rendering. Defaults to all states when omitted. */
+  selectedShardStates?: string[];
   matchesWildcard?: (text: string, pattern: string) => boolean;
+  /** Whether to show dot-prefixed (special) indices in L2 shard dot rendering. Defaults to false. */
+  showSpecialIndices?: boolean;
   isLoading?: boolean;
   groupingConfig?: GroupingConfig;
 }
@@ -289,9 +293,11 @@ export function CanvasTopologyView({
   relocationMode,
   validDestinationNodes,
   onDestinationClick,
-  indexNameFilter: _indexNameFilter,
+  indexNameFilter,
   nodeNameFilter,
+  selectedShardStates,
   matchesWildcard,
+  showSpecialIndices = false,
   isLoading = false,
   groupingConfig = { attribute: 'none', value: undefined },
 }: CanvasTopologyViewProps) {
@@ -356,12 +362,20 @@ export function CanvasTopologyView({
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
     // At L2 zoom with full shard data available, build shardsByNode for dot rendering.
-    // shard.node is the ES node name; calculateCanvasLayout looks up by node.name first.
+    // Apply index name filter and shard state filter so only matching shards are shown.
+    // Nodes are never hidden by these filters — a node with no matching shards still
+    // renders its card, just without dots.
     const shardsByNode: Record<string, ShardInfo[]> = {};
     if (isL2 && allShards && allShards.length > 0) {
       for (const shard of allShards) {
         const nodeKey = shard.node;
         if (!nodeKey) continue;
+        // Apply shard state filter (skip if state not in selectedShardStates)
+        if (selectedShardStates && selectedShardStates.length > 0 && !selectedShardStates.includes(shard.state)) continue;
+        // Apply special-index filter (hide dot-prefixed indices unless showSpecialIndices is true)
+        if (!showSpecialIndices && shard.index.startsWith('.')) continue;
+        // Apply index name filter
+        if (indexNameFilter && matchesWildcard && !matchesWildcard(shard.index, indexNameFilter)) continue;
         if (!shardsByNode[nodeKey]) shardsByNode[nodeKey] = [];
         shardsByNode[nodeKey].push(shard);
       }
@@ -402,7 +416,7 @@ export function CanvasTopologyView({
     });
 
     return baseLayout;
-  }, [filteredNodes, summaryByNode, isL2, allShards, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor]);
+  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor]);
 
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});

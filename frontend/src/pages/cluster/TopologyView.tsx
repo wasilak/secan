@@ -22,6 +22,13 @@ interface TopologyViewProps {
   allShards: ShardInfo[] | undefined;
   /** Per-node shard count summary for the canvas view (no full ShardInfo objects). */
   shardSummary?: NodeShardSummary[];
+  /** Pre-computed, filter-aware stats for the stats cards. Zoom-independent. */
+  statsNodeCount: number;
+  statsIndexCount: number;
+  statsShardCount: number;
+  statsPrimaryCount: number;
+  statsReplicaCount: number;
+  statsUnassignedCount: number;
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams, options?: { replace?: boolean }) => void;
   topologyViewType: 'node' | 'index' | 'canvas';
@@ -34,6 +41,8 @@ interface TopologyViewProps {
   setNodeNameFilter: (value: string) => void;
   selectedShardStates: string[];
   matchesWildcard: (text: string, pattern: string) => boolean;
+  /** Whether to show dot-prefixed (special) indices. Forwarded to CanvasTopologyView. */
+  showSpecialIndices: boolean;
   nodesLoading: boolean;
   allIndicesLoading: boolean;
   allShardsLoading: boolean;
@@ -78,6 +87,12 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     allIndicesArray,
     allShards,
     shardSummary,
+    statsNodeCount,
+    statsIndexCount,
+    statsShardCount,
+    statsPrimaryCount,
+    statsReplicaCount,
+    statsUnassignedCount,
     searchParams,
     setSearchParams,
     topologyViewType,
@@ -89,6 +104,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     setNodeNameFilter,
     selectedShardStates,
     matchesWildcard,
+    showSpecialIndices,
     nodesLoading,
     allIndicesLoading,
     allShardsLoading,
@@ -139,9 +155,12 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
       {/* Stats Row */}
       <Grid.Col span={12}>
         <TopologyStatsCards
-          filteredNodes={allNodesArray}
-          filteredIndices={allIndicesArray || []}
-          filteredShards={allShards || []}
+          nodeCount={statsNodeCount}
+          indexCount={statsIndexCount}
+          shardCount={statsShardCount}
+          primaryCount={statsPrimaryCount}
+          replicaCount={statsReplicaCount}
+          unassignedCount={statsUnassignedCount}
         />
       </Grid.Col>
 
@@ -284,7 +303,9 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 onDestinationClick={handleTopologyDestinationClick}
                 indexNameFilter={indexNameFilter}
                 nodeNameFilter={nodeNameFilter}
+                selectedShardStates={selectedShardStates}
                 matchesWildcard={matchesWildcard}
+                showSpecialIndices={showSpecialIndices}
                 isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
                 groupingConfig={topologyGroupingConfig}
                 onNodeDragStart={handleNodeDragStart}

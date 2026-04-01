@@ -1,27 +1,23 @@
 import { SimpleGrid, Paper, Text, Stack } from '@mantine/core';
-import { memo, useMemo } from 'react';
-import type { NodeInfo, IndexInfo, ShardInfo } from '../types/api';
+import { memo } from 'react';
 
 interface TopologyStatsCardsProps {
-  filteredNodes: NodeInfo[];
-  filteredIndices: IndexInfo[];
-  filteredShards: ShardInfo[];
+  nodeCount: number;
+  indexCount: number;
+  shardCount: number;
+  primaryCount: number;
+  replicaCount: number;
+  unassignedCount: number;
 }
 
 export const TopologyStatsCards = memo(function TopologyStatsCards({
-  filteredNodes,
-  filteredIndices,
-  filteredShards,
+  nodeCount,
+  indexCount,
+  shardCount,
+  primaryCount,
+  replicaCount,
+  unassignedCount,
 }: TopologyStatsCardsProps) {
-  const stats = useMemo(() => ({
-    dataNodes: filteredNodes.filter(n => n.roles.includes('data')).length,
-    indices: filteredIndices.length,
-    shards: filteredShards.length,
-    primaries: filteredShards.filter(s => s.primary).length,
-    replicas: filteredShards.filter(s => !s.primary).length,
-    unassigned: filteredShards.filter(s => s.state === 'UNASSIGNED').length,
-  }), [filteredNodes, filteredIndices, filteredShards]);
-
   return (
     <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="md" mb="md">
       <Paper withBorder p="md">
@@ -30,7 +26,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Nodes
           </Text>
           <Text size="xl" fw={700} c="blue">
-            {stats.dataNodes}
+            {nodeCount}
           </Text>
         </Stack>
       </Paper>
@@ -41,7 +37,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Indices
           </Text>
           <Text size="xl" fw={700}>
-            {stats.indices}
+            {indexCount}
           </Text>
         </Stack>
       </Paper>
@@ -52,7 +48,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Shards
           </Text>
           <Text size="xl" fw={700}>
-            {stats.shards}
+            {shardCount}
           </Text>
         </Stack>
       </Paper>
@@ -63,7 +59,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Primary
           </Text>
           <Text size="xl" fw={700} c="blue">
-            {stats.primaries}
+            {primaryCount}
           </Text>
         </Stack>
       </Paper>
@@ -74,7 +70,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Replica
           </Text>
           <Text size="xl" fw={700} c="gray">
-            {stats.replicas}
+            {replicaCount}
           </Text>
         </Stack>
       </Paper>
@@ -85,7 +81,7 @@ export const TopologyStatsCards = memo(function TopologyStatsCards({
             Unassigned
           </Text>
           <Text size="xl" fw={700} c="red">
-            {stats.unassigned}
+            {unassignedCount}
           </Text>
         </Stack>
       </Paper>
