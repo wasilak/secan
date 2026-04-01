@@ -95,7 +95,7 @@ interface FlowProps {
 }
 
 function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout }: FlowProps) {
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes } = useReactFlow();
   const initialized = useNodesInitialized();
   const hasFitViewRun = useRef(false);
   const isDraggingRef = useRef(false);
@@ -255,28 +255,21 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   }, [flowNodes, setFlowNodes, usePrecomputedLayout]);
 
   // ── Grouped layout: resize groupContainer nodes to fit measured children ──
-  // After RF measures actual child node heights (node.measured.height), we
-  // recompute each container's style.height so children never overflow the
-  // container border.  Runs only when usePrecomputedLayout is true (i.e. a
-  // grouping attribute is active).  Exits early until every non-container node
-  // is fully measured to avoid a resize loop from partial data.
+  // `initialized` (from useNodesInitialized) is the reliable signal that RF
+  // has measured every node via its internal ResizeObserver.  We read measured
+  // heights through `getNodes()` which pulls from RF's internal nodeLookup —
+  // unlike `flowNodes` from useNodesState, nodeLookup IS updated when RF sets
+  // node.measured, making it the correct source of truth for actual heights.
+  // After resizing we call fitView so the enlarged containers fit the viewport.
   useEffect(() => {
-    if (!usePrecomputedLayout) return;
+    if (!usePrecomputedLayout || !initialized) return;
 
-    const nodesArr = flowNodes as unknown as Array<Record<string, unknown>>;
-    if (nodesArr.length === 0) return;
-
-    // Wait until all child nodes (non-containers) are measured
-    const childNodes = nodesArr.filter((n) => (n.type as string) !== 'groupContainer');
-    const allMeasured = childNodes.every((n) => {
-      const m = (n as any).measured;
-      return !!m && (m as any).width > 0 && (m as any).height > 0;
-    });
-    if (!allMeasured) return;
+    const rfNodes = getNodes() as unknown as Array<Record<string, unknown>>;
+    if (rfNodes.length === 0) return;
 
     // Build parent → children map
     const childrenByParent = new Map<string, Array<Record<string, unknown>>>();
-    nodesArr.forEach((n) => {
+    rfNodes.forEach((n) => {
       const pid = (n as any).parentId as string | undefined;
       if (!pid) return;
       if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
@@ -284,7 +277,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     });
 
     let changed = false;
-    const updated = nodesArr.map((n) => {
+    const updated = rfNodes.map((n) => {
       if ((n.type as string) !== 'groupContainer') return n;
       const children = childrenByParent.get(n.id as string) ?? [];
       if (children.length === 0) return n;
@@ -309,13 +302,15 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
     if (changed) {
       setFlowNodes(updated as unknown as Node[]);
+      // Re-fit after containers expand so the full layout stays visible
+      setTimeout(() => fitView({ padding: 0.2 }), 150);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowNodes, usePrecomputedLayout]);
+  }, [initialized, usePrecomputedLayout]);
 
   return (
     <ReactFlow
-      className="secan-reactflow"
+      className="secan-reactflow secan-canvas-topology-flow"
       nodes={flowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
       edges={[]}
       defaultEdgeOptions={{ type: 'simplebezier' }}
