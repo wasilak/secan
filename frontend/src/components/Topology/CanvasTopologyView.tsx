@@ -21,7 +21,7 @@ import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 import { GroupContainerNode } from './GroupContainerNode';
-import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, ESTIMATED_GROUP_HEIGHT } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, CONTAINER_PADDING_TOP, CONTAINER_PADDING_X, CONTAINER_VERTICAL_GAP, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, VERTICAL_GAP } from '../../utils/canvasLayout';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -162,6 +162,169 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     }
   }, [initialized, fitView]);
 
+  // ── fitContainersToChildren ───────────────────────────────────────────────
+  // Single-responsibility geometry-based autofit for grouped mode.
+  //
+  // Problem: RF's parentId only gives relative positioning — it NEVER auto-sizes
+  // the parent around its children. The initial parent dimensions from canvasLayout
+  // use hardcoded GROUP_WIDTH (width) and estimated heights. Both are wrong once RF
+  // measures actual card dimensions (cards use `width: auto`, so they can be wider
+  // than GROUP_WIDTH for long node names or many metric rows).
+  //
+  // Fix: After RF measures every child card, compute the exact bounding box of all
+  // children (using measured.width + measured.height + position.x/y), then set the
+  // parent's style.width/height to fully enclose them with the correct padding.
+  //
+  // Also normalises child vertical stack order so cards don't overlap (uses
+  // measured.height instead of the estimated fallback).
+  const fitContainersToChildren = useCallback(() => {
+    const rfNodes = getNodes() as unknown as Array<Record<string, unknown>>;
+    if (rfNodes.length === 0) return;
+
+    // Build parent → children map, sorted by current y position
+    const childrenByParent = new Map<string, Array<Record<string, unknown>>>();
+    rfNodes.forEach((n) => {
+      const pid = (n as any).parentId as string | undefined;
+      if (!pid) return;
+      if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+      childrenByParent.get(pid)!.push(n);
+    });
+    childrenByParent.forEach((children) => {
+      children.sort((a, b) => ((a as any).position?.y ?? 0) - ((b as any).position?.y ?? 0));
+    });
+
+    let changed = false;
+
+    // Pass 1: normalise child vertical stacking using measured heights.
+    // Children start at CONTAINER_PADDING_TOP and are stacked with CONTAINER_VERTICAL_GAP.
+    // All children share the same fixed x = CONTAINER_PADDING_X.
+    const restack = rfNodes.map((n) => {
+      const pid = (n as any).parentId as string | undefined;
+      if (!pid) return n;
+
+      const siblings = childrenByParent.get(pid) ?? [];
+      const myIndex = siblings.findIndex((s) => (s.id as string) === ((n as Record<string, unknown>).id as string));
+      if (myIndex < 0) return n;
+
+      let newY = CONTAINER_PADDING_TOP;
+      for (let i = 0; i < myIndex; i++) {
+        const sibH = (siblings[i] as any).measured?.height as number | undefined;
+        newY += (sibH ?? ESTIMATED_GROUP_HEIGHT) + CONTAINER_VERTICAL_GAP;
+      }
+
+      const currentY = (n as any).position?.y as number ?? 0;
+      const currentX = (n as any).position?.x as number ?? 0;
+      const newX = CONTAINER_PADDING_X;
+
+      if (Math.abs(currentY - newY) > 1 || Math.abs(currentX - newX) > 1) {
+        changed = true;
+        // Update the node inside the map too so Pass 2 sees correct positions
+        const updated = { ...n, position: { x: newX, y: newY } };
+        siblings[myIndex] = updated;
+        childrenByParent.set(pid, siblings);
+        return updated;
+      }
+      return n;
+    });
+
+    // Pass 2: fit each groupContainer to the bounding box of its (now-restacked) children.
+    // neededWidth  = CONTAINER_PADDING_X + max(child measured.width) + CONTAINER_PADDING_X
+    // neededHeight = CONTAINER_PADDING_TOP + sum(child measured.height + gap) + CONTAINER_PADDING_BOTTOM
+    const pass2 = restack.map((n) => {
+      if ((n as any).type !== 'groupContainer') return n;
+      const nodeId = (n as any).id as string;
+      const children = childrenByParent.get(nodeId) ?? [];
+      if (children.length === 0) return n;
+
+      let maxChildWidth = 0;
+      let contentHeight = 0;
+      children.forEach((child, idx) => {
+        const w = (child as any).measured?.width as number | undefined;
+        const h = (child as any).measured?.height as number | undefined;
+        if (w && w > maxChildWidth) maxChildWidth = w;
+        contentHeight += h ?? ESTIMATED_GROUP_HEIGHT;
+        if (idx < children.length - 1) contentHeight += CONTAINER_VERTICAL_GAP;
+      });
+
+      const neededWidth = maxChildWidth > 0
+        ? CONTAINER_PADDING_X + maxChildWidth + CONTAINER_PADDING_X
+        : ((n as any).style as { width?: number } | undefined)?.width ?? 0;
+      const neededHeight = CONTAINER_PADDING_TOP + contentHeight + CONTAINER_PADDING_BOTTOM;
+
+      const currentStyle = (n as any).style as { width?: number; height?: number } | undefined;
+      const widthDiff = Math.abs((currentStyle?.width ?? 0) - neededWidth);
+      const heightDiff = Math.abs((currentStyle?.height ?? 0) - neededHeight);
+
+      if (widthDiff > 2 || heightDiff > 2) {
+        changed = true;
+        return { ...n, style: { ...(n as any).style, width: neededWidth, height: neededHeight } };
+      }
+      return n;
+    });
+
+    // Pass 3: re-grid parent groupContainer nodes so they don't overlap.
+    //
+    // After Pass 2, each parent has its correct size. But the initial x/y positions
+    // from canvasLayout were computed with GROUP_WIDTH (estimated), so parents whose
+    // actual width exceeded GROUP_WIDTH are now wider than the grid slots assumed.
+    // We re-assign positions using a sqrt-based column count (matching canvasLayout)
+    // and per-column/per-row max-size tracking so every container gets enough space.
+    //
+    // Sorting by (y, x) recovers the original row-column order regardless of size
+    // changes — no infinite loop risk because child positions (relative to parent)
+    // are unchanged, so childGeometryKey will not fire again.
+    const updated = [...pass2];
+    const parentContainers = pass2
+      .filter((n) => (n as any).type === 'groupContainer')
+      .sort((a, b) => {
+        const ay = (a as any).position?.y ?? 0;
+        const by_ = (b as any).position?.y ?? 0;
+        if (Math.abs(ay - by_) > 50) return ay - by_;
+        return ((a as any).position?.x ?? 0) - ((b as any).position?.x ?? 0);
+      });
+
+    if (parentContainers.length > 1) {
+      const numCols = Math.ceil(Math.sqrt(parentContainers.length));
+      const numRows = Math.ceil(parentContainers.length / numCols);
+
+      const colWidths = new Array<number>(numCols).fill(0);
+      const rowHeights = new Array<number>(numRows).fill(0);
+      parentContainers.forEach((p, idx) => {
+        const col = idx % numCols;
+        const row = Math.floor(idx / numCols);
+        const w = ((p as any).style as { width?: number } | undefined)?.width ?? 0;
+        const h = ((p as any).style as { height?: number } | undefined)?.height ?? 0;
+        if (w > colWidths[col]) colWidths[col] = w;
+        if (h > rowHeights[row]) rowHeights[row] = h;
+      });
+
+      const colX: number[] = [0];
+      for (let c = 1; c < numCols; c++) colX[c] = colX[c - 1] + colWidths[c - 1] + HORIZONTAL_GAP;
+
+      const rowY: number[] = [0];
+      for (let r = 1; r < numRows; r++) rowY[r] = rowY[r - 1] + rowHeights[r - 1] + VERTICAL_GAP;
+
+      parentContainers.forEach((p, idx) => {
+        const col = idx % numCols;
+        const row = Math.floor(idx / numCols);
+        const newX = colX[col];
+        const newY = rowY[row];
+        const currentX = (p as any).position?.x ?? 0;
+        const currentY = (p as any).position?.y ?? 0;
+        if (Math.abs(currentX - newX) > 1 || Math.abs(currentY - newY) > 1) {
+          changed = true;
+          const i = updated.findIndex((n) => (n as any).id === (p as any).id);
+          if (i >= 0) updated[i] = { ...updated[i], position: { x: newX, y: newY } };
+        }
+      });
+    }
+
+    if (changed) {
+      setFlowNodes(updated as unknown as Node[]);
+      setTimeout(() => fitView({ padding: 0.2 }), 150);
+    }
+  }, [getNodes, setFlowNodes, fitView]);
+
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const hasDragChange = changes.some(
@@ -254,59 +417,29 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     return () => { cancelled = true; };
   }, [flowNodes, setFlowNodes, usePrecomputedLayout]);
 
-  // ── Grouped layout: resize groupContainer nodes to fit measured children ──
-  // `initialized` (from useNodesInitialized) is the reliable signal that RF
-  // has measured every node via its internal ResizeObserver.  We read measured
-  // heights through `getNodes()` which pulls from RF's internal nodeLookup —
-  // unlike `flowNodes` from useNodesState, nodeLookup IS updated when RF sets
-  // node.measured, making it the correct source of truth for actual heights.
-  // After resizing we call fitView so the enlarged containers fit the viewport.
-  useEffect(() => {
-    if (!usePrecomputedLayout || !initialized) return;
-
-    const rfNodes = getNodes() as unknown as Array<Record<string, unknown>>;
-    if (rfNodes.length === 0) return;
-
-    // Build parent → children map
-    const childrenByParent = new Map<string, Array<Record<string, unknown>>>();
-    rfNodes.forEach((n) => {
-      const pid = (n as any).parentId as string | undefined;
-      if (!pid) return;
-      if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
-      childrenByParent.get(pid)!.push(n);
-    });
-
-    let changed = false;
-    const updated = rfNodes.map((n) => {
-      if ((n.type as string) !== 'groupContainer') return n;
-      const children = childrenByParent.get(n.id as string) ?? [];
-      if (children.length === 0) return n;
-
-      const neededHeight = children.reduce((max, child) => {
-        const pos = (child as any).position as { x: number; y: number } | undefined;
-        const measuredH = (child as any).measured?.height as number | undefined;
-        const childBottom = (pos?.y ?? 0) + (measuredH ?? ESTIMATED_GROUP_HEIGHT);
-        return Math.max(max, childBottom);
-      }, 0) + CONTAINER_PADDING_BOTTOM;
-
-      const currentH = ((n as any).style as { height?: number } | undefined)?.height;
-      if (Math.abs((currentH as number ?? 0) - neededHeight) > 2) {
-        changed = true;
-        return {
-          ...n,
-          style: { ...(n as any).style, height: neededHeight },
-        };
+  // ── useStore subscription: fit containers when any child geometry changes ────
+  // Subscribes to RF's internal nodeLookup (Zustand store). The selector
+  // returns a stable string that changes when ANY child node's measured size
+  // OR position changes — covers all cases: initial load, zoom level change,
+  // data refresh, grouping change.
+  // Tracking width + height + position.x + position.y ensures the fit is
+  // triggered even when only width changes (e.g. longer node names).
+  const childGeometryKey = useStore((s) => {
+    const parts: string[] = [];
+    s.nodeLookup.forEach((node) => {
+      if (node.parentId && node.measured?.width && node.measured?.height) {
+        parts.push(
+          `${node.id}:${node.parentId}:${node.position.x}:${node.position.y}:${node.measured.width}:${node.measured.height}`,
+        );
       }
-      return n;
     });
+    return parts.sort().join(',');
+  });
 
-    if (changed) {
-      setFlowNodes(updated as unknown as Node[]);
-      // Re-fit after containers expand so the full layout stays visible
-      setTimeout(() => fitView({ padding: 0.2 }), 150);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialized, usePrecomputedLayout]);
+  useEffect(() => {
+    if (!usePrecomputedLayout || !childGeometryKey) return;
+    fitContainersToChildren();
+  }, [childGeometryKey, usePrecomputedLayout, fitContainersToChildren]);
 
   return (
     <ReactFlow

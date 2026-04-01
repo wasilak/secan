@@ -113,9 +113,11 @@ const COLUMN_WIDTH = GROUP_WIDTH + HORIZONTAL_GAP;
 // Padding inside the RF parent (groupContainer) node. Children are inset by
 // CONTAINER_PADDING_X from the left; CONTAINER_PADDING_TOP leaves room for the
 // floating label; CONTAINER_PADDING_BOTTOM adds breathing room at the bottom.
-const CONTAINER_PADDING_X = 12;
-const CONTAINER_PADDING_TOP = 36;
-export const CONTAINER_PADDING_BOTTOM = 16;
+export const CONTAINER_PADDING_X = 12;
+export const CONTAINER_PADDING_TOP = 36;
+export const CONTAINER_PADDING_BOTTOM = 24;
+/** Vertical gap between child nodes inside a group container (grouped mode). */
+export const CONTAINER_VERTICAL_GAP = 12;
 
 // Estimated single-row group height used as a sensible fallback by layout
 // consumers that need a non-content-driven height (eg. dagre layout).
@@ -304,9 +306,14 @@ function emitGroupNode(
         backgroundColor: 'var(--mantine-color-body)',
       },
       data: groupData as unknown as Record<string, unknown>,
-      // When placed inside a group container, constrain to parent bounds
+      // When placed inside a group container, set parentId for RF parent-child
+      // positioning. Do NOT set extent: 'parent' — that would clamp child
+      // positions to the initial (estimated, too-small) container height,
+      // causing getNodes() to return clamped y-values and making the resize
+      // effect underestimate neededHeight. Dragging is disabled anyway so the
+      // constraint has no benefit.
       ...(overrides?.parentId !== undefined
-        ? { parentId: overrides.parentId, extent: 'parent' as const }
+        ? { parentId: overrides.parentId }
         : {}),
     });
 }
@@ -370,7 +377,7 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
       sorted.forEach((node, idx) => {
         const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
         totalContentHeight += estimatedGroupHeight(shards.length);
-        if (idx < sorted.length - 1) totalContentHeight += VERTICAL_GAP;
+        if (idx < sorted.length - 1) totalContentHeight += CONTAINER_VERTICAL_GAP;
       });
 
       const containerWidth = GROUP_WIDTH + CONTAINER_PADDING_X * 2;
@@ -411,7 +418,7 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
           undefined,
           { rfNodeId: `${node.id}__${containerId}`, parentId: containerId },
         );
-        childY += estimatedGroupHeight(shards.length) + VERTICAL_GAP;
+        childY += estimatedGroupHeight(shards.length) + CONTAINER_VERTICAL_GAP;
       });
 
       colX += containerWidth + HORIZONTAL_GAP;
