@@ -109,6 +109,14 @@ export const UNASSIGNED_KEY = '__unassigned__';
 
 const COLUMN_WIDTH = GROUP_WIDTH + HORIZONTAL_GAP;
 
+// ─── Group container constants ───────────────────────────────────────────────
+// Padding inside the RF parent (groupContainer) node. Children are inset by
+// CONTAINER_PADDING_X from the left; CONTAINER_PADDING_TOP leaves room for the
+// floating label; CONTAINER_PADDING_BOTTOM adds breathing room at the bottom.
+const CONTAINER_PADDING_X = 12;
+const CONTAINER_PADDING_TOP = 36;
+const CONTAINER_PADDING_BOTTOM = 16;
+
 // Estimated single-row group height used as a sensible fallback by layout
 // consumers that need a non-content-driven height (eg. dagre layout).
 export const ESTIMATED_GROUP_HEIGHT =
@@ -168,6 +176,14 @@ function columnFor(node: NodeInfo): number {
 import { formatBytes } from '../utils/formatters';
 import { computeHeapPercent, getHeapColor } from './heap';
 
+/** Optional overrides for the RF node emitted by emitGroupNode. */
+interface EmitOverrides {
+  /** Override the RF node id (default: node.id). Use for duplicated nodes in grouped layouts. */
+  rfNodeId?: string;
+  /** If set, the node is a child of this parent RF node id. Adds parentId + extent: 'parent'. */
+  parentId?: string;
+}
+
 function emitGroupNode(
   result: Node[],
   node: NodeInfo,
@@ -175,6 +191,7 @@ function emitGroupNode(
   shards: ShardInfo[],
   input: CanvasLayoutInput,
   groupLabel?: string,
+  overrides?: EmitOverrides,
 ): void {
   const isValidDestination =
     input.relocationMode &&
@@ -263,7 +280,7 @@ function emitGroupNode(
     const minW = estimateGroupMinWidth(node);
 
     result.push({
-      id: node.id,
+      id: overrides?.rfNodeId ?? node.id,
       type: 'clusterGroup',
       position,
       // Provide a width hint used by dagre / layout engines
@@ -287,6 +304,10 @@ function emitGroupNode(
         backgroundColor: 'var(--mantine-color-body)',
       },
       data: groupData as unknown as Record<string, unknown>,
+      // When placed inside a group container, constrain to parent bounds
+      ...(overrides?.parentId !== undefined
+        ? { parentId: overrides.parentId, extent: 'parent' as const }
+        : {}),
     });
 }
 
@@ -307,6 +328,12 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
 
   const result: Node[] = [];
 
+  // Tracks the bottom y-position of the tallest group/node column, used for
+  // placing the synthetic Unassigned node below all real content.
+  let contentBottomY = 0;
+  // X position for the Unassigned node (after all groups in grouped mode).
+  let unassignedX = COLUMN_WIDTH;
+
   if (groupingConfig.attribute === 'none') {
     // ── No-grouping: 3-column layout ─────────────────────────────────────
     const sorted = sortClusterNodes(clusterNodes);
@@ -321,26 +348,76 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
 
       colY[col] = y + estimatedGroupHeight(shards.length) + VERTICAL_GAP;
     });
+
+    contentBottomY = Math.max(...colY);
+    // unassignedX stays at the default COLUMN_WIDTH (middle column)
   } else {
-    // ── Grouped: one column per group ────────────────────────────────────
+    // ── Grouped: RF parent-node containers, one per group ────────────────
+    // Each group becomes a 'groupContainer' RF parent node. Child cluster
+    // nodes are positioned relative to the container's top-left corner.
+    // Nodes that appear in multiple groups (e.g. role grouping) get distinct
+    // RF node IDs: '<nodeId>__<containerId>'.
     const nodeGroups = calculateNodeGroups(clusterNodes, groupingConfig);
     let colX = 0;
 
     nodeGroups.forEach((groupNodes, groupKey) => {
       const sorted = sortClusterNodes(groupNodes);
       const label = getGroupLabel(groupKey, groupingConfig.attribute);
-      let y = 0;
+      const containerId = `group__${groupKey}`;
 
-      sorted.forEach((node) => {
+      // Compute the container's height from its children's estimated heights
+      let totalContentHeight = 0;
+      sorted.forEach((node, idx) => {
         const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-
-        emitGroupNode(result, node, { x: colX, y }, shards, input, label);
-
-        y += estimatedGroupHeight(shards.length) + VERTICAL_GAP;
+        totalContentHeight += estimatedGroupHeight(shards.length);
+        if (idx < sorted.length - 1) totalContentHeight += VERTICAL_GAP;
       });
 
-      colX += COLUMN_WIDTH;
+      const containerWidth = GROUP_WIDTH + CONTAINER_PADDING_X * 2;
+      const containerHeight =
+        CONTAINER_PADDING_TOP + totalContentHeight + CONTAINER_PADDING_BOTTOM;
+
+      // Emit the container parent node FIRST (RF requires parent before children)
+      result.push({
+        id: containerId,
+        type: 'groupContainer',
+        position: { x: colX, y: 0 },
+        style: {
+          width: containerWidth,
+          height: containerHeight,
+          // Render behind child cards
+          zIndex: -1,
+          // Container does not catch pointer events; clicks go to child cards
+          pointerEvents: 'none',
+        },
+        data: { label } as unknown as Record<string, unknown>,
+        draggable: false,
+        selectable: false,
+      });
+
+      contentBottomY = Math.max(contentBottomY, containerHeight);
+
+      // Emit children with positions relative to the container's top-left
+      let childY = 0;
+      sorted.forEach((node) => {
+        const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+        emitGroupNode(
+          result,
+          node,
+          { x: CONTAINER_PADDING_X, y: CONTAINER_PADDING_TOP + childY },
+          shards,
+          input,
+          // No per-card group label — the container already shows the label
+          undefined,
+          { rfNodeId: `${node.id}__${containerId}`, parentId: containerId },
+        );
+        childY += estimatedGroupHeight(shards.length) + VERTICAL_GAP;
+      });
+
+      colX += containerWidth + HORIZONTAL_GAP;
     });
+
+    unassignedX = colX; // place unassigned after all group columns
   }
 
   // Emit synthetic Unassigned node if present in shardsByNode
@@ -355,10 +432,13 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
       heapMax: 0,
       diskUsed: 0,
     };
-    // Place unassigned roughly after existing nodes; choose the middle column offset
-    const ux = COLUMN_WIDTH; // middle column
-    // Place below the lowest emitted node to avoid overlap
-    const maxY = result.length ? Math.max(...result.map((n) => (n.position?.y ?? 0))) + VERTICAL_GAP : 0;
+    // In no-grouping mode: place below the lowest node (middle column).
+    // In grouped mode: contentBottomY is the tallest container height; place
+    // the unassigned node after all groups on a new column.
+    const ux = unassignedX;
+    const maxY = contentBottomY > 0
+      ? contentBottomY + VERTICAL_GAP
+      : (result.length ? Math.max(...result.map((n) => (n.position?.y ?? 0))) + VERTICAL_GAP : 0);
     // For the synthetic Unassigned node, ensure it is not clickable to open a node modal
     // by clearing onNodeClick handler in the input for this emission.
     const safeInput = { ...input, onNodeClick: undefined } as CanvasLayoutInput;

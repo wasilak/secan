@@ -21,6 +21,7 @@ import '../../styles/reactflow-overrides.css';
 import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
+import { GroupContainerNode } from './GroupContainerNode';
 import { calculateCanvasLayout } from '../../utils/canvasLayout';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
@@ -31,6 +32,7 @@ import type { GroupingConfig } from '../../utils/topologyGrouping';
 // which surfaces as the minified React error #310 in production.
 const nodeTypes: NodeTypes = {
   clusterGroup: ClusterESNodeCardFlowWrapper,
+  groupContainer: GroupContainerNode,
 };
 
 /** Zoom threshold above which full shard dots are rendered (L2). */
@@ -85,9 +87,15 @@ interface FlowProps {
   onNodesPositionChange?: (positions: { [id: string]: { x: number; y: number } }) => void;
   /** Called on every zoom change so parent can gate L2 shard fetching. */
   onZoomChange?: (zoom: number) => void;
+  /**
+   * When true, the layout positions from layoutNodes are already final
+   * (e.g. grouped layout with RF parent nodes). Dagre re-layout and collision
+   * resolution are skipped to avoid corrupting parent-relative child positions.
+   */
+  usePrecomputedLayout?: boolean;
 }
 
-function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange }: FlowProps) {
+function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout }: FlowProps) {
   const { fitView } = useReactFlow();
   const initialized = useNodesInitialized();
   const hasFitViewRun = useRef(false);
@@ -192,24 +200,34 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
   useEffect(() => {
     if (!isDraggingRef.current) {
-      // Always apply dagre for consistent node distribution
-      try {
-        const dagreLayout = applyDagreLayout(layoutNodes, [], 'TB');
-        setFlowNodes(dagreLayout.nodes);
-      } catch (err) {
-        // Fallback to raw layout if dagre fails
-        console.warn('Dagre layout failed', err);
+      if (usePrecomputedLayout) {
+        // Grouped layouts: positions are precomputed (RF parent-child coordinates).
+        // Skip dagre to avoid corrupting parent-relative child positions.
         setFlowNodes(layoutNodes);
+      } else {
+        // No-grouping: apply dagre for consistent node distribution
+        try {
+          const dagreLayout = applyDagreLayout(layoutNodes, [], 'TB');
+          setFlowNodes(dagreLayout.nodes);
+        } catch (err) {
+          // Fallback to raw layout if dagre fails
+          console.warn('Dagre layout failed', err);
+          setFlowNodes(layoutNodes);
+        }
       }
     } else {
       pendingLayoutRef.current = layoutNodes;
     }
-  }, [layoutNodes, setFlowNodes]);
+  }, [layoutNodes, setFlowNodes, usePrecomputedLayout]);
 
   // Collision resolving: wait for RF to measure node sizes, then nudge nodes
   // apart if they overlap. Mirrors IndexVisualizationFlow behavior.
+  // Skipped for grouped layouts where positions are precomputed and RF
+  // parent-child coordinates must not be touched.
   const layoutRunId = useRef(0);
   useEffect(() => {
+    if (usePrecomputedLayout) return;
+
     layoutRunId.current += 1;
     const runId = layoutRunId.current;
     let cancelled = false;
@@ -235,7 +253,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
     requestAnimationFrame(attemptResolve);
     return () => { cancelled = true; };
-  }, [flowNodes, setFlowNodes]);
+  }, [flowNodes, setFlowNodes, usePrecomputedLayout]);
 
   return (
     <ReactFlow
@@ -462,6 +480,7 @@ export function CanvasTopologyView({
             onNodeDragStop={onNodeDragStop}
             onNodesPositionChange={handleNodesPositionChange}
             onZoomChange={handleZoomChange}
+            usePrecomputedLayout={groupingConfig.attribute !== 'none'}
           />
         </ReactFlowProvider>
       )}
