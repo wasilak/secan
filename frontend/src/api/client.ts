@@ -209,7 +209,7 @@ export class ApiClient {
       // Handle authentication errors (401)
       // Session expired or invalid - redirect to login
       if (status === 401) {
-        window.location.href = '/login';
+        window.location.href = `/login?redirect_to=${encodeURIComponent(window.location.pathname + window.location.search)}`;
         return Promise.reject(new ApiClientError('Authentication required', 401, data));
       }
 
