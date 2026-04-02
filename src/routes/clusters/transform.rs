@@ -324,15 +324,13 @@ pub fn transform_nodes(
                 0
             };
 
-            // Extract load average (1-minute) - use Prometheus metrics if available
-            let load_average = if let Some(prom_metrics) = prometheus_metrics {
-                // Try to get load1 from Prometheus metrics
+            // Extract load average [1m, 5m, 15m] - use Prometheus metrics if available
+            let load_1m = if let Some(prom_metrics) = prometheus_metrics {
                 prom_metrics
                     .get(node_name)
                     .and_then(|m| m.get("load1"))
                     .and_then(|v| v.as_f64())
                     .or_else(|| {
-                        // Fallback to ES stats
                         node_stats["os"]["cpu"]["load_average"]["1m"]
                             .as_f64()
                             .or_else(|| node_stats["os"]["load_average"].as_f64())
@@ -341,6 +339,17 @@ pub fn transform_nodes(
                 node_stats["os"]["cpu"]["load_average"]["1m"]
                     .as_f64()
                     .or_else(|| node_stats["os"]["load_average"].as_f64())
+            };
+            let load_5m = node_stats["os"]["cpu"]["load_average"]["5m"].as_f64();
+            let load_15m = node_stats["os"]["cpu"]["load_average"]["15m"].as_f64();
+            let load_average = if load_1m.is_some() || load_5m.is_some() || load_15m.is_some() {
+                Some(vec![
+                    load_1m.unwrap_or(0.0),
+                    load_5m.unwrap_or(0.0),
+                    load_15m.unwrap_or(0.0),
+                ])
+            } else {
+                None
             };
 
             // Extract and format uptime
@@ -857,7 +866,7 @@ pub struct NodeInfoResponse {
     #[serde(rename = "isMasterEligible")]
     pub is_master_eligible: bool,
     #[serde(rename = "loadAverage", skip_serializing_if = "Option::is_none")]
-    pub load_average: Option<f64>,
+    pub load_average: Option<Vec<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uptime: Option<String>,
     #[serde(rename = "uptimeMillis", skip_serializing_if = "Option::is_none")]
@@ -1007,7 +1016,9 @@ mod tests {
                         "cpu": {
                             "percent": 50,
                             "load_average": {
-                                "1m": 1.5
+                                "1m": 1.5,
+                                "5m": 1.2,
+                                "15m": 1.0
                             }
                         }
                     }
@@ -1024,7 +1035,7 @@ mod tests {
         assert_eq!(result[0].disk_used, 5000000);
         assert!(result[0].is_master);
         assert!(result[0].is_master_eligible);
-        assert_eq!(result[0].load_average, Some(1.5));
+        assert_eq!(result[0].load_average, Some(vec![1.5, 1.2, 1.0]));
         assert_eq!(result[0].uptime, Some("1h 0m".to_string()));
         assert_eq!(result[0].uptime_millis, Some(3600000));
     }
@@ -1062,7 +1073,9 @@ mod tests {
                         "cpu": {
                             "percent": 50,
                             "load_average": {
-                                "1m": 0.75
+                                "1m": 0.75,
+                                "5m": 0.6,
+                                "15m": 0.5
                             }
                         }
                     }
@@ -1076,7 +1089,7 @@ mod tests {
         assert_eq!(result[0].name, "data-node");
         assert!(!result[0].is_master);
         assert!(!result[0].is_master_eligible);
-        assert_eq!(result[0].load_average, Some(0.75));
+        assert_eq!(result[0].load_average, Some(vec![0.75, 0.6, 0.5]));
         assert_eq!(result[0].uptime, Some("1d 0h".to_string()));
         assert_eq!(result[0].uptime_millis, Some(86400000));
     }
