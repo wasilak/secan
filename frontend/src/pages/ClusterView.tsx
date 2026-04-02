@@ -795,23 +795,28 @@ export function ClusterView() {
     
     // Convert map to array of series with formatted names
     return Array.from(memorySeriesMap.entries()).map(([key, data]) => {
-      // Parse logfmt key back to get label values for display name
-      const labels = key.split(',').reduce((acc, pair) => {
-        const [, v] = pair.split('=');
-        if (v) acc.value = v;
+      // Parse logfmt key into a proper label map (e.g., "area=heap,type=used" → {area:"heap",type:"used"})
+      const labelMap = key.split(',').reduce((acc, pair) => {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx !== -1) {
+          const k = pair.slice(0, eqIdx);
+          const v = pair.slice(eqIdx + 1);
+          acc[k] = v;
+        }
         return acc;
-      }, {} as { value?: string });
-      
-      // Create display name from labels (e.g., "Heap" from area=heap)
-      const value = labels.value ?? '';
-      const displayName = value
-        ? value.charAt(0).toUpperCase() + value.slice(1)
+      }, {} as Record<string, string>);
+
+      // Use the "area" label for display; fall back to first value then generic name
+      const areaValue = labelMap['area'] ?? Object.values(labelMap)[0] ?? '';
+      // Format: "non_heap" → "Non-heap", "heap" → "Heap"
+      const displayName = areaValue
+        ? areaValue.replace(/_/g, '-').replace(/^(.)/, (c) => c.toUpperCase())
         : 'Memory';
       
       return {
         name: displayName,
         data,
-        labels,
+        labels: labelMap,
       };
     });
   }, [activeView, isInternalMetrics, metricsHistory?.raw_metrics?.memory]);

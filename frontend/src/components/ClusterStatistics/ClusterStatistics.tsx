@@ -132,6 +132,17 @@ export function ClusterStatistics({
     }];
   }, [memorySeries, memoryHistory]);
 
+  // Build a map of timestamp → total bytes across all memory series (for percentage calculation)
+  const memoryTotalsByTimestamp = useMemo(() => {
+    const totals = new Map<number, number>();
+    for (const s of memorySeriesMemoized) {
+      for (const point of s.data) {
+        totals.set(point.timestamp, (totals.get(point.timestamp) ?? 0) + point.value);
+      }
+    }
+    return totals;
+  }, [memorySeriesMemoized]);
+
   const diskSeries = useMemo(() => [{
     name: 'Disk',
     color: 'orange' as const,
@@ -292,11 +303,18 @@ export function ClusterStatistics({
           <TimeSeriesChart
             title="Memory Usage Over Time"
             series={memorySeriesMemoized}
-            valueFormatter={(value: number) => {
+            valueFormatter={(value: number, _seriesName: string, timestamp?: number) => {
               if (!value) return '0 MB';
               const mb = value / (1024 * 1024);
-              if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`;
-              return `${mb.toFixed(0)}MB`;
+              const sizeStr = mb >= 1024 ? `${(mb / 1024).toFixed(1)}GB` : `${mb.toFixed(0)}MB`;
+              if (timestamp !== undefined && memorySeriesMemoized.length > 1) {
+                const total = memoryTotalsByTimestamp.get(timestamp);
+                if (total && total > 0) {
+                  const pct = ((value / total) * 100).toFixed(0);
+                  return `${sizeStr} (${pct}%)`;
+                }
+              }
+              return sizeStr;
             }}
             tickFormatter={(value) => {
               const mb = value / (1024 * 1024);

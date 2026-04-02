@@ -27,7 +27,7 @@ export interface TimeSeriesChartProps {
   height?: number;
   query?: string | string[];
   yLabel?: string;
-  valueFormatter?: (value: number, seriesName: string) => string;
+  valueFormatter?: (value: number, seriesName: string, timestamp?: number) => string;
   tickFormatter?: (value: number) => string;
   showLegend?: boolean;
   showDots?: boolean;
@@ -127,7 +127,7 @@ export function TimeSeriesChart({
           const numValue = typeof point.data.y === 'number' ? point.data.y : 0;
           const seriesName = String(point.serieId);
           const displayValue = valueFormatter
-            ? valueFormatter(numValue, seriesName)
+            ? valueFormatter(numValue, seriesName, timestamp)
             : String(numValue);
           return (
             <div key={point.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
