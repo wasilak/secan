@@ -141,6 +141,12 @@ export interface CanvasLayoutInput {
    * providing shard details to avoid misleading "0 shards" pills.
    */
   hideShardSummaryWhenEmpty?: boolean;
+  /**
+   * Cached count of unassigned shards from the most recent L2 visit.
+   * Used at L0/L1 zoom (where allShards is undefined) to still emit the
+   * synthetic Unassigned node with a count badge even without full shard data.
+   */
+  unassignedShardsHint?: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -427,9 +433,10 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     unassignedX = colX; // place unassigned after all group columns
   }
 
-  // Emit synthetic Unassigned node if present in shardsByNode
+  // Emit synthetic Unassigned node if present in shardsByNode OR if a hint
+  // count is provided (L0/L1 zoom where full shard data is not loaded yet).
   const unassigned = shardsByNode[UNASSIGNED_KEY];
-  if (unassigned && unassigned.length > 0) {
+  if ((unassigned?.length ?? 0) > 0 || (input.unassignedShardsHint ?? 0) > 0) {
     // Small typed placeholder for synthetic unassigned node to avoid `any`
     const uNode: Partial<NodeInfo> = {
       id: UNASSIGNED_KEY,
@@ -449,7 +456,7 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     // For the synthetic Unassigned node, ensure it is not clickable to open a node modal
     // by clearing onNodeClick handler in the input for this emission.
     const safeInput = { ...input, onNodeClick: undefined } as CanvasLayoutInput;
-    emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned, safeInput, 'Unassigned');
+    emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned ?? [], safeInput, 'Unassigned');
   }
 
   return result;

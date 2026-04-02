@@ -506,6 +506,17 @@ export function CanvasTopologyView({
   const [isL2, setIsL2] = useState(false);
   const isL2Ref = useRef(false);
 
+  // Cache the count of unassigned shards from the most recent L2 visit.
+  // allShards is undefined at L0/L1 (withheld by parent to prevent OOM), so we
+  // remember the last known value and use it to show the Unassigned node badge
+  // even after the user zooms back out.
+  const [unassignedCountHint, setUnassignedCountHint] = useState(0);
+  useEffect(() => {
+    if (!allShards) return; // retain last known value when zoomed out
+    const count = allShards.filter((s) => !s.node).length;
+    setUnassignedCountHint(count);
+  }, [allShards]);
+
   const handleZoomChange = useCallback((zoom: number) => {
     const newIsL2 = zoom > L2_ZOOM_THRESHOLD;
     if (newIsL2 !== isL2Ref.current) {
@@ -553,8 +564,23 @@ export function CanvasTopologyView({
         acc[summary.nodeName] = summary;
       }
     }
+    // Inject synthetic entry for the Unassigned pseudo-node so that the
+    // post-processing step in layoutNodes can populate its badge even at
+    // L0/L1 zoom (where shardsByNode[UNASSIGNED_KEY] is empty).
+    // The hint is 0 until the user visits L2 for the first time — in that
+    // case the node simply won't appear (no data yet), which is fine.
+    if (unassignedCountHint > 0) {
+      acc[UNASSIGNED_KEY] = {
+        nodeId: UNASSIGNED_KEY,
+        nodeName: 'Unassigned',
+        primary: 0,
+        replica: 0,
+        unassigned: unassignedCountHint,
+        total: unassignedCountHint,
+      };
+    }
     return acc;
-  }, [shardSummary]);
+  }, [shardSummary, unassignedCountHint]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
   const layoutNodes = useMemo(() => {
@@ -589,6 +615,7 @@ export function CanvasTopologyView({
       validDestinationNodes,
       onDestinationClick,
       getIndexHealthColor,
+      unassignedShardsHint: unassignedCountHint,
     });
 
     // Apply summary badge counts from the lightweight endpoint.
@@ -612,7 +639,7 @@ export function CanvasTopologyView({
     });
 
     return baseLayout;
-  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor]);
+  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, unassignedCountHint]);
 
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
