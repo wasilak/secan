@@ -5,7 +5,7 @@ import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { SHARD_STATE_COLORS } from '../../utils/colors';
 import ClusterESNodeCard from '../ClusterESNodeCard';
 import { UNASSIGNED_KEY } from '../../utils/canvasLayout';
-import { formatBytes } from '../../utils/formatters';
+import { formatBytes, getLoadColor } from '../../utils/formatters';
 import { getOrCreateIndexColors } from '../../utils/topologyColors';
 import { sortShards } from '../../utils/shardOrdering';
 import {
@@ -282,7 +282,7 @@ export function DotBasedTopologyView({
     const cpuPercent = node.cpuPercent ?? undefined;
     const cpuColor = cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
     const load5m = node.loadAverage?.[1];
-    const loadColor = load5m === undefined ? 'dimmed' : load5m < 4 ? 'green' : load5m < 6 ? 'yellow' : 'red';
+    const loadColor = getLoadColor(load5m);
     const diskDisplay = isUnassigned ? '0 B' : formatBytes(effectiveNode.diskUsed);
 
     const sortedShards = nodeShards.slice().sort((a,b) => a.shard - b.shard);

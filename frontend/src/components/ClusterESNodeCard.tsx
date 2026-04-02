@@ -3,6 +3,7 @@ import ShardPills from './ShardPills';
 import type { ShardInfo } from '../types/api';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { GROUP_WIDTH } from '../utils/canvasLayout';
+import { formatLoadAverage } from '../utils/formatters';
 import { RoleIcons } from './RoleIcons';
 import type { MouseEvent, KeyboardEvent } from 'react';
 
@@ -201,7 +202,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           <Text size="xs" c={heapColor}>Heap: {typeof heapPercent === 'number' && !isNaN(heapPercent) ? `${heapPercent.toFixed(1)}%` : 'N/A'}</Text>
           <Text size="xs" c="dimmed">Disk: {diskDisplay}</Text>
           {load5m !== undefined && (
-            <Text size="xs" c={loadColor}>Load: {load5m.toFixed(2)}</Text>
+            <Text size="xs" c={loadColor}>Load: {formatLoadAverage(load5m)}</Text>
           )}
         </Flex>
       )}

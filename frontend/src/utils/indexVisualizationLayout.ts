@@ -19,7 +19,7 @@ import { sortShards } from './shardOrdering';
 import type { IndexGroupNodeData } from '../components/IndexGroupNode';
 import { computeHeapPercent, getHeapColor } from './heap';
 import { getShardDotColor } from './colors';
-import { formatBytes } from '../utils/formatters';
+import { formatBytes, getLoadColor } from '../utils/formatters';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { estimateGroupMinWidth } from './canvasLayout';
 
@@ -281,7 +281,7 @@ export function calculateIndexVizLayout(
       diskUsed: (nodeInfo.diskUsed as number) ?? 0,
       diskDisplay: formatBytes(nodeInfo.diskUsed ?? 0),
       load5m: nodeInfo.loadAverage && nodeInfo.loadAverage.length > 1 ? nodeInfo.loadAverage[1] : undefined,
-      loadColor: (nodeInfo.loadAverage && nodeInfo.loadAverage.length > 1) ? (nodeInfo.loadAverage[1] < 4 ? 'green' : nodeInfo.loadAverage[1] < 6 ? 'yellow' : 'red') : 'dimmed',
+      loadColor: getLoadColor(nodeInfo.loadAverage && nodeInfo.loadAverage.length > 1 ? nodeInfo.loadAverage[1] : undefined),
       groupLabel: undefined,
       isValidDestination: false,
       summaryCounts: { primary: primaryCount, replica: replicaCount, total: totalShardsForNode },

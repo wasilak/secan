@@ -25,7 +25,7 @@ import { useShardGridStore } from '../stores/shard-grid-store';
 import { getShardsForNodeAndIndex } from '../utils/shard-grid-parser';
 import { parseShardGridData } from '../utils/shard-grid-parser';
 import { apiClient } from '../api/client';
-import { formatNumberWithCommas, formatBytes } from '../utils/formatters';
+import { formatNumberWithCommas, formatBytes, formatLoadAverage, getLoadColor } from '../utils/formatters';
 
 /**
  * Props for ShardGrid component
@@ -509,11 +509,6 @@ export function ShardGrid({
     return `${Math.round(value)}%`;
   }, []);
 
-  // Format load average - Requirements: 9.3
-  const formatLoad = useCallback((load?: number): string => {
-    if (load === undefined) return 'N/A';
-    return load.toFixed(2);
-  }, []);
 
   // Toggle node stats collapse - Requirements: 11.6
   const toggleNodeStats = useCallback((nodeId: string) => {
@@ -834,8 +829,8 @@ export function ShardGrid({
                             </Text>
                           )}
                           {node.loadAverage !== undefined && node.loadAverage.length > 1 && (
-                            <Text size="xs" c="dimmed">
-                              Load: {formatLoad(node.loadAverage[1])}
+                            <Text size="xs" c={getLoadColor(node.loadAverage[1])}>
+                              Load: {formatLoadAverage(node.loadAverage[1])}
                             </Text>
                           )}
                         </Group>
@@ -1187,11 +1182,11 @@ export function ShardGrid({
                             )}
 
                             {/* Load average */}
-                            {node.loadAverage !== undefined && node.loadAverage.length > 1 && (
-                              <Text size="xs" c="dimmed">
-                                Load: {formatLoad(node.loadAverage[1])}
-                              </Text>
-                            )}
+                          {node.loadAverage !== undefined && node.loadAverage.length > 1 && (
+                            <Text size="xs" c={getLoadColor(node.loadAverage[1])}>
+                              Load: {formatLoadAverage(node.loadAverage[1])}
+                            </Text>
+                          )}
                           </Group>
                         </Collapse>
                       ) : (
@@ -1215,8 +1210,8 @@ export function ShardGrid({
 
                           {/* Load average */}
                           {node.loadAverage !== undefined && node.loadAverage.length > 1 && (
-                            <Text size="xs" c="dimmed">
-                              Load: {formatLoad(node.loadAverage[1])}
+                            <Text size="xs" c={getLoadColor(node.loadAverage[1])}>
+                              Load: {formatLoadAverage(node.loadAverage[1])}
                             </Text>
                           )}
                         </Group>

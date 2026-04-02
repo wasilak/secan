@@ -181,7 +181,7 @@ function columnFor(node: NodeInfo): number {
 }
 
 /** Emit a single group node (shards embedded in data, rendered by ClusterGroupNode). */
-import { formatBytes } from '../utils/formatters';
+import { formatBytes, getLoadColor } from '../utils/formatters';
 import { computeHeapPercent, getHeapColor } from './heap';
 
 /** Optional overrides for the RF node emitted by emitGroupNode. */
@@ -220,8 +220,7 @@ function emitGroupNode(
   const cpuColor =
     cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
   const load5m = node.loadAverage?.[1];
-  const loadColor =
-    load5m === undefined ? 'dimmed' : load5m < 4 ? 'green' : load5m < 6 ? 'yellow' : 'red';
+  const loadColor = getLoadColor(load5m);
   const diskDisplay = isUnassignedNode ? '0 B' : formatBytes(node.diskUsed);
 
   // Shard dot and badge summaries (precompute all)

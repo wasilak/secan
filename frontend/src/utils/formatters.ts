@@ -54,30 +54,28 @@ export function formatLoadAverage(load: number): string {
 }
 
 /**
- * Get color for load average based on CPU count
+ * Get color for load average based on absolute thresholds
  *
  * Color coding:
- * - Green: < 1.0 per CPU (healthy)
- * - Yellow: 1.0 - 1.5 per CPU (moderate load)
- * - Red: > 1.5 per CPU (high load)
+ * - Green: load < 4 (healthy)
+ * - Yellow: load < 6 (moderate)
+ * - Red: load >= 6 (high)
+ * - Dimmed: undefined (no data)
  *
- * @param load - Load average value
- * @param cpuCount - Number of CPUs (defaults to 1)
+ * @param load - Load average value (5-minute), or undefined if unavailable
  * @returns Color string for Mantine theme
  */
-export function getLoadColor(load: number, cpuCount: number = 1): string {
-  if (!Number.isFinite(load) || cpuCount <= 0) {
-    return 'gray';
+export function getLoadColor(load: number | undefined): string {
+  if (load === undefined || !Number.isFinite(load)) {
+    return 'dimmed';
   }
 
-  const normalized = load / cpuCount;
-
-  if (normalized > 1.5) {
-    return 'red';
-  } else if (normalized >= 1.0) {
+  if (load < 4) {
+    return 'green';
+  } else if (load < 6) {
     return 'yellow';
   } else {
-    return 'green';
+    return 'red';
   }
 }
 

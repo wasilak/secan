@@ -66,31 +66,28 @@ describe('formatLoadAverage', () => {
 });
 
 describe('getLoadColor', () => {
-  it('should return green for low load', () => {
-    expect(getLoadColor(0.5, 1)).toBe('green');
-    expect(getLoadColor(0.9, 1)).toBe('green');
+  it('should return green for load < 4', () => {
+    expect(getLoadColor(0)).toBe('green');
+    expect(getLoadColor(1.5)).toBe('green');
+    expect(getLoadColor(3.99)).toBe('green');
   });
 
-  it('should return yellow for moderate load', () => {
-    expect(getLoadColor(1.0, 1)).toBe('yellow');
-    expect(getLoadColor(1.3, 1)).toBe('yellow');
+  it('should return yellow for load >= 4 and < 6', () => {
+    expect(getLoadColor(4)).toBe('yellow');
+    expect(getLoadColor(5)).toBe('yellow');
+    expect(getLoadColor(5.99)).toBe('yellow');
   });
 
-  it('should return red for high load', () => {
-    expect(getLoadColor(1.6, 1)).toBe('red');
-    expect(getLoadColor(5.0, 1)).toBe('red');
+  it('should return red for load >= 6', () => {
+    expect(getLoadColor(6)).toBe('red');
+    expect(getLoadColor(10)).toBe('red');
+    expect(getLoadColor(100)).toBe('red');
   });
 
-  it('should normalize by CPU count', () => {
-    expect(getLoadColor(4.0, 4)).toBe('yellow'); // 1.0 per CPU
-    expect(getLoadColor(5.0, 4)).toBe('yellow'); // 1.25 per CPU
-    expect(getLoadColor(7.0, 4)).toBe('red'); // 1.75 per CPU
-  });
-
-  it('should handle edge cases', () => {
-    expect(getLoadColor(NaN, 1)).toBe('gray');
-    expect(getLoadColor(1.0, 0)).toBe('gray');
-    expect(getLoadColor(1.0, -1)).toBe('gray');
+  it('should return dimmed for undefined or non-finite values', () => {
+    expect(getLoadColor(undefined)).toBe('dimmed');
+    expect(getLoadColor(NaN)).toBe('dimmed');
+    expect(getLoadColor(Infinity)).toBe('dimmed');
   });
 });
 
