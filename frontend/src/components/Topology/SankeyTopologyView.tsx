@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import type { ReactElement, FunctionComponent } from 'react';
-import { Alert, Badge, Group, NumberInput, Paper, Skeleton, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
+import { Alert, Badge, Button, Group, NumberInput, Paper, Skeleton, Stack, Text } from '@mantine/core';
+import { IconAlertTriangle, IconCheck, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import type { DefaultNode, DefaultLink, SankeyNodeDatum, SankeyLinkDatum } from '@nivo/sankey';
 import { useSankeyData } from '../../hooks/useSankeyData';
@@ -122,14 +123,26 @@ const LinkTooltip: FunctionComponent<{
 export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement {
   const { clusterId, selectedShardStates, topIndices, onTopIndicesChange } = props;
 
+  // "Pending" value — what the user is currently editing in the input.
+  const [pendingTopIndices, setPendingTopIndices] = useState<number>(topIndices);
+  // "Applied" value — what was last submitted to the backend.
+  const [appliedTopIndices, setAppliedTopIndices] = useState<number>(topIndices);
+
   const { data, loading, error, refetch } = useSankeyData({
     clusterId,
-    topIndices,
+    topIndices: appliedTopIndices,
     includeUnassigned: true,
     states: selectedShardStates.length > 0 ? selectedShardStates : undefined,
   });
 
-  // ---- Loading state ----
+  const isDirty = pendingTopIndices !== appliedTopIndices;
+
+  function handleApply() {
+    setAppliedTopIndices(pendingTopIndices);
+    onTopIndicesChange(pendingTopIndices);
+  }
+
+  // ---- Loading state (initial load only — no data yet) ----
   if (loading && data === null) {
     return <Skeleton height={400} radius="sm" />;
   }
@@ -192,7 +205,35 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
 
   return (
     <Stack gap="sm">
-      {/* Truncation warning */}
+      {/* Limit control — always visible */}
+      <Group gap="xs" align="flex-end">
+        <NumberInput
+          label="Top indices limit"
+          description="Number of top indices to display"
+          size="xs"
+          min={5}
+          max={200}
+          step={10}
+          value={pendingTopIndices}
+          onChange={(val) => {
+            if (typeof val === 'number') setPendingTopIndices(val);
+          }}
+          style={{ width: 120 }}
+        />
+        <Button
+          size="xs"
+          variant={isDirty ? 'filled' : 'light'}
+          color="blue"
+          leftSection={<IconCheck size={14} />}
+          onClick={handleApply}
+          disabled={!isDirty}
+          mb={2}
+        >
+          Apply
+        </Button>
+      </Group>
+
+      {/* Truncation warning — info only, no control */}
       {data.meta.truncated && (
         <Alert
           color="yellow"
@@ -200,23 +241,10 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
           title="Large cluster — showing top indices only"
           variant="light"
         >
-          <Group gap="md" align="flex-end">
-            <Text size="sm">
-              Showing <strong>{data.meta.displayedIndices}</strong> of{' '}
-              <strong>{data.meta.totalIndices}</strong> indices. Adjust the limit:
-            </Text>
-            <NumberInput
-              size="xs"
-              min={5}
-              max={200}
-              step={10}
-              value={topIndices}
-              onChange={(val) => {
-                if (typeof val === 'number') onTopIndicesChange(val);
-              }}
-              style={{ width: 80 }}
-            />
-          </Group>
+          <Text size="sm">
+            Showing <strong>{data.meta.displayedIndices}</strong> of{' '}
+            <strong>{data.meta.totalIndices}</strong> indices. Increase the limit above to show more.
+          </Text>
         </Alert>
       )}
 

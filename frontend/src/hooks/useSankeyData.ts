@@ -20,8 +20,8 @@ export interface UseSankeyDataResult {
  * Hook that fetches Sankey topology data for a cluster.
  *
  * Re-fetches automatically whenever clusterId, topIndices, includeUnassigned,
- * or states change. Parameter changes are debounced by 300 ms to avoid
- * flooding the backend while the user is typing/adjusting controls.
+ * or states change. Callers should only change topIndices on an explicit user
+ * action (e.g. clicking an Apply button) to avoid unnecessary backend requests.
  *
  * Requirements: topology-sankey-view 4.2, 4.3
  */
@@ -34,69 +34,45 @@ export function useSankeyData(options: UseSankeyDataOptions): UseSankeyDataResul
 
   // Keep a stable ref to a cancel flag so stale fetches do not overwrite state.
   const cancelledRef = useRef<boolean>(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = useCallback(
-    async (immediate: boolean) => {
-      // Clear any pending debounce timer
-      if (debounceRef.current !== null) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
+  const fetchData = useCallback(async () => {
+    cancelledRef.current = false;
+    setLoading(true);
+    setError(null);
+
+    const params: SankeyQueryParams = {
+      topIndices,
+      includeUnassigned,
+      states: states && states.length > 0 ? states.join(',') : undefined,
+    };
+
+    try {
+      const result = await apiClient.getSankeyData(clusterId, params);
+      if (!cancelledRef.current) {
+        setData(result);
+        setLoading(false);
       }
-
-      const doFetch = async () => {
-        cancelledRef.current = false;
-        setLoading(true);
-        setError(null);
-
-        const params: SankeyQueryParams = {
-          topIndices,
-          includeUnassigned,
-          states: states && states.length > 0 ? states.join(',') : undefined,
-        };
-
-        try {
-          const result = await apiClient.getSankeyData(clusterId, params);
-          if (!cancelledRef.current) {
-            setData(result);
-            setLoading(false);
-          }
-        } catch (err: unknown) {
-          if (!cancelledRef.current) {
-            setError(err);
-            setLoading(false);
-          }
-        }
-      };
-
-      if (immediate) {
-        await doFetch();
-      } else {
-        debounceRef.current = setTimeout(() => {
-          void doFetch();
-        }, 300);
+    } catch (err: unknown) {
+      if (!cancelledRef.current) {
+        setError(err);
+        setLoading(false);
       }
-    },
-    [clusterId, topIndices, includeUnassigned, states]
-  );
+    }
+  }, [clusterId, topIndices, includeUnassigned, states]);
 
-  // Run on mount and whenever deps change (debounced)
+  // Run on mount and whenever deps change
   useEffect(() => {
-    void fetchData(false);
+    void fetchData();
 
     return () => {
-      // Cancel in-flight fetch and pending timer on unmount / dep change
+      // Cancel in-flight fetch on unmount / dep change
       cancelledRef.current = true;
-      if (debounceRef.current !== null) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
     };
   }, [fetchData]);
 
-  // Imperative refetch bypasses the debounce
+  // Imperative refetch
   const refetch = useCallback(() => {
-    void fetchData(true);
+    void fetchData();
   }, [fetchData]);
 
   return { data, loading, error, refetch };

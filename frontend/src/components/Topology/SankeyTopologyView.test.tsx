@@ -165,7 +165,26 @@ describe('SankeyTopologyView', () => {
     expect(screen.getByText(/120/)).toBeInTheDocument();
   });
 
-  it('calls onTopIndicesChange when NumberInput in the truncation warning is changed', () => {
+  it('limit control is always visible (not gated on truncation)', () => {
+    // Use non-truncated response — the NumberInput should still be visible.
+    mockUseSankeyData.mockReturnValue({
+      data: populatedResponse,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <SankeyTopologyView {...defaultProps} />
+      </TestWrapper>
+    );
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /apply/i })).toBeInTheDocument();
+  });
+
+  it('calls onTopIndicesChange only when Apply button is clicked, not on input change', () => {
     const mockOnTopIndicesChange = vi.fn();
 
     const truncatedResponse: SankeyResponse = {
@@ -195,7 +214,13 @@ describe('SankeyTopologyView', () => {
     );
 
     const input = screen.getByRole('textbox') as HTMLInputElement;
+    // Changing the input should NOT immediately call onTopIndicesChange
     fireEvent.change(input, { target: { value: '75' } });
+    expect(mockOnTopIndicesChange).not.toHaveBeenCalled();
+
+    // Clicking Apply should call onTopIndicesChange with the new value
+    const applyButton = screen.getByRole('button', { name: /apply/i });
+    fireEvent.click(applyButton);
     expect(mockOnTopIndicesChange).toHaveBeenCalledWith(75);
   });
 });
