@@ -308,7 +308,7 @@ pub async fn get_sankey(
             let routing = cluster_conn.cluster_state_routing_nodes(None).await.ok();
             routing
                 .as_ref()
-                .map(|r| crate::routes::clusters::transform::transform_routing_nodes_to_shards(r))
+                .map(crate::routes::clusters::transform::transform_routing_nodes_to_shards)
                 .unwrap_or_default()
         }
         Err(_) => {
