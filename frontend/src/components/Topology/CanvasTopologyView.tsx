@@ -21,7 +21,7 @@ import { Box, Skeleton } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 import { GroupContainerNode } from './GroupContainerNode';
-import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, CONTAINER_PADDING_TOP, CONTAINER_PADDING_X, CONTAINER_VERTICAL_GAP, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, VERTICAL_GAP } from '../../utils/canvasLayout';
+import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, CONTAINER_PADDING_TOP, CONTAINER_PADDING_X, CONTAINER_VERTICAL_GAP, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, UNASSIGNED_KEY, VERTICAL_GAP } from '../../utils/canvasLayout';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -565,8 +565,7 @@ export function CanvasTopologyView({
     const shardsByNode: Record<string, ShardInfo[]> = {};
     if (isL2 && allShards && allShards.length > 0) {
       for (const shard of allShards) {
-        const nodeKey = shard.node;
-        if (!nodeKey) continue;
+        const nodeKey = shard.node ?? UNASSIGNED_KEY;
         // Apply shard state filter (skip if state not in selectedShardStates)
         if (selectedShardStates && selectedShardStates.length > 0 && !selectedShardStates.includes(shard.state)) continue;
         // Apply special-index filter (hide dot-prefixed indices unless showSpecialIndices is true)
