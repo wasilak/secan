@@ -30,8 +30,9 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-function makePieTooltip(valueFormatter: (v: number) => string) {
+function makePieTooltip(valueFormatter: (v: number) => string, total: number) {
   return function PieTooltipContent({ datum }: PieTooltipProps<PieDatum>) {
+    const pct = total > 0 ? ((datum.value / total) * 100).toFixed(0) : '0';
     return (
       <div
         style={{
@@ -43,7 +44,7 @@ function makePieTooltip(valueFormatter: (v: number) => string) {
           fontWeight: 500,
         }}
       >
-        {datum.label}: {valueFormatter(datum.value)} ({datum.formattedValue})
+        {datum.label}: {valueFormatter(datum.value)} ({pct}%)
       </div>
     );
   };
@@ -76,7 +77,8 @@ export function DistributionChart({
     }));
 
   const hasData = filteredData.length > 0;
-  const PieTooltipContent = makePieTooltip(valueFormatter);
+  const total = filteredData.reduce((sum, d) => sum + d.value, 0);
+  const PieTooltipContent = makePieTooltip(valueFormatter, total);
 
   return (
     <Card shadow="sm" padding="lg">
