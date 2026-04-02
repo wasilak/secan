@@ -1,0 +1,78 @@
+# ============================================================================
+# LDAP Authentication Configuration Example - Minimal Setup
+# ============================================================================
+#
+# This is a minimal LDAP configuration example showing only the required
+# parameters. Use this as a starting point and add optional parameters as needed.
+#
+# Copy the relevant sections to your config.yaml and customize for your
+# environment.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION - LDAP (Minimal)
+# ============================================================================
+
+auth:
+  # Set authentication mode to LDAP
+  mode: ldap
+
+  # LDAP configuration (minimal required parameters)
+  ldap:
+    # LDAP server URL (required)
+    server_url: "ldap://ldap.example.com:389"
+    
+    # Service account credentials (required)
+    bind_dn: "cn=service-account,dc=example,dc=com"
+    bind_password: "service-account-password"
+    
+    # User search configuration (required)
+    search_base: "ou=users,dc=example,dc=com"
+    search_filter: "(uid={username})"
+    
+    # All other parameters use defaults:
+    # - No group mapping (all authenticated users allowed)
+    # - No TLS (development only - use TLS in production!)
+    # - Default timeout: 10 seconds
+    # - Default attributes: uid, mail, cn
+
+# ============================================================================
+# CLUSTER CONFIGURATION
+# ============================================================================
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "http://localhost:9200"
+    es_version: 8
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# This minimal configuration:
+# - Allows all authenticated LDAP users (no required groups)
+# - Does not query group memberships
+# - Uses unencrypted LDAP connection (development only)
+# - Uses default attribute mappings (uid, mail, cn)
+# - Uses default connection timeout (10 seconds)
+#
+# For production use, you should:
+# 1. Enable TLS (add: tls_mode: starttls or use ldaps:// URL)
+# 2. Configure group mapping (add: group_search_base, group_search_filter)
+# 3. Set required groups (add: required_groups: ["app-users"])
+# 4. Store passwords in environment variables
+# 5. Adjust timeout if needed (add: connection_timeout_seconds: 30)
+#
+# See other example files for complete configurations:
+# - ldap-openldap.yaml: Full OpenLDAP configuration
+# - ldap-active-directory.yaml: Full Active Directory configuration
+# - ldap-freeipa.yaml: Full FreeIPA configuration

@@ -1,0 +1,140 @@
+# ============================================================================
+# LDAP Authentication Configuration Example - OpenLDAP
+# ============================================================================
+#
+# This example shows how to configure LDAP authentication with OpenLDAP.
+# OpenLDAP is a popular open-source LDAP server implementation.
+#
+# Copy the relevant sections to your config.yaml and customize for your
+# environment.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION - LDAP with OpenLDAP
+# ============================================================================
+
+auth:
+  # Set authentication mode to LDAP
+  mode: ldap
+
+  # Session timeout in minutes (default: 60)
+  session_timeout_minutes: 60
+
+  # LDAP configuration for OpenLDAP
+  ldap:
+    # LDAP server URL
+    # - Use ldap:// for unencrypted connections (development only)
+    # - Use ldaps:// for TLS-encrypted connections (recommended for production)
+    server_url: "ldap://ldap.example.com:389"
+    
+    # Service account credentials for binding to LDAP server
+    # This account is used to search for users and query group memberships
+    # Grant minimal required permissions (read-only access to users and groups)
+    bind_dn: "cn=service-account,dc=example,dc=com"
+    bind_password: "service-account-password"
+    
+    # User search configuration
+    # Base DN where user searches begin
+    search_base: "ou=users,dc=example,dc=com"
+    
+    # LDAP filter for finding users
+    # {username} is replaced with the username from the login form
+    # Common OpenLDAP filters:
+    #   - (uid={username})           - Match by uid attribute
+    #   - (cn={username})            - Match by common name
+    #   - (mail={username})          - Match by email address
+    #   - (&(uid={username})(objectClass=inetOrgPerson)) - Match with object class
+    search_filter: "(uid={username})"
+    
+    # Alternative: Direct bind with DN pattern (skip user search)
+    # If you know the DN pattern for your users, you can skip the search step
+    # Uncomment this and comment out search_base/search_filter to use direct bind
+    # user_dn_pattern: "uid={username},ou=users,dc=example,dc=com"
+    
+    # Group membership configuration
+    # Base DN where group searches begin
+    group_search_base: "ou=groups,dc=example,dc=com"
+    
+    # LDAP filter for finding groups
+    # {user_dn} is replaced with the user's Distinguished Name
+    # Common OpenLDAP group filters:
+    #   - (member={user_dn})         - For groupOfNames
+    #   - (memberUid={username})     - For posixGroup (uses username, not DN)
+    #   - (uniqueMember={user_dn})   - For groupOfUniqueNames
+    group_search_filter: "(member={user_dn})"
+    
+    # Attribute containing group members (for direct group membership queries)
+    # Common values: "member", "memberUid", "uniqueMember"
+    group_member_attribute: "member"
+    
+    # Optional: User attribute containing group DNs (for reverse lookup)
+    # Uncomment if your users have a memberOf attribute
+    # user_group_attribute: "memberOf"
+    
+    # Required groups for access (empty = allow all authenticated users)
+    # Users must be a member of at least one of these groups to access the application
+    # Leave empty to allow all authenticated LDAP users
+    required_groups:
+      - "app-users"
+      - "app-admins"
+    
+    # Connection timeout in seconds (default: 10)
+    connection_timeout_seconds: 10
+    
+    # TLS/SSL mode: "none", "starttls", or "ldaps"
+    # - none: Unencrypted connection (development only)
+    # - starttls: Upgrade connection to TLS after connecting
+    # - ldaps: Use TLS from the start (requires ldaps:// URL)
+    tls_mode: starttls
+    
+    # Skip TLS certificate verification (for testing only - NEVER use in production)
+    tls_skip_verify: false
+    
+    # User attribute mapping
+    # These attributes are extracted from the LDAP user entry
+    username_attribute: "uid"           # Attribute containing username
+    email_attribute: "mail"             # Attribute containing email address
+    display_name_attribute: "cn"        # Attribute containing display name
+
+# ============================================================================
+# CLUSTER CONFIGURATION
+# ============================================================================
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "http://localhost:9200"
+    es_version: 8
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# OpenLDAP Schema Notes:
+# - Standard object classes: inetOrgPerson, organizationalPerson, person
+# - Common user attributes: uid, cn, sn, mail, userPassword
+# - Common group object classes: groupOfNames, posixGroup, groupOfUniqueNames
+# - Group member attributes: member (DN), memberUid (username), uniqueMember (DN)
+#
+# Security Best Practices:
+# - Always use TLS in production (starttls or ldaps)
+# - Never skip certificate verification in production
+# - Use a dedicated service account with minimal permissions
+# - Store passwords in environment variables, not in config files
+# - Enable required_groups to restrict access
+# - Monitor authentication logs for suspicious activity
+#
+# Troubleshooting:
+# - Set logging level to DEBUG to see LDAP queries and responses
+# - Verify service account can bind: ldapsearch -x -D "bind_dn" -W -b "search_base"
+# - Test user search: ldapsearch -x -D "bind_dn" -W -b "search_base" "(uid=username)"
+# - Test group search: ldapsearch -x -D "bind_dn" -W -b "group_search_base" "(member=user_dn)"
+# - Check LDAP server logs for connection and authentication errors

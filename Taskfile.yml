@@ -1,0 +1,342 @@
+# Secan project Taskfile
+# Run `task` to see all available tasks
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  default:
+    desc: Show all available tasks
+    cmds:
+      - task --list
+
+  # Development tasks
+  dev:
+    desc: Build frontend, build backend, and run the server
+    cmds:
+      - task: frontend:build:unminified
+      - task: backend:build
+      - task: backend:run
+    # Run backend (serves embedded frontend) after building unminified frontend assets
+    # Keep sequential to ensure assets are available before backend starts
+
+  full-dev:
+    desc: Start Elasticsearch, bootstrap data, and run dev server
+    cmds:
+      - task: docker:up
+      - sleep 5
+      - task: data:bootstrap
+      - task: dev
+
+  # Frontend tasks
+  frontend:build:
+    desc: Build the frontend React application
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run build
+
+  frontend:dev:
+    desc: Start frontend development server (non-minified Vite dev)
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run dev
+
+  frontend:build:unminified:
+    desc: Build frontend assets unminified for embedding in the backend (dev-friendly)
+    dir: frontend
+    cmds:
+      - npm ci
+      - env VITE_UNMINIFIED=true npm run build
+
+  frontend:lint:
+    desc: Run TypeScript/React linter
+    dir: frontend
+    cmds:
+      - npm run lint
+
+  frontend:test:
+    desc: Run frontend tests
+    dir: frontend
+    cmds:
+      - npm test
+
+  frontend:format:
+    desc: Format frontend code with prettier
+    dir: frontend
+    cmds:
+      - npx prettier --write src/
+
+  # Backend tasks
+  backend:build:
+    desc: Build the Rust backend
+    cmds:
+      - cargo build
+
+  backend:run:
+    desc: Run the backend server
+    cmds:
+      - cargo run
+
+  backend:lint:
+    desc: Run Rust linter (clippy and fmt check)
+    cmds:
+      - cargo clippy -- -D warnings
+      - cargo fmt --check
+
+  backend:test:
+    desc: Run backend tests with warnings as errors (matches CI)
+    env:
+      RUSTFLAGS: "-D warnings"
+    cmds:
+      - cargo test
+
+  backend:format:
+    desc: Format Rust code
+    cmds:
+      - cargo fmt --all
+
+  # Test tasks
+  test:
+    desc: Run all tests (backend and frontend)
+    cmds:
+      - task: backend:test
+      - task: frontend:test
+
+  test:backend:
+    desc: Run backend tests
+    cmds:
+      - task: backend:test
+
+  test:frontend:
+    desc: Run frontend tests
+    cmds:
+      - task: frontend:test
+
+  # Lint tasks
+  lint:
+    desc: Run all linters (backend and frontend)
+    cmds:
+      - task: backend:lint
+      - task: frontend:lint
+
+  lint:backend:
+    desc: Run Rust linter
+    cmds:
+      - task: backend:lint
+
+  lint:frontend:
+    desc: Run TypeScript/React linter
+    cmds:
+      - task: frontend:lint
+
+  # Format tasks
+  format:
+    desc: Format all code (backend and frontend)
+    cmds:
+      - task: backend:format
+      - task: frontend:format
+
+  # Build tasks
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - rm -rf frontend/node_modules
+      - rm -rf frontend/dist
+      - rm -rf target
+      - rm -rf assets
+
+  # OpenAPI tasks
+  openapi:generate:
+    desc: Generate OpenAPI spec by running tests (outputs to openapi.json)
+    cmds:
+      - cargo test --lib -- --nocapture 2>&1 | grep -E "OpenAPI spec written"
+
+  openapi:validate:
+    desc: Validate OpenAPI spec exists and is valid JSON
+    cmds:
+      - 'test -f openapi.json || (echo "ERROR: openapi.json not found" && exit 1)'
+      - 'python3 -c "import json; json.load(open(''openapi.json''))" || (echo "ERROR: invalid JSON" && exit 1)'
+      - 'echo "✓ OpenAPI spec valid"'
+
+  openapi:
+    desc: Generate and validate OpenAPI spec
+    cmds:
+      - task: openapi:generate
+      - task: openapi:validate
+
+  # CI/CD tasks
+  ci:
+    desc: Run complete CI/CD pipeline for backend and frontend (in parallel)
+    cmds:
+      - task: ci:backend
+      - task: ci:frontend
+    parallel: true
+
+  ci:full:
+    desc: Run complete CI/CD pipeline including docs build (in parallel)
+    cmds:
+      - task: ci:backend
+      - task: ci:frontend
+      - task: docs:build
+    parallel: true
+
+  ci:backend:
+    desc: Run complete backend CI/CD checks
+    cmds:
+      - echo "=== BACKEND CI/CD ==="
+      - echo "1. Cargo fmt check..."
+      - cargo fmt --check
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "2. Cargo clippy..."
+      - cargo clippy -- -D warnings
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "3. Cargo test..."
+      - RUSTFLAGS="-D warnings" cargo test
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "4. OpenAPI validation..."
+      - task: openapi:validate
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "=== BACKEND CI/CD COMPLETE ==="
+
+  ci:frontend:
+    desc: Run complete frontend CI/CD checks
+    cmds:
+      - echo "=== FRONTEND CI/CD ==="
+      - echo "4. NPM lint..."
+      - cd frontend && npm run lint
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "5. NPM test..."
+      - cd frontend && npm test
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "6. NPM build..."
+      - cd frontend && npm run build
+      - echo "✅ PASSED"
+      - echo ""
+      - echo "=== FRONTEND CI/CD COMPLETE ==="
+
+  # Data tasks
+  data:bootstrap:
+    desc: Bootstrap test data in Elasticsearch
+    cmds:
+      - ./scripts/bootstrap-test-data.sh
+
+  data:cleanup:
+    desc: Clean up test data from Elasticsearch
+    cmds:
+      - ./scripts/cleanup-test-data.sh
+
+  # Docker tasks
+  docker:up:
+    desc: Start Elasticsearch with Docker Compose
+    cmds:
+      - docker-compose up -d
+
+  docker:down:
+    desc: Stop Elasticsearch
+    cmds:
+      - docker-compose down
+
+  docker:build:amd64:
+    desc: Build Docker image for amd64 (uses version from Cargo.toml)
+    cmds:
+      - |
+        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        docker build --platform linux/amd64 -t secan:$VERSION -t secan:latest .
+
+  docker:build:multiarch:
+    desc: Build Docker image for multiple architectures (uses version from Cargo.toml)
+    cmds:
+      - |
+        VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+        docker buildx build --platform linux/amd64,linux/arm64 -t secan:$VERSION -t secan:latest .
+
+  # Release tasks
+  release:frontend:
+    desc: Build frontend for release
+    dir: frontend
+    cmds:
+      - npm ci
+      - npm run build
+
+  release:backend:
+    desc: Build backend for release
+    cmds:
+      - cargo build --release
+
+  release:backend:target:
+    desc: Build backend for specific target (set TARGET env var)
+    cmds:
+      - cargo build --release --target ${TARGET}
+
+  # Cross-compilation tasks
+  cross:install:
+    desc: Install cross-compilation tool
+    cmds:
+      - cargo install cross --git https://github.com/cross-rs/cross
+
+  cross:build:
+    desc: Build backend using cross for specific target (set TARGET env var)
+    cmds:
+      - cross build --release --target ${TARGET}
+
+  release:pkg-binary:
+    desc: Package binary as tarball (set TARGET and NAME env vars)
+    cmds:
+      - mkdir -p artifacts
+      - cd target/${TARGET}/release && tar czf ../../artifacts/secan-${NAME}.tar.gz secan && sha256sum secan-${NAME}.tar.gz > ../../artifacts/secan-${NAME}.tar.gz.sha256
+
+  # Version tasks
+  version:bump:
+    desc: "Bump version and create git tag (usage: task version:bump -- 1.3.0)"
+    cmds:
+      - ./scripts/bump-version.sh '{{.CLI_ARGS}}'
+
+  # Documentation tasks
+  docs:install:
+    desc: Install Docusaurus dependencies
+    dir: docs
+    cmds:
+      - npm ci
+
+  docs:dev:
+    desc: Start Docusaurus development server (serves at http://localhost:3000/secan/)
+    dir: docs
+    cmds:
+      - npm run start
+
+  docs:build:
+    desc: Build Docusaurus documentation for production
+    dir: docs
+    env:
+      NODE_OPTIONS: "--no-deprecation"
+    cmds:
+      - npm run build
+
+  docs:preview:
+    desc: Preview production Docusaurus build (serves at http://localhost:3000/secan/)
+    dir: docs
+    cmds:
+      - npm run serve
+
+  docs:rust-api:
+    desc: Generate Rust API documentation
+    cmds:
+      - cargo doc --no-deps --document-private-items
+
+  docs:build-complete:
+    desc: Build complete documentation site (Docusaurus + Rust API)
+    deps:
+      - frontend:build
+      - docs:rust-api
+      - docs:build
+    cmds:
+      - mkdir -p docs/build/api
+      - cp -r target/doc/* docs/build/api/

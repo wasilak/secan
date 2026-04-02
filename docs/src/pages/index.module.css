@@ -1,0 +1,126 @@
+/**
+ * CSS styles for the landing page
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.heroLogo {
+  height: 400px;
+  width: auto;
+  max-width: 400px;
+  margin-bottom: 2rem;
+  object-fit: contain;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.buttons .button {
+  min-width: 150px;
+}
+
+/* Responsive design for mobile */
+@media screen and (max-width: 768px) {
+  .heroBanner {
+    padding: 2rem 0;
+  }
+
+  .heroLogo {
+    height: 300px;
+    width: auto;
+    max-width: 300px;
+    margin-bottom: 1.5rem;
+  }
+
+  .buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .buttons .button {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+/* Feature cards section */
+.features {
+  padding: 4rem 0;
+  background-color: var(--ifm-background-surface-color);
+}
+
+.features h2 {
+  margin-bottom: 3rem;
+  font-size: 2.5rem;
+}
+
+.feature {
+  margin-bottom: 2rem;
+}
+
+.featureIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--ifm-color-primary);
+}
+
+.feature p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-700);
+}
+
+/* Responsive design for feature cards */
+@media screen and (max-width: 996px) {
+  .feature {
+    margin-bottom: 3rem;
+  }
+
+  .features h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .features {
+    padding: 2rem 0;
+  }
+
+  .features h2 {
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .featureIcon {
+    font-size: 2.5rem;
+    height: 60px;
+  }
+
+  .feature h3 {
+    font-size: 1.25rem;
+  }
+
+  .feature p {
+    font-size: 0.95rem;
+  }
+}

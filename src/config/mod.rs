@@ -1,0 +1,1499 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use utoipa::ToSchema;
+
+/// Main configuration structure for the application
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Config {
+    #[serde(default)]
+    pub server: ServerConfig,
+    #[serde(default)]
+    pub auth: AuthConfig,
+    #[serde(default)]
+    pub clusters: Vec<ClusterConfig>,
+    #[serde(default)]
+    pub cache: CacheConfig,
+    /// Maximum number of tiles a client may request in a single /topology/tiles call.
+    /// If not specified, the server will default to 64 tiles per request.
+    #[serde(default)]
+    pub topology_max_tiles_per_request: Option<usize>,
+    /// Maximum number of concurrent tile generation tasks allowed across the server.
+    /// If not specified, a sensible default (4) is used.
+    #[serde(default)]
+    pub topology_max_concurrent_generations: Option<usize>,
+    /// Timeout in seconds to wait for acquiring a topology generation permit.
+    /// If not specified, defaults to 8 seconds.
+    #[serde(default)]
+    pub topology_generation_acquire_timeout_seconds: Option<u64>,
+}
+
+/// Server configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfig {
+    #[serde(default = "default_host")]
+    pub host: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    pub tls: Option<TlsServerConfig>,
+    /// Allowed origins for CORS (for embedded mode, restrict to same origin)
+    /// If empty, allows any origin (for development/public API mode)
+    /// For embedded frontend, set to the frontend's origin (e.g., "http://localhost:27182")
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
+}
+
+fn default_host() -> String {
+    "0.0.0.0".to_string()
+}
+
+fn default_port() -> u16 {
+    27182
+}
+
+/// Cache configuration
+///
+/// Cache duration is automatically calculated from the refresh interval.
+/// Backend defaults to 30 seconds for cluster metadata caching.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CacheConfig {
+    /// Duration in seconds to cache cluster metadata (optional, defaults to 30s)
+    ///
+    /// If not specified, the cache will use a default TTL of 30 seconds.
+    /// For optimal performance, cache should be longer than the frontend refresh interval,
+    /// ensuring that manual/automatic refreshes hit cache while background jobs update data.
+    #[serde(default)]
+    pub metadata_duration_seconds: Option<u64>,
+    /// Maximum number of tile cache entries (optional). If set, the tile cache
+    /// will be bounded to this capacity. If not set, a sensible default is used
+    /// by the server (e.g., 10_000).
+    #[serde(default)]
+    pub tile_max_entries: Option<u64>,
+}
+
+impl CacheConfig {
+    /// Get the effective cache duration in seconds
+    pub fn get_duration_secs(&self) -> u64 {
+        self.metadata_duration_seconds.unwrap_or(30) // Default to 30 seconds
+    }
+}
+
+/// TLS configuration for the server
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsServerConfig {
+    pub cert_file: PathBuf,
+    pub key_file: PathBuf,
+}
+
+/// Group to cluster mapping for permission configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupClusterMapping {
+    /// Group name (or "*" for all groups)
+    pub group: String,
+    /// List of cluster IDs accessible to this group (or "*" for all clusters)
+    pub clusters: Vec<String>,
+}
+
+/// Authentication configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    pub mode: AuthMode,
+    #[serde(default = "default_session_timeout")]
+    pub session_timeout_minutes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_users: Option<Vec<LocalUser>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oidc: Option<OidcConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ldap: Option<LdapConfig>,
+    #[serde(default)]
+    pub roles: Vec<RoleConfig>,
+    #[serde(default)]
+    pub permissions: Vec<GroupClusterMapping>,
+}
+
+fn default_session_timeout() -> u64 {
+    60
+}
+
+/// Authentication mode
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthMode {
+    LocalUsers,
+    Oidc,
+    Ldap,
+    Open,
+}
+
+/// Local user configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalUser {
+    pub username: String,
+    pub password_hash: String,
+    pub groups: Vec<String>,
+}
+
+/// OIDC configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OidcConfig {
+    pub discovery_url: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub redirect_uri: String,
+    #[serde(default = "default_groups_claim_key")]
+    pub groups_claim_key: String,
+    #[serde(default = "default_oidc_redirect_delay")]
+    pub redirect_delay_seconds: u64,
+}
+
+fn default_groups_claim_key() -> String {
+    "groups".to_string()
+}
+
+fn default_oidc_redirect_delay() -> u64 {
+    4
+}
+
+/// LDAP TLS mode
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TlsMode {
+    None,
+    StartTls,
+    Ldaps,
+}
+
+fn default_ldap_timeout() -> u64 {
+    10
+}
+
+fn default_ldap_tls_mode() -> TlsMode {
+    TlsMode::None
+}
+
+fn default_ldap_username_attr() -> String {
+    "uid".to_string()
+}
+
+fn default_ldap_email_attr() -> String {
+    "mail".to_string()
+}
+
+fn default_ldap_display_name_attr() -> String {
+    "cn".to_string()
+}
+
+/// LDAP configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LdapConfig {
+    /// LDAP server URL (e.g., "ldap://ldap.example.com:389" or "ldaps://ldap.example.com:636")
+    pub server_url: String,
+
+    /// Service account bind DN for searching users
+    pub bind_dn: String,
+
+    /// Service account password
+    pub bind_password: String,
+
+    /// User DN pattern for direct bind (e.g., "uid={username},ou=users,dc=example,dc=com")
+    /// If not provided, user search is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_dn_pattern: Option<String>,
+
+    /// Base DN for user searches (e.g., "ou=users,dc=example,dc=com")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_base: Option<String>,
+
+    /// LDAP filter for user searches (e.g., "(uid={username})")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub search_filter: Option<String>,
+
+    /// Base DN for group searches (e.g., "ou=groups,dc=example,dc=com")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_search_base: Option<String>,
+
+    /// LDAP filter for group searches (e.g., "(member={user_dn})")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_search_filter: Option<String>,
+
+    /// Attribute containing group members (e.g., "member" or "memberUid")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_member_attribute: Option<String>,
+
+    /// User attribute containing group DNs (for reverse lookup)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_group_attribute: Option<String>,
+
+    /// Resolve nested group memberships using LDAP_MATCHING_RULE_IN_CHAIN.
+    /// When enabled (and user_group_attribute is set), performs recursive group resolution
+    /// by querying groups with (member:1.2.840.113556.1.4.1941:=user_dn) filter.
+    /// This expands group-of-group-of-group relationships but can be slow on large directories.
+    /// Defaults to false (uses only user_group_attribute for efficiency).
+    #[serde(default)]
+    pub resolve_nested_groups: bool,
+
+    /// Required groups for access (empty = allow all authenticated users)
+    #[serde(default)]
+    pub required_groups: Vec<String>,
+
+    /// Connection timeout in seconds
+    #[serde(default = "default_ldap_timeout")]
+    pub connection_timeout_seconds: u64,
+
+    /// TLS/SSL mode: "none", "starttls", or "ldaps"
+    #[serde(default = "default_ldap_tls_mode")]
+    pub tls_mode: TlsMode,
+
+    /// Skip TLS certificate verification (for testing only)
+    #[serde(default)]
+    pub tls_skip_verify: bool,
+
+    /// Username attribute (default: "uid")
+    #[serde(default = "default_ldap_username_attr")]
+    pub username_attribute: String,
+
+    /// Email attribute (default: "mail")
+    #[serde(default = "default_ldap_email_attr")]
+    pub email_attribute: String,
+
+    /// Display name attribute (default: "cn")
+    #[serde(default = "default_ldap_display_name_attr")]
+    pub display_name_attribute: String,
+}
+
+/// Role configuration for RBAC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleConfig {
+    pub name: String,
+    pub cluster_patterns: Vec<String>,
+}
+
+/// Metrics data source for cluster
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum MetricsSource {
+    /// Use live metrics from Elasticsearch internal APIs
+    #[default]
+    Internal,
+    /// Use historical metrics from Prometheus
+    Prometheus,
+}
+
+/// Prometheus configuration for cluster metrics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrometheusConfig {
+    /// Prometheus endpoint URL (e.g., "http://prometheus:9090")
+    pub url: String,
+    /// Prometheus job name to filter metrics (e.g., "elasticsearch" or "elasticsearch_prod")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_name: Option<String>,
+    /// Additional labels for metric filtering (e.g., {"cluster": "prod", "environment": "production"})
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<String, String>>,
+}
+
+impl PrometheusConfig {
+    /// Validate Prometheus configuration
+    pub fn validate(&self, cluster_id: &str) -> anyhow::Result<()> {
+        if self.url.is_empty() {
+            anyhow::bail!("Cluster '{}': Prometheus URL cannot be empty", cluster_id);
+        }
+
+        // Basic URL validation
+        if !self.url.starts_with("http://") && !self.url.starts_with("https://") {
+            anyhow::bail!(
+                "Cluster '{}': Prometheus URL must start with http:// or https://: {}",
+                cluster_id,
+                self.url
+            );
+        }
+
+        // At least one of job_name or labels must be provided for cluster identification
+        if self.job_name.is_none() && self.labels.is_none() {
+            anyhow::bail!(
+                "Cluster '{}': Prometheus configuration must have either job_name or labels for cluster identification",
+                cluster_id
+            );
+        }
+
+        // Validate job name if provided
+        if let Some(job) = &self.job_name {
+            if job.is_empty() {
+                anyhow::bail!(
+                    "Cluster '{}': Prometheus job_name cannot be empty",
+                    cluster_id
+                );
+            }
+        }
+
+        // Validate labels if provided
+        if let Some(labels) = &self.labels {
+            if labels.is_empty() {
+                anyhow::bail!(
+                    "Cluster '{}': Prometheus labels cannot be empty if provided",
+                    cluster_id
+                );
+            }
+
+            for (key, value) in labels {
+                if key.is_empty() || value.is_empty() {
+                    anyhow::bail!(
+                        "Cluster '{}': Prometheus label keys and values cannot be empty",
+                        cluster_id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Cluster configuration
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ClusterConfig {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub nodes: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<ClusterAuth>,
+    #[serde(default)]
+    pub tls: TlsConfig,
+    /// Metrics data source for this cluster
+    #[serde(default)]
+    pub metrics_source: MetricsSource,
+    /// Prometheus configuration (required if metrics_source is Prometheus)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus: Option<PrometheusConfig>,
+    /// Topology view configuration
+    #[serde(default)]
+    pub topology: TopologyConfig,
+}
+
+impl ClusterConfig {
+    /// Create a new cluster configuration with required fields
+    pub fn new(id: String, nodes: Vec<String>) -> Self {
+        Self {
+            id,
+            nodes,
+            ..Default::default()
+        }
+    }
+}
+
+/// Cluster authentication configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClusterAuth {
+    Basic { username: String, password: String },
+    ApiKey { key: String },
+    None,
+}
+
+/// TLS configuration for cluster connections
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsConfig {
+    #[serde(default = "default_tls_verify")]
+    pub verify: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ca_cert_file: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ca_cert_dir: Option<PathBuf>,
+}
+
+impl Default for TlsConfig {
+    fn default() -> Self {
+        Self {
+            verify: true,
+            ca_cert_file: None,
+            ca_cert_dir: None,
+        }
+    }
+}
+
+fn default_tls_verify() -> bool {
+    true
+}
+
+/// Topology view configuration for progressive loading
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TopologyConfig {
+    /// Number of concurrent node shard requests (default: 4)
+    #[serde(default = "default_topology_batch_size")]
+    pub batch_size: u32,
+    /// Number of retry attempts for failed node shard requests (default: 0)
+    #[serde(default)]
+    pub retry_count: u32,
+}
+
+fn default_topology_batch_size() -> u32 {
+    4
+}
+
+impl Default for TopologyConfig {
+    fn default() -> Self {
+        Self {
+            batch_size: default_topology_batch_size(),
+            retry_count: 0,
+        }
+    }
+}
+
+// Validation implementations
+impl Config {
+    /// Validate the entire configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        self.server.validate()?;
+        self.auth.validate()?;
+
+        if self.clusters.is_empty() {
+            anyhow::bail!("At least one cluster must be configured");
+        }
+
+        for cluster in &self.clusters {
+            cluster.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+impl ServerConfig {
+    /// Validate server configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.host.is_empty() {
+            anyhow::bail!("Server host cannot be empty");
+        }
+
+        if self.port == 0 {
+            anyhow::bail!("Server port must be greater than 0");
+        }
+
+        if let Some(tls) = &self.tls {
+            tls.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+impl TlsServerConfig {
+    /// Validate TLS server configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if !self.cert_file.exists() {
+            anyhow::bail!("TLS certificate file does not exist: {:?}", self.cert_file);
+        }
+
+        if !self.key_file.exists() {
+            anyhow::bail!("TLS key file does not exist: {:?}", self.key_file);
+        }
+
+        Ok(())
+    }
+}
+
+impl AuthConfig {
+    /// Validate authentication configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.session_timeout_minutes == 0 {
+            anyhow::bail!("Session timeout must be greater than 0");
+        }
+
+        match self.mode {
+            AuthMode::LocalUsers => {
+                let is_empty = self
+                    .local_users
+                    .as_ref()
+                    .is_none_or(|users| users.is_empty());
+                if is_empty {
+                    anyhow::bail!("Local users mode requires at least one user to be configured");
+                }
+
+                if let Some(users) = &self.local_users {
+                    for user in users {
+                        user.validate()?;
+                    }
+                }
+            }
+            AuthMode::Oidc => {
+                if self.oidc.is_none() {
+                    anyhow::bail!("OIDC mode requires OIDC configuration");
+                }
+
+                if let Some(oidc) = &self.oidc {
+                    oidc.validate()?;
+                }
+            }
+            AuthMode::Ldap => {
+                if self.ldap.is_none() {
+                    anyhow::bail!("LDAP mode requires LDAP configuration");
+                }
+
+                if let Some(ldap) = &self.ldap {
+                    ldap.validate()?;
+                }
+            }
+            AuthMode::Open => {
+                // No validation needed for open mode
+            }
+        }
+
+        for role in &self.roles {
+            role.validate()?;
+        }
+
+        for perm in &self.permissions {
+            perm.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+impl LocalUser {
+    /// Validate local user configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.username.is_empty() {
+            anyhow::bail!("Username cannot be empty");
+        }
+
+        if self.password_hash.is_empty() {
+            anyhow::bail!("Password hash cannot be empty for user: {}", self.username);
+        }
+
+        Ok(())
+    }
+}
+
+impl OidcConfig {
+    /// Validate OIDC configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.discovery_url.is_empty() {
+            anyhow::bail!("OIDC discovery URL cannot be empty");
+        }
+
+        if self.client_id.is_empty() {
+            anyhow::bail!("OIDC client ID cannot be empty");
+        }
+
+        if self.client_secret.is_empty() {
+            anyhow::bail!("OIDC client secret cannot be empty");
+        }
+
+        if self.redirect_uri.is_empty() {
+            anyhow::bail!("OIDC redirect URI cannot be empty");
+        }
+
+        if self.groups_claim_key.is_empty() {
+            anyhow::bail!("OIDC groups_claim_key cannot be empty");
+        }
+
+        Ok(())
+    }
+}
+
+impl LdapConfig {
+    /// Validate LDAP configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        // Validate server URL scheme
+        if !self.server_url.starts_with("ldap://") && !self.server_url.starts_with("ldaps://") {
+            anyhow::bail!(
+                "LDAP server_url must use ldap:// or ldaps:// scheme, got: {}",
+                self.server_url
+            );
+        }
+
+        // Validate bind credentials
+        if self.bind_dn.is_empty() {
+            anyhow::bail!("LDAP bind_dn cannot be empty");
+        }
+
+        if self.bind_password.is_empty() {
+            anyhow::bail!("LDAP bind_password cannot be empty");
+        }
+
+        // Validate user search configuration
+        if self.user_dn_pattern.is_none()
+            && (self.search_base.is_none() || self.search_filter.is_none())
+        {
+            anyhow::bail!(
+                "LDAP configuration must provide either user_dn_pattern or both search_base and search_filter"
+            );
+        }
+
+        // Validate group search configuration
+        let has_group_base = self.group_search_base.is_some();
+        let has_group_filter = self.group_search_filter.is_some();
+
+        if has_group_base != has_group_filter {
+            anyhow::bail!(
+                "LDAP group mapping requires both group_search_base and group_search_filter"
+            );
+        }
+
+        // Validate timeout
+        if self.connection_timeout_seconds == 0 {
+            anyhow::bail!("LDAP connection_timeout_seconds must be positive");
+        }
+
+        Ok(())
+    }
+}
+
+impl GroupClusterMapping {
+    /// Validate group cluster mapping configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.group.is_empty() {
+            anyhow::bail!("Group name cannot be empty");
+        }
+
+        if self.clusters.is_empty() {
+            anyhow::bail!("Group '{}' must have at least one cluster", self.group);
+        }
+
+        Ok(())
+    }
+}
+
+impl RoleConfig {
+    /// Validate role configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.name.is_empty() {
+            anyhow::bail!("Role name cannot be empty");
+        }
+
+        if self.cluster_patterns.is_empty() {
+            anyhow::bail!(
+                "Role '{}' must have at least one cluster pattern",
+                self.name
+            );
+        }
+
+        Ok(())
+    }
+}
+
+impl ClusterConfig {
+    /// Validate cluster configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if self.id.is_empty() {
+            anyhow::bail!("Cluster ID cannot be empty");
+        }
+
+        // Name is optional, but if provided it cannot be empty
+        if self.name.as_ref().is_some_and(|n| n.is_empty()) {
+            anyhow::bail!("Cluster name cannot be empty if provided");
+        }
+
+        if self.nodes.is_empty() {
+            anyhow::bail!("Cluster '{}' must have at least one node", self.id);
+        }
+
+        for node in &self.nodes {
+            if node.is_empty() {
+                anyhow::bail!("Cluster '{}' has an empty node URL", self.id);
+            }
+
+            // Basic URL validation
+            if !node.starts_with("http://") && !node.starts_with("https://") {
+                anyhow::bail!(
+                    "Cluster '{}' node URL must start with http:// or https://: {}",
+                    self.id,
+                    node
+                );
+            }
+        }
+
+        self.tls.validate()?;
+
+        if let Some(auth) = &self.auth {
+            auth.validate(&self.id)?;
+        }
+
+        // Validate metrics source configuration
+        match self.metrics_source {
+            MetricsSource::Internal => {
+                // Internal metrics don't require additional configuration
+            }
+            MetricsSource::Prometheus => {
+                // Prometheus metrics require configuration
+                if let Some(prometheus_config) = &self.prometheus {
+                    prometheus_config.validate(&self.id)?;
+                } else {
+                    anyhow::bail!(
+                        "Cluster '{}': Prometheus configuration required when metrics_source is 'prometheus'",
+                        self.id
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl ClusterAuth {
+    /// Validate cluster authentication configuration
+    pub fn validate(&self, cluster_id: &str) -> anyhow::Result<()> {
+        match self {
+            ClusterAuth::Basic { username, password } => {
+                if username.is_empty() {
+                    anyhow::bail!(
+                        "Cluster '{}' basic auth username cannot be empty",
+                        cluster_id
+                    );
+                }
+                if password.is_empty() {
+                    anyhow::bail!(
+                        "Cluster '{}' basic auth password cannot be empty",
+                        cluster_id
+                    );
+                }
+            }
+            ClusterAuth::ApiKey { key } => {
+                if key.is_empty() {
+                    anyhow::bail!("Cluster '{}' API key cannot be empty", cluster_id);
+                }
+            }
+            ClusterAuth::None => {
+                // No validation needed
+            }
+        }
+        Ok(())
+    }
+}
+
+impl TlsConfig {
+    /// Validate TLS configuration
+    pub fn validate(&self) -> anyhow::Result<()> {
+        if let Some(ca_cert_file) = &self.ca_cert_file {
+            if !ca_cert_file.exists() {
+                anyhow::bail!("CA certificate file does not exist: {:?}", ca_cert_file);
+            }
+        }
+
+        if let Some(ca_cert_dir) = &self.ca_cert_dir {
+            if !ca_cert_dir.exists() {
+                anyhow::bail!("CA certificate directory does not exist: {:?}", ca_cert_dir);
+            }
+
+            if !ca_cert_dir.is_dir() {
+                anyhow::bail!("CA certificate path is not a directory: {:?}", ca_cert_dir);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+mod defaults;
+
+impl Config {
+    /// Load configuration from environment variables and optional config files
+    ///
+    /// Priority (highest to lowest):
+    /// 1. Environment variables (SECAN_* with _ separator, supports array indices like SECAN_CLUSTERS_0_ID)
+    /// 2. Configuration files (config.yaml, config.local.yaml, config.toml) - supports ${VAR} substitution
+    /// 3. Default values (hardcoded)
+    pub fn load() -> anyhow::Result<Self> {
+        use config::{Config as ConfigRs, Environment};
+        use std::path::Path;
+
+        let mut builder = ConfigRs::builder()
+            // Set defaults first (lowest priority)
+            .set_default("server.host", defaults::DEFAULT_SERVER_HOST)?
+            .set_default("server.port", defaults::DEFAULT_SERVER_PORT)?
+            .set_default("auth.mode", defaults::DEFAULT_AUTH_MODE)?
+            .set_default(
+                "auth.session_timeout_minutes",
+                defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES,
+            )?;
+        // Note: cache.metadata_duration_seconds is intentionally not set here
+        // to allow None as the default, with 30s as the backend effective default
+
+        // Add optional config files (medium priority)
+        // Support ${VAR} and ${VAR:-default} environment variable substitution in config files
+        for filename in &[
+            "config.yaml",
+            "config.local.yaml",
+            "config.yml",
+            "config.local.yml",
+            "config.toml",
+        ] {
+            if Path::new(filename).exists() {
+                // Read file content and substitute environment variables
+                let content = std::fs::read_to_string(filename)?;
+                let substituted = Self::substitute_env_vars(&content);
+
+                // Add as string source with substituted content
+                builder = builder.add_source(config::File::from_str(
+                    &substituted,
+                    config::FileFormat::Yaml,
+                ));
+            }
+        }
+
+        // Add environment variables (highest priority)
+        // Uses _ as separator which matches config-rs's expected format
+        // Example: SECAN_CLUSTERS_0_ID -> clusters[0].id
+        //          SECAN_CACHE_METADATA_DURATION_SECONDS -> cache.metadata_duration_seconds
+        builder = builder.add_source(
+            Environment::with_prefix("SECAN")
+                .separator("_")
+                .try_parsing(true),
+        );
+
+        // Build into raw config
+        let config_rs = builder.build()?;
+
+        // Try to deserialize; if it fails due to array index issues, fix and retry
+        let final_config: Self = match config_rs.clone().try_deserialize() {
+            Ok(config) => config,
+            Err(_) => {
+                // If direct deserialization fails, it's likely due to numeric-keyed maps
+                // Convert to JSON and fix array indices
+                let clusters_value = config_rs.get("clusters").unwrap_or(serde_json::json!({}));
+                let mut config_json = serde_json::json!({
+                    "server": {
+                        "host": config_rs.get_string("server.host").unwrap_or_else(|_| defaults::DEFAULT_SERVER_HOST.to_string()),
+                        "port": config_rs.get_int("server.port").unwrap_or(defaults::DEFAULT_SERVER_PORT as i64),
+                    },
+                    "auth": {
+                        "mode": config_rs.get_string("auth.mode").unwrap_or_else(|_| defaults::DEFAULT_AUTH_MODE.to_string()),
+                        "session_timeout_minutes": config_rs.get_int("auth.session_timeout_minutes").unwrap_or(defaults::DEFAULT_AUTH_SESSION_TIMEOUT_MINUTES as i64),
+                    },
+                    "cache": {
+                        "metadata_duration_seconds": config_rs.get_int("cache.metadata_duration_seconds").ok(),
+                    },
+                    "clusters": clusters_value,
+                });
+
+                Self::fix_array_indices(&mut config_json);
+
+                serde_json::from_value(config_json).map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to deserialize configuration after fixing arrays: {}",
+                        e
+                    )
+                })?
+            }
+        };
+
+        // Validate configuration
+        final_config.validate()?;
+
+        Ok(final_config)
+    }
+
+    /// Fix array indices that config-rs treats as map keys
+    /// Converts { "0": {...}, "1": {...} } to [...{...}, {...}]
+    fn fix_array_indices(value: &mut serde_json::Value) {
+        if let serde_json::Value::Object(map) = value {
+            // First, recursively fix all nested values
+            for v in map.values_mut() {
+                Self::fix_array_indices(v);
+            }
+
+            // Then check if this object should be an array
+            if Self::is_numeric_keyed_map(map) {
+                // Convert object with numeric keys to array
+                let mut indices: Vec<(usize, serde_json::Value)> = map
+                    .iter()
+                    .filter_map(|(k, v)| k.parse::<usize>().ok().map(|idx| (idx, v.clone())))
+                    .collect();
+
+                if !indices.is_empty() {
+                    indices.sort_by_key(|(idx, _)| *idx);
+
+                    // Determine the max index to size the array properly
+                    let max_idx = indices.last().map(|(idx, _)| *idx).unwrap_or(0);
+                    let mut array = vec![serde_json::Value::Null; max_idx + 1];
+
+                    for (idx, v) in indices {
+                        array[idx] = v;
+                    }
+
+                    *value = serde_json::Value::Array(array);
+                }
+            }
+        } else if let serde_json::Value::Array(arr) = value {
+            for v in arr.iter_mut() {
+                Self::fix_array_indices(v);
+            }
+        }
+    }
+
+    /// Check if a map should be an array (has numeric keys, not necessarily all consecutive)
+    fn is_numeric_keyed_map(map: &serde_json::Map<String, serde_json::Value>) -> bool {
+        if map.is_empty() {
+            return false;
+        }
+
+        // Most keys must be numeric for this to be an array
+        // (Allow some non-numeric keys for flexibility)
+        let numeric_keys = map.keys().filter(|k| k.parse::<usize>().is_ok()).count();
+        numeric_keys > 0 && numeric_keys == map.len()
+    }
+
+    /// Substitute environment variables in content
+    /// Supports ${VAR} and ${VAR:-default} syntax
+    fn substitute_env_vars(content: &str) -> String {
+        use std::env;
+
+        // Match ${VAR:-default} or ${VAR}
+        // SAFETY: This regex pattern is a static literal and is always valid
+        let re = regex::Regex::new(r"\$\{([^}:]+)(?::-([^}]*))?\}")
+            .expect("compile environment variable substitution regex");
+
+        re.replace_all(content, |caps: &regex::Captures| {
+            let var_name = &caps[1];
+            let default_value = caps.get(2).map(|m| m.as_str());
+
+            env::var(var_name).unwrap_or_else(|_| default_value.unwrap_or("").to_string())
+        })
+        .into_owned()
+    }
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "0.0.0.0".to_string(),
+            port: 27182,
+            tls: None,
+            allowed_origins: vec![],
+        }
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            mode: AuthMode::Open,
+            session_timeout_minutes: 60,
+            local_users: None,
+            oidc: None,
+            ldap: None,
+            roles: Vec::new(),
+            permissions: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_validation_empty_clusters() {
+        let config = Config {
+            server: ServerConfig::default(),
+            auth: AuthConfig::default(),
+            clusters: Vec::new(),
+            cache: CacheConfig::default(),
+            topology_max_tiles_per_request: None,
+            topology_max_concurrent_generations: None,
+            topology_generation_acquire_timeout_seconds: None,
+        };
+
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_server_config_validation() {
+        let mut config = ServerConfig::default();
+        assert!(config.validate().is_ok());
+
+        config.host = String::new();
+        assert!(config.validate().is_err());
+
+        config.host = "localhost".to_string();
+        config.port = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_auth_config_validation_local_users() {
+        let mut config = AuthConfig {
+            mode: AuthMode::LocalUsers,
+            session_timeout_minutes: 60,
+            local_users: None,
+            oidc: None,
+            ldap: None,
+            roles: Vec::new(),
+            permissions: Vec::new(),
+        };
+
+        // Should fail without users
+        assert!(config.validate().is_err());
+
+        // Should succeed with valid user
+        config.local_users = Some(vec![LocalUser {
+            username: "admin".to_string(),
+            password_hash: "$2b$12$test".to_string(),
+            groups: vec!["admin".to_string()],
+        }]);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_auth_config_validation_oidc() {
+        let mut config = AuthConfig {
+            mode: AuthMode::Oidc,
+            session_timeout_minutes: 60,
+            local_users: None,
+            oidc: None,
+            ldap: None,
+            roles: Vec::new(),
+            permissions: Vec::new(),
+        };
+
+        // Should fail without OIDC config
+        assert!(config.validate().is_err());
+
+        // Should succeed with valid OIDC config
+        config.oidc = Some(OidcConfig {
+            discovery_url: "https://auth.example.com/.well-known/openid-configuration".to_string(),
+            client_id: "secan".to_string(),
+            client_secret: "secret".to_string(),
+            redirect_uri: "https://secan.example.com/api/auth/oidc/callback".to_string(),
+            groups_claim_key: "groups".to_string(),
+            redirect_delay_seconds: 4,
+        });
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_cluster_config_validation() {
+        let mut cluster = ClusterConfig {
+            id: "test".to_string(),
+            name: Some("Test Cluster".to_string()),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: None,
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        assert!(cluster.validate().is_ok());
+
+        // Test empty ID
+        cluster.id = String::new();
+        assert!(cluster.validate().is_err());
+        cluster.id = "test".to_string();
+
+        // Test empty nodes
+        cluster.nodes = Vec::new();
+        assert!(cluster.validate().is_err());
+        cluster.nodes = vec!["http://localhost:9200".to_string()];
+
+        // Test invalid node URL
+        cluster.nodes = vec!["invalid-url".to_string()];
+        assert!(cluster.validate().is_err());
+        cluster.nodes = vec!["http://localhost:9200".to_string()];
+
+        assert!(cluster.validate().is_ok());
+    }
+
+    #[test]
+    fn test_cluster_auth_validation() {
+        let cluster_id = "test";
+
+        // Basic auth validation
+        let auth = ClusterAuth::Basic {
+            username: "user".to_string(),
+            password: "pass".to_string(),
+        };
+        assert!(auth.validate(cluster_id).is_ok());
+
+        let auth = ClusterAuth::Basic {
+            username: String::new(),
+            password: "pass".to_string(),
+        };
+        assert!(auth.validate(cluster_id).is_err());
+
+        // API key validation
+        let auth = ClusterAuth::ApiKey {
+            key: "key123".to_string(),
+        };
+        assert!(auth.validate(cluster_id).is_ok());
+
+        let auth = ClusterAuth::ApiKey { key: String::new() };
+        assert!(auth.validate(cluster_id).is_err());
+
+        // None auth
+        let auth = ClusterAuth::None;
+        assert!(auth.validate(cluster_id).is_ok());
+    }
+
+    #[test]
+    fn test_ldap_config_validation_valid() {
+        // Valid configuration with user_dn_pattern
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+        assert!(config.validate().is_ok());
+
+        // Valid configuration with search_base and search_filter
+        let config = LdapConfig {
+            server_url: "ldaps://ldap.example.com:636".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: Some("ou=users,dc=example,dc=com".to_string()),
+            search_filter: Some("(uid={username})".to_string()),
+            group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
+            group_search_filter: Some("(member={user_dn})".to_string()),
+            group_member_attribute: Some("member".to_string()),
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: vec!["app-users".to_string()],
+            connection_timeout_seconds: 30,
+            tls_mode: TlsMode::Ldaps,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_ldap_config_validation_invalid_url_scheme() {
+        let mut config = LdapConfig {
+            server_url: "http://ldap.example.com".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("LDAP config validation should fail for invalid scheme");
+        assert!(err.to_string().contains("must use ldap:// or ldaps://"));
+
+        // Test with https scheme
+        config.server_url = "https://ldap.example.com".to_string();
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("LDAP config validation should fail for https scheme");
+        assert!(err.to_string().contains("must use ldap:// or ldaps://"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_empty_bind_dn() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: String::new(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("LDAP config validation should fail for empty bind_dn");
+        assert!(err.to_string().contains("bind_dn cannot be empty"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_empty_bind_password() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: String::new(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("LDAP config validation should fail for empty bind_password");
+        assert!(err.to_string().contains("bind_password cannot be empty"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_zero_timeout() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 0,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("LDAP config validation should fail for zero timeout");
+        assert!(err
+            .to_string()
+            .contains("connection_timeout_seconds must be positive"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_missing_user_search_config() {
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err =
+            result.expect_err("LDAP config validation should fail when missing user search config");
+        assert!(err
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_incomplete_user_search_config() {
+        // Only search_base without search_filter
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: Some("ou=users,dc=example,dc=com".to_string()),
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result
+            .expect_err("LDAP config validation should fail when incomplete user search config");
+        assert!(err
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+
+        // Only search_filter without search_base
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: None,
+            search_base: None,
+            search_filter: Some("(uid={username})".to_string()),
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err = result
+            .expect_err("LDAP config validation should fail when only search_filter provided");
+        assert!(err
+            .to_string()
+            .contains("must provide either user_dn_pattern or both search_base and search_filter"));
+    }
+
+    #[test]
+    fn test_ldap_config_validation_incomplete_group_mapping() {
+        // Only group_search_base without group_search_filter
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: Some("ou=groups,dc=example,dc=com".to_string()),
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err =
+            result.expect_err("LDAP config validation should fail when incomplete group mapping");
+        assert!(err
+            .to_string()
+            .contains("group mapping requires both group_search_base and group_search_filter"));
+
+        // Only group_search_filter without group_search_base
+        let config = LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: Some("(member={user_dn})".to_string()),
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        };
+
+        let result = config.validate();
+        assert!(result.is_err());
+        let err =
+            result.expect_err("LDAP config validation should fail when group mapping missing base");
+        assert!(err
+            .to_string()
+            .contains("group mapping requires both group_search_base and group_search_filter"));
+    }
+
+    #[test]
+    fn test_auth_config_validation_ldap() {
+        let mut config = AuthConfig {
+            mode: AuthMode::Ldap,
+            session_timeout_minutes: 60,
+            local_users: None,
+            oidc: None,
+            ldap: None,
+            roles: Vec::new(),
+            permissions: Vec::new(),
+        };
+
+        // Should fail without LDAP config
+        assert!(config.validate().is_err());
+
+        // Should succeed with valid LDAP config
+        config.ldap = Some(LdapConfig {
+            server_url: "ldap://ldap.example.com:389".to_string(),
+            bind_dn: "cn=admin,dc=example,dc=com".to_string(),
+            bind_password: "password".to_string(),
+            user_dn_pattern: Some("uid={username},ou=users,dc=example,dc=com".to_string()),
+            search_base: None,
+            search_filter: None,
+            group_search_base: None,
+            group_search_filter: None,
+            group_member_attribute: None,
+            user_group_attribute: None,
+            resolve_nested_groups: false,
+            required_groups: Vec::new(),
+            connection_timeout_seconds: 10,
+            tls_mode: TlsMode::None,
+            tls_skip_verify: false,
+            username_attribute: "uid".to_string(),
+            email_attribute: "mail".to_string(),
+            display_name_attribute: "cn".to_string(),
+        });
+        assert!(config.validate().is_ok());
+    }
+}

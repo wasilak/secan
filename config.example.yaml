@@ -1,0 +1,205 @@
+# Secan Configuration File Example
+# 
+# This is an example configuration file showing all available options.
+# Copy this to config.yaml and customize for your environment.
+# 
+# Note: Environment variables take precedence over config file values.
+# See .env.example for environment variable options.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
+server:
+  # Bind address (default: 0.0.0.0)
+  host: "0.0.0.0"
+  
+  # Port (default: 27182)
+  port: 27182
+  
+  # Optional TLS configuration (advanced - typically use reverse proxy)
+  # tls:
+  #   cert_file: "/etc/secan/cert.pem"
+  #   key_file: "/etc/secan/key.pem"
+
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION
+# ============================================================================
+
+auth:
+  # Mode: open, local_users, or oidc (default: open)
+  mode: open
+
+  # Session timeout in minutes (default: 60)
+  session_timeout_minutes: 60
+
+  # Optional: local_users mode configuration
+  # local_users:
+  #   - username: "admin"
+  #     password_hash: "$2b$12$..." # bcrypt hash
+  #     roles:
+  #       - "admin"
+
+  # Optional: OIDC mode configuration
+  # oidc:
+  #   discovery_url: "https://auth.example.com/.well-known/openid-configuration"
+  #   client_id: "secan"
+  #   client_secret: "secret"
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
+  
+  # Example: OIDC configuration with Otteryak Auth
+  # oidc:
+  #   # OIDC discovery URL (auto-configures authorization, token, and userinfo endpoints)
+  #   discovery_url: "https://auth.otteryak.foo/.well-known/openid-configuration"
+  #   # Your application's client ID from the OIDC provider
+  #   client_id: "secan"
+  #   # Your application's client secret from the OIDC provider
+  #   client_secret: "your-client-secret-here"
+  #   # Redirect URI must be registered with your OIDC provider
+  #   # Format: https://<your-secan-domain>/api/auth/oidc/redirect
+  #   redirect_uri: "https://secan.example.com/api/auth/oidc/callback"
+  #   # Optional: Scopes to request (default: openid profile email)
+  #   scopes:
+  #     - openid
+  #     - profile
+  #     - email
+  #   # Optional: Use PKCE (Proof Key for Code Exchange) for additional security
+  #   # Recommended for public clients or when client_secret cannot be stored securely
+  #   use_pkce: true
+  #   # Optional: Redirect delay in seconds for OIDC login page (default: 4)
+  #   # Controls how long the login page shows the countdown before redirecting
+  #   redirect_delay_seconds: 4
+
+  # Optional: LDAP mode configuration
+  # For detailed LDAP configuration examples, see config/examples/
+  # - ldap-minimal.yaml: Minimal required configuration
+  # - ldap-openldap.yaml: Complete OpenLDAP configuration
+  # - ldap-active-directory.yaml: Complete Active Directory configuration
+  # - ldap-freeipa.yaml: Complete FreeIPA configuration
+  # ldap:
+  #   server_url: "ldap://ldap.example.com:389"
+  #   bind_dn: "cn=service-account,dc=example,dc=com"
+  #   bind_password: "service-account-password"
+  #   search_base: "ou=users,dc=example,dc=com"
+  #   search_filter: "(uid={username})"
+  #   # Optional: Group mapping and access control
+  #   group_search_base: "ou=groups,dc=example,dc=com"
+  #   group_search_filter: "(member={user_dn})"
+  #   required_groups:
+  #     - "app-users"
+  #   # Optional: TLS configuration (recommended for production)
+  #   tls_mode: starttls
+  #   # See config/examples/README.md for complete parameter reference
+
+  # Optional: role-based access control
+  # roles:
+  #   - name: "admin"
+  #     cluster_patterns:
+  #       - "*"  # Access to all clusters
+  #   - name: "viewer"
+  #     cluster_patterns:
+  #       - "production"
+
+
+# ============================================================================
+# CLUSTER CONFIGURATION (REQUIRED)
+# ============================================================================
+
+clusters:
+  # Example: Single cluster for local development
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "http://localhost:9200"
+    es_version: 8
+
+  # Example: Production cluster with authentication
+  - id: "production"
+    name: "Production Cluster"
+    nodes:
+      - "http://es1.example.com:9200"
+      - "http://es2.example.com:9200"
+      - "http://es3.example.com:9200"
+    
+    # Authentication
+    auth:
+      type: "basic"
+      username: "elastic"
+      password: "secure-password"  # Consider using env vars for secrets
+    
+    # TLS configuration (optional)
+    # tls:
+    #   verify: true
+    #   ca_cert_file: "/path/to/ca.pem"  # Only if you need custom CA
+    
+    es_version: 8
+
+  # Example: Staging cluster
+  - id: "staging"
+    name: "Staging Cluster"
+    nodes:
+      - "http://es-staging.internal:9200"
+    auth:
+      type: "basic"
+      username: "elastic"
+      password: "staging-password"
+    es_version: 8
+
+  # Example: Cluster with API key auth
+  - id: "monitoring"
+    name: "Monitoring Cluster"
+    nodes:
+      - "http://es-monitoring:9200"
+    auth:
+      type: "api_key"
+      key: "VuaCfGcBxxx=="
+    es_version: 8
+
+  # Example: Cluster with Prometheus metrics (for historical data)
+  - id: "production-with-prometheus"
+    name: "Production with Prometheus"
+    nodes:
+      - "http://es-prod.example.com:9200"
+    
+    # Use Prometheus for historical metrics instead of internal Elasticsearch APIs
+    # Options: "internal" (default) or "prometheus"
+    metrics_source: prometheus
+    
+    # Prometheus configuration (required when metrics_source is "prometheus")
+    prometheus:
+      # Prometheus endpoint URL
+      url: "http://prometheus.internal:9090"
+      # Optional: Filter metrics by job name (e.g., from prometheus.yml scrape config)
+      job_name: "elasticsearch"
+      # Optional: Additional labels for filtering metrics
+      # labels:
+      #   cluster: "production"
+      #   environment: "prod"
+    
+    es_version: 8
+
+
+# ============================================================================
+# METRICS CONFIGURATION
+# ============================================================================
+# Secan supports two metrics sources for historical cluster data:
+#
+# 1. Internal (default): Uses Elasticsearch's own APIs for real-time metrics
+#    - No additional configuration needed
+#    - Best for: Development, single clusters, simple setups
+#
+# 2. Prometheus: Queries Prometheus for historical time-series data
+#    - Requires Prometheus instance with Elasticsearch metrics
+#    - Best for: Production, historical analysis, multi-cluster monitoring
+#
+# Configuration per cluster:
+#   metrics_source: "internal" | "prometheus"  (default: "internal")
+#   prometheus:  (required if metrics_source is "prometheus")
+#     url: "http://prometheus:9090"
+#     job_name: "elasticsearch"  # Optional: filter by job name
+#     labels:                    # Optional: additional label filters
+#       cluster: "production"
+#
+# Note: At least one of `job_name` or `labels` must be provided when using
+# Prometheus to identify your cluster's metrics.

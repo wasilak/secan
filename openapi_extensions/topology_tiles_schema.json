@@ -1,0 +1,39 @@
+{
+  "components": {
+    "schemas": {
+      "TileNodeMeta": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "metrics": { "type": "object" },
+          "summaryCounts": { "type": "object", "properties": { "primary": { "type": "integer" }, "replica": { "type": "integer" }, "total": { "type": "integer" } } }
+        }
+      },
+      "TilePayload": {
+        "type": "object",
+        "properties": {
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "lod": { "type": "string" },
+          "version": { "type": "string" },
+          "unchanged": { "type": "boolean" },
+          "nodesMeta": { "type": "array", "items": { "$ref": "#/components/schemas/TileNodeMeta" } },
+          "shards": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "object", "properties": { "index": { "type": "string" }, "shard": { "type": "integer" }, "primary": { "type": "boolean" }, "state": { "type": "string" } } } } },
+          "edges": { "type": "array" }
+        }
+      },
+      "TileBatchResponse": {
+        "type": "object",
+        "properties": {
+          "tiles": { "type": "array", "items": { "$ref": "#/components/schemas/TilePayload" } },
+          "serverVersion": { "type": "string" }
+        }
+      }
+    }
+  }
+}

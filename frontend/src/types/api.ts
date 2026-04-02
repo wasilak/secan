@@ -1,0 +1,951 @@
+/**
+ * API types for Secan backend communication
+ */
+
+/**
+ * Generic paginated response wrapper
+ */
+export interface PaginatedResponse<T> {
+  /** Items for the current page */
+  items: T[];
+  /** Total count of all items across all pages */
+  total: number;
+  /** Current page number (1-indexed) */
+  page: number;
+  /** Items per page */
+  page_size: number;
+  /** Total number of pages */
+  total_pages: number;
+}
+
+/**
+ * Paginated shards response that includes authoritative node metadata
+ * returned by the backend for the Index Visualization flow.
+ */
+export interface PaginatedShardsWithNodes {
+  items: ShardInfo[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  nodes: NodeInfo[];
+}
+
+/**
+ * Helper to extract items from paginated response or return empty array
+ */
+export function getPaginatedItems<T>(
+  response: PaginatedResponse<T> | undefined
+): T[] {
+  return response?.items ?? [];
+}
+
+/**
+ * Cluster information returned by the backend
+ */
+export interface ClusterInfo {
+  id: string;
+  name: string;
+  nodes: string[];
+  accessible: boolean;
+  es_version?: number;
+  metrics_source?: 'internal' | 'prometheus';
+}
+
+/**
+ * Cluster health status
+ */
+export type HealthStatus = 'green' | 'yellow' | 'red';
+
+/**
+ * Cluster health information
+ */
+export interface ClusterHealth {
+  status: HealthStatus;
+  clusterName: string;
+  numberOfNodes: number;
+  numberOfDataNodes: number;
+  activePrimaryShards: number;
+  activeShards: number;
+  relocatingShards: number;
+  initializingShards: number;
+  unassignedShards: number;
+}
+
+/**
+ * Login request payload
+ */
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+/**
+ * API error response
+ */
+export interface ApiError {
+   data?: {
+     reason?: string;
+     root_cause?: Array<{ reason: string }>;
+   };
+   status?: number;
+  error: string;
+  message: string;
+  details?: unknown;
+  requestId?: string;
+}
+
+/**
+ * Custom error class for API errors
+ */
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public error?: ApiError,
+public response?: ApiError,
+public status?: number
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
+/**
+ * Cluster statistics for overview display
+ */
+export interface ClusterStats {
+  health: HealthStatus;
+  clusterName: string;
+  numberOfNodes: number;
+  numberOfDataNodes: number;
+  numberOfIndices: number;
+  numberOfDocuments: number;
+  activePrimaryShards: number;
+  activeShards: number;
+  relocatingShards: number;
+  initializingShards: number;
+  unassignedShards: number;
+  memoryUsed?: number;
+  memoryTotal?: number;
+  diskUsed?: number;
+  diskTotal?: number;
+  cpuPercent?: number;
+  esVersion?: string;
+}
+
+/**
+ * Node role types
+ */
+export type NodeRole =
+  | 'master'
+  | 'data'
+  | 'ingest'
+  | 'coordinating'
+  | 'ml'
+  | 'remote_cluster_client'
+  | 'voting_only'
+  | 'transform'
+  | 'data_content'
+  | 'data_hot'
+  | 'data_warm'
+  | 'data_cold'
+  | 'data_frozen';
+
+/**
+ * Node information
+ */
+export interface NodeInfo {
+  id: string;
+  name: string;
+  roles: NodeRole[];
+  heapUsed: number;
+  heapMax: number;
+  heapPercent: number;
+  diskUsed: number;
+  diskTotal: number;
+  cpuPercent?: number;
+  ip?: string;
+  version?: string;
+  tags?: string[];
+  isMaster: boolean;
+  isMasterEligible: boolean;
+  loadAverage?: number[]; // [1m, 5m, 15m]
+  uptime?: string;
+  uptimeMillis?: number;
+}
+
+/**
+ * Shard statistics
+ */
+export interface ShardStats {
+  total: number;
+  primary: number;
+  replica: number;
+  list: ShardInfo[];
+}
+
+/**
+ * Indexing statistics
+ */
+export interface IndexingStats {
+  indexTotal: number;
+  indexTimeInMillis: number;
+  indexCurrent: number;
+  indexFailed: number;
+  deleteTotal: number;
+  deleteTimeInMillis: number;
+}
+
+/**
+ * Search statistics
+ */
+export interface SearchStats {
+  queryTotal: number;
+  queryTimeInMillis: number;
+  queryCurrent: number;
+  fetchTotal: number;
+  fetchTimeInMillis: number;
+}
+
+/**
+ * File system statistics
+ */
+export interface FileSystemStats {
+  total: number;
+  available: number;
+  used: number;
+  path: string;
+  type: string;
+}
+
+/**
+ * Network statistics
+ */
+export interface NetworkStats {
+  rxBytes: number;
+  txBytes: number;
+}
+
+/**
+ * JVM statistics
+ */
+export interface JvmStats {
+  gcCollectors: Record<
+    string,
+    {
+      collectionCount: number;
+      collectionTimeInMillis: number;
+    }
+  >;
+}
+
+/**
+ * Thread pool statistics
+ */
+export interface ThreadPoolStats {
+  threads: number;
+  queue: number;
+  active: number;
+  rejected: number;
+  largest: number;
+  completed: number;
+}
+
+/**
+ * Detailed node statistics
+ */
+export interface NodeDetailStats {
+  id: string;
+  name: string;
+  roles?: NodeRole[];
+  ip?: string;
+  version: string;
+  jvmVersion: string;
+  heapUsed: number;
+  heapMax: number;
+  heapPercent: number; // Guaranteed to be present: computed server-side or derived client-side in ApiClient
+  diskUsed: number;
+  diskTotal: number;
+  diskPercent: number;
+  cpuPercent?: number;
+  loadAverage?: [number, number, number]; // 1m, 5m, 15m
+  threadPools?: Record<string, ThreadPoolStats>;
+  uptime?: string;
+  uptimeMillis?: number;
+  isMaster: boolean;
+  isMasterEligible: boolean;
+  shards?: ShardStats;
+  indexing?: IndexingStats;
+  search?: SearchStats;
+  fs?: FileSystemStats;
+  network?: NetworkStats;
+  jvm?: JvmStats;
+}
+
+/**
+ * Index status
+ */
+export type IndexStatus = 'open' | 'close';
+
+/**
+ * Index information
+ */
+export interface IndexInfo {
+  name: string;
+  health: HealthStatus;
+  status: IndexStatus;
+  primaryShards: number;
+  replicaShards: number;
+  docsCount: number;
+  storeSize: number;
+  uuid?: string;
+}
+
+/**
+ * Shard information
+ *
+ * Requirements: 9.1, 9.2, 9.3
+ */
+export interface ShardInfo {
+  index: string;
+  shard: number;
+  primary: boolean;
+  state: 'STARTED' | 'INITIALIZING' | 'RELOCATING' | 'UNASSIGNED';
+  node?: string;
+  relocatingNode?: string;
+  /** Document count - always present, 0 if unavailable (Requirement 9.3) */
+  docs: number;
+  /** Store size in bytes - always present, 0 if unavailable (Requirement 9.3) */
+  store: number;
+}
+
+/**
+ * Per-node shard count summary (lightweight — no individual shard objects).
+ * Returned by GET /clusters/:id/nodes/shard-summary.
+ * Used by CanvasTopologyView at L0/L1 zoom to show badge totals without
+ * fetching full ShardInfo arrays.
+ *
+ * Requirements: 4.9
+ */
+export interface NodeShardSummary {
+  nodeId: string;
+  nodeName: string;
+  primary: number;
+  replica: number;
+  unassigned: number;
+  total: number;
+}
+
+/**
+ * Detailed shard statistics
+ * Extends ShardInfo with additional metrics from shard stats API
+ * Requirements: 4.6
+ */
+export interface DetailedShardStats extends ShardInfo {
+  segments?: number;
+  merges?: number;
+  refreshes?: number;
+  flushes?: number;
+}
+
+/**
+ * Node with shards for shard grid visualization
+ * Extends NodeInfo with shard allocation map
+ */
+export interface NodeWithShards extends NodeInfo {
+  shards: Map<string, ShardInfo[]>; // index name -> shards on this node
+}
+
+/**
+ * Index metadata for shard grid
+ * Extends IndexInfo with additional metadata
+ */
+export interface IndexMetadata extends IndexInfo {
+  shardCount: number; // Total number of shards (primary + replicas)
+  docsCount: number; // Total document count
+  size: number; // Total size in bytes
+}
+
+/**
+ * Shard grid data structure
+ * Contains all data needed for shard grid visualization
+ */
+export interface ShardGridData {
+  nodes: NodeWithShards[];
+  indices: IndexMetadata[];
+  unassignedShards: ShardInfo[];
+}
+
+/**
+ * Alias information
+ */
+export interface AliasInfo {
+  alias: string;
+  index: string;
+  filter?: string;
+  routing?: string;
+  indexRouting?: string;
+  searchRouting?: string;
+  isWriteIndex?: boolean;
+}
+
+/**
+ * Create alias request
+ */
+export interface CreateAliasRequest {
+  alias: string;
+  indices: string[];
+  filter?: Record<string, unknown>;
+  routing?: string;
+  indexRouting?: string;
+  searchRouting?: string;
+  isWriteIndex?: boolean;
+}
+
+/**
+ * Template information
+ */
+export interface TemplateInfo {
+  name: string;
+  indexPatterns: string[];
+  order?: number;
+  priority?: number;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+  composable?: boolean;
+}
+
+/**
+ * Create template request
+ */
+export interface CreateTemplateRequest {
+  name: string;
+  indexPatterns: string[];
+  order?: number;
+  priority?: number;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+  composable?: boolean;
+}
+
+/**
+ * Text analysis token information
+ */
+export interface AnalysisToken {
+  token: string;
+  startOffset: number;
+  endOffset: number;
+  type: string;
+  position: number;
+  positionLength?: number;
+  [key: string]: unknown; // Additional attributes
+}
+
+/**
+ * Text analysis request
+ */
+export interface AnalyzeTextRequest {
+  text: string;
+  analyzer?: string;
+  tokenizer?: string;
+  filter?: string[];
+  charFilter?: string[];
+  field?: string;
+  index?: string;
+}
+
+/**
+ * Text analysis response
+ */
+export interface AnalyzeTextResponse {
+  tokens: AnalysisToken[];
+}
+
+/**
+ * Analyzer information
+ */
+export interface AnalyzerInfo {
+  name: string;
+  type?: string;
+  tokenizer?: string;
+  filter?: string[];
+  charFilter?: string[];
+}
+
+/**
+ * Field information for analyzer inspection
+ */
+export interface FieldInfo {
+  name: string;
+  type: string;
+  analyzer?: string;
+  searchAnalyzer?: string;
+  normalizer?: string;
+  properties?: Record<string, unknown>;
+  searchable?: boolean;
+  aggregatable?: boolean;
+  stored?: boolean;
+}
+
+/**
+ * Index analyzers response
+ */
+export interface IndexAnalyzersResponse {
+  analyzers: Record<string, AnalyzerInfo>;
+  tokenizers: Record<string, unknown>;
+  filters: Record<string, unknown>;
+  charFilters: Record<string, unknown>;
+}
+
+/**
+ * Index fields response
+ */
+export interface IndexFieldsResponse {
+  fields: FieldInfo[];
+}
+
+/**
+ * Repository type
+ */
+export type RepositoryType = 'fs' | 's3' | 'azure' | 'gcs' | 'hdfs' | 'url';
+
+/**
+ * Repository information
+ */
+export interface RepositoryInfo {
+  name: string;
+  type: RepositoryType;
+  settings: Record<string, unknown>;
+}
+
+/**
+ * Create repository request
+ */
+export interface CreateRepositoryRequest {
+  name: string;
+  type: RepositoryType;
+  settings: Record<string, unknown>;
+}
+
+/**
+ * Snapshot state
+ */
+export type SnapshotState = 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
+
+/**
+ * Snapshot information
+ */
+export interface SnapshotInfo {
+  snapshot: string;
+  uuid: string;
+  state: SnapshotState;
+  indices: string[];
+  startTime: string;
+  endTime?: string;
+  durationInMillis?: number;
+  shards?: {
+    total: number;
+    successful: number;
+    failed: number;
+  };
+  failures?: unknown[];
+}
+
+/**
+ * Create snapshot request
+ */
+export interface CreateSnapshotRequest {
+  snapshot: string;
+  indices?: string[];
+  ignoreUnavailable?: boolean;
+  includeGlobalState?: boolean;
+  partial?: boolean;
+}
+
+/**
+ * Restore snapshot request
+ */
+export interface RestoreSnapshotRequest {
+  indices?: string[];
+  ignoreUnavailable?: boolean;
+  includeGlobalState?: boolean;
+  renamePattern?: string;
+  renameReplacement?: string;
+  includeAliases?: boolean;
+  partial?: boolean;
+}
+
+/**
+ * Cat API endpoint information
+ */
+export interface CatEndpoint {
+  endpoint: string;
+  description: string;
+  help?: string;
+}
+
+/**
+ * Cat API response (generic table data)
+ */
+export interface CatApiResponse {
+  columns: string[];
+  rows: Array<Record<string, string | number>>;
+}
+
+/**
+ * Relocate shard request
+ * Requirements: 6.1, 6.2
+ */
+export interface RelocateShardRequest {
+  index: string;
+  shard: number;
+  from_node: string;
+  to_node: string;
+}
+
+/**
+ * Relocate shard response
+ * Requirements: 6.7
+ */
+export interface RelocateShardResponse {
+  acknowledged: boolean;
+  state?: {
+    cluster_name: string;
+    version: number;
+    state_uuid: string;
+  };
+}
+
+/**
+ * Index statistics
+ */
+export interface IndexStats {
+  indexName: string;
+  uuid: string;
+  primaries: IndexShardStats;
+  total: IndexShardStats;
+}
+
+/**
+ * Index shard statistics
+ */
+export interface IndexShardStats {
+  docs: {
+    count: number;
+    deleted: number;
+  };
+  store: {
+    sizeInBytes: number;
+  };
+  indexing: {
+    indexTotal: number;
+    indexTimeInMillis: number;
+    indexCurrent: number;
+    indexFailed: number;
+    deleteTotal: number;
+    deleteTimeInMillis: number;
+    deleteCurrent: number;
+    throttleTimeInMillis: number;
+  };
+  search: {
+    queryTotal: number;
+    queryTimeInMillis: number;
+    queryCurrent: number;
+    fetchTotal: number;
+    fetchTimeInMillis: number;
+    fetchCurrent: number;
+    scrollTotal: number;
+    scrollTimeInMillis: number;
+    scrollCurrent: number;
+  };
+  merges: {
+    current: number;
+    currentDocs: number;
+    currentSizeInBytes: number;
+    total: number;
+    totalTimeInMillis: number;
+    totalDocs: number;
+    totalSizeInBytes: number;
+  };
+  refresh: {
+    total: number;
+    totalTimeInMillis: number;
+  };
+  flush: {
+    total: number;
+    totalTimeInMillis: number;
+  };
+  segments: {
+    count: number;
+    memoryInBytes: number;
+  };
+}
+
+/**
+ * Bulk operation types for index operations
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export type BulkOperationType =
+  | 'open'
+  | 'close'
+  | 'delete'
+  | 'refresh'
+  | 'set_read_only'
+  | 'set_writable';
+
+/**
+ * Result of bulk operation validation
+ * Shows which indices will be affected and which will be ignored
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export interface BulkOperationValidationResult {
+  /** Indices that will be affected by the operation */
+  validIndices: string[];
+  /** Indices that will be skipped */
+  ignoredIndices: string[];
+  /** Reason for ignoring each index */
+  ignoreReasons: Record<string, string>;
+}
+
+/**
+ * Response from bulk operation execution
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ */
+export interface BulkOperationResponse {
+  /** Successfully processed indices */
+  success: string[];
+  /** Failed indices with error details */
+  failed: Array<{
+    index: string;
+    error: string;
+  }>;
+}
+
+/**
+ * Time range for metrics queries
+ */
+export interface TimeRange {
+  start: number; // Unix timestamp in seconds
+  end: number; // Unix timestamp in seconds
+  label: string; // Human-readable label
+}
+
+/**
+ * Cluster metrics data point
+ */
+export interface ClusterMetrics {
+  clusterId: string;
+  timestamp: number;
+  health: 'green' | 'yellow' | 'red';
+  nodeCount?: number;
+  indexCount?: number;
+  documentCount?: number;
+  shardCount?: number;
+  unassignedShards?: number;
+  memoryUsagePercent?: number;
+  diskUsagePercent?: number;
+  cpuUsagePercent?: number;
+}
+
+/**
+ * Labeled metric point for multi-series support
+ */
+export interface LabeledMetricPoint {
+  timestamp: number;
+  value: number;
+  labels?: Record<string, string>;
+}
+
+/**
+ * Raw metrics with labels for flexible rendering
+ */
+export interface RawMetrics {
+  memory?: LabeledMetricPoint[];
+  cpu?: LabeledMetricPoint[];
+}
+
+/**
+ * Cluster metrics history response from API (for heatmap/sparklines)
+ */
+export interface ClusterMetricsHistoryResponse {
+  cluster_id: string;
+  time_range: TimeRange;
+  data: Array<{
+    timestamp: number;
+    date: string;
+    health: 'green' | 'yellow' | 'red';
+    node_count: number;
+    index_count?: number;
+    document_count?: number;
+    shard_count?: number;
+    unassigned_shards?: number;
+    disk_used_bytes?: number;
+    disk_total_bytes?: number;
+    cpu_percent?: number;
+    memory_used_bytes?: number;
+    memory_non_heap_bytes?: number;
+  }>;
+  raw_metrics?: RawMetrics;
+  prometheus_queries?: Record<string, string>;
+}
+
+/**
+ * Node metrics data point from Prometheus
+ */
+export interface NodeMetricsPoint {
+  timestamp: number;
+  date: string;
+  heap_used_bytes?: number;
+  heap_max_bytes?: number;
+  cpu_percent?: number;
+  disk_used_percent?: number;
+  load_average_1m?: number;
+  load_average_5m?: number;
+  load_average_15m?: number;
+}
+
+/**
+ * Node metrics history response from API
+ */
+export interface NodeMetricsHistoryResponse {
+  cluster_id: string;
+  node_id: string;
+  time_range: TimeRange;
+  data: NodeMetricsPoint[];
+  prometheus_queries?: {
+    heap?: string;
+    disk?: string;
+    cpu?: string;
+    load?: string;
+  };
+}
+
+/**
+ * Task information from cluster tasks API
+ */
+export interface TaskInfo {
+  node: string;
+  id: number;
+  type: string;
+  action: string;
+  start_time_in_millis: number;
+  cancellable: boolean;
+  cancelled: boolean;
+  parent_task_id?: string;
+  running_time_millis?: number;
+}
+
+/**
+ * Detailed task information
+ */
+export interface TaskDetails extends TaskInfo {
+  raw?: Record<string, unknown>;
+}
+
+/**
+ * Tasks list response from API
+ */
+export interface TasksListResponse {
+  tasks: TaskInfo[];
+  unique_types: string[];
+  unique_actions: string[];
+  timestamp: number;
+}
+
+/**
+ * Task details response from API
+ */
+export interface TaskDetailsResponse {
+  task: TaskDetails;
+}
+
+/**
+ * Cancel task response from API
+ */
+export interface CancelTaskResponse {
+  success: boolean;
+  message: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sankey topology types
+// ---------------------------------------------------------------------------
+
+/**
+ * A node in the Sankey diagram — represents either an index, a cluster node,
+ * or the synthetic "Unassigned" bucket.
+ */
+export interface SankeyNode {
+  /** Unique identifier used as the Sankey node id (index name or node name). */
+  id: string;
+  /** Whether this entry represents an ES index, a cluster node, or the unassigned bucket. */
+  kind: 'index' | 'node' | 'unassigned';
+  /** Total number of shards (primary + replica) carried by this node/index. */
+  totalShards: number;
+  /** Number of primary shards. */
+  primaryShards: number;
+  /** Number of replica shards. */
+  replicaShards: number;
+  /** Total store size in bytes (0 if unavailable). */
+  storeBytes: number;
+}
+
+/**
+ * A directed link in the Sankey diagram connecting an index to a cluster node.
+ */
+export interface SankeyLink {
+  /** id of the source SankeyNode (index). */
+  source: string;
+  /** id of the target SankeyNode (cluster node or "Unassigned"). */
+  target: string;
+  /** Total shards flowing through this link. */
+  totalShards: number;
+  /** Primary shards on this link. */
+  primaryShards: number;
+  /** Replica shards on this link. */
+  replicaShards: number;
+}
+
+/**
+ * Metadata about truncation and totals for the Sankey response.
+ */
+export interface SankeyMeta {
+  /** True when `topIndices` caused some indices to be omitted. */
+  truncated: boolean;
+  /** Number of indices included in this response. */
+  displayedIndices: number;
+  /** Total number of distinct indices in the cluster (before truncation). */
+  totalIndices: number;
+  /** Total number of cluster nodes represented as Sankey nodes. */
+  totalNodes: number;
+  /** Total number of links in this response. */
+  totalLinks: number;
+}
+
+/**
+ * Full Sankey response returned by GET /api/clusters/{id}/topology/sankey
+ */
+export interface SankeyResponse {
+  nodes: SankeyNode[];
+  links: SankeyLink[];
+  meta: SankeyMeta;
+}
+
+/**
+ * Optional query parameters for GET /api/clusters/{id}/topology/sankey
+ */
+export interface SankeyQueryParams {
+  /** Maximum number of top indices to include (default: 50, clamped 5–200). */
+  topIndices?: number;
+  /** Whether to include the synthetic "Unassigned" node (default: true). */
+  includeUnassigned?: boolean;
+  /** Comma-separated node roles to filter by. */
+  roles?: string;
+  /** Comma-separated shard states to filter by (e.g. "STARTED,UNASSIGNED"). */
+  states?: string;
+}

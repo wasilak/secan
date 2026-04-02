@@ -1,0 +1,55 @@
+import { memo } from 'react';
+import { Text, Badge } from '@mantine/core';
+import ShardPills from './ShardPills';
+import type { HealthStatus } from '../types/api';
+import { getHealthColor } from '../utils/colors';
+
+/**
+ * Data interface for IndexGroupNode.
+ *
+ * Requirements: 3.1, 3.8
+ */
+export interface IndexGroupNodeData extends Record<string, unknown> {
+  indexName: string;
+  health?: HealthStatus;
+  shardCount?: number;
+  primaryCount?: number;
+  replicaCount?: number;
+}
+
+/**
+ * IndexGroupNode — RF group-node header/background for the top-level index.
+ *
+ * Purely decorative — all sub-group and shard children are placed as RF
+ * child nodes by the layout function.
+ *
+ * Requirements: 3.1, 3.8
+ */
+function IndexGroupNodeComponent({ data }: { data: IndexGroupNodeData }) {
+  const { indexName, health, shardCount, primaryCount, replicaCount } = data;
+
+  return (
+    <div style={{ display: 'inline-block', boxSizing: 'border-box', padding: '6px 10px', backgroundColor: 'transparent', border: 'none', textAlign: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+          <Text fw={700} size="md" lineClamp={1} style={{ minWidth: 0 }}>
+            {indexName}
+          </Text>
+          {health && (
+            <Badge size="sm" color={getHealthColor(health)} variant="filled">
+              {health}
+            </Badge>
+          )}
+        </div>
+
+        {shardCount !== undefined && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShardPills total={shardCount as number} primary={primaryCount as number | undefined} replica={replicaCount as number | undefined} size="sm" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export const IndexGroupNode = memo(IndexGroupNodeComponent);

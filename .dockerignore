@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+node_modules/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Documentation (but keep README.md for Rust documentation)
+docs/
+CONTRIBUTING.md
+CHANGELOG.md
+LICENSE.md
+
+# CI/CD
+.github/
+.travis.yml
+
+# Kiro
+.kiro/
+
+# Serena
+.serena/
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.test.js
+**/*.spec.ts
+**/*.spec.tsx
+**/*.spec.js

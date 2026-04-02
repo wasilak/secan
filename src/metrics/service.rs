@@ -1,0 +1,944 @@
+use anyhow::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tracing::{debug, warn};
+use utoipa::ToSchema;
+
+use crate::cluster::client::ElasticsearchClient;
+use crate::cluster::manager::{
+    ClusterConnection, HealthStatus, HealthStatus as ClusterHealthStatus,
+};
+use crate::prometheus::client::Client as PrometheusClient;
+use crate::prometheus::client::PrometheusConfig;
+
+/// Time range for metrics queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TimeRange {
+    /// Start timestamp (Unix seconds)
+    pub start: i64,
+    /// End timestamp (Unix seconds)
+    pub end: i64,
+}
+
+impl TimeRange {
+    /// Create a new time range
+    pub fn new(start: i64, end: i64) -> Result<Self> {
+        anyhow::ensure!(start < end, "start must be before end");
+        Ok(Self { start, end })
+    }
+
+    /// Time range for last N seconds
+    pub fn last_seconds(seconds: i64) -> Self {
+        let now = current_unix_timestamp();
+        Self {
+            start: now - seconds,
+            end: now,
+        }
+    }
+
+    /// Time range for last 1 hour
+    pub fn last_hour() -> Self {
+        Self::last_seconds(3600)
+    }
+
+    /// Time range for last 6 hours
+    pub fn last_6_hours() -> Self {
+        Self::last_seconds(6 * 3600)
+    }
+
+    /// Time range for last 24 hours
+    pub fn last_24_hours() -> Self {
+        Self::last_seconds(24 * 3600)
+    }
+
+    /// Time range for last 7 days
+    pub fn last_7_days() -> Self {
+        Self::last_seconds(7 * 24 * 3600)
+    }
+
+    /// Time range for last 30 days
+    pub fn last_30_days() -> Self {
+        Self::last_seconds(30 * 24 * 3600)
+    }
+
+    /// Duration of the time range
+    pub fn duration(&self) -> i64 {
+        self.end - self.start
+    }
+
+    /// Recommended step/interval for this time range
+    /// Returns step in seconds (one data point per step interval)
+    /// Targets ~50 data points for optimal chart performance
+    pub fn recommended_step(&self) -> i64 {
+        let duration = self.duration();
+        // Target ~50 data points for smooth charts without overloading the browser
+        let step = duration / 50;
+        std::cmp::max(step, 60) // Minimum 60 seconds (1 minute)
+    }
+}
+
+/// Cluster metrics aggregated from various sources
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ClusterMetrics {
+    /// Cluster identifier
+    pub cluster_id: String,
+    /// Time range of the metrics
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_range: Option<TimeRange>,
+    /// JVM memory usage in bytes (may contain multiple series with labels)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jvm_memory_used_bytes: Option<Vec<MetricPoint>>,
+    /// JVM memory max in bytes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jvm_memory_max_bytes: Option<Vec<MetricPoint>>,
+    /// Garbage collection time in milliseconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gc_collection_time_ms: Option<Vec<MetricPoint>>,
+    /// Index rate (docs per second)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index_rate: Option<Vec<MetricPoint>>,
+    /// Query rate (queries per second)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub query_rate: Option<Vec<MetricPoint>>,
+    /// Disk usage in bytes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_used_bytes: Option<Vec<MetricPoint>>,
+    /// CPU usage percentage
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_usage_percent: Option<Vec<MetricPoint>>,
+    /// Network bytes in
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_bytes_in: Option<Vec<MetricPoint>>,
+    /// Network bytes out
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_bytes_out: Option<Vec<MetricPoint>>,
+    /// Health status (from internal metrics)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health_status: Option<HealthStatus>,
+    /// Number of nodes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_count: Option<u32>,
+    /// Number of shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shard_count: Option<u32>,
+    /// Number of indices
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index_count: Option<u32>,
+    /// Number of documents
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub document_count: Option<u64>,
+    /// Number of unassigned shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unassigned_shards: Option<u32>,
+    /// Number of relocating shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relocating_shards: Option<u32>,
+    /// Number of initializing shards
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initializing_shards: Option<u32>,
+    /// Prometheus queries used (metric_name -> full query)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prometheus_queries: Option<std::collections::HashMap<String, String>>,
+}
+
+/// Single metric data point with timestamp
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricPoint {
+    /// Timestamp in Unix seconds
+    pub timestamp: i64,
+    /// Metric value
+    pub value: f64,
+    /// Metric labels (e.g., {"area": "heap", "node": "node-1"})
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub labels: Option<std::collections::HashMap<String, String>>,
+}
+
+impl MetricPoint {
+    /// Create a new metric point
+    pub fn new(timestamp: i64, value: f64) -> Self {
+        Self {
+            timestamp,
+            value,
+            labels: None,
+        }
+    }
+
+    /// Create a new metric point with labels
+    pub fn with_labels(
+        timestamp: i64,
+        value: f64,
+        labels: std::collections::HashMap<String, String>,
+    ) -> Self {
+        Self {
+            timestamp,
+            value,
+            labels: Some(labels),
+        }
+    }
+}
+
+/// Node metrics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NodeMetrics {
+    /// Node identifier
+    pub node_id: String,
+    /// Node name
+    pub node_name: String,
+    /// JVM memory used
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jvm_memory_used_bytes: Option<f64>,
+    /// CPU usage percentage
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpu_usage_percent: Option<f64>,
+    /// Disk usage in bytes
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub disk_used_bytes: Option<f64>,
+    /// Number of shards on this node
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shard_count: Option<u32>,
+}
+
+/// Metrics service trait
+/// Provides unified interface for metrics regardless of source
+#[async_trait]
+pub trait MetricsService: Send + Sync {
+    /// Get cluster metrics for a time range
+    async fn get_cluster_metrics(
+        &self,
+        cluster_id: &str,
+        time_range: TimeRange,
+    ) -> Result<ClusterMetrics>;
+
+    /// Get node metrics for a cluster
+    async fn get_node_metrics(&self, cluster_id: &str) -> Result<Vec<NodeMetrics>>;
+
+    /// Get current cluster health (instant snapshot)
+    async fn get_health(&self, cluster_id: &str) -> Result<Option<HealthStatus>>;
+
+    /// Check if metrics source is available
+    async fn health_check(&self) -> Result<bool>;
+}
+
+/// Internal metrics service using Elasticsearch live data
+pub struct InternalMetricsService {
+    cluster_connection: Arc<ClusterConnection>,
+}
+
+impl InternalMetricsService {
+    /// Create new internal metrics service
+    pub fn new(cluster_connection: Arc<ClusterConnection>) -> Self {
+        Self { cluster_connection }
+    }
+}
+
+#[async_trait]
+impl MetricsService for InternalMetricsService {
+    async fn get_cluster_metrics(
+        &self,
+        _cluster_id: &str,
+        _time_range: TimeRange,
+    ) -> Result<ClusterMetrics> {
+        // For internal metrics, we fetch current live data
+        // Historical data is not available, so we return instant snapshot
+        let client = &self.cluster_connection.client;
+
+        let mut metrics = ClusterMetrics {
+            cluster_id: self.cluster_connection.id.clone(),
+            time_range: None,
+            health_status: None,
+            node_count: None,
+            shard_count: None,
+            index_count: None,
+            document_count: None,
+            unassigned_shards: None,
+            relocating_shards: None,
+            initializing_shards: None,
+            ..Default::default()
+        };
+
+        // Get cluster health
+        if let Ok(health) = client.health().await {
+            if let Ok(health_struct) =
+                serde_json::from_value::<crate::cluster::manager::ClusterHealth>(health)
+            {
+                metrics.node_count = Some(health_struct.number_of_nodes);
+                metrics.shard_count = Some(health_struct.active_shards);
+                metrics.health_status = Some(health_struct.status);
+                metrics.unassigned_shards = Some(health_struct.unassigned_shards);
+                metrics.relocating_shards = Some(health_struct.relocating_shards);
+                metrics.initializing_shards = Some(health_struct.initializing_shards);
+            }
+        }
+
+        // Get node count from cluster state
+        if let Ok(state) = client.cluster_state().await {
+            if let Some(nodes) = state.get("nodes") {
+                if let Some(node_map) = nodes.as_object() {
+                    metrics.node_count = Some(node_map.len() as u32);
+                }
+            }
+        }
+
+        // Get index count and document count from indices stats
+        if let Ok(indices) = client.indices_stats().await {
+            if let Some(indices_obj) = indices.get("indices") {
+                if let Some(indices_map) = indices_obj.as_object() {
+                    // Count indices (subtract "_all" if present)
+                    let count = indices_map.len() as u32;
+                    metrics.index_count = Some(if count > 0 { count - 1 } else { 0 });
+                }
+            }
+
+            // Get total document count from _all stats
+            if let Some(all_stats) = indices.get("_all").and_then(|a| a.get("primaries")) {
+                if let Some(docs) = all_stats.get("docs") {
+                    if let Some(count) = docs.get("count").and_then(|c| c.as_i64()) {
+                        metrics.document_count = Some(count as u64);
+                    }
+                }
+            }
+        }
+
+        // Aggregate node-level metrics (CPU, memory, disk) from nodes stats
+        if let Ok(nodes_stats) = client.nodes_stats().await {
+            if let Some(stats_nodes) = nodes_stats.get("nodes").and_then(|n| n.as_object()) {
+                let mut total_cpu = 0.0;
+                let mut total_memory_used = 0.0;
+                let mut total_disk_used = 0.0;
+                let mut total_disk_total = 0.0;
+                let mut node_count = 0;
+
+                for (_node_id, node_stats) in stats_nodes {
+                    node_count += 1;
+
+                    // Extract CPU
+                    if let Some(cpu) = node_stats.get("os").and_then(|o| o.get("cpu")) {
+                        if let Some(percent) = cpu.get("percent").and_then(|p| p.as_i64()) {
+                            total_cpu += percent as f64;
+                        }
+                    }
+
+                    // Extract JVM memory
+                    if let Some(jvm) = node_stats.get("jvm").and_then(|j| j.get("mem")) {
+                        if let Some(used) = jvm.get("heap_used_in_bytes").and_then(|u| u.as_i64()) {
+                            total_memory_used += used as f64;
+                        }
+                    }
+
+                    // Extract disk
+                    if let Some(fs) = node_stats.get("fs").and_then(|f| f.get("total")) {
+                        if let Some(used) = fs.get("total_in_bytes").and_then(|u| u.as_i64()) {
+                            total_disk_total += used as f64;
+                        }
+                        if let Some(available) =
+                            fs.get("available_in_bytes").and_then(|a| a.as_i64())
+                        {
+                            total_disk_used += total_disk_total - available as f64;
+                        }
+                    }
+                }
+
+                // Create single data point with aggregated values
+                if node_count > 0 {
+                    let now = current_unix_timestamp();
+                    let avg_cpu = total_cpu / node_count as f64;
+
+                    metrics.cpu_usage_percent = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: avg_cpu,
+                        labels: None,
+                    }]);
+
+                    metrics.jvm_memory_used_bytes = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: total_memory_used,
+                        labels: None,
+                    }]);
+
+                    metrics.disk_used_bytes = Some(vec![MetricPoint {
+                        timestamp: now,
+                        value: total_disk_used,
+                        labels: None,
+                    }]);
+                }
+            }
+        }
+
+        debug!(
+            "Internal metrics for cluster {}: {} nodes, {} shards, {} indices, {} docs",
+            self.cluster_connection.id,
+            metrics.node_count.unwrap_or(0),
+            metrics.shard_count.unwrap_or(0),
+            metrics.index_count.unwrap_or(0),
+            metrics.document_count.unwrap_or(0)
+        );
+
+        Ok(metrics)
+    }
+
+    async fn get_node_metrics(&self, _cluster_id: &str) -> Result<Vec<NodeMetrics>> {
+        let client = &self.cluster_connection.client;
+
+        let mut node_metrics = Vec::new();
+
+        // Get nodes info and stats
+        if let Ok(nodes_info) = client.nodes_info().await {
+            if let Ok(nodes_stats) = client.nodes_stats().await {
+                if let Some(nodes) = nodes_info.get("nodes").and_then(|n| n.as_object()) {
+                    for (node_id, node_info) in nodes {
+                        let node_name = node_info
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or(node_id)
+                            .to_string();
+
+                        let mut metrics = NodeMetrics {
+                            node_id: node_id.clone(),
+                            node_name,
+                            ..Default::default()
+                        };
+
+                        // Try to get metrics from nodes stats
+                        if let Some(stats_nodes) =
+                            nodes_stats.get("nodes").and_then(|n| n.as_object())
+                        {
+                            if let Some(node_stats) = stats_nodes.get(node_id) {
+                                // Extract JVM memory
+                                if let Some(jvm) = node_stats.get("jvm").and_then(|j| j.get("mem"))
+                                {
+                                    if let Some(used) =
+                                        jvm.get("heap_used_in_bytes").and_then(|u| u.as_i64())
+                                    {
+                                        metrics.jvm_memory_used_bytes = Some(used as f64);
+                                    }
+                                }
+
+                                // Extract CPU
+                                if let Some(cpu) = node_stats.get("os").and_then(|o| o.get("cpu")) {
+                                    if let Some(percent) =
+                                        cpu.get("percent").and_then(|p| p.as_i64())
+                                    {
+                                        metrics.cpu_usage_percent = Some(percent as f64);
+                                    }
+                                }
+
+                                // Extract disk
+                                if let Some(fs) = node_stats.get("fs").and_then(|f| f.get("total"))
+                                {
+                                    if let Some(used) =
+                                        fs.get("bytes_used").and_then(|u| u.as_i64())
+                                    {
+                                        metrics.disk_used_bytes = Some(used as f64);
+                                    }
+                                }
+                            }
+                        }
+
+                        node_metrics.push(metrics);
+                    }
+                }
+            }
+        }
+
+        Ok(node_metrics)
+    }
+
+    async fn get_health(&self, _cluster_id: &str) -> Result<Option<HealthStatus>> {
+        let client = &self.cluster_connection.client;
+        match client.health().await {
+            Ok(health) => {
+                if let Ok(health_struct) =
+                    serde_json::from_value::<crate::cluster::manager::ClusterHealth>(health)
+                {
+                    Ok(Some(health_struct.status))
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                warn!("Failed to get cluster health: {}", e);
+                Ok(None)
+            }
+        }
+    }
+
+    async fn health_check(&self) -> Result<bool> {
+        match self.cluster_connection.client.health().await {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+}
+
+/// Prometheus metrics service
+pub struct PrometheusMetricsService {
+    client: PrometheusClient,
+    cluster_id: String,
+    job_name: Option<String>,
+    labels: Option<HashMap<String, String>>,
+}
+
+impl PrometheusMetricsService {
+    /// Create new Prometheus metrics service
+    pub fn new(
+        prometheus_url: &str,
+        cluster_id: String,
+        job_name: Option<String>,
+        labels: Option<HashMap<String, String>>,
+    ) -> Result<Self> {
+        let config = PrometheusConfig {
+            url: prometheus_url.to_string(),
+            auth: None,
+            timeout: Duration::from_secs(10),
+        };
+
+        let client = PrometheusClient::new(config)?;
+
+        Ok(Self {
+            client,
+            cluster_id,
+            job_name,
+            labels,
+        })
+    }
+
+    /// Build a query for Elasticsearch exporter metrics
+    fn build_query(&self, metric_name: &str) -> String {
+        PrometheusClient::build_query(metric_name, self.job_name.as_deref(), self.labels.as_ref())
+    }
+
+    /// Query a metric over a time range using a pre-built query string
+    async fn query_metric_range_with_query(
+        &self,
+        query: &str,
+        time_range: &TimeRange,
+    ) -> Result<Vec<MetricPoint>> {
+        let step = time_range.recommended_step();
+
+        match self
+            .client
+            .query_range(query, time_range.start, time_range.end, step)
+            .await
+        {
+            Ok(results) => {
+                let mut points = Vec::new();
+
+                for result in &results {
+                    // Extract labels from the series (excluding __name__ which is the metric name)
+                    let labels: std::collections::HashMap<String, String> = result
+                        .metric
+                        .iter()
+                        .filter(|(k, _)| k.as_str() != "__name__")
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect();
+
+                    let has_labels = !labels.is_empty();
+
+                    if let Some(values) = &result.values {
+                        for value in values {
+                            if let Ok(parsed_value) = PrometheusClient::parse_value(&value.1) {
+                                if has_labels {
+                                    points.push(MetricPoint::with_labels(
+                                        value.0,
+                                        parsed_value,
+                                        labels.clone(),
+                                    ));
+                                } else {
+                                    points.push(MetricPoint::new(value.0, parsed_value));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                debug!(
+                    "Prometheus query {} returned {} data points across {} series",
+                    query,
+                    points.len(),
+                    results.len()
+                );
+
+                Ok(points)
+            }
+            Err(e) => {
+                warn!("Prometheus query {} failed: {}", query, e);
+                Ok(Vec::new()) // Return empty instead of failing entire request
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl MetricsService for PrometheusMetricsService {
+    async fn get_cluster_metrics(
+        &self,
+        _cluster_id: &str,
+        time_range: TimeRange,
+    ) -> Result<ClusterMetrics> {
+        let mut metrics = ClusterMetrics {
+            cluster_id: self.cluster_id.clone(),
+            time_range: Some(time_range.clone()),
+            ..Default::default()
+        };
+
+        // Build HashMap of metric names to their full PromQL queries
+        let mut prometheus_queries = std::collections::HashMap::new();
+
+        // Query each metric in parallel
+
+        // Memory usage - JVM memory has both node AND area dimensions (heap/non-heap)
+        // Use sum by (area) to aggregate across nodes while preserving area grouping
+        // This returns multiple series (one per area value) from a single query
+        let base_memory_query = self.build_query("elasticsearch_jvm_memory_used_bytes");
+        let memory_query = format!("sum by (area) ({})", base_memory_query);
+
+        // Query returns multiple series grouped by area label
+        let memory_points = self
+            .query_metric_range_with_query(&memory_query, &time_range)
+            .await?;
+
+        // Store all series in main field
+        metrics.jvm_memory_used_bytes = Some(memory_points);
+
+        // Store query
+        prometheus_queries.insert("jvm_memory_used_bytes".to_string(), memory_query);
+
+        metrics.jvm_memory_max_bytes = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_jvm_memory_max_bytes")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "jvm_memory_max_bytes".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_jvm_memory_max_bytes")
+            ),
+        );
+
+        metrics.gc_collection_time_ms = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_jvm_gc_collection_time_millis")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "gc_collection_time_ms".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_jvm_gc_collection_time_millis")
+            ),
+        );
+
+        metrics.index_rate = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_indices_indexing_index_total")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "index_rate".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_indices_indexing_index_total")
+            ),
+        );
+
+        metrics.query_rate = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_indices_search_query_total")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "query_rate".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_indices_search_query_total")
+            ),
+        );
+
+        // Disk usage - aggregate across all indices
+        let disk_query = format!(
+            "sum({})",
+            self.build_query("elasticsearch_indices_store_size_bytes")
+        );
+        metrics.disk_used_bytes = Some(
+            self.query_metric_range_with_query(&disk_query, &time_range)
+                .await?,
+        );
+        prometheus_queries.insert("disk_used_bytes".to_string(), disk_query);
+
+        // CPU usage - average across all nodes (no additional grouping dimensions for process CPU)
+        // Using avg() to get cluster-wide average
+        let base_cpu_query = self.build_query("elasticsearch_process_cpu_percent");
+        let cpu_query = format!("avg({})", base_cpu_query);
+
+        metrics.cpu_usage_percent = Some(
+            self.query_metric_range_with_query(&cpu_query, &time_range)
+                .await?,
+        );
+        prometheus_queries.insert("cpu_usage_percent".to_string(), cpu_query);
+
+        metrics.network_bytes_in = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_transport_rx_bytes")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "network_bytes_in".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_transport_rx_bytes")
+            ),
+        );
+
+        metrics.network_bytes_out = Some(
+            self.query_metric_range_with_query(
+                &format!(
+                    "sum({})",
+                    self.build_query("elasticsearch_transport_tx_bytes")
+                ),
+                &time_range,
+            )
+            .await?,
+        );
+        prometheus_queries.insert(
+            "network_bytes_out".to_string(),
+            format!(
+                "sum({})",
+                self.build_query("elasticsearch_transport_tx_bytes")
+            ),
+        );
+
+        // Query cluster stats metrics from Prometheus
+        // These are instant queries (current values) not time series
+
+        // Node count
+        let node_count_query = self.build_query("elasticsearch_cluster_health_number_of_nodes");
+        if let Ok(results) = self.client.query_instant(&node_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.node_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Shard count
+        let shard_count_query = self.build_query("elasticsearch_cluster_health_active_shards");
+        if let Ok(results) = self.client.query_instant(&shard_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.shard_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Unassigned shards
+        let unassigned_query = self.build_query("elasticsearch_cluster_health_unassigned_shards");
+        if let Ok(results) = self.client.query_instant(&unassigned_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.unassigned_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Relocating shards
+        let relocating_query = self.build_query("elasticsearch_cluster_health_relocating_shards");
+        if let Ok(results) = self.client.query_instant(&relocating_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.relocating_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Initializing shards
+        let initializing_query =
+            self.build_query("elasticsearch_cluster_health_initializing_shards");
+        if let Ok(results) = self.client.query_instant(&initializing_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.initializing_shards = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Index count - count unique indices from per-index metrics
+        // Use elasticsearch_indices_docs_primary which has one series per index
+        // Count the number of unique index labels to get total index count
+        let index_count_query = format!(
+            "count({})",
+            self.build_query("elasticsearch_indices_docs_primary")
+        );
+        if let Ok(results) = self.client.query_instant(&index_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.index_count = Some(parsed as u32);
+                    }
+                }
+            }
+        }
+
+        // Document count - sum across all primary shards
+        let document_count_query = format!(
+            "sum({})",
+            self.build_query("elasticsearch_indices_docs_primary")
+        );
+        if let Ok(results) = self.client.query_instant(&document_count_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        metrics.document_count = Some(parsed as u64);
+                    }
+                }
+            }
+        }
+
+        // Health status - parse from metric value
+        let health_query = self.build_query("elasticsearch_cluster_health_status");
+        if let Ok(results) = self.client.query_instant(&health_query, None).await {
+            if let Some(result) = results.first() {
+                if let Some(value) = &result.value {
+                    if let Ok(parsed) = PrometheusClient::parse_value(&value.1) {
+                        // Elasticsearch exporter encodes health as: green=1, yellow=2, red=3
+                        metrics.health_status = Some(match parsed as i32 {
+                            1 => ClusterHealthStatus::Green,
+                            2 => ClusterHealthStatus::Yellow,
+                            3 => ClusterHealthStatus::Red,
+                            _ => ClusterHealthStatus::Red,
+                        });
+                    }
+                }
+            }
+        }
+
+        // Add queries for cluster stats to prometheus_queries map
+        prometheus_queries.insert("indices".to_string(), index_count_query);
+        prometheus_queries.insert("documents".to_string(), document_count_query);
+        prometheus_queries.insert("nodes".to_string(), node_count_query);
+        prometheus_queries.insert("shards".to_string(), shard_count_query);
+        prometheus_queries.insert("unassigned_shards".to_string(), unassigned_query);
+        prometheus_queries.insert("relocating_shards".to_string(), relocating_query);
+        prometheus_queries.insert("initializing_shards".to_string(), initializing_query);
+        prometheus_queries.insert("health_status".to_string(), health_query);
+
+        metrics.prometheus_queries = Some(prometheus_queries);
+
+        debug!(
+            "Prometheus metrics for cluster {}: {} time points",
+            self.cluster_id,
+            metrics
+                .jvm_memory_used_bytes
+                .as_ref()
+                .map(|v| v.len())
+                .unwrap_or(0)
+        );
+
+        Ok(metrics)
+    }
+
+    async fn get_node_metrics(&self, _cluster_id: &str) -> Result<Vec<NodeMetrics>> {
+        // For simplicity, return empty for now
+        // Could be extended to query per-node metrics
+        Ok(Vec::new())
+    }
+
+    async fn get_health(&self, _cluster_id: &str) -> Result<Option<HealthStatus>> {
+        // Query Prometheus for cluster status metric
+        let query = self.build_query("elasticsearch_cluster_health_status");
+        match self.client.query_instant(&query, None).await {
+            Ok(_results) => {
+                // Could parse the status value if available
+                Ok(None)
+            }
+            Err(e) => {
+                warn!("Prometheus health check failed: {}", e);
+                Ok(None)
+            }
+        }
+    }
+
+    async fn health_check(&self) -> Result<bool> {
+        self.client.health().await
+    }
+}
+
+/// Get current Unix timestamp in seconds
+fn current_unix_timestamp() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_time_range_construction() {
+        let tr = TimeRange::new(100, 200).expect("create time range");
+        assert_eq!(tr.start, 100);
+        assert_eq!(tr.end, 200);
+        assert_eq!(tr.duration(), 100);
+    }
+
+    #[test]
+    fn test_time_range_invalid() {
+        assert!(TimeRange::new(200, 100).is_err());
+    }
+
+    #[test]
+    fn test_recommended_step() {
+        let tr = TimeRange::new(0, 100000).expect("create time range");
+        let step = tr.recommended_step();
+        assert!(step > 0);
+        assert!(step <= 100000 / 50); // Should be <= duration/50 (targeting ~50 points)
+        assert!(step >= 60); // Minimum 60 seconds
+    }
+
+    #[test]
+    fn test_metric_point_creation() {
+        let point = MetricPoint::new(1000, 42.5);
+        assert_eq!(point.timestamp, 1000);
+        assert_eq!(point.value, 42.5);
+    }
+}

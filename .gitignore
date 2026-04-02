@@ -1,0 +1,78 @@
+# Extracted from https://github.com/ulrich/macaron-factory/blob/master/.gitignore
+# Ignore all dotfiles...
+.*
+# except for .gitignore
+!.gitignore
+!.eslintrc.json
+!.eslintrc.cjs
+!.prettierrc
+!.clippy.toml
+!.dockerignore
+# except for .env.example (template for environment variables)
+!.env.example
+# except for .kiro/ (Kiro specs and settings)
+!.kiro/
+# except for .github/ (GitHub Actions workflows)
+!.github/
+# except for .serena/ (Serena MCP cache and memories)
+!.serena/
+# except for .task/ (Task runner checksums)
+!.task/
+# except for .vscode/ (VS Code settings)
+!.vscode/
+
+# Configuration files (keep example tracked)
+config.yaml
+
+# Ignore Play! working directory #
+db
+eclipse
+log
+logs
+modules
+precompiled
+project/project
+project/target
+tmp
+test-result
+server.pid
+*.iml
+*.eml
+activator-*.sbt
+secan.db
+
+# Docker Compose local config
+secan-config/
+
+# Rust build artifacts (root level after restructure)
+/target/
+backend/target/
+Cargo.lock
+package-lock.json
+# Exception: docs needs package-lock.json for CI
+!docs/package-lock.json
+
+# Frontend
+node_modules
+frontend/dist/
+docs/node_modules/
+
+# Starlight build artifacts (legacy)
+docs/dist/
+docs/src/assets/*/
+docs/src/content/docs/*/
+docs/src/content/docs/main/
+docs/src/content/docs/0.*/
+# Track current version (1.2.x)
+!docs/src/content/docs/1.2/
+
+# Docusaurus build artifacts
+docs/.docusaurus/
+docs/build/
+
+# Frontend build artifacts (embedded by rust-embed during backend build)
+backend/assets/
+
+audit.log
+.task
+.serena

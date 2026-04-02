@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^3.0.0"
+  }
+}

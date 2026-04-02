@@ -1,0 +1,340 @@
+/* ReactFlow dark theme overrides for Secan — imported after the default RF CSS */
+
+/* Use Mantine CSS variables so RF styling follows current Mantine theme automatically.
+   This avoids duplicating logic for light/dark and follows the app tokens. */
+
+/* Per-theme derived tokens used by RF overrides */
+html[data-secan-color-scheme="light"] .secan-reactflow {
+  --secan-rf-edge-color: var(--mantine-color-default-border);
+  --secan-rf-node-text: var(--mantine-color-gray-7);
+  --secan-rf-node-title-weight: 700;
+}
+
+html[data-secan-color-scheme="dark"] .secan-reactflow {
+  --secan-rf-edge-color: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  --secan-rf-node-text: var(--mantine-color-gray-0);
+  --secan-rf-node-title-weight: 700;
+}
+
+/* Surface border token — pick a dim token per color scheme */
+html[data-secan-color-scheme="light"] {
+  --secan-surface-border: var(--mantine-color-default-border);
+  --secan-surface-border-weak: var(--mantine-color-gray-3);
+}
+
+html[data-secan-color-scheme="dark"] {
+  --secan-surface-border: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  --secan-surface-border-weak: rgba(255,255,255,0.03);
+}
+
+/* Scope to the app-specific container to avoid global side-effects */
+.secan-reactflow .react-flow__controls {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px;
+  padding: 6px;
+  border: 1px solid var(--mantine-color-default-border);
+  box-shadow: none;
+}
+
+.secan-reactflow .react-flow__controls button {
+  background: transparent;
+  color: inherit;
+  border: none;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.secan-reactflow .react-flow__controls button:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+.secan-reactflow .react-flow__controls svg {
+  color: var(--mantine-color-gray-7);
+  fill: currentColor;
+}
+
+/* Make sure modal title / tabs reflect light typography in dark mode */
+html[data-secan-color-scheme="dark"] .secan-reactflow ~ .mantine-Modal-root .mantine-Title,
+html[data-secan-color-scheme="dark"] .mantine-Modal-root .mantine-Title,
+html[data-secan-color-scheme="dark"] .mantine-Tabs-tabLabel,
+html[data-secan-color-scheme="dark"] .mantine-Tabs-root .mantine-Tabs-list .mantine-Tabs-tab {
+  color: var(--mantine-color-gray-0) !important;
+}
+
+/* MiniMap */
+.secan-reactflow .react-flow__minimap {
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.secan-reactflow .react-flow__minimap svg {
+  stroke: var(--mantine-color-gray-4);
+}
+
+/* Background dots: make them slightly lighter on dark theme */
+.secan-reactflow .react-flow__background {
+  opacity: 0.9;
+}
+
+/* Default RF node styling (covers simple/default nodes) */
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
+  background: transparent; /* allow node renderer to control backgrounds */
+}
+
+
+.secan-reactflow .react-flow__node-default {
+  /* Let node renderer decide the heavy visuals; provide safe defaults from Mantine vars */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  /* Default: do not force an inner border here — dark-mode will add one where needed */
+  border: none !important;
+}
+
+/* Node label/text */
+.secan-reactflow .react-flow__node-default .react-flow__label {
+  color: var(--mantine-color-gray-7) !important;
+}
+
+/* Some RF versions render default node as a direct child div; cover that too */
+.secan-reactflow .react-flow__node > .react-flow__handle ~ div {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  /* do not force border by default; dark-mode adds one */
+  border: none !important;
+}
+
+/* Additional fallbacks: cover different RF markup patterns for node content */
+.secan-reactflow .react-flow__node > div,
+.secan-reactflow .react-flow__node > div > div,
+.secan-reactflow .react-flow__node .react-flow__node-default,
+.secan-reactflow .react-flow__node .react-flow__label,
+.secan-reactflow .react-flow__node .react-flow__node-content {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  /* Do not add an extra border — inner node components render their own */
+  border: none !important;
+}
+
+/* Ensure the actual ClusterESNodeCard element keeps its visual styles when used inside RF.
+   Do NOT forcibly remove its border here — the inner card is the authoritative
+   source of the visible border. Previously we cleared this border which caused
+   the RF wrapper to draw a separate border and produced a double-outline.
+   With the wrapper border removed, allow the inner card border to render. */
+.secan-reactflow .secan-cluster-node-card {
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.react-flow__node .secan-cluster-node-card {
+  /* global fallback for Canvas view instances where .secan-reactflow may not be present */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+/* Dark-mode: RF is expected to draw the outer border (node renderer hides its own). */
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__label,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node .react-flow__node-content {
+  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+  color: var(--mantine-color-gray-0) !important; /* labels/text should be light */
+}
+
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node-default {
+  border: 1px solid var(--mantine-color-dark-5, rgba(255,255,255,0.04)) !important;
+  color: var(--mantine-color-gray-0) !important;
+}
+
+/* Ensure RF node label/text uses the derived token so native RF nodes match custom nodes */
+.secan-reactflow .react-flow__node .react-flow__label,
+.secan-reactflow .react-flow__node .react-flow__label * {
+  color: var(--secan-rf-node-text) !important;
+  font-family: inherit !important;
+  /* Match ClusterESNodeCard title size & weight: Mantine 'sm' = 0.875rem */
+  font-size: 0.875rem !important;
+  font-weight: var(--secan-rf-node-title-weight) !important;
+  line-height: 1.15 !important;
+}
+
+/* Ensure body text inside native RF nodes also respects app tokens (smaller/dimmed) */
+.secan-reactflow .react-flow__node {
+  font-size: 0.875rem !important;
+  color: var(--secan-rf-node-text) !important;
+}
+
+/* Small integration: inputs or buttons inside nodes should inherit dark theme */
+.secan-reactflow .react-flow__node input,
+.secan-reactflow .react-flow__node button {
+  color: var(--mantine-color-gray-7) !important;
+  background: transparent !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+
+/* Handles (connection dots) */
+.secan-reactflow .react-flow__handle {
+  background: var(--secan-rf-edge-color) !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  width: 10px !important;
+  height: 10px !important;
+  box-shadow: none !important;
+  border-radius: 50% !important;
+}
+
+/* Canvas topology view has no edges — hide handles so they don't clutter grouped layouts */
+.secan-canvas-topology-flow .react-flow__handle {
+  display: none !important;
+}
+
+/* Hover effect for small shard dots used across node views. Adds a subtle
+   outer border to improve affordance when hovering. Target the class we
+   add to rendered dot elements so this doesn't affect RF handles. */
+.secan-shard-dot,
+.secan-shard-node {
+  transition: box-shadow 140ms ease, transform 140ms ease;
+  box-sizing: border-box;
+  display: inline-block;
+}
+
+/* Use an inset stroke so the outline remains visible even when parent
+   containers have overflow:hidden. Increase contrast/opacity slightly to
+   make the outline visible on small dots. */
+html[data-secan-color-scheme="light"] .secan-shard-dot:hover,
+html[data-secan-color-scheme="light"] .secan-shard-node:hover {
+  /* Darker, higher-contrast hover for light theme (improves visibility on pale dots) */
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.18), 0 0 0 3px rgba(0,0,0,0.18) !important;
+}
+html[data-secan-color-scheme="dark"] .secan-shard-dot:hover,
+html[data-secan-color-scheme="dark"] .secan-shard-node:hover {
+  /* Keep dark-theme subtle but slightly stronger than before */
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.06), 0 0 0 3px rgba(255,255,255,0.06) !important;
+}
+
+/* Fallback: apply outline even when color-scheme attribute is not present */
+.secan-shard-dot:hover,
+.secan-shard-node:hover {
+  /* Fallback: darker stroke for environments without color-scheme attribute */
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.18), 0 0 0 3px rgba(0,0,0,0.18) !important;
+}
+
+/* Edge paths / connectors - use same color as nodes */
+.secan-reactflow .react-flow__edge-path {
+  stroke: var(--secan-rf-edge-color) !important;
+  stroke-width: 1.4 !important;
+  opacity: 0.95 !important;
+  stroke-linecap: round !important;
+}
+
+/* Selected / hovered node ring */
+.secan-reactflow .react-flow__node.selected,
+.secan-reactflow .react-flow__node.hovered {
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.03);
+  border-color: var(--mantine-color-blue-7, rgba(66,153,225,0.5));
+}
+
+/* Ensure minimap mask / viewport stands out */
+.secan-reactflow .react-flow__minimap__mask {
+  fill: rgba(0,0,0,0.02);
+}
+
+/* Improve contrast for node outlines inside MiniMap */
+.secan-reactflow .react-flow__minimap rect {
+  stroke: rgba(0,0,0,0.06);
+}
+
+/* Light theme overrides: keep ReactFlow defaults but ensure our scoping doesn't force dark visuals */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__controls {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__controls button {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap {
+  background: transparent !important;
+  border: 1px solid var(--mantine-color-gray-2) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__background {
+  opacity: 1 !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .secan-cluster-node-card {
+  /* Only set background/typography for light mode; leave borders to the node renderer */
+  background: var(--mantine-color-body) !important;
+  color: var(--mantine-color-gray-7) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node-default,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > .react-flow__handle ~ div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-default,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__label,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-content {
+  /* Restore light-mode borders to the app's dimmed token */
+  border: 1px solid var(--mantine-color-default-border) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__handle {
+  background: var(--mantine-color-gray-3) !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__edge-path {
+  stroke: var(--mantine-color-gray-4, rgba(0,0,0,0.12)) !important;
+}
+
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap__mask {
+  fill: rgba(0,0,0,0.01) !important;
+}
+
+/*
+  Remove ReactFlow wrapper borders when our ClusterESNodeCard is used inside the node.
+  Some RF wrapper selectors add a 1px border which becomes visible together with
+  the card's own inline border, producing a double-inner outline. Use :has() to
+  target only RF nodes that contain our card and remove the wrapper border.
+  Modern browsers support :has(), and LightningCSS accepts it. If you need
+  broader toolchain compatibility we can fallback to avoiding RF border rules
+  entirely and rely solely on the card's inline border instead.
+*/
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Fallback for environments where :has() may not be available in the runtime
+   or toolchain. We add a small class on the node renderer wrapper so the same
+   visual effect (removing the RF wrapper border) is guaranteed. */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default,
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}

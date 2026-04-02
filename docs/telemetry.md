@@ -1,0 +1,429 @@
+# OpenTelemetry Distributed Tracing
+
+Secan supports distributed tracing using OpenTelemetry, allowing you to monitor and debug requests as they flow through the application and to Elasticsearch clusters.
+
+## Overview
+
+The telemetry implementation provides:
+
+- **HTTP Request Tracing**: Automatic spans for all incoming HTTP requests
+- **Elasticsearch Operation Tracing**: Child spans for all ES cluster operations
+- **W3C Trace Context**: Standard trace propagation for distributed tracing
+- **OTLP Export**: Send traces to any OpenTelemetry-compatible collector (Jaeger, Zipkin, etc.)
+- **Zero Overhead**: Completely disabled by default with no runtime cost
+
+## Quick Start
+
+### 1. Enable Telemetry
+
+By default, telemetry is **disabled** to ensure zero overhead. To enable it:
+
+```bash
+export OTEL_SDK_DISABLED=false
+```
+
+**Note**: Unlike standard OpenTelemetry behavior, Secan defaults to `OTEL_SDK_DISABLED=true` (disabled) for production safety. You must explicitly set it to `false` to enable tracing.
+
+### 2. Configure the Collector
+
+By default, traces are sent to `http://localhost:4318` (OTLP HTTP). To use a different endpoint:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf  # or "grpc"
+```
+
+### 3. Run Secan
+
+```bash
+./secan
+```
+
+You should see a log message:
+```
+INFO OpenTelemetry telemetry initialized successfully
+```
+
+## Configuration Reference
+
+All configuration is done via environment variables following OpenTelemetry standards:
+
+### Basic Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OTEL_SDK_DISABLED` | Set to `false` to enable telemetry, `true` to disable | `true` (disabled) |
+| `OTEL_SERVICE_NAME` | Service name shown in traces | `secan` |
+| `OTEL_SERVICE_VERSION` | Service version | From `Cargo.toml` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Additional attributes (comma-separated key=value pairs) | (empty) |
+
+### OTLP Export Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL | `http://localhost:4318/v1/traces` (HTTP) or `http://localhost:4317` (gRPC) |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | Transport protocol: `http/protobuf` or `grpc` | `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Authentication headers (comma-separated key=value pairs) | (empty) |
+
+### Sampling Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OTEL_TRACES_SAMPLER` | Sampling strategy: `always_on`, `always_off`, `traceidratio`, `parentbased_always_on` | `always_on` |
+| `OTEL_TRACES_SAMPLER_ARG` | Argument for ratio-based samplers (0.0 to 1.0) | (none) |
+
+### Batch Export Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OTEL_BSP_MAX_QUEUE_SIZE` | Maximum pending spans before dropping | `2048` |
+| `OTEL_BSP_SCHEDULE_DELAY` | Export interval in milliseconds | `5000` (5 seconds) |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | Maximum spans per batch | `512` |
+| `OTEL_BSP_EXPORT_TIMEOUT` | Export timeout in milliseconds | `30000` (30 seconds) |
+
+### Frontend Configuration
+
+No additional configuration needed! The frontend automatically generates W3C traceparent headers for every API request. The backend uses these headers to create properly-rooted traces.
+
+Benefits of this approach:
+- **No CORS issues** - headers are standard HTTP headers
+- **Zero frontend dependencies** - no OpenTelemetry SDK to load
+- **Clean traces** - each user action is a separate trace
+- **Automatic** - works out of the box with no configuration
+
+## Example Configurations
+
+### Local Development with Jaeger
+
+```bash
+# Start Jaeger
+ docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+
+# Configure Secan
+export OTEL_SDK_DISABLED=false
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_SERVICE_NAME=secan-dev
+
+# Run Secan
+./secan
+```
+
+Access Jaeger UI at http://localhost:16686
+
+### Production with Authentication
+
+```bash
+export OTEL_SDK_DISABLED=false
+export OTEL_SERVICE_NAME=secan-production
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4317
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer your-token-here"
+export OTEL_TRACES_SAMPLER=traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.1
+export OTEL_RESOURCE_ATTRIBUTES="env=production,region=us-east-1,team=platform"
+```
+
+### Using Zipkin
+
+```bash
+export OTEL_SDK_DISABLED=false
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:9411/api/v2/spans
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+### Console Output (Development/Debugging)
+
+```bash
+export OTEL_SDK_DISABLED=false
+export OTEL_TRACES_EXPORTER=console
+```
+
+This prints traces to stdout instead of sending to a collector (useful for debugging).
+
+## Trace Structure
+
+### HTTP Request Span
+
+When a request comes in, a span is created with:
+
+```
+http_request
+├── http.method: GET
+├── http.route: /api/clusters/{id}
+├── http.target: /api/clusters/123
+├── http.scheme: https
+├── http.host: localhost:3000
+├── http.status_code: 200
+└── http.response_content_length: 1024
+```
+
+### Elasticsearch Operation Span
+
+When querying ES, a child span is created:
+
+```
+elasticsearch.query
+├── db.system: elasticsearch
+├── db.operation: _cluster/health
+├── db.statement: {"timeout":"30s"}
+├── elasticsearch.cluster_id: production-cluster
+├── http.method: GET
+├── http.url: http://es-node:9200/_cluster/health
+├── http.status_code: 200
+└── http.response_content_length: 256
+```
+
+### Trace Hierarchy
+
+```
+Trace ID: abc123...
+├── Span: http_request (GET /api/clusters/{id}/health)
+│   ├── http.route: /api/clusters/{id}/health
+│   └── http.status_code: 200
+│
+└── Span: elasticsearch.query (parent: http_request)
+    ├── db.operation: _cluster/health
+    └── http.status_code: 200
+```
+
+## Trace Context Propagation
+
+Secan supports W3C Trace Context for distributed tracing:
+
+### Incoming Requests
+
+If a request includes a `traceparent` header, Secan will:
+1. Extract the trace ID and parent span ID
+2. Continue the trace from the caller
+3. Create child spans for all operations
+
+Example:
+```bash
+curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+     http://localhost:3000/api/clusters
+```
+
+### Outgoing Requests (Future Enhancement)
+
+When querying Elasticsearch, Secan injects the trace context so ES can continue the trace (if ES has tracing enabled).
+
+## Performance Considerations
+
+### Overhead
+
+When **disabled** (default - OTEL_SDK_DISABLED not set or "true"):
+- Zero runtime overhead
+- No allocations
+- No network connections
+- Telemetry code is not initialized
+
+When **enabled** (OTEL_SDK_DISABLED="false"):
+- ~1ms latency added per request (span creation)
+- Async batch export (non-blocking)
+- Memory usage: ~50MB for span buffer
+
+### Sampling
+
+For high-traffic environments, use sampling to reduce overhead:
+
+```bash
+# Sample 10% of traces
+export OTEL_TRACES_SAMPLER=traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.1
+
+# Or use parent-based sampling (sample if parent is sampled)
+export OTEL_TRACES_SAMPLER=parentbased_traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.1
+```
+
+### Batch Configuration
+
+For high-throughput scenarios, tune batch settings:
+
+```bash
+# More frequent exports (lower latency, more CPU)
+export OTEL_BSP_SCHEDULE_DELAY=1000
+export OTEL_BSP_MAX_EXPORT_BATCH_SIZE=256
+
+# Larger queue (more memory, less dropping)
+export OTEL_BSP_MAX_QUEUE_SIZE=8192
+```
+
+## Troubleshooting
+
+### Telemetry Not Initializing
+
+Check logs for:
+```
+ERROR Failed to initialize telemetry: ...
+```
+
+Common issues:
+- Invalid OTLP endpoint URL
+- Network connectivity to collector
+- Invalid protocol specification
+
+### No Traces in Collector
+
+1. Verify telemetry is enabled:
+   ```bash
+   echo $OTEL_SDK_DISABLED  # Should be "false" or unset
+   ```
+
+2. Check collector is running and accessible:
+   ```bash
+   curl http://localhost:4318/v1/traces  # Should return 405 (method not allowed) or similar
+   ```
+
+3. Enable debug logging:
+   ```bash
+   export RUST_LOG=opentelemetry=debug
+   ```
+
+### High Memory Usage
+
+If the span queue fills up:
+```
+WARN Dropping spans, queue full
+```
+
+Solutions:
+- Increase `OTEL_BSP_MAX_QUEUE_SIZE`
+- Decrease `OTEL_BSP_SCHEDULE_DELAY` (export more frequently)
+- Check collector is responsive
+- Enable sampling to reduce span volume
+
+### Console Exporter Not Working
+
+The console exporter is for development only:
+```bash
+export OTEL_TRACES_EXPORTER=console
+```
+
+Note: This requires telemetry to be enabled (`OTEL_SDK_DISABLED=false`).
+
+## Supported Collectors
+
+Secan uses standard OTLP, so it works with any OpenTelemetry-compatible collector:
+
+- **Jaeger**: Native OTLP support (v1.35+)
+- **Zipkin**: Via OTLP bridge
+- **Prometheus**: Via OpenTelemetry Collector
+- **Datadog**: Via OpenTelemetry Collector
+- **Honeycomb**: Native OTLP support
+- **New Relic**: Native OTLP support
+- **AWS X-Ray**: Via OpenTelemetry Collector
+- **Google Cloud Trace**: Via OpenTelemetry Collector
+- **Azure Monitor**: Via OpenTelemetry Collector
+
+## Architecture
+
+### Backend-Only Tracing
+
+```
+┌─────────────┐     HTTP      ┌─────────────┐    OTLP/HTTP    ┌─────────────┐
+│   Client    │ ────────────► │   Secan     │ ──────────────► │   Jaeger    │
+│             │   Request     │  (Traces)   │    or gRPC      │   Zipkin    │
+│             │               │             │                 │   etc.      │
+└─────────────┘               └─────────────┘                 └─────────────┘
+                                    │
+                                    │ Internal
+                                    ▼
+                          ┌─────────────────────┐
+                          │  ES Cluster Client  │
+                          │   (Child Spans)     │
+                          └─────────────────────┘
+```
+
+### End-to-End Trace Context (Frontend + Backend)
+
+```
+┌───────────────┐   HTTP +        ┌───────────────┐   OTLP/HTTP   ┌───────────────┐
+│    Browser    │  traceparent    │    Secan      │──────────────►│ OTLP Collector│
+│  (Headers     │  header         │  (Traces)     │               │(Jaeger/Zipkin)│
+│   only)       │                 │               │               │               │
+└───────────────┘                 └───────────────┘               └─────────────┘
+                                         │
+                                         │ Internal
+                                         ▼
+                               ┌─────────────────────┐
+                               │  ES Cluster Client  │
+                               │   (Child Spans)     │
+                               └─────────────────────┘
+```
+
+## Frontend Trace Context
+
+Secan uses a lightweight approach for frontend-to-backend trace correlation: **W3C Trace Context headers only**, without the complexity of a full frontend OpenTelemetry SDK.
+
+### How It Works
+
+1. **Frontend** generates a fresh `traceparent` header for each API request using a lightweight W3C-compliant generator
+2. **Backend** extracts the `traceparent` header and creates a root span for the HTTP request
+3. **Backend** ES operations become child spans of that HTTP request
+4. **Result**: Each user action (clicking pagination, sorting, etc.) creates a clean trace with backend operations properly nested
+
+### Why No Frontend Spans?
+
+We intentionally **do not** use the OpenTelemetry Web SDK because:
+
+- **SPAs don't have "page loads"** - a never-ending page-level span is an anti-pattern
+- **User interactions are independent** - clicking pagination should be a separate trace, not nested under the initial page load
+- **Simpler architecture** - no frontend span export, batching, or flush complexity
+- **Same result** - you get full visibility into backend operations triggered by user actions
+
+### Traceparent Generation
+
+The frontend API client automatically injects W3C-compliant `traceparent` headers:
+
+```typescript
+// Automatically injected on every API request
+traceparent: 00-<32-char-trace-id>-<16-char-span-id>-01
+```
+
+This is done via an Axios interceptor in `frontend/src/api/client.ts`.
+
+### Example Trace Flow
+
+```
+User clicks "Next Page" in UI
+    ↓
+Frontend generates: traceparent: 00-abc123...-def456...-01
+    ↓
+GET /api/clusters/{id}/indices?page=2 (with traceparent header)
+    ↓
+Backend creates root span: "GET /api/clusters/{id}/indices"
+    ↓
+Backend queries ES → child span: "ES /_cat/indices"
+    ↓
+Single trace in Jaeger:
+    Trace abc123...
+    ├── GET /api/clusters/{id}/indices (root)
+    └── ES /_cat/indices (child)
+```
+
+## Future Enhancements
+
+Planned enhancements:
+
+- **Metrics**: OpenTelemetry metrics (counters, histograms)
+- **Logs**: Structured log correlation with traces
+
+## References
+
+- [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/)
+- [OTLP Protocol](https://opentelemetry.io/docs/specs/otlp/)
+- [Jaeger Documentation](https://www.jaegertracing.io/docs/)
+- [OpenTelemetry Rust](https://github.com/open-telemetry/opentelemetry-rust)
+
+## Getting Help
+
+For issues or questions:
+1. Check the troubleshooting section above
+2. Enable debug logging: `RUST_LOG=opentelemetry=debug`
+3. Review the [OpenTelemetry Rust documentation](https://docs.rs/opentelemetry/)
+4. Open an issue on the Secan repository

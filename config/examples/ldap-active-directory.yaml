@@ -1,0 +1,167 @@
+# ============================================================================
+# LDAP Authentication Configuration Example - Active Directory
+# ============================================================================
+#
+# This example shows how to configure LDAP authentication with Microsoft
+# Active Directory (AD). AD has some differences from standard LDAP servers.
+#
+# Copy the relevant sections to your config.yaml and customize for your
+# environment.
+
+# ============================================================================
+# SERVER CONFIGURATION
+# ============================================================================
+
+server:
+  host: "0.0.0.0"
+  port: 27182
+
+# ============================================================================
+# AUTHENTICATION CONFIGURATION - LDAP with Active Directory
+# ============================================================================
+
+auth:
+  # Set authentication mode to LDAP
+  mode: ldap
+
+  # Session timeout in minutes (default: 60)
+  session_timeout_minutes: 60
+
+  # LDAP configuration for Active Directory
+  ldap:
+    # LDAP server URL
+    # - Use ldap:// for unencrypted connections (development only)
+    # - Use ldaps:// for TLS-encrypted connections (recommended for production)
+    # - AD typically uses port 389 for LDAP and 636 for LDAPS
+    # - You can use the domain name or a specific domain controller
+    server_url: "ldap://dc1.corp.example.com:389"
+    
+    # Service account credentials for binding to Active Directory
+    # This account is used to search for users and query group memberships
+    # Grant minimal required permissions (read-only access to users and groups)
+    #
+    # AD supports multiple bind DN formats:
+    # 1. Distinguished Name: CN=Service Account,CN=Users,DC=corp,DC=example,DC=com
+    # 2. User Principal Name: service-account@corp.example.com
+    # 3. Down-level logon name: CORP\service-account
+    bind_dn: "CN=Service Account,CN=Users,DC=corp,DC=example,DC=com"
+    bind_password: "service-account-password"
+    
+    # User search configuration
+    # Base DN where user searches begin
+    # Common AD locations:
+    #   - CN=Users,DC=corp,DC=example,DC=com (default users container)
+    #   - OU=Employees,DC=corp,DC=example,DC=com (custom organizational unit)
+    search_base: "CN=Users,DC=corp,DC=example,DC=com"
+    
+    # LDAP filter for finding users
+    # {username} is replaced with the username from the login form
+    # Common Active Directory filters:
+    #   - (sAMAccountName={username})    - Match by Windows logon name (most common)
+    #   - (userPrincipalName={username}) - Match by UPN (user@domain.com)
+    #   - (cn={username})                - Match by common name
+    #   - (&(sAMAccountName={username})(objectClass=user)) - Match with object class
+    #   - (&(sAMAccountName={username})(!(userAccountControl:1.2.840.113556.1.4.803:=2))) - Exclude disabled accounts
+    search_filter: "(sAMAccountName={username})"
+    
+    # Alternative: Direct bind with DN pattern (skip user search)
+    # Note: AD typically requires search because user DNs are not predictable
+    # Uncomment only if you have a consistent DN pattern
+    # user_dn_pattern: "CN={username},CN=Users,DC=corp,DC=example,DC=com"
+    
+    # Group membership configuration
+    # Base DN where group searches begin
+    # Common AD locations:
+    #   - CN=Users,DC=corp,DC=example,DC=com (built-in groups)
+    #   - OU=Groups,DC=corp,DC=example,DC=com (custom groups)
+    group_search_base: "DC=corp,DC=example,DC=com"
+    
+    # LDAP filter for finding groups
+    # {user_dn} is replaced with the user's Distinguished Name
+    # Common Active Directory group filters:
+    #   - (member={user_dn})                     - Direct group membership
+    #   - (member:1.2.840.113556.1.4.1941:={user_dn}) - Recursive group membership (includes nested groups)
+    #   - (&(objectClass=group)(member={user_dn})) - Groups only (exclude other objects)
+    group_search_filter: "(member:1.2.840.113556.1.4.1941:={user_dn})"
+    
+    # Attribute containing group members (for direct group membership queries)
+    # Active Directory uses "member" attribute
+    group_member_attribute: "member"
+    
+    # User attribute containing group DNs (for reverse lookup)
+    # Active Directory users have a memberOf attribute listing their groups
+    # This is more efficient than searching for groups
+    user_group_attribute: "memberOf"
+    
+    # Required groups for access (empty = allow all authenticated users)
+    # Users must be a member of at least one of these groups to access the application
+    # Use the CN (common name) of the group, not the full DN
+    # Leave empty to allow all authenticated AD users
+    required_groups:
+      - "Elasticsearch-Users"
+      - "Elasticsearch-Admins"
+    
+    # Connection timeout in seconds (default: 10)
+    connection_timeout_seconds: 10
+    
+    # TLS/SSL mode: "none", "starttls", or "ldaps"
+    # - none: Unencrypted connection (development only)
+    # - starttls: Upgrade connection to TLS after connecting
+    # - ldaps: Use TLS from the start (requires ldaps:// URL and port 636)
+    tls_mode: starttls
+    
+    # Skip TLS certificate verification (for testing only - NEVER use in production)
+    tls_skip_verify: false
+    
+    # User attribute mapping
+    # These attributes are extracted from the AD user entry
+    username_attribute: "sAMAccountName"  # Windows logon name
+    email_attribute: "mail"               # Email address
+    display_name_attribute: "displayName" # Full display name
+
+# ============================================================================
+# CLUSTER CONFIGURATION
+# ============================================================================
+
+clusters:
+  - id: "local"
+    name: "Local Elasticsearch"
+    nodes:
+      - "http://localhost:9200"
+    es_version: 8
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# Active Directory Schema Notes:
+# - Standard object class: user (inherits from organizationalPerson)
+# - Common user attributes: sAMAccountName, userPrincipalName, cn, displayName, mail
+# - Group object class: group
+# - Group member attribute: member (contains user DNs)
+# - User group attribute: memberOf (contains group DNs)
+# - User account control: userAccountControl (bit flags for account status)
+#
+# Active Directory Specific Features:
+# - Nested groups: Use LDAP_MATCHING_RULE_IN_CHAIN (1.2.840.113556.1.4.1941) for recursive membership
+# - Global Catalog: Port 3268 (LDAP) or 3269 (LDAPS) for forest-wide searches
+# - User Principal Name: user@domain.com format for authentication
+# - Down-level logon: DOMAIN\user format for authentication
+#
+# Security Best Practices:
+# - Always use TLS in production (starttls or ldaps)
+# - Never skip certificate verification in production
+# - Use a dedicated service account with minimal permissions
+# - Store passwords in environment variables, not in config files
+# - Enable required_groups to restrict access
+# - Consider excluding disabled accounts in search filter
+# - Monitor authentication logs for suspicious activity
+#
+# Troubleshooting:
+# - Set logging level to DEBUG to see LDAP queries and responses
+# - Verify service account can bind: ldapsearch -x -H "ldap://dc1.corp.example.com" -D "bind_dn" -W -b "search_base"
+# - Test user search: ldapsearch -x -H "ldap://dc1.corp.example.com" -D "bind_dn" -W -b "search_base" "(sAMAccountName=username)"
+# - Test group search: ldapsearch -x -H "ldap://dc1.corp.example.com" -D "bind_dn" -W -b "group_search_base" "(member=user_dn)"
+# - Check AD event logs for authentication failures
+# - Verify user account is not disabled or locked
+# - Ensure service account has permission to read user and group objects
