@@ -16,23 +16,37 @@ interface DistributionChartProps {
   height?: number;
   colorScheme: MantineColorScheme;
   query?: string | string[];
+  /** Optional value formatter for tooltip; defaults to showing raw number */
+  valueFormatter?: (value: number) => string;
 }
 
-function PieTooltipContent({ datum }: PieTooltipProps<PieDatum>) {
-  return (
-    <div
-      style={{
-        background: 'var(--mantine-color-body)',
-        border: '1px solid var(--mantine-color-default-border)',
-        borderRadius: '4px',
-        padding: '8px 12px',
-        fontSize: 12,
-        fontWeight: 500,
-      }}
-    >
-      {datum.label}: {datum.value} ({datum.formattedValue})
-    </div>
-  );
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  if (mb >= 1) return `${mb.toFixed(0)} MB`;
+  const kb = bytes / 1024;
+  if (kb >= 1) return `${kb.toFixed(0)} KB`;
+  return `${bytes} B`;
+}
+
+function makePieTooltip(valueFormatter: (v: number) => string) {
+  return function PieTooltipContent({ datum }: PieTooltipProps<PieDatum>) {
+    return (
+      <div
+        style={{
+          background: 'var(--mantine-color-body)',
+          border: '1px solid var(--mantine-color-default-border)',
+          borderRadius: '4px',
+          padding: '8px 12px',
+          fontSize: 12,
+          fontWeight: 500,
+        }}
+      >
+        {datum.label}: {valueFormatter(datum.value)} ({datum.formattedValue})
+      </div>
+    );
+  };
 }
 
 /**
@@ -44,6 +58,7 @@ export function DistributionChart({
   height = 200,
   colorScheme: _colorScheme,
   query,
+  valueFormatter = String,
 }: DistributionChartProps) {
   const { colorScheme: mantineColorScheme } = useMantineColorScheme();
   const nivoTheme = useNivoTheme();
@@ -61,6 +76,7 @@ export function DistributionChart({
     }));
 
   const hasData = filteredData.length > 0;
+  const PieTooltipContent = makePieTooltip(valueFormatter);
 
   return (
     <Card shadow="sm" padding="lg">

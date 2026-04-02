@@ -264,6 +264,31 @@ export function ClusterStatistics({
     [stats]
   );
 
+  // When Prometheus memorySeries is available, build donut data from the latest
+  // data point of each area series (heap/non-heap) instead of stats used/free.
+  const memoryAreaDistributionData = useMemo(() => {
+    if (!memorySeriesMemoized.length || !memorySeriesMemoized[0].data.length) {
+      return memoryUsageData;
+    }
+    const mantineColors: Record<string, string> = {
+      violet: 'var(--mantine-color-violet-6)',
+      grape: 'var(--mantine-color-grape-6)',
+      indigo: 'var(--mantine-color-indigo-6)',
+      blue: 'var(--mantine-color-blue-6)',
+    };
+    return memorySeriesMemoized.map((s) => {
+      // Use the most recent data point for the snapshot value
+      const latest = s.data.reduce((prev, curr) =>
+        curr.timestamp > prev.timestamp ? curr : prev
+      );
+      return {
+        name: s.name,
+        value: latest.value,
+        color: mantineColors[s.color] ?? `var(--mantine-color-${s.color}-6)`,
+      };
+    }).filter((item) => item.value > 0);
+  }, [memorySeriesMemoized, memoryUsageData]);
+
   return (
     <Stack gap="md">
       {/* Hidden Indices Toggle (top right) */}
@@ -428,11 +453,12 @@ export function ClusterStatistics({
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, md: 4 }}>
-          {memoryUsageData.length > 0 ? (
+          {memoryAreaDistributionData.length > 0 ? (
             <DistributionChart
               title="Memory Usage"
-              data={memoryUsageData}
+              data={memoryAreaDistributionData}
               colorScheme={colorScheme}
+              valueFormatter={formatBytes}
               query={prometheusQueries?.jvm_memory_used_bytes}
             />
           ) : (
