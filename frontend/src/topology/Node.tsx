@@ -43,7 +43,7 @@ function NodeComponent({ nodeId, mode, minimalData, detailData, shards = [], onS
     cpuColor: detailData?.cpuColor ?? 'dimmed',
     diskUsed: detailData?.diskUsed ?? 0,
     diskDisplay: detailData?.diskDisplay ?? '',
-    load1m: detailData?.load1m,
+    load5m: detailData?.load5m,
     loadColor: detailData?.loadColor ?? 'dimmed',
     groupLabel: detailData?.groupLabel,
     isValidDestination: detailData?.isValidDestination ?? false,

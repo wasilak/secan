@@ -281,8 +281,8 @@ export function DotBasedTopologyView({
     const heapColor = getHeapColor(heapPercent);
     const cpuPercent = node.cpuPercent ?? undefined;
     const cpuColor = cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
-    const load1m = node.loadAverage?.[0];
-    const loadColor = load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
+    const load5m = node.loadAverage?.[1];
+    const loadColor = load5m === undefined ? 'dimmed' : load5m < 4 ? 'green' : load5m < 6 ? 'yellow' : 'red';
     const diskDisplay = isUnassigned ? '0 B' : formatBytes(effectiveNode.diskUsed);
 
     const sortedShards = nodeShards.slice().sort((a,b) => a.shard - b.shard);
@@ -323,7 +323,7 @@ export function DotBasedTopologyView({
       cpuColor,
       diskUsed: node.diskUsed,
       diskDisplay,
-      load1m,
+      load5m,
       loadColor,
       groupLabel: undefined,
       isValidDestination: isValidDestination,

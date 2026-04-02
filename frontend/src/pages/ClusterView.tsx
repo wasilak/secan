@@ -1975,10 +1975,10 @@ export const NodesList = memo(function NodesList({
                     {node.loadAverage !== undefined && node.loadAverage.length > 0 ? (
                       <Text
                         size="sm"
-                        c={getLoadColor(node.loadAverage[0])}
+                        c={getLoadColor(node.loadAverage[1])}
                         style={{ fontFamily: 'monospace' }}
                       >
-                        {formatLoadAverage(node.loadAverage[0])}
+                        {formatLoadAverage(node.loadAverage[1])}
                       </Text>
                     ) : (
                       <Text size="sm" c="dimmed">

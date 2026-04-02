@@ -25,7 +25,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
     cpuPercent,
     cpuColor,
     diskDisplay,
-    load1m,
+    load5m,
     loadColor,
     groupLabel,
     isValidDestination,
@@ -200,8 +200,8 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           )}
           <Text size="xs" c={heapColor}>Heap: {typeof heapPercent === 'number' && !isNaN(heapPercent) ? `${heapPercent.toFixed(1)}%` : 'N/A'}</Text>
           <Text size="xs" c="dimmed">Disk: {diskDisplay}</Text>
-          {load1m !== undefined && (
-            <Text size="xs" c={loadColor}>Load: {load1m.toFixed(2)}</Text>
+          {load5m !== undefined && (
+            <Text size="xs" c={loadColor}>Load: {load5m.toFixed(2)}</Text>
           )}
         </Flex>
       )}

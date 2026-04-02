@@ -33,7 +33,7 @@ export interface ClusterGroupNodeDataFlat {
   cpuColor: string;
   diskUsed: number;
   diskDisplay: string;
-  load1m?: number;
+  load5m?: number;
   loadColor: string;
 
   groupLabel?: string;
@@ -219,9 +219,9 @@ function emitGroupNode(
   const cpuPercent = node.cpuPercent ?? undefined;
   const cpuColor =
     cpuPercent === undefined ? 'dimmed' : cpuPercent < 70 ? 'green' : cpuPercent < 85 ? 'yellow' : 'red';
-  const load1m = node.loadAverage?.[0];
+  const load5m = node.loadAverage?.[1];
   const loadColor =
-    load1m === undefined ? 'dimmed' : load1m < 4 ? 'green' : load1m < 6 ? 'yellow' : 'red';
+    load5m === undefined ? 'dimmed' : load5m < 4 ? 'green' : load5m < 6 ? 'yellow' : 'red';
   const diskDisplay = isUnassignedNode ? '0 B' : formatBytes(node.diskUsed);
 
   // Shard dot and badge summaries (precompute all)
@@ -270,7 +270,7 @@ function emitGroupNode(
     diskUsed: node.diskUsed,
     diskDisplay,
     isUnassigned: isUnassignedNode,
-    load1m,
+    load5m,
     loadColor,
     groupLabel,
     isValidDestination: !!isValidDestination,

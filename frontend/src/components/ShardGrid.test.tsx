@@ -32,7 +32,7 @@ const mockNodes: NodeWithShards[] = [
     diskUsed: 50000000000,
     diskTotal: 100000000000,
     cpuPercent: 45,
-    loadAverage: [2.5],
+    loadAverage: [2.5, 2.75, 2.9],
     isMaster: true,
     isMasterEligible: true,
     shards: new Map([
@@ -62,7 +62,7 @@ const mockNodes: NodeWithShards[] = [
     diskUsed: 30000000000,
     diskTotal: 100000000000,
     cpuPercent: 30,
-    loadAverage: [1.5],
+    loadAverage: [1.5, 1.6, 1.7],
     isMaster: false,
     isMasterEligible: false,
     shards: new Map([
@@ -239,7 +239,7 @@ describe('ShardGrid', () => {
     expect(screen.getByText(/cpu: 45%/i)).toBeInTheDocument();
 
     // Check for load average
-    expect(screen.getByText(/load: 2\.50/i)).toBeInTheDocument();
+    expect(screen.getByText(/load: 2\.75/i)).toBeInTheDocument();
   });
 
   it('renders index metadata', async () => {

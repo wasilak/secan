@@ -70,7 +70,7 @@ function arePropsEqual(prev: NodeProps & { data: ClusterGroupNodeDataFlat }, nex
   // Fast path: all primitive and string props
   const keys: (keyof ClusterGroupNodeDataFlat)[] = [
     'id','name','version','isMaster','isMasterEligible','ip','heapPercent','heapColor',
-    'cpuPercent','cpuColor','diskUsed','diskDisplay','load1m','loadColor','groupLabel','isValidDestination'
+    'cpuPercent','cpuColor','diskUsed','diskDisplay','load5m','loadColor','groupLabel','isValidDestination'
   ];
   for (const key of keys) {
     if (pd[key] !== nd[key]) return false;
