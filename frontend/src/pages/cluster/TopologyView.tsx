@@ -323,6 +323,8 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 selectedShardStates={selectedShardStates}
                 topIndices={sankeyTopIndices}
                 onTopIndicesChange={setSankeyTopIndices}
+                openNodeModal={openNodeModal}
+                openIndexModal={openIndexModal}
               />
             ) : (
               <ShardAllocationGrid

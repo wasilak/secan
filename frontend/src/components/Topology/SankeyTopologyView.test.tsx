@@ -9,9 +9,13 @@ import type { SankeyResponse } from '../../types/api';
 // Module mocks
 // ---------------------------------------------------------------------------
 
-// Mock nivo/sankey so it does not crash in jsdom (no SVG rendering support)
+// Mock nivo/sankey — captures the onClick prop so we can simulate node/link clicks
+let capturedOnClick: ((datum: unknown, event: unknown) => void) | undefined;
 vi.mock('@nivo/sankey', () => ({
-  ResponsiveSankey: () => <div data-testid="sankey-chart" />,
+  ResponsiveSankey: (props: { onClick?: (datum: unknown, event: unknown) => void }) => {
+    capturedOnClick = props.onClick;
+    return <div data-testid="sankey-chart" />;
+  },
 }));
 
 // Mock the useSankeyData hook — all tests control its return value
@@ -33,6 +37,8 @@ const defaultProps = {
   selectedShardStates: [],
   topIndices: 50,
   onTopIndicesChange: vi.fn(),
+  openNodeModal: vi.fn(),
+  openIndexModal: vi.fn(),
 };
 
 const emptyResponse: SankeyResponse = {
@@ -71,6 +77,7 @@ const populatedResponse: SankeyResponse = {
 describe('SankeyTopologyView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    capturedOnClick = undefined;
   });
 
   it('renders loading skeleton when loading with no data', () => {
@@ -222,5 +229,104 @@ describe('SankeyTopologyView', () => {
     const applyButton = screen.getByRole('button', { name: /apply/i });
     fireEvent.click(applyButton);
     expect(mockOnTopIndicesChange).toHaveBeenCalledWith(75);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Click-to-open-modal tests
+  // ---------------------------------------------------------------------------
+
+  it('calls openIndexModal when an index node is clicked', () => {
+    const mockOpenIndexModal = vi.fn();
+
+    mockUseSankeyData.mockReturnValue({
+      data: populatedResponse,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <SankeyTopologyView {...defaultProps} openIndexModal={mockOpenIndexModal} />
+      </TestWrapper>
+    );
+
+    // Simulate nivo calling onClick with an index node datum
+    capturedOnClick?.({ kind: 'index', id: 'my-index', totalShards: 2, primaryShards: 1, replicaShards: 1, storeBytes: 0 }, {});
+    expect(mockOpenIndexModal).toHaveBeenCalledWith('my-index');
+  });
+
+  it('calls openNodeModal when a node datum is clicked', () => {
+    const mockOpenNodeModal = vi.fn();
+
+    mockUseSankeyData.mockReturnValue({
+      data: populatedResponse,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <SankeyTopologyView {...defaultProps} openNodeModal={mockOpenNodeModal} />
+      </TestWrapper>
+    );
+
+    // Simulate nivo calling onClick with a node datum
+    capturedOnClick?.({ kind: 'node', id: 'node-1', totalShards: 2, primaryShards: 1, replicaShards: 1, storeBytes: 0 }, {});
+    expect(mockOpenNodeModal).toHaveBeenCalledWith('node-1');
+  });
+
+  it('does not call any modal when an unassigned node is clicked', () => {
+    const mockOpenNodeModal = vi.fn();
+    const mockOpenIndexModal = vi.fn();
+
+    mockUseSankeyData.mockReturnValue({
+      data: populatedResponse,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <SankeyTopologyView
+          {...defaultProps}
+          openNodeModal={mockOpenNodeModal}
+          openIndexModal={mockOpenIndexModal}
+        />
+      </TestWrapper>
+    );
+
+    capturedOnClick?.({ kind: 'unassigned', id: '.unassigned', totalShards: 1, primaryShards: 0, replicaShards: 1, storeBytes: 0 }, {});
+    expect(mockOpenNodeModal).not.toHaveBeenCalled();
+    expect(mockOpenIndexModal).not.toHaveBeenCalled();
+  });
+
+  it('does not call any modal when a link is clicked', () => {
+    const mockOpenNodeModal = vi.fn();
+    const mockOpenIndexModal = vi.fn();
+
+    mockUseSankeyData.mockReturnValue({
+      data: populatedResponse,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <SankeyTopologyView
+          {...defaultProps}
+          openNodeModal={mockOpenNodeModal}
+          openIndexModal={mockOpenIndexModal}
+        />
+      </TestWrapper>
+    );
+
+    // Link datum has no `kind` property
+    capturedOnClick?.({ source: { id: 'my-index' }, target: { id: 'node-1' }, value: 2 }, {});
+    expect(mockOpenNodeModal).not.toHaveBeenCalled();
+    expect(mockOpenIndexModal).not.toHaveBeenCalled();
   });
 });

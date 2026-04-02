@@ -28,6 +28,8 @@ export interface SankeyTopologyViewProps {
   selectedShardStates: string[];
   topIndices: number;
   onTopIndicesChange: (n: number) => void;
+  openNodeModal: (nodeId: string) => void;
+  openIndexModal: (indexName: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,11 @@ const NodeTooltip: FunctionComponent<{
           Store: <strong>{formatBytes(node.storeBytes)}</strong>
         </Text>
       )}
+      {node.kind !== 'unassigned' && (
+        <Text size="xs" c="blue" mt={2}>
+          Click to view details
+        </Text>
+      )}
     </Stack>
   </Paper>
 );
@@ -121,7 +128,7 @@ const LinkTooltip: FunctionComponent<{
 // ---------------------------------------------------------------------------
 
 export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement {
-  const { clusterId, selectedShardStates, topIndices, onTopIndicesChange } = props;
+  const { clusterId, selectedShardStates, topIndices, onTopIndicesChange, openNodeModal, openIndexModal } = props;
 
   // "Pending" value — what the user is currently editing in the input.
   const [pendingTopIndices, setPendingTopIndices] = useState<number>(topIndices);
@@ -140,6 +147,15 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
   function handleApply() {
     setAppliedTopIndices(pendingTopIndices);
     onTopIndicesChange(pendingTopIndices);
+  }
+
+  function handleNodeClick(datum: SankeyNodeDatum<SankeyNodeExtra, SankeyLinkExtra> | SankeyLinkDatum<SankeyNodeExtra, SankeyLinkExtra>) {
+    // SankeyLinkDatum does not have `kind` — use it as discriminator
+    if (!('kind' in datum)) return;
+    const node = datum as SankeyNodeDatum<SankeyNodeExtra, SankeyLinkExtra>;
+    if (node.kind === 'index') openIndexModal(node.id);
+    else if (node.kind === 'node') openNodeModal(node.id);
+    // 'unassigned' — no modal
   }
 
   // ---- Loading state (initial load only — no data yet) ----
@@ -249,7 +265,7 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
       )}
 
       {/* Sankey diagram */}
-      <div style={{ height: 500 }}>
+      <div style={{ height: 500, cursor: 'pointer' }}>
         <ResponsiveSankey<SankeyNodeExtra, SankeyLinkExtra>
           data={{ nodes: nivoNodes, links: nivoLinks }}
           margin={{ top: 16, right: 160, bottom: 16, left: 200 }}
@@ -274,6 +290,7 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
           labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
           nodeTooltip={NodeTooltip}
           linkTooltip={LinkTooltip}
+          onClick={handleNodeClick}
         />
       </div>
     </Stack>
