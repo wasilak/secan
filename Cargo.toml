@@ -104,6 +104,9 @@ urlencoding = "2"
 # Base64 encoding/decoding
 base64 = "0.22"
 
+# Convenience utility for lazy static initialization used by session reference store
+# once_cell removed — no server-side reference store used for sessions
+
 # Stable hashing for tile version tokens
 sha2 = "0.10"
 # LRU + TTL async cache for tile caching

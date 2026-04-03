@@ -106,6 +106,8 @@ pub struct UserInfoResponse {
     pub username: String,
     /// User groups/roles
     pub groups: Vec<String>,
+    /// Cluster IDs the user can access (resolved server-side)
+    pub accessible_clusters: Vec<String>,
 }
 
 impl IntoResponse for ErrorResponse {
@@ -490,13 +492,23 @@ pub async fn login(
     ),
     tag = "Authentication"
 )]
-#[instrument(fields(username = %user.0.username))]
+#[instrument(skip(state), fields(username = %user.0.username))]
 pub async fn get_current_user(
+    State(state): State<AuthState>,
     Extension(user): Extension<AuthenticatedUser>,
 ) -> Json<UserInfoResponse> {
+    use crate::auth::PermissionResolver;
+
+    // Resolve accessible clusters from the user's groups/roles on demand so
+    // the JWT remains small. The PermissionResolver is deterministic and uses
+    // configuration available in state.config.
+    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
+    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.0.roles);
+
     Json(UserInfoResponse {
         username: user.0.username.clone(),
         groups: user.0.roles.clone(),
+        accessible_clusters,
     })
 }
 

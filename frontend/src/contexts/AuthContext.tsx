@@ -100,20 +100,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
       body: JSON.stringify({ username, password }),
     });
 
+    // Parse the login response body where the server may include a
+    // `session_token` (useful when cookies are not set due to Secure/SameSite
+    // issues). We still rely on the HttpOnly cookie for normal auth.
+    const loginBody = await response.json().catch(() => ({ message: 'Login failed' }));
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Login failed' }));
-      throw new Error(error.message || 'Invalid username or password');
+      throw new Error(loginBody.message || 'Invalid username or password');
     }
 
-    // After successful login, refetch user to update state.
-    // If /api/auth/me fails, propagate the error so callers (UI) can handle it
-    // instead of proceeding as if login succeeded (which created a redirect loop).
+    // After successful login, confirm authenticated user state. If this
+    // fails it usually indicates the browser did not send the session cookie
+    // (e.g. Secure/SameSite mismatch). Provide a helpful error message so the
+    // user (or dev) can act instead of seeing a generic failure.
     const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
     if (!meResponse.ok) {
-      const err = await meResponse.json().catch(() => ({ message: 'Failed to fetch user after login' }));
-      // Ensure we clear any partial state and surface an error to the caller
+      // Attempt to read a useful message from the /api/auth/me response body
+    const meErr = await meResponse
+        .json()
+        .catch(() => ({} as Record<string, unknown>));
+
+      // If the login response included a session token, we can hint that the
+      // cookie was likely not set or not sent by the browser.
+      if (loginBody && loginBody.session_token) {
+        const serverMsg = meErr?.message || `status ${meResponse.status}`;
+        const hint =
+          'Login succeeded but the application could not confirm your session. ' +
+          'This commonly happens when the browser does not send the session cookie (Secure/SameSite settings). ' +
+          'If Secan is served over HTTPS, ensure the backend sets secure cookies (SECAN_SECURE_COOKIES=true). ' +
+          `Server: ${serverMsg}`;
+        setUser(null);
+        throw new Error(hint);
+      }
+
+      // Fallback: surface server-provided message if present
+      const fallback = meErr?.message || 'Failed to fetch authenticated user after login';
       setUser(null);
-      throw new Error(err.message || 'Failed to fetch authenticated user');
+      throw new Error(fallback);
     }
 
     const userData = await meResponse.json();

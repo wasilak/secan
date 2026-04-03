@@ -215,18 +215,19 @@ tasks:
 
   ci:frontend:
     desc: Run complete frontend CI/CD checks
+    dir: frontend
     cmds:
       - echo "=== FRONTEND CI/CD ==="
-      - echo "4. NPM lint..."
-      - cd frontend && npm run lint
+      - echo "1. NPM lint..."
+      - npm run lint
       - echo "✅ PASSED"
       - echo ""
-      - echo "5. NPM test..."
-      - cd frontend && npm test
+      - echo "2. NPM test..."
+      - npm test
       - echo "✅ PASSED"
       - echo ""
-      - echo "6. NPM build..."
-      - cd frontend && npm run build
+      - echo "3. NPM build..."
+      - npm run build
       - echo "✅ PASSED"
       - echo ""
       - echo "=== FRONTEND CI/CD COMPLETE ==="

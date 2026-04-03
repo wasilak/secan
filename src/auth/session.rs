@@ -6,6 +6,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+// Keep a cookie size threshold for diagnostics. We will not use a server-side
+// reference store — the design is stateless JWTs. When tokens exceed this size
+// we log a warning to help investigate (but still set the full JWT cookie).
+const COOKIE_SIZE_LIMIT: usize = 3800;
+
 // ── Session configuration ─────────────────────────────────────────────────────
 
 /// Session configuration
@@ -41,6 +46,11 @@ pub struct SessionClaims {
     /// RBAC roles
     pub roles: Vec<String>,
     /// Cluster IDs accessible to this user (`"*"` means all)
+    ///
+    /// NOTE: We intentionally do NOT embed accessible_clusters in the JWT to
+    /// avoid oversized cookies. Cluster access is resolved on-demand (e.g.
+    /// in /api/auth/me) using the user's groups/roles.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub accessible_clusters: Vec<String>,
     /// Expiry (Unix seconds) — validated by the JWT library
     pub exp: u64,
@@ -64,6 +74,9 @@ pub struct Session {
     /// RBAC roles
     pub roles: Vec<String>,
     /// Cluster IDs accessible to this user
+    ///
+    /// Populated from JWT claims where present. After the refactor we keep this
+    /// empty in the token and resolve clusters server-side when needed.
     pub accessible_clusters: Vec<String>,
     /// When the JWT was issued (`iat`)
     pub created_at: DateTime<Utc>,
@@ -151,6 +164,19 @@ fn secure_cookies_enabled() -> bool {
 /// never disable `Secure` — modern browsers enforce "Schemeful SameSite" and
 /// will refuse to send a non-Secure cookie from an HTTPS origin.
 pub fn build_session_cookie_header(token: &str, max_age_seconds: u64) -> http::HeaderValue {
+    // If the JWT exceeds common cookie size limits, log a warning for
+    // diagnostics. We intentionally do not fall back to a server-side
+    // reference store: sessions must remain stateless for horizontal
+    // scalability. The full JWT will still be set in the cookie; admins can
+    // use logs to find offending token sizes and reduce embedded data.
+    if token.len() > COOKIE_SIZE_LIMIT {
+        tracing::warn!(
+            token_len = token.len(),
+            limit = COOKIE_SIZE_LIMIT,
+            "JWT size exceeds typical browser cookie limits — Set-Cookie may be ignored by some browsers"
+        );
+    }
+
     let value = if secure_cookies_enabled() {
         format!(
             "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age={}",
@@ -301,8 +327,13 @@ impl SessionManager {
 
         let token = self.encode_jwt(&claims)?;
 
+        // Diagnostic: log the encoded token length and cluster count so administrators
+        // can identify cases where tokens grow too large (helps debugging ignored
+        // Set-Cookie headers in browsers).
         tracing::debug!(
             jti = %claims.jti,
+            token_len = token.len(),
+            clusters = claims.accessible_clusters.len(),
             timeout_minutes = self.config.timeout_minutes,
             "Session created"
         );

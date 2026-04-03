@@ -1146,18 +1146,19 @@ impl LdapAuthProvider {
             );
         }
 
-        // Create AuthUser with accessible clusters
-        let auth_user_with_clusters = crate::auth::session::AuthUser::new_with_clusters(
+        // Create AuthUser WITHOUT embedding cluster list in the JWT. Cluster
+        // access can be resolved on-demand (e.g., by /api/auth/me) using the
+        // user's groups. This keeps the JWT small and stateless.
+        let auth_user_no_clusters = crate::auth::session::AuthUser::new(
             auth_user.id,
             auth_user.username.clone(),
             groups.clone(),
-            accessible_clusters.clone(),
         );
 
-        // Create session using session_manager
+        // Create session using session_manager (stateless JWT without clusters)
         let session_token = self
             .session_manager
-            .create_session(auth_user_with_clusters)
+            .create_session(auth_user_no_clusters)
             .await
             .context("Failed to create session after successful LDAP authentication")?;
 
