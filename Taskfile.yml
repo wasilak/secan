@@ -80,6 +80,11 @@ tasks:
       # Dev-only secret. Override with a real secret in production via your
       # deployment environment (never commit production secrets here).
       SECAN_SESSION_SECRET: "secan-local-dev-secret-do-not-use-in-production-xK9m"
+      # For local development over plain HTTP, allow unsecure cookies. Production
+      # deployments (HTTPS) should set SECAN_SECURE_COOKIES=true in their
+      # environment; the code defaults to secure cookies but this makes the
+      # dev task predictable.
+      SECAN_SECURE_COOKIES: "false"
     cmds:
       - cargo run
 

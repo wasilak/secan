@@ -133,17 +133,25 @@ impl AuthUser {
 
 // ── Cookie helper (shared between middleware and route handlers) ───────────────
 
+/// Returns `true` if the `Secure` cookie attribute should be included.
+///
+/// Defaults to **`true`** (secure by default for HTTPS production deployments).
+/// Set `SECAN_SECURE_COOKIES=false` to opt out when running over plain HTTP
+/// (e.g. local development via `task backend:run`).
+fn secure_cookies_enabled() -> bool {
+    std::env::var("SECAN_SECURE_COOKIES")
+        .map(|v| v.to_lowercase() != "false")
+        .unwrap_or(true)
+}
+
 /// Build a `Set-Cookie` header value for the `session_token` cookie.
 ///
-/// The `Secure` flag is controlled by the `SECAN_SECURE_COOKIES=true` environment
-/// variable so that local HTTP development works out of the box while production
-/// deployments behind an HTTPS reverse proxy can enforce it.
+/// The `Secure` flag defaults to **on**.  Set `SECAN_SECURE_COOKIES=false` only
+/// when serving over plain HTTP (local development).  HTTPS deployments should
+/// never disable `Secure` — modern browsers enforce "Schemeful SameSite" and
+/// will refuse to send a non-Secure cookie from an HTTPS origin.
 pub fn build_session_cookie_header(token: &str, max_age_seconds: u64) -> http::HeaderValue {
-    let secure = std::env::var("SECAN_SECURE_COOKIES")
-        .map(|v| v.to_lowercase() == "true")
-        .unwrap_or(false);
-
-    let value = if secure {
+    let value = if secure_cookies_enabled() {
         format!(
             "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age={}",
             token, max_age_seconds
@@ -159,6 +167,20 @@ pub fn build_session_cookie_header(token: &str, max_age_seconds: u64) -> http::H
         tracing::error!(error = %e, "Failed to build session cookie header");
         http::HeaderValue::from_static("session_token=invalid")
     })
+}
+
+/// Build a `Set-Cookie` header that clears the `session_token` cookie.
+///
+/// Uses the same `Secure` flag as [`build_session_cookie_header`] so the
+/// browser matches and removes the correct cookie on logout.
+pub fn build_clear_session_cookie_header() -> http::HeaderValue {
+    if secure_cookies_enabled() {
+        http::HeaderValue::from_static(
+            "session_token=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0",
+        )
+    } else {
+        http::HeaderValue::from_static("session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
+    }
 }
 
 // ── Opaque token generator (still used by OIDC state parameter) ───────────────

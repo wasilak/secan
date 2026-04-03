@@ -526,21 +526,17 @@ pub async fn logout(
         }
     }
 
-    // Clear session cookie
-    let clear_cookie = "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0".to_string();
+    // Clear session cookie using the same Secure flag as the one used when
+    // setting the cookie so browsers will correctly remove it.
+    let clear_cookie = crate::auth::build_clear_session_cookie_header();
 
     tracing::debug!("User logged out");
 
     // Redirect to login page with logout flag to prevent auto-redirect to OIDC
     let mut response = Response::new(Body::empty());
-    response.headers_mut().insert(
-        header::SET_COOKIE,
-        clear_cookie.parse().unwrap_or_else(|_| {
-            header::HeaderValue::from_static(
-                "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
-            )
-        }),
-    );
+    response
+        .headers_mut()
+        .insert(header::SET_COOKIE, clear_cookie);
     response.headers_mut().insert(
         header::LOCATION,
         header::HeaderValue::from_static("/login?logged_out=true"),
