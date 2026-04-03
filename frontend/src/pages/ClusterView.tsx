@@ -184,16 +184,16 @@ export function ClusterView() {
 
   // Topology view type state
   // Topology view type state — read from searchParam or infer from pathname on first mount
-  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas' | 'sankey'>(() => {
-    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | 'sankey' | null;
-    if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas' || urlParam === 'sankey') return urlParam;
+  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas' | 'sankey' | 'disk'>(() => {
+    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | 'sankey' | 'disk' | null;
+    if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas' || urlParam === 'sankey' || urlParam === 'disk') return urlParam;
     if (location.pathname.includes('/topology/index')) return 'index';
     if (location.pathname.includes('/topology/canvas')) return 'canvas';
     if (location.pathname.includes('/topology/dot')) return 'node';
     return 'node';
   });
 
-  const setTopologyViewType = (value: 'node' | 'index' | 'canvas' | 'sankey') => {
+  const setTopologyViewType = (value: 'node' | 'index' | 'canvas' | 'sankey' | 'disk') => {
     setTopologyViewTypeState(value);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('topologyView', value);

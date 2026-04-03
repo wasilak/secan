@@ -12,10 +12,25 @@ use utoipa::ToSchema;
 // Query params
 // ---------------------------------------------------------------------------
 
+/// Ranking criterion used to select the top-N indices.
+#[derive(Debug, Deserialize, Serialize, ToSchema, Default, Clone, Copy, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum SankeySortBy {
+    /// Total shard count (primary + replica). Default.
+    #[default]
+    Shards,
+    /// Primary shard count only.
+    Primary,
+    /// Replica shard count only.
+    Replicas,
+    /// Total store size in bytes.
+    Store,
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SankeyQueryParams {
-    /// Maximum number of top indices to include (clamped to 5–200).
+    /// Maximum number of top indices to include. 0 shows nothing (empty diagram).
     pub top_indices: u32,
     /// Whether to include a synthetic "Unassigned" node for unassigned shards.
     pub include_unassigned: bool,
@@ -23,15 +38,22 @@ pub struct SankeyQueryParams {
     pub roles: Option<String>,
     /// Comma-separated shard states to filter (e.g. "STARTED,UNASSIGNED").
     pub states: Option<String>,
+    /// When true, dot-prefixed (special/system) indices are excluded before
+    /// the top-N ranking so the limit applies only to non-special indices.
+    pub exclude_special: bool,
+    /// Criterion used to rank and select the top-N indices.
+    pub sort_by: SankeySortBy,
 }
 
 impl Default for SankeyQueryParams {
     fn default() -> Self {
         Self {
-            top_indices: 50,
+            top_indices: 10,
             include_unassigned: true,
             roles: None,
             states: None,
+            exclude_special: false,
+            sort_by: SankeySortBy::Shards,
         }
     }
 }
@@ -91,8 +113,8 @@ pub fn aggregate_sankey_data(
     shards: &[ShardInfoResponse],
     params: &SankeyQueryParams,
 ) -> SankeyDataResponse {
-    // Clamp top_indices to 5–200
-    let top_n = params.top_indices.clamp(5, 200) as usize;
+    // No clamping — frontend enforces [0, totalIndices]. 0 means show nothing.
+    let top_n = params.top_indices as usize;
 
     // Filter by shard states if provided
     let state_filter: Option<Vec<String>> = params.states.as_ref().map(|s| {
@@ -111,6 +133,7 @@ pub fn aggregate_sankey_data(
                 true
             }
         })
+        .filter(|s| !params.exclude_special || !s.index.starts_with('.'))
         .collect();
 
     // -------------------------------------------------------------------
@@ -168,9 +191,16 @@ pub fn aggregate_sankey_data(
 
     let mut sorted_indices: Vec<String> = index_totals.keys().cloned().collect();
     sorted_indices.sort_by(|a, b| {
-        let ta = index_totals[a].0 + index_totals[a].1;
-        let tb = index_totals[b].0 + index_totals[b].1;
-        tb.cmp(&ta).then_with(|| a.cmp(b))
+        let score = |k: &str| -> u64 {
+            let (primary, replica, store) = index_totals[k];
+            match params.sort_by {
+                SankeySortBy::Shards => (primary + replica) as u64,
+                SankeySortBy::Primary => primary as u64,
+                SankeySortBy::Replicas => replica as u64,
+                SankeySortBy::Store => store,
+            }
+        };
+        score(b).cmp(&score(a)).then_with(|| a.cmp(b))
     });
 
     let truncated = sorted_indices.len() > top_n;
@@ -282,7 +312,7 @@ pub fn aggregate_sankey_data(
     path = "/clusters/{cluster_id}/topology/sankey",
     params(
         ("cluster_id" = String, Path, description = "Cluster ID"),
-        ("top_indices" = Option<u32>, Query, description = "Max indices to show (5–200, default 50)"),
+        ("top_indices" = Option<u32>, Query, description = "Max indices to show (0 = nothing, default 10)"),
         ("include_unassigned" = Option<bool>, Query, description = "Include unassigned shards node (default true)"),
         ("roles" = Option<String>, Query, description = "Comma-separated node roles filter"),
         ("states" = Option<String>, Query, description = "Comma-separated shard states filter"),
@@ -301,6 +331,14 @@ pub async fn get_sankey(
     Query(params): Query<SankeyQueryParams>,
 ) -> Result<Json<SankeyDataResponse>, crate::routes::clusters::ClusterErrorResponse> {
     crate::routes::clusters::check_cluster_access(&cluster_id, &user_ext)?;
+
+    tracing::debug!(
+        cluster = %cluster_id,
+        sort_by = ?params.sort_by,
+        top_indices = params.top_indices,
+        exclude_special = params.exclude_special,
+        "Sankey request received"
+    );
 
     let shards: Vec<ShardInfoResponse> = match state.cluster_manager.get_cluster(&cluster_id).await
     {
@@ -426,6 +464,156 @@ mod tests {
 
         let has_unassigned = result.nodes.iter().any(|n| n.kind == "unassigned");
         assert!(has_unassigned, "expected unassigned node to be present");
+    }
+
+    /// Verify that sort_by selects different top-N indices depending on the
+    /// criterion when there are more indices than the limit.
+    #[test]
+    fn test_sort_by_primary_vs_shards() {
+        // Build 6 indices with deliberately skewed characteristics so that
+        // different sort criteria exclude different indices when top_n = 5.
+        //
+        // Scores (top_n = 5, so the LOWEST scorer is excluded):
+        //   idx-many-replicas  : 1P + 9R = 10 total shards,  store=100
+        //   idx-many-primary   : 7P + 0R =  7 total shards,  store=70
+        //   idx-mid-shards-a   : 3P + 3R =  6 total shards,  store=60
+        //   idx-mid-shards-b   : 2P + 3R =  5 total shards,  store=50
+        //   idx-low-shards     : 1P + 1R =  2 total shards,  store=20
+        //   idx-huge-store     : 0P + 1R =  1 total shard,   store=1_000_000
+        //
+        // sort_by=Shards:   order [10,7,6,5,2,1] → top 5 excludes idx-huge-store
+        // sort_by=Primary:  order [7,3,2,1,1,0]  → top 5 excludes idx-huge-store
+        //   (tie for last: idx-low-shards vs idx-huge-store; idx-low-shards wins on name)
+        //   → top 5 excludes idx-huge-store
+        //
+        // sort_by=Store:    order [1M,100,70,60,50,20] → top 5 excludes idx-low-shards
+        let shards = vec![
+            // idx-many-replicas: 1P + 9R
+            make_shard("idx-many-replicas", Some("node-1"), true, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            make_shard("idx-many-replicas", Some("node-1"), false, 10),
+            // idx-many-primary: 7P + 0R
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            make_shard("idx-many-primary", Some("node-1"), true, 10),
+            // idx-mid-shards-a: 3P + 3R
+            make_shard("idx-mid-shards-a", Some("node-1"), true, 10),
+            make_shard("idx-mid-shards-a", Some("node-1"), true, 10),
+            make_shard("idx-mid-shards-a", Some("node-1"), true, 10),
+            make_shard("idx-mid-shards-a", Some("node-1"), false, 10),
+            make_shard("idx-mid-shards-a", Some("node-1"), false, 10),
+            make_shard("idx-mid-shards-a", Some("node-1"), false, 10),
+            // idx-mid-shards-b: 2P + 3R
+            make_shard("idx-mid-shards-b", Some("node-1"), true, 10),
+            make_shard("idx-mid-shards-b", Some("node-1"), true, 10),
+            make_shard("idx-mid-shards-b", Some("node-1"), false, 10),
+            make_shard("idx-mid-shards-b", Some("node-1"), false, 10),
+            make_shard("idx-mid-shards-b", Some("node-1"), false, 10),
+            // idx-low-shards: 1P + 1R, very low store
+            make_shard("idx-low-shards", Some("node-1"), true, 10),
+            make_shard("idx-low-shards", Some("node-1"), false, 10),
+            // idx-huge-store: 0P + 1R, enormous store
+            make_shard("idx-huge-store", Some("node-1"), false, 1_000_000),
+        ];
+
+        // ---- sort_by=Shards (top 5 by total shards) ----
+        // Totals: many-replicas=10, many-primary=7, mid-a=6, mid-b=5, low-shards=2, huge-store=1
+        // Top 5 should include everyone EXCEPT idx-huge-store (1 shard)
+        let params_shards = SankeyQueryParams {
+            top_indices: 5,
+            sort_by: SankeySortBy::Shards,
+            ..Default::default()
+        };
+        let result_shards = aggregate_sankey_data(&shards, &params_shards);
+        let ids_shards: std::collections::HashSet<&str> = result_shards
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "index")
+            .map(|n| n.id.as_str())
+            .collect();
+        assert_eq!(
+            ids_shards.len(),
+            5,
+            "sort_by=Shards: expected exactly 5 index nodes"
+        );
+        assert!(
+            !ids_shards.contains("idx-huge-store"),
+            "sort_by=Shards should exclude idx-huge-store (only 1 shard)"
+        );
+        assert!(
+            ids_shards.contains("idx-many-replicas"),
+            "sort_by=Shards should include idx-many-replicas (10 shards)"
+        );
+
+        // ---- sort_by=Store (top 5 by store bytes) ----
+        // Totals: huge-store=1_000_000, many-replicas=100, many-primary=70, mid-a=60, mid-b=50, low-shards=20
+        // Top 5 should include everyone EXCEPT idx-low-shards (store=20)
+        let params_store = SankeyQueryParams {
+            top_indices: 5,
+            sort_by: SankeySortBy::Store,
+            ..Default::default()
+        };
+        let result_store = aggregate_sankey_data(&shards, &params_store);
+        let ids_store: std::collections::HashSet<&str> = result_store
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "index")
+            .map(|n| n.id.as_str())
+            .collect();
+        assert_eq!(
+            ids_store.len(),
+            5,
+            "sort_by=Store: expected exactly 5 index nodes"
+        );
+        assert!(
+            ids_store.contains("idx-huge-store"),
+            "sort_by=Store should include idx-huge-store (store=1_000_000)"
+        );
+        assert!(
+            !ids_store.contains("idx-low-shards"),
+            "sort_by=Store should exclude idx-low-shards (store=20)"
+        );
+
+        // ---- sort_by=Primary (top 5 by primary shard count) ----
+        // Primary counts: many-primary=7, mid-a=3, mid-b=2, many-replicas=1, low-shards=1, huge-store=0
+        // Top 5: many-primary(7), mid-a(3), mid-b(2), many-replicas(1), low-shards(1) — tie at 1 broken by name alpha
+        //        → idx-huge-store (0 primaries) excluded
+        let params_primary = SankeyQueryParams {
+            top_indices: 5,
+            sort_by: SankeySortBy::Primary,
+            ..Default::default()
+        };
+        let result_primary = aggregate_sankey_data(&shards, &params_primary);
+        let ids_primary: std::collections::HashSet<&str> = result_primary
+            .nodes
+            .iter()
+            .filter(|n| n.kind == "index")
+            .map(|n| n.id.as_str())
+            .collect();
+        assert_eq!(
+            ids_primary.len(),
+            5,
+            "sort_by=Primary: expected exactly 5 index nodes"
+        );
+        assert!(
+            ids_primary.contains("idx-many-primary"),
+            "sort_by=Primary should include idx-many-primary (7 primaries)"
+        );
+        assert!(
+            !ids_primary.contains("idx-huge-store"),
+            "sort_by=Primary should exclude idx-huge-store (0 primaries)"
+        );
     }
 
     #[test]

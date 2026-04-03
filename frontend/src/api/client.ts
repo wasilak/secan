@@ -1632,10 +1632,12 @@ export class ApiClient {
   ): Promise<SankeyResponse> {
     return this.executeWithRetry(async () => {
       const queryParams: Record<string, string | number | boolean> = {};
-      if (params?.topIndices !== undefined) queryParams['top_indices'] = params.topIndices;
-      if (params?.includeUnassigned !== undefined) queryParams['include_unassigned'] = params.includeUnassigned;
+      if (params?.topIndices !== undefined) queryParams['topIndices'] = params.topIndices;
+      if (params?.includeUnassigned !== undefined) queryParams['includeUnassigned'] = params.includeUnassigned;
       if (params?.roles) queryParams['roles'] = params.roles;
       if (params?.states) queryParams['states'] = params.states;
+      if (params?.excludeSpecial !== undefined) queryParams['excludeSpecial'] = params.excludeSpecial;
+      if (params?.sortBy) queryParams['sortBy'] = params.sortBy;
       const response = await this.client.get<SankeyResponse>(
         `/clusters/${clusterId}/topology/sankey`,
         { params: queryParams }

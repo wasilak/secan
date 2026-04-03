@@ -1,12 +1,13 @@
 import type { ReactElement } from 'react';
-import { Alert, Badge, Button, Card, Grid, Group, Modal, Stack, Tabs, Text } from '@mantine/core';
+import { ActionIcon, Alert, Badge, Button, Card, Grid, Group, Modal, NumberInput, Select, Stack, Tabs, Text } from '@mantine/core';
 import { useState } from 'react';
-import { IconArrowsRightLeft, IconEyeOff } from '@tabler/icons-react';
+import { IconArrowsRightLeft, IconCheck, IconEyeOff } from '@tabler/icons-react';
 import { FilterSidebar } from '../../components/FacetedFilter';
 import { TopologyStatsCards } from '../../components/TopologyStatsCards';
 import { DotBasedTopologyView } from '../../components/Topology/DotBasedTopologyView';
 import { CanvasTopologyView } from '../../components/Topology/CanvasTopologyView';
 import { SankeyTopologyView } from '../../components/Topology/SankeyTopologyView';
+import { DiskTreemapView } from '../../components/Topology/DiskTreemapView';
 import { useRefreshActions } from '../../contexts/RefreshContext';
 import { useCallback } from 'react';
 import { ShardAllocationGrid } from '../../components/Topology/ShardAllocationGrid';
@@ -34,8 +35,8 @@ interface TopologyViewProps {
   statsUnassignedCount: number;
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams, options?: { replace?: boolean }) => void;
-  topologyViewType: 'node' | 'index' | 'canvas' | 'sankey';
-  setTopologyViewType: (value: 'node' | 'index' | 'canvas' | 'sankey') => void;
+  topologyViewType: 'node' | 'index' | 'canvas' | 'sankey' | 'disk';
+  setTopologyViewType: (value: 'node' | 'index' | 'canvas' | 'sankey' | 'disk') => void;
   topologyGroupingConfig: GroupingConfig;
   handleTopologyGroupingChange: (attribute: GroupingAttribute, tagValue?: string) => void;
   indexNameFilter: string;
@@ -81,7 +82,9 @@ interface TopologyViewProps {
 
 export function TopologyView(props: TopologyViewProps): ReactElement {
   const { pausePolling, resumePolling } = useRefreshActions();
-  const [sankeyTopIndices, setSankeyTopIndices] = useState<number>(50);
+  const [sankeyTopIndices, setSankeyTopIndices] = useState<number>(10);
+  const [pendingSankeyTopIndices, setPendingSankeyTopIndices] = useState<number>(10);
+  const [sankeySortBy, setSankeySortBy] = useState<'shards' | 'primary' | 'replicas' | 'store'>('shards');
 
   // Use useCallback for stable refs
   const handleNodeDragStart = useCallback(() => { pausePolling('drag'); }, [pausePolling]);
@@ -198,7 +201,81 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 },
               },
             ]}
-            conditionalSections={[            ]}
+            conditionalSections={[
+               {
+                visible: topologyViewType === 'sankey',
+                content: (() => {
+                  const maxIndices = statsIndexCount > 0 ? statsIndexCount : undefined;
+                  const ratio = maxIndices && maxIndices > 0 ? pendingSankeyTopIndices / maxIndices : 0;
+                  const borderColor =
+                    ratio >= 0.85
+                      ? 'var(--mantine-color-orange-7)'
+                      : ratio >= 0.65
+                        ? 'var(--mantine-color-orange-5)'
+                        : ratio >= 0.4
+                          ? 'var(--mantine-color-orange-3)'
+                          : undefined;
+                  return (
+                    <NumberInput
+                      label="Top indices limit"
+                      description="Number of top indices to display"
+                      size="xs"
+                      min={0}
+                      max={maxIndices}
+                      step={5}
+                      value={pendingSankeyTopIndices}
+                      onChange={(val) => {
+                        if (typeof val === 'number') setPendingSankeyTopIndices(val);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && pendingSankeyTopIndices !== sankeyTopIndices) {
+                          setSankeyTopIndices(pendingSankeyTopIndices);
+                        }
+                      }}
+                      styles={borderColor ? { input: { borderColor, borderWidth: 2 } } : undefined}
+                      rightSection={
+                        <ActionIcon
+                          variant="transparent"
+                          color="blue"
+                          size="sm"
+                          onClick={() => setSankeyTopIndices(pendingSankeyTopIndices)}
+                          aria-label="Apply top indices limit"
+                          style={{
+                            opacity: pendingSankeyTopIndices !== sankeyTopIndices ? 1 : 0.2,
+                            cursor: pendingSankeyTopIndices !== sankeyTopIndices ? 'pointer' : 'default',
+                            pointerEvents: pendingSankeyTopIndices !== sankeyTopIndices ? 'all' : 'none',
+                          }}
+                        >
+                          <IconCheck size={13} />
+                        </ActionIcon>
+                      }
+                      rightSectionWidth={32}
+                    />
+                  );
+                })(),
+              },
+              {
+                visible: topologyViewType === 'sankey',
+                content: (
+                  <Select
+                    label="Rank by"
+                    description="Criterion for selecting top indices"
+                    size="xs"
+                    value={sankeySortBy}
+                    onChange={(val) => {
+                      if (val) setSankeySortBy(val as typeof sankeySortBy);
+                    }}
+                    data={[
+                      { value: 'shards', label: 'Total shards' },
+                      { value: 'primary', label: 'Primary shards' },
+                      { value: 'replicas', label: 'Replica count' },
+                      { value: 'store', label: 'Store size' },
+                    ]}
+                    allowDeselect={false}
+                  />
+                ),
+              },
+            ]}
             rightSection={
               topologyViewType === 'node' || topologyViewType === 'canvas' ? (
                 <GroupingControl
@@ -233,13 +310,14 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             <Group justify="space-between" align="flex-end">
               <Tabs
                 value={topologyViewType}
-                onChange={(value) => setTopologyViewType(value as 'node' | 'index' | 'canvas' | 'sankey')}
+                onChange={(value) => setTopologyViewType(value as 'node' | 'index' | 'canvas' | 'sankey' | 'disk')}
               >
                 <Tabs.List>
                   <Tabs.Tab value="node">Node Overview</Tabs.Tab>
                   <Tabs.Tab value="index">Shard Grid</Tabs.Tab>
                   <Tabs.Tab value="canvas">Cluster Map</Tabs.Tab>
                   <Tabs.Tab value="sankey">Shard Flow</Tabs.Tab>
+                  <Tabs.Tab value="disk">Disk Usage</Tabs.Tab>
                 </Tabs.List>
               </Tabs>
             </Group>
@@ -322,9 +400,16 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 clusterId={clusterId}
                 selectedShardStates={selectedShardStates}
                 topIndices={sankeyTopIndices}
-                onTopIndicesChange={setSankeyTopIndices}
+                sortBy={sankeySortBy}
                 openNodeModal={openNodeModal}
                 openIndexModal={openIndexModal}
+                showSpecialIndices={showSpecialIndices}
+              />
+            ) : topologyViewType === 'disk' ? (
+              <DiskTreemapView
+                indices={allIndicesArray || []}
+                isLoading={allIndicesLoading}
+                showSpecialIndices={showSpecialIndices}
               />
             ) : (
               <ShardAllocationGrid

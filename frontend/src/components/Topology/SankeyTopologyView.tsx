@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import type { ReactElement, FunctionComponent } from 'react';
-import { Alert, Badge, Button, Group, NumberInput, Paper, Skeleton, Stack, Text } from '@mantine/core';
-import { IconAlertTriangle, IconCheck, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core';
+import { IconAlertTriangle, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import type { DefaultNode, DefaultLink, SankeyNodeDatum, SankeyLinkDatum } from '@nivo/sankey';
 import { useSankeyData } from '../../hooks/useSankeyData';
@@ -27,9 +26,10 @@ export interface SankeyTopologyViewProps {
   clusterId: string;
   selectedShardStates: string[];
   topIndices: number;
-  onTopIndicesChange: (n: number) => void;
+  sortBy?: 'shards' | 'primary' | 'replicas' | 'store';
   openNodeModal: (nodeId: string) => void;
   openIndexModal: (indexName: string) => void;
+  showSpecialIndices?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,26 +128,16 @@ const LinkTooltip: FunctionComponent<{
 // ---------------------------------------------------------------------------
 
 export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement {
-  const { clusterId, selectedShardStates, topIndices, onTopIndicesChange, openNodeModal, openIndexModal } = props;
-
-  // "Pending" value — what the user is currently editing in the input.
-  const [pendingTopIndices, setPendingTopIndices] = useState<number>(topIndices);
-  // "Applied" value — what was last submitted to the backend.
-  const [appliedTopIndices, setAppliedTopIndices] = useState<number>(topIndices);
+  const { clusterId, selectedShardStates, topIndices, sortBy, openNodeModal, openIndexModal, showSpecialIndices = true } = props;
 
   const { data, loading, error, refetch } = useSankeyData({
     clusterId,
-    topIndices: appliedTopIndices,
+    topIndices,
     includeUnassigned: true,
     states: selectedShardStates.length > 0 ? selectedShardStates : undefined,
+    excludeSpecial: !showSpecialIndices,
+    sortBy,
   });
-
-  const isDirty = pendingTopIndices !== appliedTopIndices;
-
-  function handleApply() {
-    setAppliedTopIndices(pendingTopIndices);
-    onTopIndicesChange(pendingTopIndices);
-  }
 
   function handleNodeClick(datum: SankeyNodeDatum<SankeyNodeExtra, SankeyLinkExtra> | SankeyLinkDatum<SankeyNodeExtra, SankeyLinkExtra>) {
     // SankeyLinkDatum does not have `kind` — use it as discriminator
@@ -202,7 +192,18 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
   }
 
   // ---- Map to nivo format ----
-  const nivoNodes: SankeyNodeExtra[] = data.nodes.map((n) => ({
+  // When showSpecialIndices is false, drop dot-prefixed index nodes and their links.
+  const excludedIndexIds = new Set<string>(
+    showSpecialIndices
+      ? []
+      : data.nodes
+          .filter((n) => n.kind === 'index' && n.id.startsWith('.'))
+          .map((n) => n.id)
+  );
+
+  const nivoNodes: SankeyNodeExtra[] = data.nodes
+    .filter((n) => !excludedIndexIds.has(n.id))
+    .map((n) => ({
     id: n.id,
     kind: n.kind,
     totalShards: n.totalShards,
@@ -211,7 +212,9 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     storeBytes: n.storeBytes,
   }));
 
-  const nivoLinks: SankeyLinkExtra[] = data.links.map((l) => ({
+  const nivoLinks: SankeyLinkExtra[] = data.links
+    .filter((l) => !excludedIndexIds.has(l.source) && !excludedIndexIds.has(l.target))
+    .map((l) => ({
     source: l.source,
     target: l.target,
     value: l.totalShards,
@@ -221,34 +224,6 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
 
   return (
     <Stack gap="sm">
-      {/* Limit control — always visible */}
-      <Group gap="xs" align="flex-end">
-        <NumberInput
-          label="Top indices limit"
-          description="Number of top indices to display"
-          size="xs"
-          min={5}
-          max={200}
-          step={10}
-          value={pendingTopIndices}
-          onChange={(val) => {
-            if (typeof val === 'number') setPendingTopIndices(val);
-          }}
-          style={{ width: 120 }}
-        />
-        <Button
-          size="xs"
-          variant={isDirty ? 'filled' : 'light'}
-          color="blue"
-          leftSection={<IconCheck size={14} />}
-          onClick={handleApply}
-          disabled={!isDirty}
-          mb={2}
-        >
-          Apply
-        </Button>
-      </Group>
-
       {/* Truncation warning — info only, no control */}
       {data.meta.truncated && (
         <Alert
@@ -259,7 +234,7 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
         >
           <Text size="sm">
             Showing <strong>{data.meta.displayedIndices}</strong> of{' '}
-            <strong>{data.meta.totalIndices}</strong> indices. Increase the limit above to show more.
+            <strong>{data.meta.totalIndices}</strong> indices. Increase the limit in the filter panel to show more.
           </Text>
         </Alert>
       )}

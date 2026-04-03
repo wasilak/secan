@@ -948,4 +948,11 @@ export interface SankeyQueryParams {
   roles?: string;
   /** Comma-separated shard states to filter by (e.g. "STARTED,UNASSIGNED"). */
   states?: string;
+  /**
+   * When true, dot-prefixed (special/system) indices are excluded before the
+   * top-N ranking so the limit applies only to non-special indices.
+   */
+  excludeSpecial?: boolean;
+  /** Criterion used to rank and select the top-N indices (default: "shards"). */
+  sortBy?: 'shards' | 'primary' | 'replicas' | 'store';
 }

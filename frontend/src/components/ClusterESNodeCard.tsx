@@ -1,6 +1,6 @@
 import { Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton } from '@mantine/core';
+import { ShardWaffleChart } from './Topology/ShardWaffleChart';
 import ShardPills from './ShardPills';
-import type { ShardInfo } from '../types/api';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';
 import { GROUP_WIDTH } from '../utils/canvasLayout';
 import { formatLoadAverage } from '../utils/formatters';
@@ -221,46 +221,7 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           </Flex>
         ) : (
           renderDots !== false && dots.length > 0 && (
-            <Flex gap={3} wrap="wrap" mb={6}>
-              {dots.map((dot, idx) => (
-                <Tooltip
-                  key={idx}
-                  label={dot.tooltip}
-                  withArrow
-                  withinPortal
-                >
-                  <Box
-                    className="secan-shard-dot"
-                    style={{
-                      width: 14,
-                      height: 14,
-                      backgroundColor: dot.color,
-                      borderRadius: 2,
-                      opacity: dot.primary ? 1 : 0.5,
-                      boxShadow: dot.primary ? '0 1px 2px rgba(0,0,0,0.15)' : 'none',
-                      flexShrink: 0,
-                      cursor: onShardClick ? 'pointer' : 'default',
-                    }}
-                    onClick={(e: MouseEvent) => {
-                      if (onShardClick) {
-                        e.stopPropagation();
-                        onShardClick(dot.shard as ShardInfo, e);
-                      }
-                    }}
-                    onContextMenu={(e: MouseEvent) => {
-                      // Right-click should also open the shard context menu
-                      if (onShardClick) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onShardClick(dot.shard as ShardInfo, e);
-                      }
-                    }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  />
-                </Tooltip>
-              ))}
-            </Flex>
+            <ShardWaffleChart dots={dots} onShardClick={onShardClick} />
           )
         )}
 
