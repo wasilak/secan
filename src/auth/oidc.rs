@@ -367,11 +367,24 @@ impl OidcAuthProvider {
             accessible_clusters
         );
 
-        // Create authenticated user
-        let auth_user =
-            AuthUser::new_with_clusters(user_id, username, groups, accessible_clusters.clone());
+        // Filter groups to only those referenced in permission mappings or
+        // RBAC role names. We don't have RBAC role names here, so pass an
+        // empty list — this keeps JWTs small while preserving authorization
+        // behaviour driven by `permissions:` mappings.
+        let filtered_groups = self
+            .permission_resolver
+            .filter_relevant_groups(&groups, &Vec::new());
 
-        // Create session
+        // Create authenticated user with filtered groups but explicit
+        // accessible_clusters so downstream checks remain correct.
+        let auth_user = AuthUser::new_with_clusters(
+            user_id,
+            username,
+            filtered_groups.clone(),
+            accessible_clusters.clone(),
+        );
+
+        // Create session embedding only filtered groups + accessible clusters
         let token = self
             .session_manager
             .create_session_with_clusters(auth_user, accessible_clusters)

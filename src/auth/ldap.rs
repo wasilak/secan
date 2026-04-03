@@ -1146,19 +1146,32 @@ impl LdapAuthProvider {
             );
         }
 
-        // Create AuthUser WITHOUT embedding cluster list in the JWT. Cluster
-        // access can be resolved on-demand (e.g., by /api/auth/me) using the
-        // user's groups. This keeps the JWT small and stateless.
-        let auth_user_no_clusters = crate::auth::session::AuthUser::new(
+        // Filter the user's group list down to only groups that are relevant for
+        // authorization decisions (either referenced in `permissions` mappings
+        // or present as RBAC role names). This keeps the JWT small by avoiding
+        // embedding hundreds of unrelated AD groups.
+        // We don't have RBAC role names available here; pass an empty list.
+        // This means we filter only against the `permissions` mappings which
+        // is sufficient to remove unrelated AD groups from the JWT.
+        let filtered_groups = self
+            .permission_resolver
+            .filter_relevant_groups(&groups, &Vec::new());
+
+        // Create AuthUser with filtered groups and explicit accessible_clusters
+        // stored separately. This keeps JWT payload small while restoring
+        // cluster access behaviour for downstream checks.
+        let auth_user_for_jwt = crate::auth::session::AuthUser::new_with_clusters(
             auth_user.id,
             auth_user.username.clone(),
-            groups.clone(),
+            filtered_groups.clone(),
+            accessible_clusters.clone(),
         );
 
-        // Create session using session_manager (stateless JWT without clusters)
+        // Create session using session_manager, embedding only filtered groups
+        // and the resolved accessible_clusters into the JWT.
         let session_token = self
             .session_manager
-            .create_session(auth_user_no_clusters)
+            .create_session_with_clusters(auth_user_for_jwt, accessible_clusters.clone())
             .await
             .context("Failed to create session after successful LDAP authentication")?;
 

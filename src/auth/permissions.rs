@@ -46,6 +46,49 @@ impl PermissionResolver {
         accessible_clusters.into_iter().collect()
     }
 
+    /// Return the subset of `user_groups` that are referenced in the configured
+    /// permission mappings or RBAC role names. This helps keep JWTs small by
+    /// only retaining groups that can affect authorisation decisions.
+    ///
+    /// `rbac_role_names` should be the list of role names present in the
+    /// RBAC configuration (may be empty). Wildcard mappings (group == "*") do
+    /// not cause any group names to be retained, since a wildcard applies to
+    /// every user regardless of group membership.
+    pub fn filter_relevant_groups(
+        &self,
+        user_groups: &[String],
+        rbac_role_names: &[String],
+    ) -> Vec<String> {
+        use std::collections::HashSet;
+
+        let mut configured = HashSet::new();
+
+        // Add all explicit group names from permission mappings (skip wildcard)
+        for m in &self.mappings {
+            if m.group != "*" {
+                configured.insert(m.group.as_str());
+            }
+        }
+
+        // Also consider RBAC role names as relevant groups — if RBAC is
+        // configured and role names are matched against user groups.
+        for r in rbac_role_names {
+            configured.insert(r.as_str());
+        }
+
+        // If there are no configured groups/roles, return an empty vec to avoid
+        // storing unnecessary groups in the JWT.
+        if configured.is_empty() {
+            return Vec::new();
+        }
+
+        user_groups
+            .iter()
+            .filter(|g| configured.contains(g.as_str()))
+            .cloned()
+            .collect()
+    }
+
     /// Check if a group pattern matches any of the user's groups
     fn group_matches(&self, pattern: &str, user_groups: &[String]) -> bool {
         if pattern == "*" {
@@ -195,6 +238,27 @@ mod tests {
         assert!(accessible.contains(&"prod-1".to_string()));
         assert!(accessible.contains(&"prod-2".to_string()));
         assert!(accessible.contains(&"prod-3".to_string()));
+    }
+
+    #[test]
+    fn test_filter_relevant_groups() {
+        let mappings = vec![GroupClusterMapping {
+            group: "admin".to_string(),
+            clusters: vec!["*".to_string()],
+        }];
+
+        let resolver = PermissionResolver::new(mappings);
+
+        // User has many groups but only 'admin' is relevant
+        let user_groups = vec![
+            "SS_Okta_Jira_Access".to_string(),
+            "admin".to_string(),
+            "some-other".to_string(),
+        ];
+
+        let filtered = resolver.filter_relevant_groups(&user_groups, &Vec::new());
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0], "admin");
     }
 
     #[test]
