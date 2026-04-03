@@ -20,15 +20,6 @@ interface DistributionChartProps {
   valueFormatter?: (value: number) => string;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const mb = bytes / (1024 * 1024);
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
-  if (mb >= 1) return `${mb.toFixed(0)} MB`;
-  const kb = bytes / 1024;
-  if (kb >= 1) return `${kb.toFixed(0)} KB`;
-  return `${bytes} B`;
-}
 
 function makePieTooltip(valueFormatter: (v: number) => string, total: number) {
   return function PieTooltipContent({ datum }: PieTooltipProps<PieDatum>) {

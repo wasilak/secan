@@ -373,8 +373,7 @@ impl SessionManager {
     pub async fn invalidate_session(&self, token: &str) -> anyhow::Result<()> {
         match self.decode_jwt(token) {
             Ok(claims) => {
-                let exp =
-                    DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or_else(|| Utc::now());
+                let exp = DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or_else(Utc::now);
                 let mut revoked = self.revocation_list.write().await;
                 revoked.insert(claims.jti.clone(), exp);
                 tracing::debug!(jti = %claims.jti, username = %claims.username, "Session revoked");
