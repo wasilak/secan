@@ -63,6 +63,7 @@ impl Server {
                     oidc_config.clone(),
                     Arc::new(session_manager.clone()),
                     permission_resolver,
+                    config.auth.roles.iter().map(|r| r.name.clone()).collect(),
                 )
                 .await
                 .context("Failed to initialize OIDC provider")?;
@@ -86,10 +87,15 @@ impl Server {
             let permission_resolver =
                 crate::auth::PermissionResolver::new(config.auth.permissions.clone());
 
+            // Extract RBAC role names from config if present
+            let rbac_role_names: Vec<String> =
+                config.auth.roles.iter().map(|r| r.name.clone()).collect();
+
             let provider = crate::auth::LdapAuthProvider::new(
                 ldap_config.clone(),
                 Arc::new(session_manager.clone()),
                 permission_resolver,
+                rbac_role_names,
             )
             .await
             .context("Failed to initialize LDAP provider")?;
@@ -118,19 +124,42 @@ impl Server {
     ///
     /// Validates: Requirements 1.2, 30.2, 30.7, 31.8
     pub fn router(&self) -> Router {
-        // Create auth state for authentication routes
+        // Prepare optional local provider holder so we can attach it to the
+        // routes-level AuthState after construction.
+        let mut local_provider_option: Option<Arc<crate::auth::LocalAuthProvider>> = None;
+
+        // Create auth state for middleware (independent of routes state)
+        let auth_middleware_state = Arc::new(crate::auth::AuthState::new(
+            self.session_manager.clone(),
+            self.config.auth.mode.clone(),
+        ));
+
+        // If local users mode, construct LocalAuthProvider with optional rate limiter
+        if self.config.auth.mode == crate::config::AuthMode::LocalUsers {
+            if let Some(local_users) = &self.config.auth.local_users {
+                let permission_resolver =
+                    crate::auth::PermissionResolver::new(self.config.auth.permissions.clone());
+                let session_manager_clone = self.session_manager.clone();
+                // Build provider with rate limiter if configured
+                let provider = crate::auth::LocalAuthProvider::new(
+                    local_users.clone(),
+                    (*session_manager_clone).clone(),
+                    permission_resolver,
+                );
+                // Attach to routes state by saving into the local option so it
+                // can be used when constructing the AuthState below.
+                local_provider_option = Some(Arc::new(provider));
+            }
+        }
+
+        // Create auth state for authentication routes (attach local provider if any)
         let auth_routes_state = crate::routes::AuthState {
             oidc_provider: self.oidc_provider.clone(),
             ldap_provider: self.ldap_provider.clone(),
             session_manager: self.session_manager.clone(),
             config: self.config.clone(),
+            local_provider: local_provider_option,
         };
-
-        // Create auth state for middleware
-        let auth_middleware_state = Arc::new(crate::auth::AuthState::new(
-            self.session_manager.clone(),
-            self.config.auth.mode.clone(),
-        ));
 
         // Create OTLP proxy state if telemetry is enabled
         let telemetry_config = match TelemetryConfig::from_env() {
@@ -337,6 +366,13 @@ impl Server {
             .with_state(cluster_state)
             // Static assets - must be last to act as fallback
             .fallback(crate::routes::serve_static)
+            // Add permission middleware (runs after auth middleware because of Axum layer ordering)
+            .layer(middleware::from_fn_with_state(
+                Arc::new(crate::middleware::permissions::PermissionState::new(
+                    self.config.auth.mode.clone(),
+                )),
+                crate::middleware::permissions::permission_middleware,
+            ))
             // Add auth middleware (handles authentication in all modes)
             .layer(middleware::from_fn_with_state(
                 auth_middleware_state.clone(),

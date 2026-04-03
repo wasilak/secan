@@ -15,6 +15,8 @@ pub struct LdapAuthProvider {
     conn_settings: LdapConnSettings,
     rate_limiter: Option<crate::auth::RateLimiter>,
     permission_resolver: crate::auth::PermissionResolver,
+    // Names of RBAC roles from the global configuration. May be empty.
+    rbac_role_names: Vec<String>,
 }
 
 impl LdapAuthProvider {
@@ -72,7 +74,7 @@ impl LdapAuthProvider {
     ///     "your-session-secret-at-least-32-chars".to_string(),
     /// )));
     /// let permission_resolver = PermissionResolver::empty();
-    /// let provider = LdapAuthProvider::new(config, session_manager, permission_resolver).await?;
+    /// let provider = LdapAuthProvider::new(config, session_manager, permission_resolver, Vec::new()).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -80,6 +82,7 @@ impl LdapAuthProvider {
         config: LdapConfig,
         session_manager: Arc<SessionManager>,
         permission_resolver: crate::auth::PermissionResolver,
+        rbac_role_names: Vec<String>,
     ) -> Result<Self> {
         // Validate configuration
         config
@@ -142,6 +145,7 @@ impl LdapAuthProvider {
             conn_settings,
             rate_limiter: None,
             permission_resolver,
+            rbac_role_names,
         })
     }
 
@@ -151,8 +155,15 @@ impl LdapAuthProvider {
         session_manager: Arc<SessionManager>,
         rate_limiter: crate::auth::RateLimiter,
         permission_resolver: crate::auth::PermissionResolver,
+        rbac_role_names: Vec<String>,
     ) -> Result<Self> {
-        let mut provider = Self::new(config, session_manager, permission_resolver).await?;
+        let mut provider = Self::new(
+            config,
+            session_manager,
+            permission_resolver,
+            rbac_role_names,
+        )
+        .await?;
         provider.rate_limiter = Some(rate_limiter);
         Ok(provider)
     }
@@ -1155,7 +1166,7 @@ impl LdapAuthProvider {
         // is sufficient to remove unrelated AD groups from the JWT.
         let filtered_groups = self
             .permission_resolver
-            .filter_relevant_groups(&groups, &Vec::new());
+            .filter_relevant_groups(&groups, &self.rbac_role_names);
 
         // Create AuthUser with filtered groups and explicit accessible_clusters
         // stored separately. This keeps JWT payload small while restoring

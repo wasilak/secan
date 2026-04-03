@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Extension, Json,
 };
-use base64::Engine;
+// base64 engine is referenced by fully-qualified name when needed
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::instrument;
@@ -20,6 +20,8 @@ pub struct AuthState {
     pub ldap_provider: Option<Arc<crate::auth::LdapAuthProvider>>,
     pub session_manager: Arc<SessionManager>,
     pub config: Arc<crate::config::Config>,
+    // Optional local provider for local auth path support
+    pub local_provider: Option<Arc<crate::auth::LocalAuthProvider>>,
 }
 
 /// Login request for local users
@@ -36,8 +38,9 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub success: bool,
     pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_token: Option<String>,
+    // Session token is not included in JSON responses. Clients should use the
+    // HttpOnly cookie set by the server. This keeps responses small and
+    // avoids leaking authentication tokens to JavaScript.
 }
 
 /// OIDC callback query parameters
@@ -59,7 +62,7 @@ pub struct OidcLoginQuery {
 /// Collapse consecutive slashes in a path or URL while preserving the scheme
 /// (e.g., "http://"). This prevents redirect targets like "/api/clusters//stats"
 /// from being sent to clients.
-fn collapse_duplicate_slashes(input: &str) -> String {
+pub(crate) fn collapse_duplicate_slashes(input: &str) -> String {
     fn collapse(s: &str) -> String {
         let mut out = String::with_capacity(s.len());
         let mut prev_slash = false;
@@ -143,23 +146,8 @@ pub async fn oidc_login(
         message: "OIDC authentication is not configured".to_string(),
     })?;
 
-    // Generate a random state parameter for CSRF protection
-    let state_param = crate::auth::generate_token();
-
-    // Encode redirect_to in state parameter (base64 encode to preserve special chars)
-    let state_with_redirect = if let Some(redirect_to) = params.redirect_to {
-        // Normalize redirect path to avoid sending duplicate slashes to the client
-        let normalized = collapse_duplicate_slashes(&redirect_to);
-        let combined = format!("{}|{}", normalized, state_param);
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(combined.as_bytes())
-    } else {
-        state_param
-    };
-
-    // TODO: Store state parameter in a temporary cache for validation in callback
-    // For now, we'll just generate it
-
-    let auth_url = oidc_provider.get_authorization_url(&state_with_redirect);
+    // Use provider to initiate auth (stores state and returns URL)
+    let (auth_url, _encoded_state) = oidc_provider.initiate_auth(params.redirect_to.clone());
 
     tracing::debug!(auth_method = "oidc", "Initiating OIDC authentication flow");
 
@@ -183,6 +171,7 @@ pub async fn oidc_login(
     ),
     tag = "Authentication"
 )]
+#[axum::debug_handler]
 #[instrument(skip(state))]
 pub async fn oidc_callback(
     State(state): State<AuthState>,
@@ -195,7 +184,14 @@ pub async fn oidc_callback(
 
     tracing::debug!(auth_method = "oidc", "Processing OIDC callback");
 
-    // TODO: Validate state parameter against stored value for CSRF protection
+    // Validate and consume state using the provider so CSRF handling (including TTL)
+    // is centralized in OidcAuthProvider.
+    let redirect_from_state = oidc_provider
+        .validate_and_consume_state(&params.state)
+        .map_err(|_| ErrorResponse {
+            error: "invalid_state".to_string(),
+            message: "Invalid or expired state parameter".to_string(),
+        })?;
 
     // Exchange authorization code for tokens
     let token_response = oidc_provider
@@ -213,9 +209,10 @@ pub async fn oidc_callback(
             }
         })?;
 
-    // Validate and decode ID token
+    // Validate and decode ID token (async)
     let claims = oidc_provider
         .validate_id_token(&token_response.id_token)
+        .await
         .map_err(|e| {
             tracing::error!(
                 auth_method = "oidc",
@@ -251,26 +248,11 @@ pub async fn oidc_callback(
         "Authentication successful"
     );
 
-    // Decode redirect_to from state parameter
-    let redirect_to = if let Ok(decoded_bytes) =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&params.state)
-    {
-        if let Ok(decoded) = String::from_utf8(decoded_bytes) {
-            // State format: redirect_to|csrf_token
-            decoded
-                .split('|')
-                .next()
-                .filter(|s| !s.is_empty())
-                .map(String::from)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    // Default to home page if no redirect or invalid redirect
-    let redirect_path = redirect_to.unwrap_or_else(|| "/".to_string());
+    // Use redirect returned by state validator if present. Validate to avoid
+    // open-redirect attacks. If invalid, fall back to '/'.
+    let redirect_path = redirect_from_state
+        .filter(|r| is_safe_redirect(r))
+        .unwrap_or_else(|| "/".to_string());
     // Normalize redirect path to collapse duplicate slashes (defensive)
     let redirect_path = collapse_duplicate_slashes(&redirect_path);
 
@@ -328,7 +310,55 @@ pub async fn login(
         });
     }
 
-    // Handle LDAP authentication
+    // If a local auth provider is configured (covers local users with rate limiting and proper bcrypt handling)
+    if let Some(local_provider) = &state.local_provider {
+        match local_provider
+            .authenticate(&payload.username, &payload.password)
+            .await
+            .map_err(|e| {
+                tracing::error!(error = %e, "Local authentication failed");
+                ErrorResponse {
+                    error: "internal_error".to_string(),
+                    message: "Authentication error".to_string(),
+                }
+            })? {
+            Some(token) => {
+                tracing::info!(username = %payload.username, "User authenticated successfully (local)");
+                let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
+                let body = serde_json::to_string(&LoginResponse {
+                    success: true,
+                    message: "Login successful".to_string(),
+                })
+                .map_err(|e| {
+                    tracing::error!(error = %e, "Failed to serialize login response");
+                    ErrorResponse {
+                        error: "internal_error".to_string(),
+                        message: "Failed to create login response".to_string(),
+                    }
+                })?;
+
+                let mut response = axum::response::Response::new(axum::body::Body::from(body));
+                response.headers_mut().insert(
+                    http::header::SET_COOKIE,
+                    crate::auth::build_session_cookie_header(&token, max_age_seconds),
+                );
+                response.headers_mut().insert(
+                    http::header::CONTENT_TYPE,
+                    http::HeaderValue::from_static("application/json"),
+                );
+                return Ok(response);
+            }
+            None => {
+                tracing::warn!(username = %payload.username, "Invalid credentials (local)");
+                return Err(ErrorResponse {
+                    error: "invalid_credentials".to_string(),
+                    message: "Invalid username or password".to_string(),
+                });
+            }
+        }
+    }
+
+    // Handle LDAP authentication if configured (fallback)
     if let Some(ldap_provider) = &state.ldap_provider {
         let session_token = ldap_provider
             .authenticate(&payload.username, &payload.password)
@@ -350,7 +380,6 @@ pub async fn login(
         let body = serde_json::to_string(&LoginResponse {
             success: true,
             message: "Login successful".to_string(),
-            session_token: Some(session_token.clone()),
         })
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to serialize login response");
@@ -454,7 +483,6 @@ pub async fn login(
     let body = match serde_json::to_string(&LoginResponse {
         success: true,
         message: "Login successful".to_string(),
-        session_token: Some(token.clone()),
     }) {
         Ok(json) => axum::body::Body::from(json),
         Err(e) => {
@@ -573,6 +601,27 @@ fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
     None
 }
 
+/// Return true if the given redirect target is considered safe.
+///
+/// Rules:
+/// - Only allow path-absolute redirects starting with '/'
+/// - Disallow any value containing '://' to avoid scheme+host redirects
+/// - Disallow CRLF characters
+fn is_safe_redirect(target: &str) -> bool {
+    if target.is_empty() {
+        return false;
+    }
+    if target.contains("://") {
+        return false;
+    }
+    if target.contains('\n') || target.contains('\r') {
+        return false;
+    }
+    // Allow only absolute paths (no protocol/host). This permits '/foo' and
+    // '/foo/bar?x=1' but rejects 'http://evil' or '//evil'.
+    target.starts_with('/')
+}
+
 /// Auth status response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AuthStatusResponse {
@@ -640,12 +689,12 @@ mod tests {
         let response = LoginResponse {
             success: true,
             message: "Login successful".to_string(),
-            session_token: Some("token123".to_string()),
         };
         // SAFETY: Serializing a simple struct always succeeds
         let json = serde_json::to_string(&response).expect("serialize test response");
         assert!(json.contains("\"success\":true"));
-        assert!(json.contains("\"session_token\":\"token123\""));
+        // Session token should not be present in JSON responses
+        assert!(!json.contains("session_token"));
     }
 
     #[test]

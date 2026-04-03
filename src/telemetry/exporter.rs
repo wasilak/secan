@@ -6,7 +6,7 @@
 use crate::telemetry::config::{OtlpProtocol, TelemetryConfig};
 use anyhow::Result;
 use opentelemetry::KeyValue;
-use opentelemetry_otlp::{Protocol, WithExportConfig, WithHttpConfig, WithTonicConfig};
+use opentelemetry_otlp::{Protocol, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::{BatchSpanProcessor, SdkTracerProvider};
 use opentelemetry_sdk::Resource;
 
@@ -85,29 +85,15 @@ pub fn init_tracer_provider(config: &TelemetryConfig) -> Result<SdkTracerProvide
 }
 
 /// Create OTLP Tonic (gRPC) exporter
+///
+/// In this build the gRPC/Tonic exporter is not enabled. Return an error
+/// so callers which select gRPC are informed at runtime.
 fn create_otlp_tonic_exporter(
-    config: &TelemetryConfig,
+    _config: &TelemetryConfig,
 ) -> Result<opentelemetry_otlp::SpanExporter> {
-    // Parse OTLP headers into MetadataMap
-    let mut metadata = tonic::metadata::MetadataMap::new();
-    for (key, value) in &config.otlp_headers {
-        let key_metadata: tonic::metadata::MetadataKey<_> = key.parse()?;
-        let value_metadata: tonic::metadata::MetadataValue<_> = value.parse()?;
-        metadata.insert(key_metadata, value_metadata);
-    }
-
-    // Create Tonic exporter builder
-    let builder = opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_endpoint(&config.otlp_endpoint)
-        .with_timeout(config.batch_config.max_export_timeout)
-        .with_metadata(metadata);
-
-    let exporter = builder
-        .build()
-        .map_err(|e| anyhow::anyhow!("Failed to build Tonic exporter: {}", e))?;
-
-    Ok(exporter)
+    Err(anyhow::anyhow!(
+        "gRPC/Tonic OTLP exporter not enabled in this build (missing feature)"
+    ))
 }
 
 /// Create OTLP HTTP exporter with async reqwest client

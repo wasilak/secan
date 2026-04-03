@@ -8,7 +8,7 @@ license = "AGPL-3.0"
 
 [dependencies]
 # Web framework
-axum = "0.8"
+axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip", "trace"] }
@@ -37,6 +37,8 @@ reqwest = { version = "0.13", default-features = false, features = [
   "rustls",
 ] }
 
+# Concurrent map used for CSRF state and JWKS cache
+dashmap = "6"
 # Async utilities
 futures = "0.3"
 
@@ -74,8 +76,8 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 # OpenTelemetry tracing (all must be compatible versions)
 opentelemetry = { version = "0.29", features = ["trace"] }
 opentelemetry_sdk = { version = "0.29", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.29", features = ["trace", "grpc-tonic", "http-proto", "reqwest-blocking-client"], default-features = false }
-tonic = { version = "0.12", features = ["tls"] }
+opentelemetry-otlp = { version = "0.29", features = ["trace", "http-proto", "reqwest-blocking-client"], default-features = false }
+# tonic removed - not required unless gRPC exporter is enabled
 tracing-opentelemetry = "0.30"
 
 # TLS
@@ -88,12 +90,15 @@ async-trait = "0.1"
 
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
+# Human-friendly duration parsing (e.g., "10m", "1h")
+humantime = "2"
 
 # UUID generation
 uuid = { version = "1", features = ["v4", "serde"] }
 
 # Random number generation for secure tokens
-rand = "0.10"
+# Explicitly enable std feature for rand so thread_rng() is available
+rand = { version = "0.10", features = ["std", "thread_rng"] }
 
 # Cryptographically secure randomness for session tokens
 getrandom = "0.2"

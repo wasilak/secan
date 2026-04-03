@@ -107,11 +107,13 @@ impl IntoResponse for PermissionError {
     fn into_response(self) -> Response {
         match self {
             PermissionError::Unauthenticated => {
-                // Return 302 redirect to login with redirect_to parameter
-                // This is handled by returning a redirect response
-                let redirect_uri = "/api/auth/login".to_string();
-                // TODO: Add redirect_to query parameter with original URL
-                (StatusCode::FOUND, [("Location", redirect_uri.as_str())]).into_response()
+                // Return JSON 401 Unauthorized for API callers
+                // and do not include redirects from middleware (handled by auth middleware)
+                (
+                    StatusCode::UNAUTHORIZED,
+                    serde_json::json!({"error":"unauthenticated","message":"Authentication required"}).to_string(),
+                )
+                    .into_response()
             }
             PermissionError::Forbidden(cluster_id) => {
                 tracing::warn!(cluster_id = %cluster_id, "User attempted to access forbidden cluster");

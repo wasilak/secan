@@ -144,6 +144,13 @@ pub struct OidcConfig {
     pub groups_claim_key: String,
     #[serde(default = "default_oidc_redirect_delay")]
     pub redirect_delay_seconds: u64,
+    /// JWKS TTL in seconds (default: 600 = 10 minutes)
+    #[serde(default = "default_jwks_ttl_seconds")]
+    pub jwks_ttl_seconds: u64,
+    /// Optional human-friendly JWKS TTL (e.g., "10m", "1h"). When provided it
+    /// takes precedence over jwks_ttl_seconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jwks_ttl: Option<String>,
 }
 
 fn default_groups_claim_key() -> String {
@@ -152,6 +159,10 @@ fn default_groups_claim_key() -> String {
 
 fn default_oidc_redirect_delay() -> u64 {
     4
+}
+
+fn default_jwks_ttl_seconds() -> u64 {
+    10 * 60
 }
 
 /// LDAP TLS mode
@@ -1060,6 +1071,8 @@ mod tests {
             redirect_uri: "https://secan.example.com/api/auth/oidc/callback".to_string(),
             groups_claim_key: "groups".to_string(),
             redirect_delay_seconds: 4,
+            jwks_ttl_seconds: default_jwks_ttl_seconds(),
+            jwks_ttl: None,
         });
         assert!(config.validate().is_ok());
     }

@@ -108,12 +108,7 @@ pub async fn auth_middleware(
             }
 
             let redirect_url = build_login_redirect_url(&request);
-            tracing::debug!(
-                path = %path,
-                token = %token,
-                redirect_url = %redirect_url,
-                "Invalid session, redirecting to login"
-            );
+            tracing::debug!(path = %path, redirect_url = %redirect_url, "Invalid session, redirecting to login");
             return Ok(Redirect::to(&redirect_url).into_response());
         }
     };
