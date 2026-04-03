@@ -12,6 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
+const TEST_SECRET: &str = "test-secret-key-for-integration-tests-32chars!";
+
 /// Test health check returns 200 when server is running
 #[tokio::test]
 #[serial]
@@ -29,7 +31,7 @@ async fn test_health_check_returns_ok() {
         .await
         .expect("create cluster manager");
 
-    let session_manager = SessionManager::new(SessionConfig::new(60));
+    let session_manager = SessionManager::new(SessionConfig::new(60, TEST_SECRET.to_string()));
 
     let state = secan::routes::health::HealthState {
         cluster_manager: Arc::new(cluster_manager),
@@ -66,7 +68,7 @@ async fn test_readiness_check_includes_dependencies() {
         .await
         .expect("create cluster manager");
 
-    let session_manager = SessionManager::new(SessionConfig::new(60));
+    let session_manager = SessionManager::new(SessionConfig::new(60, TEST_SECRET.to_string()));
 
     let state = secan::routes::health::HealthState {
         cluster_manager: Arc::new(cluster_manager),

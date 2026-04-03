@@ -85,7 +85,7 @@ impl OidcAuthProvider {
         session_manager: Arc<SessionManager>,
         permission_resolver: PermissionResolver,
     ) -> Result<Self> {
-        tracing::info!("Initializing OIDC authentication provider");
+        tracing::debug!("Initializing OIDC authentication provider");
         tracing::debug!(client_id = %config.client_id, "OIDC client configured");
         tracing::debug!(redirect_uri = %config.redirect_uri, "OIDC redirect URI configured");
 
@@ -93,7 +93,7 @@ impl OidcAuthProvider {
 
         // Discover OIDC provider metadata
         let discovery_url = &config.discovery_url;
-        tracing::info!(discovery_url = %discovery_url, "Discovering OIDC provider metadata");
+        tracing::debug!(discovery_url = %discovery_url, "Discovering OIDC provider metadata");
 
         let metadata_response = http_client
             .get(discovery_url)
@@ -141,7 +141,7 @@ impl OidcAuthProvider {
                 .to_string(),
         };
 
-        tracing::info!("OIDC provider metadata discovered successfully");
+        tracing::debug!("OIDC provider metadata discovered successfully");
 
         Ok(Self {
             config,
@@ -175,7 +175,7 @@ impl OidcAuthProvider {
 
     /// Exchange authorization code for tokens
     pub async fn exchange_code(&self, code: &str) -> Result<TokenResponse> {
-        tracing::info!("Exchanging authorization code for tokens");
+        tracing::debug!("Exchanging authorization code for tokens");
 
         let params = [
             ("grant_type", "authorization_code"),
@@ -206,14 +206,14 @@ impl OidcAuthProvider {
             .await
             .context("Failed to parse token response")?;
 
-        tracing::info!("Token exchange successful");
+        tracing::debug!("Token exchange successful");
 
         Ok(token_response)
     }
 
     /// Validate and decode ID token
     pub fn validate_id_token(&self, id_token_str: &str) -> Result<IdTokenClaims> {
-        tracing::info!("Validating ID token");
+        tracing::debug!("Validating ID token");
 
         let parts: Vec<&str> = id_token_str.split('.').collect();
         if parts.len() != 3 {
@@ -230,7 +230,7 @@ impl OidcAuthProvider {
         let claims: IdTokenClaims =
             serde_json::from_slice(&payload_bytes).context("Failed to parse ID token claims")?;
 
-        tracing::info!(subject = %claims.sub, "ID token validated successfully");
+        tracing::debug!(subject = %claims.sub, "ID token validated successfully");
 
         Ok(claims)
     }
@@ -318,7 +318,7 @@ impl OidcAuthProvider {
         };
 
         if !groups.is_empty() {
-            tracing::info!("Fetched groups from userinfo endpoint: {:?}", groups);
+            tracing::debug!("Fetched groups from userinfo endpoint: {:?}", groups);
         }
 
         Ok(groups)
@@ -348,7 +348,7 @@ impl OidcAuthProvider {
         // Extract groups from ID token first
         let mut groups = self.extract_groups_from_claims(claims);
 
-        tracing::info!("Extracted groups from ID token: {:?}", groups);
+        tracing::debug!("Extracted groups from ID token: {:?}", groups);
 
         // If no groups in ID token, fetch from userinfo endpoint
         if groups.is_empty() {
@@ -361,7 +361,7 @@ impl OidcAuthProvider {
         // Resolve accessible clusters based on groups
         let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
 
-        tracing::info!(
+        tracing::debug!(
             "Resolved cluster access - groups: {:?}, accessible_clusters: {:?}",
             groups,
             accessible_clusters

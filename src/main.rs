@@ -126,23 +126,39 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Initialize cluster manager
-    info!("Initializing cluster manager...");
+    tracing::debug!("Initializing cluster manager...");
     let cache_duration = std::time::Duration::from_secs(config.cache.get_duration_secs());
     let cluster_manager = ClusterManager::new(config.clusters.clone(), cache_duration).await?;
-    info!("Cluster manager initialized successfully");
+    tracing::debug!("Cluster manager initialized successfully");
+
+    // Read and validate session secret — must be set and at least 32 characters.
+    // Using an env var (not config.yaml) keeps the secret out of version control.
+    let session_secret = std::env::var("SECAN_SESSION_SECRET").unwrap_or_else(|_| {
+        panic!(
+            "SECAN_SESSION_SECRET environment variable is required. \
+             Generate a strong random secret (≥32 characters) and set it before starting secan."
+        )
+    });
+    if session_secret.len() < 32 {
+        panic!(
+            "SECAN_SESSION_SECRET must be at least 32 characters long (got {}). \
+             Use a strong random value.",
+            session_secret.len()
+        );
+    }
 
     // Initialize session manager
-    info!("Initializing session manager...");
-    let session_config = SessionConfig::new(config.auth.session_timeout_minutes);
+    tracing::debug!("Initializing session manager...");
+    let session_config = SessionConfig::new(config.auth.session_timeout_minutes, session_secret);
     let session_manager = SessionManager::new(session_config);
-    info!("Session manager initialized successfully");
+    tracing::debug!("Session manager initialized successfully");
 
     // Start session cleanup task
     let cleanup_handle = Arc::new(session_manager.clone()).start_cleanup_task();
-    info!("Session cleanup task started");
+    tracing::debug!("Session cleanup task started");
 
     // Create and start server (async to initialize OIDC provider if configured)
-    info!("Creating server...");
+    tracing::debug!("Creating server...");
     let server = Server::new(config, cluster_manager, session_manager)
         .await
         .context("Failed to create server")?;

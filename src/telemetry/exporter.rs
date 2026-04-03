@@ -45,7 +45,7 @@ pub fn init_tracer_provider(config: &TelemetryConfig) -> Result<SdkTracerProvide
                 .with_batch_config(batch_config)
                 .build();
 
-            tracing::info!(
+            tracing::debug!(
                 scheduled_delay_ms = config.batch_config.scheduled_delay.as_millis(),
                 "Using BatchSpanProcessor for gRPC export"
             );
@@ -69,7 +69,7 @@ pub fn init_tracer_provider(config: &TelemetryConfig) -> Result<SdkTracerProvide
                 .with_batch_config(batch_config)
                 .build();
 
-            tracing::info!(
+            tracing::debug!(
                 scheduled_delay_ms = config.batch_config.scheduled_delay.as_millis(),
                 "Using BatchSpanProcessor for HTTP export"
             );

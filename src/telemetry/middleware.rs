@@ -72,9 +72,9 @@ impl<B> tower_http::trace::OnResponse<B> for OtelOnResponse {
             span.record("http.response_content_length", content_length);
         }
 
-        // Explicitly log at info level within the span context to ensure it's recorded
+        // Log at debug level within the span context to ensure it's recorded
         // This ensures the span gets the proper OTel treatment
-        tracing::info!(
+        tracing::debug!(
             parent: span,
             latency_ms = latency.as_millis(),
             status = %response.status(),

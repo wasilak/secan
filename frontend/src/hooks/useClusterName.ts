@@ -26,6 +26,7 @@ export function useClusterName(clusterId: string): string {
       const clustersResponse = await apiClient.getClusters(1, 100);
       return clustersResponse.items.find((c: ClusterInfo) => c.id === clusterId);
     },
+    enabled: !!clusterId,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
@@ -33,6 +34,7 @@ export function useClusterName(clusterId: string): string {
   const { data: clusterStats } = useQuery({
     queryKey: queryKeys.cluster(clusterId).stats(),
     queryFn: () => apiClient.getClusterStats(clusterId),
+    enabled: !!clusterId,
     staleTime: 30 * 1000, // Cache for 30 seconds
   });
 

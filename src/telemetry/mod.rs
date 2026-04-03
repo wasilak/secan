@@ -47,7 +47,7 @@ pub struct TelemetryGuard {
 
 impl Drop for TelemetryGuard {
     fn drop(&mut self) {
-        tracing::info!("Shutting down OpenTelemetry telemetry...");
+        tracing::debug!("Shutting down OpenTelemetry telemetry...");
 
         // Force flush before shutdown to ensure all spans are exported
         if let Some(ref provider) = self.provider {
@@ -61,10 +61,10 @@ impl Drop for TelemetryGuard {
             if let Err(e) = provider.shutdown() {
                 eprintln!("[telemetry] Error during shutdown: {:?}", e);
             } else {
-                tracing::info!("OpenTelemetry provider shut down successfully");
+                tracing::debug!("OpenTelemetry provider shut down successfully");
             }
         }
-        tracing::info!("OpenTelemetry telemetry shut down complete");
+        tracing::debug!("OpenTelemetry telemetry shut down complete");
     }
 }
 
@@ -137,7 +137,7 @@ fn init_telemetry_inner() -> Result<Option<TelemetryGuard>> {
         )
         .init();
 
-    tracing::info!(
+    tracing::debug!(
         service_name = %config.service_name,
         otlp_endpoint = %config.otlp_endpoint,
         otlp_protocol = ?config.otlp_protocol,
@@ -164,7 +164,7 @@ fn init_tracing_subscriber_only() -> Result<()> {
         )
         .init();
 
-    tracing::info!("Tracing initialized (console mode)");
+    tracing::debug!("Tracing initialized (console mode)");
     Ok(())
 }
 

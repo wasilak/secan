@@ -43,6 +43,26 @@ pub async fn logging_middleware(mut request: Request, next: Next) -> Response {
         "Incoming request"
     );
 
+    // If path contains a double slash under /api/clusters, log headers for diagnostics
+    if sanitized_path.contains("/api/clusters/") && sanitized_path.contains("//") {
+        let referer = request
+            .headers()
+            .get("referer")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        let user_agent = request
+            .headers()
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+        debug!(
+            path = %sanitized_path,
+            referer = ?referer,
+            user_agent = ?user_agent,
+            "Incoming cluster request with empty id detected (diagnostic)"
+        );
+    }
+
     // Insert request ID into request extensions for downstream handlers
     request
         .extensions_mut()
@@ -67,14 +87,32 @@ pub async fn logging_middleware(mut request: Request, next: Next) -> Response {
             );
         }
         400..=499 => {
-            warn!(
-                request_id = %request_id,
-                method = %method,
-                path = %sanitized_path,
-                status = status.as_u16(),
-                duration_ms = duration.as_millis() as u64,
-                "Request completed with client error"
-            );
+            // Demote 401 (unauthorized) to DEBUG because it's a common
+            // outcome for unauthenticated requests (e.g. after logout).
+            // Keep other 4xx responses as WARN since they usually indicate
+            // client errors worth noticing.
+            match status.as_u16() {
+                401 => {
+                    debug!(
+                        request_id = %request_id,
+                        method = %method,
+                        path = %sanitized_path,
+                        status = status.as_u16(),
+                        duration_ms = duration.as_millis() as u64,
+                        "Request completed with client unauthorized"
+                    );
+                }
+                _ => {
+                    warn!(
+                        request_id = %request_id,
+                        method = %method,
+                        path = %sanitized_path,
+                        status = status.as_u16(),
+                        duration_ms = duration.as_millis() as u64,
+                        "Request completed with client error"
+                    );
+                }
+            }
         }
         500..=599 => {
             error!(

@@ -67,7 +67,10 @@ impl LdapAuthProvider {
     /// #   display_name_attribute: "cn".to_string(),
     /// };
     ///
-    /// let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+    /// let session_manager = Arc::new(SessionManager::new(SessionConfig::new(
+    ///     60,
+    ///     "your-session-secret-at-least-32-chars".to_string(),
+    /// )));
     /// let permission_resolver = PermissionResolver::empty();
     /// let provider = LdapAuthProvider::new(config, session_manager, permission_resolver).await?;
     /// # Ok(())
@@ -1154,7 +1157,7 @@ impl LdapAuthProvider {
             .context("Failed to create session after successful LDAP authentication")?;
 
         // Log authentication success with username and groups
-        info!(
+        debug!(
             username = %username,
             user_dn = %user_dn,
             groups = ?groups,

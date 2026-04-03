@@ -322,6 +322,8 @@ fn get_git_info() -> Result<String, Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
 
+    const TEST_SECRET: &str = "test-secret-key-for-health-tests-only-32chars!";
+
     #[tokio::test]
     async fn test_health_check() {
         let (status, response) = health_check().await;
@@ -349,7 +351,8 @@ mod tests {
                 .await
                 .expect("create cluster manager");
 
-        let session_manager = SessionManager::new(crate::auth::SessionConfig::new(60));
+        let session_manager =
+            SessionManager::new(crate::auth::SessionConfig::new(60, TEST_SECRET.to_string()));
 
         let state = HealthState {
             cluster_manager: Arc::new(cluster_manager),

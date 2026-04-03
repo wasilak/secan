@@ -87,7 +87,7 @@ impl LocalAuthProvider {
 
                     let token = self.session_manager.create_session(auth_user).await?;
 
-                    tracing::info!(
+                    tracing::debug!(
                         username = %username,
                         groups = ?user.groups,
                         accessible_clusters = ?accessible_clusters,
@@ -185,7 +185,7 @@ impl LocalAuthProvider {
 
                     let token = self.session_manager.create_session(auth_user).await?;
 
-                    tracing::info!(
+                    tracing::debug!(
                         username = %username,
                         ip = %ip_address,
                         groups = ?user.groups,
@@ -308,6 +308,8 @@ mod tests {
     use super::*;
     use crate::auth::{RateLimitConfig, RateLimiter, SessionConfig};
 
+    const TEST_SECRET: &str = "test-secret-key-for-local-auth-tests-32chars!";
+
     fn create_test_users() -> Vec<LocalUser> {
         vec![
             LocalUser {
@@ -395,7 +397,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_auth_provider_authenticate_success() {
         let users = create_test_users();
-        let session_config = SessionConfig::new(60);
+        let session_config = SessionConfig::new(60, TEST_SECRET.to_string());
         let session_manager = SessionManager::new(session_config);
         let permission_resolver = PermissionResolver::empty();
         let provider = LocalAuthProvider::new(users, session_manager, permission_resolver);
@@ -410,7 +412,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_auth_provider_with_rate_limiter() {
         let users = create_test_users();
-        let session_config = SessionConfig::new(60);
+        let session_config = SessionConfig::new(60, TEST_SECRET.to_string());
         let session_manager = SessionManager::new(session_config);
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
@@ -432,7 +434,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_auth_provider_rate_limiting() {
         let users = create_test_users();
-        let session_config = SessionConfig::new(60);
+        let session_config = SessionConfig::new(60, TEST_SECRET.to_string());
         let session_manager = SessionManager::new(session_config);
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
@@ -464,7 +466,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_auth_provider_ip_rate_limiting() {
         let users = create_test_users();
-        let session_config = SessionConfig::new(60);
+        let session_config = SessionConfig::new(60, TEST_SECRET.to_string());
         let session_manager = SessionManager::new(session_config);
         let rate_limit_config = RateLimitConfig::new(3, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);
@@ -498,7 +500,7 @@ mod tests {
     #[tokio::test]
     async fn test_local_auth_provider_success_clears_rate_limit() {
         let users = create_test_users();
-        let session_config = SessionConfig::new(60);
+        let session_config = SessionConfig::new(60, TEST_SECRET.to_string());
         let session_manager = SessionManager::new(session_config);
         let rate_limit_config = RateLimitConfig::new(5, 300, 900);
         let rate_limiter = RateLimiter::new(rate_limit_config);

@@ -712,7 +712,7 @@ warn!("LDAP authentication failed for user '{}': user not found", username);
 warn!("LDAP access denied for user '{}': not in required groups", username);
 
 // Successful authentication
-info!(
+debug!(
     "LDAP authentication successful for user '{}' (DN: {}, groups: {:?})",
     username, user_dn, groups
 );
@@ -1226,7 +1226,7 @@ impl AuthProvider for LdapAuthProvider {
             .await
             .context("Failed to create session")?;
         
-        info!(
+        debug!(
             "LDAP authentication successful for user '{}' (DN: {}, groups: {:?})",
             username, user_info.id, user_info.groups
         );

@@ -56,6 +56,42 @@ pub struct OidcLoginQuery {
     pub redirect_to: Option<String>,
 }
 
+/// Collapse consecutive slashes in a path or URL while preserving the scheme
+/// (e.g., "http://"). This prevents redirect targets like "/api/clusters//stats"
+/// from being sent to clients.
+fn collapse_duplicate_slashes(input: &str) -> String {
+    fn collapse(s: &str) -> String {
+        let mut out = String::with_capacity(s.len());
+        let mut prev_slash = false;
+        for ch in s.chars() {
+            if ch == '/' {
+                if !prev_slash {
+                    out.push(ch);
+                    prev_slash = true;
+                } else {
+                    // skip duplicate slash
+                }
+            } else {
+                out.push(ch);
+                prev_slash = false;
+            }
+        }
+        out
+    }
+
+    if input.is_empty() {
+        return input.to_string();
+    }
+
+    if let Some(pos) = input.find("://") {
+        // Preserve scheme (including '://') and collapse the rest
+        let (scheme, rest) = input.split_at(pos + 3);
+        format!("{}{}", scheme, collapse(rest))
+    } else {
+        collapse(input)
+    }
+}
+
 /// Error response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ErrorResponse {
@@ -110,7 +146,9 @@ pub async fn oidc_login(
 
     // Encode redirect_to in state parameter (base64 encode to preserve special chars)
     let state_with_redirect = if let Some(redirect_to) = params.redirect_to {
-        let combined = format!("{}|{}", redirect_to, state_param);
+        // Normalize redirect path to avoid sending duplicate slashes to the client
+        let normalized = collapse_duplicate_slashes(&redirect_to);
+        let combined = format!("{}|{}", normalized, state_param);
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(combined.as_bytes())
     } else {
         state_param
@@ -121,7 +159,7 @@ pub async fn oidc_login(
 
     let auth_url = oidc_provider.get_authorization_url(&state_with_redirect);
 
-    tracing::info!(auth_method = "oidc", "Initiating OIDC authentication flow");
+    tracing::debug!(auth_method = "oidc", "Initiating OIDC authentication flow");
 
     Ok(Redirect::to(&auth_url))
 }
@@ -153,7 +191,7 @@ pub async fn oidc_callback(
         message: "OIDC authentication is not configured".to_string(),
     })?;
 
-    tracing::info!(auth_method = "oidc", "Processing OIDC callback");
+    tracing::debug!(auth_method = "oidc", "Processing OIDC callback");
 
     // TODO: Validate state parameter against stored value for CSRF protection
 
@@ -205,7 +243,7 @@ pub async fn oidc_callback(
             }
         })?;
 
-    tracing::info!(
+    tracing::debug!(
         auth_method = "oidc",
         user_id = %claims.sub,
         "Authentication successful"
@@ -231,6 +269,8 @@ pub async fn oidc_callback(
 
     // Default to home page if no redirect or invalid redirect
     let redirect_path = redirect_to.unwrap_or_else(|| "/".to_string());
+    // Normalize redirect path to collapse duplicate slashes (defensive)
+    let redirect_path = collapse_duplicate_slashes(&redirect_path);
 
     // Get session timeout from config
     let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
@@ -239,7 +279,7 @@ pub async fn oidc_callback(
     let mut response = Response::new(Body::empty());
     response.headers_mut().insert(
         http::header::SET_COOKIE,
-        create_session_cookie(&session_token, max_age_seconds),
+        crate::auth::build_session_cookie_header(&session_token, max_age_seconds),
     );
     response.headers_mut().insert(
         http::header::LOCATION,
@@ -322,7 +362,7 @@ pub async fn login(
         let mut response = axum::response::Response::new(axum::body::Body::from(body));
         response.headers_mut().insert(
             http::header::SET_COOKIE,
-            create_session_cookie(&session_token, max_age_seconds),
+            crate::auth::build_session_cookie_header(&session_token, max_age_seconds),
         );
         response.headers_mut().insert(
             http::header::CONTENT_TYPE,
@@ -428,7 +468,7 @@ pub async fn login(
 
     response.headers_mut().insert(
         http::header::SET_COOKIE,
-        create_session_cookie(&token, max_age_seconds),
+        crate::auth::build_session_cookie_header(&token, max_age_seconds),
     );
     response.headers_mut().insert(
         http::header::CONTENT_TYPE,
@@ -460,42 +500,6 @@ pub async fn get_current_user(
     })
 }
 
-/// Build session cookie
-///
-/// The Secure flag is only set when explicitly enabled via environment variable.
-/// In production behind an HTTPS reverse proxy, set SECAN_SECURE_COOKIES=true
-/// For local development over HTTP, leave it unset or set to false
-///
-/// The Max-Age is set based on the configured session timeout.
-fn create_session_cookie(token: &str, max_age_seconds: u64) -> http::HeaderValue {
-    // Only set Secure flag if explicitly enabled via environment variable
-    // Default to false to allow local HTTP development
-    // In production, use SECAN_SECURE_COOKIES=true when behind HTTPS reverse proxy
-    let secure_flag = std::env::var("SECAN_SECURE_COOKIES")
-        .map(|v| v.to_lowercase() == "true")
-        .unwrap_or(false);
-
-    let cookie_value = if secure_flag {
-        format!(
-            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age={}",
-            token, max_age_seconds
-        )
-    } else {
-        format!(
-            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
-            token, max_age_seconds
-        )
-    };
-    match http::HeaderValue::from_str(&cookie_value) {
-        Ok(header) => header,
-        Err(e) => {
-            tracing::error!(error = %e, "Failed to create cookie header");
-            // Fall back to a safe default (this should never happen with valid tokens)
-            http::HeaderValue::from_static("session_token=invalid")
-        }
-    }
-}
-
 /// Logout endpoint
 ///
 /// Invalidates the user's session and clears the session cookie
@@ -518,14 +522,14 @@ pub async fn logout(
         if let Err(e) = state.session_manager.invalidate_session(&token).await {
             tracing::error!(error = %e, "Failed to invalidate session");
         } else {
-            tracing::info!("Session invalidated for user logout");
+            tracing::debug!("Session invalidated for user logout");
         }
     }
 
     // Clear session cookie
     let clear_cookie = "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0".to_string();
 
-    tracing::info!("User logged out");
+    tracing::debug!("User logged out");
 
     // Redirect to login page with logout flag to prevent auto-redirect to OIDC
     let mut response = Response::new(Body::empty());

@@ -15,4 +15,7 @@ pub use oidc::OidcAuthProvider;
 pub use permissions::{filter_clusters, PermissionResolver};
 pub use rate_limiter::{RateLimitConfig, RateLimiter};
 pub use rbac::{RbacManager, Role};
-pub use session::{generate_token, AuthUser, Session, SessionConfig, SessionManager, SessionStore};
+pub use session::{
+    build_session_cookie_header, generate_token, AuthUser, Session, SessionConfig, SessionManager,
+    SessionValidation,
+};

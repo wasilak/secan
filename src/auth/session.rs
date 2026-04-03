@@ -1,103 +1,106 @@
 use chrono::{DateTime, Duration, Utc};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use uuid::Uuid;
+
+// ── Session configuration ─────────────────────────────────────────────────────
 
 /// Session configuration
 #[derive(Debug, Clone)]
 pub struct SessionConfig {
-    /// Session timeout in minutes
+    /// Session timeout in minutes (used for JWT `exp` and renewal threshold)
     pub timeout_minutes: u64,
+    /// HMAC-SHA256 signing secret loaded from `SECAN_SESSION_SECRET`
+    pub secret: String,
 }
 
 impl SessionConfig {
-    pub fn new(timeout_minutes: u64) -> Self {
-        Self { timeout_minutes }
+    pub fn new(timeout_minutes: u64, secret: String) -> Self {
+        Self {
+            timeout_minutes,
+            secret,
+        }
     }
 }
 
-/// Represents an authenticated user session
+// ── JWT claims (embedded in every session cookie) ─────────────────────────────
+
+/// Claims embedded in the signed JWT stored in the `session_token` cookie.
+///
+/// All session state is carried inside the token; no server-side session store
+/// is required for normal request validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionClaims {
+    /// Subject — user ID
+    pub sub: String,
+    /// Human-readable username
+    pub username: String,
+    /// RBAC roles
+    pub roles: Vec<String>,
+    /// Cluster IDs accessible to this user (`"*"` means all)
+    pub accessible_clusters: Vec<String>,
+    /// Expiry (Unix seconds) — validated by the JWT library
+    pub exp: u64,
+    /// Issued-at (Unix seconds)
+    pub iat: u64,
+    /// JWT ID — used to revoke individual sessions on logout
+    pub jti: String,
+}
+
+// ── Session (view after decoding) ─────────────────────────────────────────────
+
+/// A decoded, validated session.  Produced by [`SessionManager::validate_session`].
+#[derive(Debug, Clone)]
 pub struct Session {
-    /// Unique session token
+    /// The original JWT string (kept so the middleware can forward it or renew it)
     pub token: String,
-    /// User ID
+    /// User ID (= `sub` claim)
     pub user_id: String,
     /// Username
     pub username: String,
-    /// User roles for RBAC
+    /// RBAC roles
     pub roles: Vec<String>,
-    /// Cluster IDs accessible to this user (or "*" for all clusters)
-    #[serde(default)]
+    /// Cluster IDs accessible to this user
     pub accessible_clusters: Vec<String>,
-    /// When the session was created
+    /// When the JWT was issued (`iat`)
     pub created_at: DateTime<Utc>,
-    /// When the session expires
+    /// When the JWT expires (`exp`)
     pub expires_at: DateTime<Utc>,
-    /// Last activity timestamp (for session renewal)
+    /// When this validation took place (= now)
     pub last_activity: DateTime<Utc>,
+    /// JWT ID — forwarded for logging / revocation
+    pub jti: String,
 }
 
-impl Session {
-    /// Create a new session with the given parameters
-    pub fn new(
-        token: String,
-        user_id: String,
-        username: String,
-        roles: Vec<String>,
-        timeout_minutes: u64,
-    ) -> Self {
-        Self::new_with_clusters(token, user_id, username, roles, Vec::new(), timeout_minutes)
-    }
+// ── Validation result ─────────────────────────────────────────────────────────
 
-    /// Create a new session with accessible clusters
-    pub fn new_with_clusters(
-        token: String,
-        user_id: String,
-        username: String,
-        roles: Vec<String>,
-        accessible_clusters: Vec<String>,
-        timeout_minutes: u64,
-    ) -> Self {
-        let now = Utc::now();
-        let expires_at = now + Duration::minutes(timeout_minutes as i64);
-
-        Self {
-            token,
-            user_id,
-            username,
-            roles,
-            accessible_clusters,
-            created_at: now,
-            expires_at,
-            last_activity: now,
-        }
-    }
-
-    /// Check if the session has expired
-    pub fn is_expired(&self) -> bool {
-        Utc::now() > self.expires_at
-    }
-
-    /// Renew the session by extending the expiration time
-    pub fn renew(&mut self, timeout_minutes: u64) {
-        let now = Utc::now();
-        self.last_activity = now;
-        self.expires_at = now + Duration::minutes(timeout_minutes as i64);
-    }
+/// Returned by [`SessionManager::validate_session`].
+///
+/// When `renewed_token` is `Some`, the caller **must** update the `session_token`
+/// cookie in the response so the sliding-expiry window is preserved.
+#[derive(Debug)]
+pub struct SessionValidation {
+    /// The decoded session data
+    pub session: Session,
+    /// A freshly-signed JWT if the token was re-issued (TTL fell below 50 % of timeout)
+    pub renewed_token: Option<String>,
 }
 
-/// Authenticated user information
+// ── AuthUser ──────────────────────────────────────────────────────────────────
+
+/// Authenticated user information — injected into axum request extensions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUser {
     /// User ID
     pub id: String,
     /// Username
     pub username: String,
-    /// User roles for RBAC
+    /// RBAC roles
     pub roles: Vec<String>,
-    /// Cluster IDs accessible to this user (or "*" for all clusters)
+    /// Cluster IDs accessible to this user
     #[serde(default)]
     pub accessible_clusters: Vec<String>,
 }
@@ -112,7 +115,7 @@ impl AuthUser {
         }
     }
 
-    /// Create a new AuthUser with accessible clusters
+    /// Create an [`AuthUser`] with explicit cluster access list.
     pub fn new_with_clusters(
         id: String,
         username: String,
@@ -128,349 +131,366 @@ impl AuthUser {
     }
 }
 
-/// Session storage using in-memory HashMap
-#[derive(Debug, Clone)]
-pub struct SessionStore {
-    sessions: Arc<RwLock<HashMap<String, Session>>>,
+// ── Cookie helper (shared between middleware and route handlers) ───────────────
+
+/// Build a `Set-Cookie` header value for the `session_token` cookie.
+///
+/// The `Secure` flag is controlled by the `SECAN_SECURE_COOKIES=true` environment
+/// variable so that local HTTP development works out of the box while production
+/// deployments behind an HTTPS reverse proxy can enforce it.
+pub fn build_session_cookie_header(token: &str, max_age_seconds: u64) -> http::HeaderValue {
+    let secure = std::env::var("SECAN_SECURE_COOKIES")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    let value = if secure {
+        format!(
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age={}",
+            token, max_age_seconds
+        )
+    } else {
+        format!(
+            "session_token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+            token, max_age_seconds
+        )
+    };
+
+    http::HeaderValue::from_str(&value).unwrap_or_else(|e| {
+        tracing::error!(error = %e, "Failed to build session cookie header");
+        http::HeaderValue::from_static("session_token=invalid")
+    })
 }
 
-impl SessionStore {
-    /// Create a new session store
-    pub fn new() -> Self {
-        Self {
-            sessions: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
+// ── Opaque token generator (still used by OIDC state parameter) ───────────────
 
-    /// Insert a session into the store
-    pub async fn insert(&self, session: Session) {
-        let mut sessions = self.sessions.write().await;
-        sessions.insert(session.token.clone(), session);
-    }
-
-    /// Get a session by token
-    pub async fn get(&self, token: &str) -> Option<Session> {
-        let sessions = self.sessions.read().await;
-        sessions.get(token).cloned()
-    }
-
-    /// Remove a session by token
-    pub async fn remove(&self, token: &str) -> Option<Session> {
-        let mut sessions = self.sessions.write().await;
-        sessions.remove(token)
-    }
-
-    /// Remove all expired sessions
-    pub async fn cleanup_expired(&self) -> usize {
-        let mut sessions = self.sessions.write().await;
-        let initial_count = sessions.len();
-        sessions.retain(|_, session| !session.is_expired());
-        initial_count - sessions.len()
-    }
-
-    /// Get the number of active sessions
-    pub async fn count(&self) -> usize {
-        let sessions = self.sessions.read().await;
-        sessions.len()
-    }
-}
-
-impl Default for SessionStore {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Generate a cryptographically secure random session token
+/// Generate a cryptographically secure random opaque token (256 bits, URL-safe base64).
+///
+/// Used for OIDC `state` parameters and other nonces — **not** for session tokens
+/// (which are now signed JWTs).
 pub fn generate_token() -> String {
-    // Generate 32 bytes (256 bits) of cryptographically-secure random data
-    // and encode as URL-safe base64 without padding. This yields a compact,
-    // URL-friendly token suitable for session identifiers.
     use base64::Engine;
     use getrandom::getrandom;
 
     let mut bytes = [0u8; 32];
-    // getrandom fills the buffer with cryptographically secure random bytes
     getrandom(&mut bytes).expect("secure RNG failed");
-
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-/// Session manager for handling user sessions
-#[derive(Debug, Clone)]
+// ── Session manager ───────────────────────────────────────────────────────────
+
+/// Stateless JWT-based session manager.
+///
+/// Sessions are encoded as signed JWTs and stored **entirely in the client cookie**;
+/// no server-side session store is needed.  This makes the application trivially
+/// horizontally scalable and resilient to container restarts.
+///
+/// # Revocation
+///
+/// Logout adds the token's `jti` to an in-memory revocation set that is consulted
+/// on every validation.  The set is bounded (entries are cleaned up after their
+/// `exp` passes) and is intentionally per-instance: losing it on restart means
+/// recently-logged-out JWTs could be accepted for their remaining TTL — an
+/// acceptable trade-off for an internal tool.
+///
+/// # Key management
+///
+/// All replicas must share the same `SECAN_SESSION_SECRET`.  Rotating the secret
+/// invalidates all active sessions (users must log in again).
+#[derive(Clone)]
 pub struct SessionManager {
-    store: SessionStore,
     config: SessionConfig,
+    /// Wrapped in Arc so Clone is O(1) and the keys are never copied
+    encoding_key: Arc<EncodingKey>,
+    decoding_key: Arc<DecodingKey>,
+    /// jti → expiry timestamp of the revoked token
+    revocation_list: Arc<RwLock<HashMap<String, DateTime<Utc>>>>,
+}
+
+impl std::fmt::Debug for SessionManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionManager")
+            .field("timeout_minutes", &self.config.timeout_minutes)
+            .finish()
+    }
 }
 
 impl SessionManager {
-    /// Create a new session manager
+    /// Create a new session manager from the given configuration.
+    ///
+    /// The signing secret is derived from `config.secret` using HMAC-SHA256.
     pub fn new(config: SessionConfig) -> Self {
+        let encoding_key = Arc::new(EncodingKey::from_secret(config.secret.as_bytes()));
+        let decoding_key = Arc::new(DecodingKey::from_secret(config.secret.as_bytes()));
         Self {
-            store: SessionStore::new(),
             config,
+            encoding_key,
+            decoding_key,
+            revocation_list: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
-    /// Create a new session for a user
+    /// The configured session timeout in minutes (exposed for cookie Max-Age).
+    pub fn timeout_minutes(&self) -> u64 {
+        self.config.timeout_minutes
+    }
+
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    fn encode_jwt(&self, claims: &SessionClaims) -> anyhow::Result<String> {
+        encode(&Header::default(), claims, &self.encoding_key)
+            .map_err(|e| anyhow::anyhow!("Failed to encode JWT: {}", e))
+    }
+
+    fn decode_jwt(&self, token: &str) -> anyhow::Result<SessionClaims> {
+        let mut validation = Validation::new(Algorithm::HS256);
+        // No grace period — we are both issuer and verifier.
+        validation.leeway = 0;
+        decode::<SessionClaims>(token, &self.decoding_key, &validation)
+            .map(|d| d.claims)
+            .map_err(|e| anyhow::anyhow!("JWT validation failed: {}", e))
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /// Create a new session for `user`, using the clusters already set on the user.
     pub async fn create_session(&self, user: AuthUser) -> anyhow::Result<String> {
         let clusters = user.accessible_clusters.clone();
         self.create_session_with_clusters(user, clusters).await
     }
 
-    /// Create a new session for a user with accessible clusters
+    /// Create a new session for `user` with an explicit cluster access list.
     pub async fn create_session_with_clusters(
         &self,
         user: AuthUser,
         accessible_clusters: Vec<String>,
     ) -> anyhow::Result<String> {
-        let token = generate_token();
-        let session = Session::new_with_clusters(
-            token.clone(),
-            user.id,
-            user.username,
-            user.roles,
-            accessible_clusters.clone(),
-            self.config.timeout_minutes,
-        );
+        let now = Utc::now();
+        let exp = (now + Duration::minutes(self.config.timeout_minutes as i64)).timestamp() as u64;
 
-        self.store.insert(session).await;
+        let claims = SessionClaims {
+            sub: user.id,
+            username: user.username,
+            roles: user.roles,
+            accessible_clusters,
+            exp,
+            iat: now.timestamp() as u64,
+            jti: Uuid::new_v4().to_string(),
+        };
 
-        tracing::info!(
-            token = %token,
+        let token = self.encode_jwt(&claims)?;
+
+        tracing::debug!(
+            jti = %claims.jti,
             timeout_minutes = self.config.timeout_minutes,
-            clusters = accessible_clusters.len(),
             "Session created"
         );
 
         Ok(token)
     }
 
-    /// Validate a session token and return the session if valid
-    pub async fn validate_session(&self, token: &str) -> anyhow::Result<Option<Session>> {
-        let session = self.store.get(token).await;
-
-        match session {
-            Some(mut session) => {
-                if session.is_expired() {
-                    // Remove expired session
-                    self.store.remove(token).await;
-                    tracing::debug!("Session expired and removed");
-                    Ok(None)
-                } else {
-                    // Renew session on activity
-                    session.renew(self.config.timeout_minutes);
-                    self.store.insert(session.clone()).await;
-                    tracing::debug!("Session validated and renewed");
-                    Ok(Some(session))
-                }
+    /// Validate a session token.
+    ///
+    /// Returns `None` when the token is invalid, expired, or revoked.
+    ///
+    /// When `SessionValidation::renewed_token` is `Some`, the caller should
+    /// set a new `session_token` cookie in the HTTP response to slide the
+    /// expiry window forward.
+    pub async fn validate_session(&self, token: &str) -> anyhow::Result<Option<SessionValidation>> {
+        // Decode and verify signature + expiry
+        let claims = match self.decode_jwt(token) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::debug!(error = %e, "JWT validation failed");
+                return Ok(None);
             }
-            None => {
-                tracing::debug!("Session not found");
-                Ok(None)
+        };
+
+        // Check revocation list
+        {
+            let revoked = self.revocation_list.read().await;
+            if revoked.contains_key(&claims.jti) {
+                tracing::debug!(jti = %claims.jti, "Session is revoked");
+                return Ok(None);
             }
         }
+
+        let now = Utc::now();
+        let expires_at = DateTime::from_timestamp(claims.exp as i64, 0)
+            .unwrap_or_else(|| now + Duration::minutes(self.config.timeout_minutes as i64));
+        let created_at = DateTime::from_timestamp(claims.iat as i64, 0).unwrap_or(now);
+
+        let session = Session {
+            token: token.to_string(),
+            user_id: claims.sub.clone(),
+            username: claims.username.clone(),
+            roles: claims.roles.clone(),
+            accessible_clusters: claims.accessible_clusters.clone(),
+            created_at,
+            expires_at,
+            last_activity: now,
+            jti: claims.jti.clone(),
+        };
+
+        // Sliding expiry: re-issue when remaining TTL < 50 % of configured timeout
+        let renewal_threshold = Duration::minutes((self.config.timeout_minutes / 2).max(1) as i64);
+        let renewed_token = if expires_at - now < renewal_threshold {
+            let new_exp =
+                (now + Duration::minutes(self.config.timeout_minutes as i64)).timestamp() as u64;
+            let new_claims = SessionClaims {
+                sub: claims.sub,
+                username: claims.username,
+                roles: claims.roles,
+                accessible_clusters: claims.accessible_clusters,
+                exp: new_exp,
+                iat: now.timestamp() as u64,
+                // Fresh jti for the renewed token
+                jti: Uuid::new_v4().to_string(),
+            };
+            match self.encode_jwt(&new_claims) {
+                Ok(new_token) => {
+                    tracing::debug!("Session renewed (TTL below 50 % threshold)");
+                    Some(new_token)
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to re-issue JWT during renewal");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        Ok(Some(SessionValidation {
+            session,
+            renewed_token,
+        }))
     }
 
-    /// Invalidate a session (logout)
+    /// Revoke a session by adding its `jti` to the revocation list.
+    ///
+    /// If the token cannot be decoded (e.g. already expired) the call succeeds
+    /// silently — an already-expired token is harmless.
     pub async fn invalidate_session(&self, token: &str) -> anyhow::Result<()> {
-        if let Some(session) = self.store.remove(token).await {
-            tracing::info!(
-                token = %token,
-                username = %session.username,
-                "Session invalidated"
-            );
-        } else {
-            tracing::debug!(token = %token, "Session not found for invalidation");
+        match self.decode_jwt(token) {
+            Ok(claims) => {
+                let exp =
+                    DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or_else(|| Utc::now());
+                let mut revoked = self.revocation_list.write().await;
+                revoked.insert(claims.jti.clone(), exp);
+                tracing::debug!(jti = %claims.jti, username = %claims.username, "Session revoked");
+            }
+            Err(e) => {
+                // Token is malformed or already expired — either way it cannot
+                // be used, so no revocation entry is needed.
+                tracing::debug!(
+                    error = %e,
+                    "Could not decode token for revocation (likely already expired)"
+                );
+            }
         }
         Ok(())
     }
 
-    /// Clean up expired sessions
+    /// Clean up revocation-list entries whose tokens have already expired.
+    ///
+    /// Expired tokens are rejected by signature verification before the
+    /// revocation list is consulted, so stale entries are purely dead weight.
     pub async fn cleanup_expired(&self) -> usize {
-        let removed_count = self.store.cleanup_expired().await;
-        if removed_count > 0 {
-            tracing::info!(removed_count = removed_count, "Cleaned up expired sessions");
+        let now = Utc::now();
+        let mut revoked = self.revocation_list.write().await;
+        let initial = revoked.len();
+        revoked.retain(|_, exp| *exp > now);
+        let removed = initial - revoked.len();
+        if removed > 0 {
+            tracing::debug!(
+                removed_count = removed,
+                "Cleaned up expired revocation entries"
+            );
         }
-        removed_count
+        removed
     }
 
-    /// Get the number of active sessions
+    /// Number of entries currently in the revocation list.
+    ///
+    /// This is a proxy metric used by the health endpoint; it counts **revoked**
+    /// (but not yet cleaned up) sessions, not active ones.
     pub async fn active_session_count(&self) -> usize {
-        self.store.count().await
+        self.revocation_list.read().await.len()
     }
 
-    /// Start a background task to periodically clean up expired sessions
+    /// Spawn a background task that periodically removes stale revocation entries.
     pub fn start_cleanup_task(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 minutes
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 min
             loop {
                 interval.tick().await;
                 self.cleanup_expired().await;
             }
         })
     }
+
+    /// Create a JWT that expires in `seconds_from_now` seconds.
+    ///
+    /// **Test-only helper** for writing deterministic renewal / expiry tests.
+    #[cfg(test)]
+    pub async fn create_session_expiring_in(
+        &self,
+        user: AuthUser,
+        seconds_from_now: i64,
+    ) -> anyhow::Result<String> {
+        let now = Utc::now();
+        let claims = SessionClaims {
+            sub: user.id,
+            username: user.username,
+            roles: user.roles,
+            accessible_clusters: user.accessible_clusters,
+            exp: (now + Duration::seconds(seconds_from_now)).timestamp() as u64,
+            iat: now.timestamp() as u64,
+            jti: Uuid::new_v4().to_string(),
+        };
+        self.encode_jwt(&claims)
+    }
 }
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_session_creation() {
-        let token = "test_token".to_string();
-        let user_id = "user123".to_string();
-        let username = "testuser".to_string();
-        let roles = vec!["admin".to_string()];
-        let timeout_minutes = 60;
+    /// A deterministic secret for unit tests.  Must be ≥ 32 characters.
+    const TEST_SECRET: &str = "test-secret-key-for-unit-tests-only-32chars!!";
 
-        let session = Session::new(
-            token.clone(),
-            user_id.clone(),
-            username.clone(),
-            roles.clone(),
-            timeout_minutes,
-        );
-
-        assert_eq!(session.token, token);
-        assert_eq!(session.user_id, user_id);
-        assert_eq!(session.username, username);
-        assert_eq!(session.roles, roles);
-        assert!(!session.is_expired());
+    fn test_config(timeout_minutes: u64) -> SessionConfig {
+        SessionConfig::new(timeout_minutes, TEST_SECRET.to_string())
     }
 
-    #[test]
-    fn test_session_expiration() {
-        let now = Utc::now();
-        let past_time = now - Duration::minutes(10);
-
-        let mut session = Session::new(
-            "token".to_string(),
-            "user".to_string(),
-            "username".to_string(),
-            vec![],
-            60,
-        );
-
-        // Manually set expiration to the past
-        session.expires_at = past_time;
-
-        // Session should be expired
-        assert!(session.is_expired());
-    }
-
-    #[test]
-    fn test_session_renewal() {
-        let mut session = Session::new(
-            "token".to_string(),
-            "user".to_string(),
-            "username".to_string(),
-            vec![],
-            60,
-        );
-
-        let original_expires_at = session.expires_at;
-
-        // Wait a tiny bit to ensure time difference
-        std::thread::sleep(std::time::Duration::from_millis(10));
-
-        session.renew(60);
-
-        // Expiration should be extended
-        assert!(session.expires_at > original_expires_at);
-        assert!(session.last_activity > session.created_at);
-    }
-
-    #[tokio::test]
-    async fn test_session_store_insert_and_get() {
-        let store = SessionStore::new();
-        let session = Session::new(
-            "token123".to_string(),
-            "user".to_string(),
-            "username".to_string(),
+    fn test_user() -> AuthUser {
+        AuthUser::new(
+            "user123".to_string(),
+            "testuser".to_string(),
             vec!["admin".to_string()],
-            60,
-        );
-
-        store.insert(session.clone()).await;
-
-        let retrieved = store.get("token123").await;
-        assert!(retrieved.is_some());
-        let retrieved = retrieved.expect("session inserted should be retrievable");
-        assert_eq!(retrieved.token, "token123");
+        )
     }
 
-    #[tokio::test]
-    async fn test_session_store_remove() {
-        let store = SessionStore::new();
-        let session = Session::new(
-            "token123".to_string(),
-            "user".to_string(),
-            "username".to_string(),
-            vec![],
-            60,
-        );
-
-        store.insert(session).await;
-        assert_eq!(store.count().await, 1);
-
-        let removed = store.remove("token123").await;
-        assert!(removed.is_some());
-        assert_eq!(store.count().await, 0);
-    }
-
-    #[tokio::test]
-    async fn test_session_store_cleanup_expired() {
-        let store = SessionStore::new();
-
-        // Insert expired session
-        let expired_session = Session::new(
-            "expired".to_string(),
-            "user".to_string(),
-            "username".to_string(),
-            vec![],
-            0, // Expires immediately
-        );
-        store.insert(expired_session).await;
-
-        // Insert valid session
-        let valid_session = Session::new(
-            "valid".to_string(),
-            "user".to_string(),
-            "username".to_string(),
-            vec![],
-            60,
-        );
-        store.insert(valid_session).await;
-
-        assert_eq!(store.count().await, 2);
-
-        let removed_count = store.cleanup_expired().await;
-        assert_eq!(removed_count, 1);
-        assert_eq!(store.count().await, 1);
-
-        // Valid session should still be there
-        assert!(store.get("valid").await.is_some());
-        assert!(store.get("expired").await.is_none());
-    }
+    // ── generate_token ────────────────────────────────────────────────────────
 
     #[test]
     fn test_generate_token() {
-        let token1 = generate_token();
-        let token2 = generate_token();
+        let t1 = generate_token();
+        let t2 = generate_token();
 
-        // Tokens should encode 32 bytes as URL-safe base64 without padding -> 43 chars
-        assert_eq!(token1.len(), 43);
-        assert_eq!(token2.len(), 43);
+        // 32 bytes → 43 URL-safe base64 chars (no padding)
+        assert_eq!(t1.len(), 43);
+        assert_eq!(t2.len(), 43);
+        assert_ne!(t1, t2);
 
-        // Tokens should be different (extremely unlikely to be the same)
-        assert_ne!(token1, token2);
-
-        // Tokens should only contain URL-safe base64 characters: alphanumeric, '-' and '_'
         let is_url_safe = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
-        assert!(token1.chars().all(is_url_safe));
-        assert!(token2.chars().all(is_url_safe));
+        assert!(t1.chars().all(is_url_safe));
+        assert!(t2.chars().all(is_url_safe));
     }
+
+    // ── AuthUser ──────────────────────────────────────────────────────────────
 
     #[test]
     fn test_auth_user_creation() {
@@ -479,290 +499,250 @@ mod tests {
             "testuser".to_string(),
             vec!["admin".to_string(), "developer".to_string()],
         );
-
         assert_eq!(user.id, "user123");
         assert_eq!(user.username, "testuser");
         assert_eq!(user.roles.len(), 2);
+        assert!(user.accessible_clusters.is_empty());
+    }
+
+    #[test]
+    fn test_auth_user_with_clusters() {
+        let user = AuthUser::new_with_clusters(
+            "u1".to_string(),
+            "alice".to_string(),
+            vec!["admin".to_string()],
+            vec!["prod-1".to_string(), "*".to_string()],
+        );
+        assert_eq!(user.accessible_clusters.len(), 2);
+    }
+
+    // ── JWT encode / decode round-trip ────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_create_session_produces_jwt() {
+        let manager = SessionManager::new(test_config(60));
+        let token = manager.create_session(test_user()).await.unwrap();
+
+        // JWTs start with "ey" (base64-encoded `{"alg":...}`)
+        assert!(
+            token.starts_with("ey"),
+            "expected JWT, got: {}",
+            &token[..10]
+        );
+        // Three dot-separated parts
+        assert_eq!(token.split('.').count(), 3);
     }
 
     #[tokio::test]
-    async fn test_session_manager_create_session() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
+    async fn test_create_and_validate_session() {
+        let manager = SessionManager::new(test_config(60));
+        let token = manager.create_session(test_user()).await.unwrap();
 
-        let user = AuthUser::new(
-            "user123".to_string(),
-            "testuser".to_string(),
-            vec!["admin".to_string()],
-        );
-
-        let token = manager
-            .create_session(user)
-            .await
-            .expect("create session should succeed");
-        assert!(!token.is_empty());
-        assert_eq!(token.len(), 43);
-
-        // Verify session was created
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        let session = session.expect("session should exist");
-        assert_eq!(session.username, "testuser");
+        let v = manager.validate_session(&token).await.unwrap();
+        assert!(v.is_some());
+        let v = v.unwrap();
+        assert_eq!(v.session.username, "testuser");
+        assert_eq!(v.session.user_id, "user123");
+        assert_eq!(v.session.roles, vec!["admin"]);
     }
 
     #[tokio::test]
-    async fn test_session_manager_validate_session() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
+    async fn test_validate_invalid_token_returns_none() {
+        let manager = SessionManager::new(test_config(60));
 
-        let user = AuthUser::new(
-            "user123".to_string(),
-            "testuser".to_string(),
-            vec!["admin".to_string()],
-        );
-
-        let token = manager
-            .create_session(user)
+        assert!(manager
+            .validate_session("not.a.jwt")
             .await
-            .expect("create session should succeed");
-
-        // Valid session should be returned
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        assert!(session.is_some());
-
-        // Invalid token should return None
-        let session = manager
+            .unwrap()
+            .is_none());
+        assert!(manager
             .validate_session("invalid_token")
             .await
-            .expect("validate_session should succeed for invalid token");
-        assert!(session.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_session_manager_validate_expired_session() {
-        let config = SessionConfig::new(0); // Expires immediately
-        let manager = SessionManager::new(config);
-
-        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
-
-        let token = manager
-            .create_session(user)
-            .await
-            .expect("create session should succeed");
-
-        // Session should be expired and removed
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        assert!(session.is_none());
-
-        // Session should no longer exist in store
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        assert!(session.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_session_manager_invalidate_session() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
-
-        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
-
-        let token = manager
-            .create_session(user)
-            .await
-            .expect("create session should succeed");
-
-        // Session should exist
-        assert!(manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed")
-            .is_some());
-
-        // Invalidate session
-        manager
-            .invalidate_session(&token)
-            .await
-            .expect("invalidate_session should succeed");
-
-        // Session should no longer exist
-        assert!(manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed")
+            .unwrap()
             .is_none());
     }
 
     #[tokio::test]
-    async fn test_session_manager_cleanup_expired() {
-        let config = SessionConfig::new(0); // Expires immediately
-        let manager = SessionManager::new(config);
+    async fn test_validate_expired_token_returns_none() {
+        let manager = SessionManager::new(test_config(60));
+        // Token that expired 5 minutes ago
+        let expired_token = manager
+            .create_session_expiring_in(test_user(), -300)
+            .await
+            .unwrap();
 
-        // Create multiple expired sessions
-        for i in 0..5 {
-            let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
-            manager
-                .create_session(user)
-                .await
-                .expect("create session should succeed");
+        assert!(manager
+            .validate_session(&expired_token)
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn test_validate_wrong_secret_returns_none() {
+        let manager_a = SessionManager::new(test_config(60));
+        let manager_b = SessionManager::new(SessionConfig::new(
+            60,
+            "completely-different-secret-xyz-32chars".to_string(),
+        ));
+
+        let token = manager_a.create_session(test_user()).await.unwrap();
+        assert!(manager_b.validate_session(&token).await.unwrap().is_none());
+    }
+
+    // ── Revocation ────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_invalidate_session_blocks_further_use() {
+        let manager = SessionManager::new(test_config(60));
+        let token = manager.create_session(test_user()).await.unwrap();
+
+        // Valid before revocation
+        assert!(manager.validate_session(&token).await.unwrap().is_some());
+
+        manager.invalidate_session(&token).await.unwrap();
+
+        // Rejected after revocation
+        assert!(manager.validate_session(&token).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_invalidate_expired_token_is_no_op() {
+        let manager = SessionManager::new(test_config(60));
+        // Silently succeeds even for tokens that are already expired/invalid
+        manager
+            .invalidate_session("not.a.valid.jwt")
+            .await
+            .expect("should not error");
+    }
+
+    // ── Cleanup ───────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cleanup_removes_stale_revocation_entries() {
+        let manager = SessionManager::new(test_config(60));
+
+        // Populate revocation list with already-expired entries
+        {
+            let mut revoked = manager.revocation_list.write().await;
+            for i in 0..5 {
+                revoked.insert(
+                    format!("jti-expired-{}", i),
+                    Utc::now() - Duration::minutes(10), // already past
+                );
+            }
+            // One future entry (should survive cleanup)
+            revoked.insert("jti-valid".to_string(), Utc::now() + Duration::hours(1));
         }
 
-        assert_eq!(manager.active_session_count().await, 5);
+        assert_eq!(manager.active_session_count().await, 6);
 
-        // Cleanup expired sessions
         let removed = manager.cleanup_expired().await;
         assert_eq!(removed, 5);
-        assert_eq!(manager.active_session_count().await, 0);
+        assert_eq!(manager.active_session_count().await, 1);
+    }
+
+    // ── Sliding expiry / renewal ──────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_no_renewal_for_fresh_token() {
+        let manager = SessionManager::new(test_config(60));
+        // TTL ≈ 60 min; threshold = 30 min → no renewal expected
+        let token = manager.create_session(test_user()).await.unwrap();
+
+        let v = manager.validate_session(&token).await.unwrap().unwrap();
+        assert!(
+            v.renewed_token.is_none(),
+            "a fresh token should not trigger renewal"
+        );
     }
 
     #[tokio::test]
-    async fn test_session_manager_session_renewal() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
-
-        let user = AuthUser::new("user123".to_string(), "testuser".to_string(), vec![]);
-
-        let token = manager
-            .create_session(user)
+    async fn test_renewal_triggered_when_ttl_below_threshold() {
+        let manager = SessionManager::new(test_config(60));
+        // Expires in 10 seconds — well below the 30-minute (50 %) threshold
+        let short_lived = manager
+            .create_session_expiring_in(test_user(), 10)
             .await
-            .expect("create session should succeed");
+            .unwrap();
 
-        // Get initial session
-        let session1 = manager
-            .validate_session(&token)
+        let v = manager
+            .validate_session(&short_lived)
             .await
-            .expect("validate_session should succeed")
-            .expect("session should exist");
-        let expires_at1 = session1.expires_at;
+            .unwrap()
+            .unwrap();
 
-        // Wait a bit
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+        assert!(
+            v.renewed_token.is_some(),
+            "token close to expiry should be renewed"
+        );
 
-        // Validate again (should renew)
-        let session2 = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed")
-            .expect("session should exist");
-        let expires_at2 = session2.expires_at;
-
-        // Expiration should be extended
-        assert!(expires_at2 > expires_at1);
+        // The renewed token must itself be valid
+        let new_token = v.renewed_token.unwrap();
+        let v2 = manager.validate_session(&new_token).await.unwrap();
+        assert!(v2.is_some(), "renewed token should be valid");
     }
 
-    #[tokio::test]
-    async fn test_session_manager_active_session_count() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
-
-        assert_eq!(manager.active_session_count().await, 0);
-
-        // Create sessions
-        for i in 0..3 {
-            let user = AuthUser::new(format!("user{}", i), format!("username{}", i), vec![]);
-            manager
-                .create_session(user)
-                .await
-                .expect("create session should succeed");
-        }
-
-        assert_eq!(manager.active_session_count().await, 3);
-    }
+    // ── Accessible clusters ───────────────────────────────────────────────────
 
     #[tokio::test]
     async fn test_session_with_accessible_clusters() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
-
-        let user = AuthUser::new(
-            "user123".to_string(),
-            "testuser".to_string(),
-            vec!["admin".to_string()],
-        );
-
+        let manager = SessionManager::new(test_config(60));
         let clusters = vec![
             "prod-1".to_string(),
             "prod-2".to_string(),
             "dev-1".to_string(),
         ];
+        let user = AuthUser::new_with_clusters(
+            "u1".to_string(),
+            "alice".to_string(),
+            vec!["admin".to_string()],
+            clusters.clone(),
+        );
 
         let token = manager
             .create_session_with_clusters(user, clusters.clone())
             .await
-            .expect("create session with clusters should succeed");
+            .unwrap();
 
-        // Verify session has accessible clusters
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        assert!(session.is_some());
-        let session = session.expect("session should exist");
-        assert_eq!(session.accessible_clusters, clusters);
-        assert_eq!(session.accessible_clusters.len(), 3);
+        let v = manager.validate_session(&token).await.unwrap().unwrap();
+        assert_eq!(v.session.accessible_clusters, clusters);
     }
 
     #[tokio::test]
     async fn test_session_with_wildcard_cluster() {
-        let config = SessionConfig::new(60);
-        let manager = SessionManager::new(config);
-
-        let user = AuthUser::new(
-            "user123".to_string(),
-            "testuser".to_string(),
+        let manager = SessionManager::new(test_config(60));
+        let user = AuthUser::new_with_clusters(
+            "u1".to_string(),
+            "admin".to_string(),
             vec!["admin".to_string()],
+            vec!["*".to_string()],
         );
-
-        let clusters = vec!["*".to_string()];
 
         let token = manager
-            .create_session_with_clusters(user, clusters.clone())
+            .create_session_with_clusters(user, vec!["*".to_string()])
             .await
-            .expect("create session with clusters should succeed");
+            .unwrap();
 
-        // Verify session has wildcard cluster
-        let session = manager
-            .validate_session(&token)
-            .await
-            .expect("validate_session should succeed");
-        assert!(session.is_some());
-        let session = session.expect("session should exist");
-        assert_eq!(session.accessible_clusters, vec!["*".to_string()]);
+        let v = manager.validate_session(&token).await.unwrap().unwrap();
+        assert_eq!(v.session.accessible_clusters, vec!["*"]);
     }
 
-    #[test]
-    fn test_session_new_with_clusters() {
-        let token = "test_token".to_string();
-        let user_id = "user123".to_string();
-        let username = "testuser".to_string();
-        let roles = vec!["admin".to_string()];
-        let clusters = vec!["prod-1".to_string(), "prod-2".to_string()];
-        let timeout_minutes = 60;
+    // ── Multiple sessions / isolation ─────────────────────────────────────────
 
-        let session = Session::new_with_clusters(
-            token.clone(),
-            user_id.clone(),
-            username.clone(),
-            roles.clone(),
-            clusters.clone(),
-            timeout_minutes,
-        );
+    #[tokio::test]
+    async fn test_multiple_sessions_are_independent() {
+        let manager = SessionManager::new(test_config(60));
 
-        assert_eq!(session.token, token);
-        assert_eq!(session.user_id, user_id);
-        assert_eq!(session.username, username);
-        assert_eq!(session.roles, roles);
-        assert_eq!(session.accessible_clusters, clusters);
-        assert!(!session.is_expired());
+        let user_a = AuthUser::new("a".to_string(), "alice".to_string(), vec![]);
+        let user_b = AuthUser::new("b".to_string(), "bob".to_string(), vec![]);
+
+        let token_a = manager.create_session(user_a).await.unwrap();
+        let token_b = manager.create_session(user_b).await.unwrap();
+
+        // Revoking A does not affect B
+        manager.invalidate_session(&token_a).await.unwrap();
+        assert!(manager.validate_session(&token_a).await.unwrap().is_none());
+        assert!(manager.validate_session(&token_b).await.unwrap().is_some());
     }
 }

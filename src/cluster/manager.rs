@@ -428,7 +428,7 @@ impl Manager {
 
         for config in cluster_configs {
             let display_name = config.name.as_deref().unwrap_or(&config.id);
-            tracing::info!(cluster_id = %config.id, cluster_name = %display_name, "Initializing cluster");
+            tracing::debug!(cluster_id = %config.id, cluster_name = %display_name, "Initializing cluster");
 
             match ClusterConnection::new(&config).await {
                 Ok(connection) => {
@@ -450,8 +450,8 @@ impl Manager {
             anyhow::bail!("No clusters configured");
         }
 
-        tracing::info!(cluster_count = clusters.len(), "Clusters initialized");
-        tracing::info!(
+        tracing::debug!(cluster_count = clusters.len(), "Clusters initialized");
+        tracing::debug!(
             cache_duration_secs = cache_duration.as_secs(),
             "Cache configured"
         );

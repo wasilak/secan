@@ -1,4 +1,4 @@
-use crate::auth::{AuthUser, SessionManager};
+use crate::auth::{build_session_cookie_header, AuthUser, SessionManager};
 use crate::config::AuthMode;
 use axum::{
     extract::{Request, State},
@@ -88,7 +88,7 @@ pub async fn auth_middleware(
     };
 
     // Validate session token
-    let session = auth_state
+    let validation = auth_state
         .session_manager
         .validate_session(&token)
         .await
@@ -98,8 +98,8 @@ pub async fn auth_middleware(
         })?;
 
     // Check if session is valid
-    let session = match session {
-        Some(s) => s,
+    let validation = match validation {
+        Some(v) => v,
         None => {
             // Invalid or expired session
             // For API requests, return 401; for browser requests, redirect to login
@@ -117,6 +117,9 @@ pub async fn auth_middleware(
             return Ok(Redirect::to(&redirect_url).into_response());
         }
     };
+
+    let renewed_token = validation.renewed_token;
+    let session = validation.session;
 
     // Create AuthUser from session with accessible clusters
     let user = AuthUser::new_with_clusters(
@@ -136,8 +139,20 @@ pub async fn auth_middleware(
     // Attach user to request extensions
     request.extensions_mut().insert(AuthenticatedUser(user));
 
-    // Continue to next middleware/handler
-    Ok(next.run(request).await)
+    // Run the next handler
+    let mut response = next.run(request).await;
+
+    // Sliding expiry: if a renewed token was issued, update the cookie in the response
+    if let Some(new_token) = renewed_token {
+        let max_age = auth_state.session_manager.timeout_minutes() * 60;
+        response.headers_mut().insert(
+            header::SET_COOKIE,
+            build_session_cookie_header(&new_token, max_age),
+        );
+        tracing::debug!("Sliding-expiry: renewed session cookie appended to response");
+    }
+
+    Ok(response)
 }
 
 /// Check if a path is an API endpoint
@@ -257,7 +272,20 @@ impl IntoResponse for AuthError {
             }
         };
 
-        tracing::warn!(status = %status, message = %message, "Authentication error");
+        // Log missing/invalid session tokens at DEBUG to avoid noise during
+        // normal authentication flows (login/logout). Keep invalid cookie and
+        // internal errors at higher severity.
+        match self {
+            AuthError::MissingSessionToken | AuthError::InvalidSession => {
+                tracing::debug!(status = %status, message = %message, "Authentication error");
+            }
+            AuthError::InvalidCookie => {
+                tracing::warn!(status = %status, message = %message, "Authentication error");
+            }
+            AuthError::InternalError => {
+                tracing::error!(status = %status, message = %message, "Authentication error");
+            }
+        }
 
         (status, message).into_response()
     }
@@ -276,6 +304,8 @@ mod tests {
     };
     use tower::ServiceExt;
 
+    const TEST_SECRET: &str = "test-secret-key-for-middleware-tests-32chars!";
+
     async fn test_handler(
         axum::Extension(user): axum::Extension<AuthenticatedUser>,
     ) -> impl IntoResponse {
@@ -283,7 +313,10 @@ mod tests {
     }
 
     fn create_test_app(auth_mode: AuthMode) -> Router {
-        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(
+            60,
+            TEST_SECRET.to_string(),
+        )));
         let auth_state = Arc::new(AuthState::new(session_manager, auth_mode));
 
         Router::new()
@@ -342,7 +375,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_middleware_valid_token() {
-        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(
+            60,
+            TEST_SECRET.to_string(),
+        )));
         let auth_state = Arc::new(AuthState::new(
             session_manager.clone(),
             AuthMode::LocalUsers,
@@ -427,7 +463,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_auth_state_creation() {
-        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(60)));
+        let session_manager = Arc::new(SessionManager::new(SessionConfig::new(
+            60,
+            TEST_SECRET.to_string(),
+        )));
         let auth_state = AuthState::new(session_manager.clone(), AuthMode::LocalUsers);
 
         assert_eq!(auth_state.auth_mode, AuthMode::LocalUsers);

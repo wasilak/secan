@@ -372,12 +372,12 @@ impl Server {
                     ]);
 
                 if self.config.server.allowed_origins.is_empty() {
-                    tracing::warn!(
+                    tracing::debug!(
                         "No allowed_origins configured - CORS allows any origin (development mode)"
                     );
                     cors = cors.allow_origin(tower_http::cors::Any);
                 } else {
-                    tracing::info!(
+                    tracing::debug!(
                         origins = ?self.config.server.allowed_origins,
                         "CORS restricted to configured origins (production mode)"
                     );
@@ -425,7 +425,7 @@ impl Server {
                 "TLS configuration detected but not used. For production, use a reverse proxy (nginx, traefik, caddy) to handle TLS termination."
             );
         } else {
-            tracing::info!(
+            tracing::debug!(
                 "Server starting on {} - For production use, deploy behind a reverse proxy with TLS enabled",
                 addr
             );
@@ -469,6 +469,8 @@ mod tests {
     use super::*;
     use crate::auth::SessionConfig;
     use crate::config::{AuthConfig, AuthMode, ClusterConfig, ServerConfig};
+
+    const TEST_SECRET: &str = "test-secret-key-for-server-tests-only-32chars!";
 
     fn create_test_config() -> Config {
         Config {
@@ -516,7 +518,7 @@ mod tests {
             ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
                 .await
                 .expect("create cluster manager");
-        let session_manager = SessionManager::new(SessionConfig::new(60));
+        let session_manager = SessionManager::new(SessionConfig::new(60, TEST_SECRET.to_string()));
 
         let server = Server::new(config, cluster_manager, session_manager)
             .await
@@ -542,7 +544,7 @@ mod tests {
             ClusterManager::new(vec![cluster_config], std::time::Duration::from_secs(30))
                 .await
                 .expect("create cluster manager");
-        let session_manager = SessionManager::new(SessionConfig::new(60));
+        let session_manager = SessionManager::new(SessionConfig::new(60, TEST_SECRET.to_string()));
 
         let server = Server::new(config, cluster_manager, session_manager)
             .await

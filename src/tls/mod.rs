@@ -98,7 +98,7 @@ impl TlsManager {
             anyhow::bail!("No CA certificates loaded from the specified paths");
         }
 
-        tracing::info!(cert_count = certs.len(), "CA certificates loaded");
+        tracing::debug!(cert_count = certs.len(), "CA certificates loaded");
         Ok(certs)
     }
 

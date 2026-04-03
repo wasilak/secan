@@ -76,6 +76,10 @@ tasks:
 
   backend:run:
     desc: Run the backend server
+    env:
+      # Dev-only secret. Override with a real secret in production via your
+      # deployment environment (never commit production secrets here).
+      SECAN_SESSION_SECRET: "secan-local-dev-secret-do-not-use-in-production-xK9m"
     cmds:
       - cargo run
 

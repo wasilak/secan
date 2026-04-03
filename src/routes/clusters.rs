@@ -302,6 +302,18 @@ pub(crate) fn check_cluster_access(
     })
 }
 
+/// Validate cluster id and return a clear client error when empty.
+fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
+    if cluster_id.is_empty() {
+        tracing::debug!(cluster_id = %cluster_id, "Empty cluster id in request");
+        return Err(ClusterErrorResponse {
+            error: "validation_failed".to_string(),
+            message: "Cluster id is empty".to_string(),
+        });
+    }
+    Ok(())
+}
+
 /// Get cluster statistics using SDK typed methods
 ///
 /// Returns cluster stats in frontend-compatible format
@@ -329,7 +341,8 @@ pub async fn get_cluster_stats(
 ) -> Result<Json<ClusterStatsResponse>, ClusterErrorResponse> {
     tracing::debug!(cluster_id = %cluster_id, "Getting cluster stats");
 
-    // Check cluster access
+    // Validate cluster id (defensive) and check cluster access
+    validate_cluster_id(&cluster_id)?;
     check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
@@ -734,7 +747,8 @@ pub async fn get_cluster_details(
 ) -> Result<Json<ClusterDetailsResponse>, ClusterErrorResponse> {
     tracing::debug!(cluster_id = %cluster_id, "Getting cluster details");
 
-    // RBAC check
+    // Validate cluster id (defensive) and RBAC check
+    validate_cluster_id(&cluster_id)?;
     check_cluster_access(&cluster_id, &user_ext)?;
 
     // Try cache first
@@ -955,7 +969,8 @@ pub async fn get_cluster_settings(
         "Getting cluster settings"
     );
 
-    // Check cluster access
+    // Validate cluster id (defensive) and check cluster access
+    validate_cluster_id(&cluster_id)?;
     check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
@@ -1029,7 +1044,8 @@ pub async fn update_cluster_settings(
         "Updating cluster settings"
     );
 
-    // Check cluster access
+    // Validate cluster id (defensive) and check cluster access
+    validate_cluster_id(&cluster_id)?;
     check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster (verify it exists)
@@ -1180,7 +1196,8 @@ pub async fn get_nodes(
         "Getting nodes with filters"
     );
 
-    // Check cluster access
+    // Validate cluster id (defensive) and check cluster access
+    validate_cluster_id(&cluster_id)?;
     check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
