@@ -5,10 +5,10 @@ use serde_json::json;
 
 use std::time::Duration;
 
-use secan::auth::oidc::OidcAuthProvider;
-use secan::auth::permissions::PermissionResolver;
-use secan::auth::session::{SessionConfig, SessionManager};
-use secan::config::OidcConfig;
+use crate::auth::oidc::OidcAuthProvider;
+use crate::auth::permissions::PermissionResolver;
+use crate::auth::session::{SessionConfig, SessionManager};
+use crate::config::OidcConfig;
 
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 
@@ -103,7 +103,7 @@ async fn jwks_kid_miss_triggers_immediate_refresh() {
         ]
     });
 
-    // Register two mocks for the same path; expect each to be used once in sequence
+    // Register a single mock for the initial background fetch (jwks_a).
     Mock::given(method("GET"))
         .and(path("/jwks"))
         .respond_with(ResponseTemplate::new(200).set_body_json(jwks_a.clone()))
@@ -140,6 +140,28 @@ async fn jwks_kid_miss_triggers_immediate_refresh() {
     // Wait for the initial background fetch to happen (JWKS path called)
     wait_for_path_requests(&mock, "/jwks", 1, Duration::from_secs(2)).await;
 
+    // Ensure the background task has written the JWKS into the provider cache
+    // (received_requests only guarantees the request arrived, not that the
+    // response was parsed and stored). Wait up to 2s for the cache to show
+    // the initial key (kidA).
+    let start = std::time::Instant::now();
+    loop {
+        if let Some(cached) = provider.get_cached_jwks() {
+            if let Some(keys) = cached.get("keys").and_then(|v| v.as_array()) {
+                if keys
+                    .iter()
+                    .any(|k| k.get("kid").and_then(|v| v.as_str()) == Some("kidA"))
+                {
+                    break;
+                }
+            }
+        }
+        if start.elapsed() > Duration::from_secs(2) {
+            panic!("Timed out waiting for provider cache to contain initial JWKS (kidA)");
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
     // Build an ID token signed with our private key using kid 'kidB' (so initial cache lacks it)
     #[derive(serde::Serialize)]
     struct Claims<'a> {
@@ -162,45 +184,51 @@ async fn jwks_kid_miss_triggers_immediate_refresh() {
     let encoding_key = EncodingKey::from_rsa_pem(TEST_RSA_PRIVATE_PEM.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).expect("failed to encode token");
 
-    // Mount JWKS B mock now so the immediate refresh will return the new key
+    // Mount JWKS B at a different path so we can switch the provider to it
+    // dynamically in the test (simulates a rotated JWKS appearing at a new
+    // URL). We'll point the provider at this URL before calling validate_id_token
+    // so the immediate refresh fetches jwks_b.
     Mock::given(method("GET"))
-        .and(path("/jwks"))
+        .and(path("/jwks_b"))
         .respond_with(ResponseTemplate::new(200).set_body_json(jwks_b.clone()))
         .expect(1)
         .mount(&mock)
         .await;
 
-    // Debug: show received requests so far
-    let recs = mock.received_requests().await.unwrap_or_default();
-    eprintln!("Received requests before validate: {}", recs.len());
-    for r in &recs {
-        eprintln!("  -> {} {}", r.method, r.url);
-    }
+    // Point the provider's JWKS URI at the alternate path for the immediate refresh.
+    {
+        let new_uri = format!("{}/jwks_b", mock.uri());
+        // provider is owned here; get a mutable reference by re-binding
+        let mut provider = provider;
+        provider.set_jwks_uri_for_tests(new_uri);
 
-    // Validate ID token - provider should detect missing kid, perform immediate
-    // refresh (consuming second mock) and then succeed.
-    match provider.validate_id_token(&token).await {
-        Ok(decoded) => assert_eq!(decoded.sub, "user-1"),
-        Err(e) => {
-            // Dump received requests for debugging
-            let recs = mock.received_requests().await.unwrap_or_default();
-            eprintln!("Validation failed: {}", e);
-            eprintln!("Received {} requests:", recs.len());
-            for r in &recs {
-                eprintln!("  -> {} {}", r.method, r.url);
-            }
-            // Inspect provider's cached JWKS (test helper)
-            #[cfg(test)]
-            {
-                let cached = provider.test_get_cached_jwks();
+        // Replace provider variable so the rest of the test uses the modified one
+        let provider = provider;
+
+        // Validate ID token - provider should detect missing kid, perform immediate
+        // refresh (consuming second mock) and then succeed.
+        match provider.validate_id_token(&token).await {
+            Ok(decoded) => assert_eq!(decoded.sub, "user-1"),
+            Err(e) => {
+                // Dump received requests for debugging
+                let recs = mock.received_requests().await.unwrap_or_default();
+                eprintln!("Validation failed: {}", e);
+                eprintln!("Received {} requests:", recs.len());
+                for r in &recs {
+                    eprintln!("  -> {} {}", r.method, r.url);
+                }
+                // Inspect provider's cached JWKS (test helper)
+                let cached = provider.get_cached_jwks();
                 eprintln!("Cached JWKS after refresh: {:?}", cached);
+                panic!("validate_id_token failed: {}", e);
             }
-            panic!("validate_id_token failed: {}", e);
         }
-    }
 
-    // Ensure both JWKS calls were received (initial + immediate refresh)
-    wait_for_path_requests(&mock, "/jwks", 2, Duration::from_secs(2)).await;
+        // Ensure both JWKS calls were received (initial + immediate refresh)
+        wait_for_path_requests(&mock, "/jwks", 1, Duration::from_secs(2)).await;
+        wait_for_path_requests(&mock, "/jwks_b", 1, Duration::from_secs(2)).await;
+        return;
+    }
 }
 
 #[tokio::test]
@@ -261,6 +289,26 @@ async fn background_refresher_initial_fetch_populates_cache() {
 
     // Wait for initial background fetch to complete (jwks path called)
     wait_for_path_requests(&mock, "/jwks", 1, Duration::from_secs(2)).await;
+
+    // Ensure the background task has written the JWKS into the provider cache
+    // so validation will use the cached key without issuing another fetch.
+    let start = std::time::Instant::now();
+    loop {
+        if let Some(cached) = provider.get_cached_jwks() {
+            if let Some(keys) = cached.get("keys").and_then(|v| v.as_array()) {
+                if keys
+                    .iter()
+                    .any(|k| k.get("kid").and_then(|v| v.as_str()) == Some("kidB"))
+                {
+                    break;
+                }
+            }
+        }
+        if start.elapsed() > Duration::from_secs(2) {
+            panic!("Timed out waiting for provider cache to contain initial JWKS (kidB)");
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
 
     // Sign a token with kid 'kidB' which should validate using cached JWKS
     #[derive(serde::Serialize)]

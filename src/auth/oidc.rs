@@ -304,17 +304,19 @@ impl OidcAuthProvider {
         Ok(provider)
     }
 
-    /// Public helper to read the cached JWKS JSON (used by integration tests).
+    /// Test-only helper to read the cached JWKS JSON. Compiled only for
+    /// test builds so we don't widen the public API surface in production.
+    #[cfg(test)]
     pub fn get_cached_jwks(&self) -> Option<serde_json::Value> {
         let guard = self.jwks.read().unwrap();
         guard.as_ref().map(|(_, v)| v.clone())
     }
 
-    /// Test-only helper to inspect the cached JWKS JSON
+    /// Test-only setter to override the JWKS URI used by refresh_jwks. This
+    /// is only compiled for tests so production API is unaffected.
     #[cfg(test)]
-    pub fn test_get_cached_jwks(&self) -> Option<serde_json::Value> {
-        let guard = self.jwks.read().unwrap();
-        guard.as_ref().map(|(_, v)| v.clone())
+    pub fn set_jwks_uri_for_tests(&mut self, uri: String) {
+        self.metadata.jwks_uri = uri;
     }
 
     /// Get the authorization URL for redirecting the user to the OIDC provider
