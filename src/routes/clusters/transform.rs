@@ -390,7 +390,6 @@ pub fn transform_nodes(
 }
 
 /// Transform indices stats from SDK response to frontend format
-#[allow(dead_code)] // Kept for backward compatibility
 pub fn transform_indices(indices_stats: &Value) -> Vec<IndexInfoResponse> {
     let mut result = Vec::new();
 

@@ -1,9 +1,13 @@
-use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use serde::Deserialize;
+use serde::Serialize;
 use utoipa::ToSchema;
 
-/// Pagination query parameters
+// Pagination query parameters and helpers are only used in tests in this crate.
+// Keep them compiled under cfg(test) so the release/dev build doesn't produce
+// dead-code warnings while preserving test coverage.
+#[cfg(test)]
 #[derive(Debug, Deserialize, Clone, Copy)]
-#[allow(dead_code)] // Kept for potential future use
 pub struct PaginationParams {
     /// Page number (1-indexed)
     #[serde(default = "default_page")]
@@ -14,15 +18,17 @@ pub struct PaginationParams {
     pub page_size: usize,
 }
 
+#[cfg(test)]
 fn default_page() -> usize {
     1
 }
 
+#[cfg(test)]
 fn default_page_size() -> usize {
     50
 }
 
-#[allow(dead_code)] // Kept for potential future use
+#[cfg(test)]
 impl PaginationParams {
     /// Validate pagination parameters
     pub fn validate(mut self) -> Result<Self, String> {
@@ -123,6 +129,9 @@ mod tests {
         let validated = params.validate().expect("validate pagination params");
         assert_eq!(validated.page, 1);
         assert_eq!(validated.page_size, 50);
+        // Exercise offset/limit helpers so they are covered by test builds
+        assert_eq!(validated.offset(), 0);
+        assert_eq!(validated.limit(), 50);
     }
 
     #[test]
@@ -133,6 +142,9 @@ mod tests {
         };
         let validated = params.validate().expect("validate pagination params");
         assert_eq!(validated.page_size, 1000);
+        // Ensure offset/limit behave as expected
+        assert_eq!(validated.offset(), 0);
+        assert_eq!(validated.limit(), 1000);
     }
 
     #[test]

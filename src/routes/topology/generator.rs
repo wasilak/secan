@@ -23,11 +23,6 @@ pub struct TilePayload {
     pub shards: Option<Value>,
 }
 
-// The following structs are schema-only helpers to improve the generated
-// OpenAPI documentation. They are not used at runtime for serialization in
-// the generator (which uses serde_json::Value for flexibility), but having
-// these types available allows utoipa to produce clearer component schemas.
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TileNodeMeta {
@@ -47,7 +42,6 @@ pub struct TileNodeMeta {
     pub summary_counts: Option<serde_json::Value>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TileShard {

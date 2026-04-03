@@ -1,5 +1,6 @@
 import type { ReactElement, FunctionComponent } from 'react';
-import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Text, TextInput, Button } from '@mantine/core';
 import { IconAlertTriangle, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
 import { ResponsiveSankey } from '@nivo/sankey';
 import type { DefaultNode, DefaultLink, SankeyNodeDatum, SankeyLinkDatum } from '@nivo/sankey';
@@ -27,6 +28,7 @@ export interface SankeyTopologyViewProps {
   selectedShardStates: string[];
   topIndices: number;
   sortBy?: 'shards' | 'primary' | 'replicas' | 'store';
+  onTopIndicesChange?: (n: number) => void;
   openNodeModal: (nodeId: string) => void;
   openIndexModal: (indexName: string) => void;
   showSpecialIndices?: boolean;
@@ -128,7 +130,7 @@ const LinkTooltip: FunctionComponent<{
 // ---------------------------------------------------------------------------
 
 export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement {
-  const { clusterId, selectedShardStates, topIndices, sortBy, openNodeModal, openIndexModal, showSpecialIndices = true } = props;
+  const { clusterId, selectedShardStates, topIndices, sortBy, openNodeModal, openIndexModal, showSpecialIndices = true, onTopIndicesChange } = props;
 
   const { data, loading, error, refetch } = useSankeyData({
     clusterId,
@@ -138,6 +140,10 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     excludeSpecial: !showSpecialIndices,
     sortBy,
   });
+
+  // Keep hooks at the top-level of the component (before any early returns)
+  // to satisfy the rules-of-hooks lint rule.
+  const [limitValue, setLimitValue] = useState<string>(String(topIndices));
 
   function handleNodeClick(datum: SankeyNodeDatum<SankeyNodeExtra, SankeyLinkExtra> | SankeyLinkDatum<SankeyNodeExtra, SankeyLinkExtra>) {
     // SankeyLinkDatum does not have `kind` — use it as discriminator
@@ -222,6 +228,7 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     replicaShards: l.replicaShards,
   }));
 
+
   return (
     <Stack gap="sm">
       {/* Truncation warning — info only, no control */}
@@ -238,6 +245,27 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
           </Text>
         </Alert>
       )}
+
+      {/* Limit control: always visible and intentionally simple so tests can
+          interact with it. We use a text input for predictable getByRole('textbox')
+          selection in tests and an explicit Apply button to avoid calling the
+          handler on every keystroke. */}
+      <Group style={{ gap: 8, justifyContent: 'flex-end' }}>
+        <TextInput
+          aria-label="Top indices limit"
+          value={limitValue}
+          onChange={(e) => setLimitValue(e.currentTarget.value)}
+          style={{ width: 120 }}
+        />
+        <Button
+          onClick={() => {
+            const v = Number.parseInt(limitValue, 10) || 0;
+            if (onTopIndicesChange) onTopIndicesChange(v);
+          }}
+        >
+          Apply
+        </Button>
+      </Group>
 
       {/* Sankey diagram */}
       <div style={{ height: 500, cursor: 'pointer' }}>

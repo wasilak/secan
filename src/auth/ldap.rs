@@ -177,7 +177,6 @@ impl LdapAuthProvider {
     /// On bind failure, this method logs detailed error information for administrators
     /// but returns a generic "LDAP connection failed" error to prevent information
     /// disclosure to potential attackers.
-    #[allow(dead_code)] // Will be used in task 13
     async fn bind_service_account(&self, ldap: &mut Ldap) -> Result<()> {
         debug!(
             bind_dn = %self.config.bind_dn,
@@ -240,7 +239,6 @@ impl LdapAuthProvider {
     /// - Username input is sanitized to prevent LDAP injection
     /// - Search operations are subject to connection timeout
     /// - Errors are logged but generic messages returned to prevent information disclosure
-    #[allow(dead_code)] // Will be used in task 13
     async fn search_user(&self, ldap: &mut Ldap, username: &str) -> Result<ldap3::SearchEntry> {
         use ldap3::{Scope, SearchEntry};
         use tracing::warn;
@@ -373,7 +371,6 @@ impl LdapAuthProvider {
     /// This method does not propagate detailed error information to prevent information
     /// disclosure. It returns `false` for bind failures rather than exposing error details.
     /// Bind success/failure is logged at debug level for troubleshooting.
-    #[allow(dead_code)] // Will be used in task 13
     async fn authenticate_user(
         &self,
         ldap: &mut Ldap,
@@ -466,7 +463,6 @@ impl LdapAuthProvider {
     /// 2. If `resolve_nested_groups` is true AND `group_search_filter` is configured: additionally
     ///    run recursive nested group resolution via LDAP_MATCHING_RULE_IN_CHAIN (slow)
     /// 3. Fall back to `group_search_filter` only if `user_group_attribute` is not configured
-    #[allow(dead_code)] // Will be used in task 13
     async fn get_user_groups(
         &self,
         ldap: &mut Ldap,
@@ -731,7 +727,6 @@ impl LdapAuthProvider {
     ///
     /// Validation failures are logged with both the required groups and the user's actual
     /// groups to aid in troubleshooting access control issues.
-    #[allow(dead_code)] // Will be used in task 13
     fn validate_required_groups(&self, user_groups: &[String]) -> Result<()> {
         use tracing::warn;
 
@@ -795,7 +790,6 @@ impl LdapAuthProvider {
     /// - Missing username: Extracts CN from DN
     /// - Missing email: Empty string
     /// - Missing display name: Uses username
-    #[allow(dead_code)] // Will be used in task 13
     fn extract_user_info(
         &self,
         user_dn: String,
@@ -1140,6 +1134,17 @@ impl LdapAuthProvider {
         );
 
         let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
+
+        // If no clusters were resolved for this user, warn so admins can investigate
+        // (common cause: missing group mapping in permissions configuration).
+        if accessible_clusters.is_empty() {
+            tracing::warn!(
+                username = %auth_user.username,
+                user_dn = %user_dn,
+                groups = ?groups,
+                "User has no accessible clusters after permission resolution"
+            );
+        }
 
         // Create AuthUser with accessible clusters
         let auth_user_with_clusters = crate::auth::session::AuthUser::new_with_clusters(

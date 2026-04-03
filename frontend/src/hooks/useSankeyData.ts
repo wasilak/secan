@@ -73,7 +73,9 @@ export function useSankeyData(options: UseSankeyDataOptions): UseSankeyDataResul
         setLoading(false);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // The dependency list is deliberate: fetchData should re-create when any of
+  // these meaningful inputs change. The linter rule here is noisy when arrays
+  // are passed by callers; using statesKey above keeps deps stable.
   }, [clusterId, topIndices, includeUnassigned, statesKey, excludeSpecial, sortBy]);
 
   // Run on mount and whenever deps change

@@ -161,10 +161,15 @@ export function Login() {
 
     try {
       await login(username, password);
-      // Redirect to original path or dashboard (sanitized)
+
+      // At this point the AuthContext has been updated with the authenticated
+      // user. Navigate to the intended path. If for any reason the auth state
+      // wasn't set (login() throws), the catch handler below will run.
       navigate(safeRedirect(redirectPath), { replace: true });
-    } catch {
-      setError('Invalid username or password');
+    } catch (e) {
+      // Surface the error message to the user when available
+      const msg = e instanceof Error ? e.message : 'Invalid username or password';
+      setError(msg);
     } finally {
       setLoading(false);
     }

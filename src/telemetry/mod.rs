@@ -41,7 +41,6 @@ use tracing_subscriber::EnvFilter;
 /// This guard must be held for the lifetime of the application.
 /// When dropped, the telemetry provider is shut down.
 pub struct TelemetryGuard {
-    #[allow(dead_code)]
     provider: Option<opentelemetry_sdk::trace::SdkTracerProvider>,
 }
 

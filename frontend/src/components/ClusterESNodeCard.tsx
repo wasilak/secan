@@ -1,4 +1,4 @@
-import { Group, Text, Badge, Divider, Flex, Box, Tooltip, Skeleton } from '@mantine/core';
+import { Group, Text, Badge, Divider, Flex, Skeleton } from '@mantine/core';
 import { ShardWaffleChart } from './Topology/ShardWaffleChart';
 import ShardPills from './ShardPills';
 import type { ClusterGroupNodeDataFlat } from '../utils/canvasLayout';

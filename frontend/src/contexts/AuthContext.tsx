@@ -105,14 +105,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       throw new Error(error.message || 'Invalid username or password');
     }
 
-    // After successful login, refetch user to update state
+    // After successful login, refetch user to update state.
+    // If /api/auth/me fails, propagate the error so callers (UI) can handle it
+    // instead of proceeding as if login succeeded (which created a redirect loop).
     const meResponse = await fetch('/api/auth/me', { credentials: 'include' });
-    if (meResponse.ok) {
-      const userData = await meResponse.json();
-      setUser({ username: userData.username, roles: userData.groups || [] });
-    } else {
+    if (!meResponse.ok) {
+      const err = await meResponse.json().catch(() => ({ message: 'Failed to fetch user after login' }));
+      // Ensure we clear any partial state and surface an error to the caller
       setUser(null);
+      throw new Error(err.message || 'Failed to fetch authenticated user');
     }
+
+    const userData = await meResponse.json();
+    setUser({ username: userData.username, roles: userData.groups || [] });
   };
 
   /**
