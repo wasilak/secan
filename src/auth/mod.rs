@@ -16,6 +16,6 @@ pub use permissions::{filter_clusters, PermissionResolver};
 pub use rate_limiter::{RateLimitConfig, RateLimiter};
 pub use rbac::{RbacManager, Role};
 pub use session::{
-    build_session_cookie_header, generate_token, AuthUser, Session, SessionConfig, SessionManager,
-    SessionValidation,
+    build_clear_session_cookie_header, build_session_cookie_header, generate_token, AuthUser,
+    Session, SessionConfig, SessionManager, SessionValidation,
 };
