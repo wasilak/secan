@@ -207,7 +207,7 @@ impl OidcAuthProvider {
                 Ok(resp) => match resp.error_for_status() {
                     Ok(success_resp) => match success_resp.json::<serde_json::Value>().await {
                         Ok(jwks_json) => {
-                            let mut guard = jwks_cache.write().unwrap();
+                            let mut guard = jwks_cache.write().expect("JWKS cache RwLock poisoned");
                             *guard = Some((std::time::Instant::now(), jwks_json));
                             metrics::counter!("oidc.jwks.refresh.success").increment(1);
                             metrics::gauge!("oidc.jwks.last_refresh")
@@ -272,7 +272,8 @@ impl OidcAuthProvider {
                     Ok(resp) => match resp.error_for_status() {
                         Ok(success_resp) => match success_resp.json::<serde_json::Value>().await {
                             Ok(jwks_json) => {
-                                let mut guard = jwks_cache.write().unwrap();
+                                let mut guard =
+                                    jwks_cache.write().expect("JWKS cache RwLock poisoned");
                                 *guard = Some((std::time::Instant::now(), jwks_json));
                                 metrics::counter!("oidc.jwks.refresh.success").increment(1);
                                 metrics::gauge!("oidc.jwks.last_refresh")
@@ -450,7 +451,7 @@ impl OidcAuthProvider {
         // Avoid holding the RwLock guard across an await to keep the returned
         // future Send. If refresh fails we'll still try to use existing keys.
         let need_fetch = {
-            let jwks_guard = self.jwks.read().unwrap();
+            let jwks_guard = self.jwks.read().expect("JWKS RwLock poisoned");
             match jwks_guard.as_ref() {
                 None => true,
                 Some((fetched_at, _)) => {
@@ -469,7 +470,7 @@ impl OidcAuthProvider {
 
         // Find key by kid in cached value
         let jwks_value = {
-            let jwks_guard = self.jwks.read().unwrap();
+            let jwks_guard = self.jwks.read().expect("JWKS RwLock poisoned");
             jwks_guard
                 .as_ref()
                 .map(|(_, v)| v.clone())
@@ -496,7 +497,7 @@ impl OidcAuthProvider {
             } else {
                 // Re-read JWKS from cache and try to find the kid again
                 let jwks_value_after = {
-                    let guard = self.jwks.read().unwrap();
+                    let guard = self.jwks.read().expect("JWKS RwLock poisoned");
                     guard
                         .as_ref()
                         .map(|(_, v)| v.clone())
@@ -524,7 +525,7 @@ impl OidcAuthProvider {
             DecodingKey::from_jwk(&jwk).context("Failed to build decoding key from JWK")?;
 
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_audience(&[self.config.client_id.clone()]);
+        validation.set_audience(std::slice::from_ref(&self.config.client_id));
 
         let token_data = decode::<IdTokenClaims>(id_token_str, &decoding_key, &validation)
             .context("JWT verification failed")?;
@@ -547,7 +548,7 @@ impl OidcAuthProvider {
 
         let jwks_json: serde_json::Value =
             resp.json().await.context("Failed to parse JWKS JSON")?;
-        let mut guard = self.jwks.write().unwrap();
+        let mut guard = self.jwks.write().expect("JWKS RwLock poisoned");
         *guard = Some((std::time::Instant::now(), jwks_json));
         Ok(())
     }
