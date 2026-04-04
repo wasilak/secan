@@ -490,10 +490,10 @@ export function ClusterView() {
   };
 
   // Update URL when tab/section changes
-  const handleTabChange = (value: string | null) => {
+  const handleTabChange = (value: string | null, tabSearchParams?: string) => {
     if (value && isValidClusterSection(value)) {
       // Navigate to new section using path-based URL
-      navigate(`/cluster/${id}/${value}`);
+      navigate(`/cluster/${id}/${value}${tabSearchParams ? `?${tabSearchParams}` : ''}`);
       // Note: Modal params are preserved in searchParams, only section changes in path
     }
   };
@@ -566,14 +566,14 @@ export function ClusterView() {
     placeholderData: (previousData) => previousData,
   });
 
-  // Detect if we're using internal metrics (single data point) vs Prometheus (time series)
-  const isInternalMetrics = metricsHistory?.data && metricsHistory.data.length === 1;
+  // Use the configured metrics source directly — no guessing from data shape
+  const isPrometheus = clusterInfo?.metrics_source === 'prometheus';
   
   // For internal metrics, extract current values to accumulate over time
   // Ensure values are numbers (not undefined) for useSparklineData to work
   // CRITICAL: Memoize this object to prevent unnecessary re-renders and hook resets
   const currentInternalMetrics = useMemo(() => {
-    if (!isInternalMetrics || !metricsHistory?.data[0]) return null;
+    if (isPrometheus || !metricsHistory?.data[0]) return null;
     
     return {
       nodes: metricsHistory.data[0].node_count,
@@ -586,7 +586,7 @@ export function ClusterView() {
       memory: metricsHistory.data[0].memory_used_bytes ?? 0,
       disk: metricsHistory.data[0].disk_used_bytes ?? 0,
     };
-  }, [isInternalMetrics, metricsHistory?.data]);
+  }, [isPrometheus, metricsHistory?.data]);
 
   // Accumulate internal metrics over time (resets when switching tabs)
   const nodesHistoryInternal = useSparklineData(
@@ -680,11 +680,11 @@ export function ClusterView() {
 
   // Use metrics history data when available (statistics tab), otherwise use sparkline data
   // For ClusterStatistics component (needs DataPoint[])
-  // Internal metrics (single point): use accumulated history
+  // Internal metrics: use accumulated sparkline history
   // Prometheus metrics (time series): use data directly
   const nodesHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? nodesHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.node_count,
@@ -694,7 +694,7 @@ export function ClusterView() {
 
   const indicesHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? indicesHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.index_count || 0,
@@ -704,7 +704,7 @@ export function ClusterView() {
 
   const documentsHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? documentsHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.document_count || 0,
@@ -714,7 +714,7 @@ export function ClusterView() {
 
   const shardsHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? shardsHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.shard_count || 0,
@@ -724,7 +724,7 @@ export function ClusterView() {
 
   const unassignedHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? unassignedHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.unassigned_shards || 0,
@@ -734,7 +734,7 @@ export function ClusterView() {
 
   const diskUsageHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? diskHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.disk_used_bytes || 0,
@@ -746,7 +746,7 @@ export function ClusterView() {
   // For Prometheus metrics, use data from metricsHistory
   const cpuHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? cpuHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.cpu_percent || 0,
@@ -756,7 +756,7 @@ export function ClusterView() {
 
   const memoryHistory: DataPoint[] =
     activeView === 'statistics' && metricsHistory?.data
-      ? isInternalMetrics
+      ? !isPrometheus
         ? memoryHistoryInternal
         : metricsHistory.data.map((d) => ({
             value: d.memory_used_bytes || 0,
@@ -770,7 +770,7 @@ export function ClusterView() {
   const memorySeries = useMemo(() => {
     const memorySeriesMap = new Map<string, DataPoint[]>();
 
-    if (activeView === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.memory) {
+    if (activeView === 'statistics' && isPrometheus && metricsHistory?.raw_metrics?.memory) {
       for (const point of metricsHistory.raw_metrics.memory) {
         // Create a series key from labels in logfmt format (e.g., "area=heap")
         const seriesKey = point.labels
@@ -819,7 +819,7 @@ export function ClusterView() {
         labels: labelMap,
       };
     });
-  }, [activeView, isInternalMetrics, metricsHistory?.raw_metrics?.memory]);
+  }, [activeView, isPrometheus, metricsHistory?.raw_metrics?.memory]);
 
   // Group raw CPU metrics by labels to create separate series (Prometheus only)
   // This handles metrics with grouping like avg by (node) (elasticsearch_process_cpu_percent)
@@ -827,7 +827,7 @@ export function ClusterView() {
   const cpuSeries = useMemo(() => {
     const cpuSeriesMap = new Map<string, DataPoint[]>();
 
-    if (activeView === 'statistics' && !isInternalMetrics && metricsHistory?.raw_metrics?.cpu) {
+    if (activeView === 'statistics' && isPrometheus && metricsHistory?.raw_metrics?.cpu) {
       for (const point of metricsHistory.raw_metrics.cpu) {
         // Create a series key from labels in logfmt format (e.g., "node=node-1")
         const seriesKey = point.labels
@@ -872,32 +872,32 @@ export function ClusterView() {
         labels,
       };
     });
-  }, [activeView, isInternalMetrics, metricsHistory?.raw_metrics?.cpu]);
+  }, [activeView, isPrometheus, metricsHistory?.raw_metrics?.cpu]);
 
   // For Sparkline components (needs number[])
-  // Use Prometheus data if available (not internal metrics), regardless of active tab
+  // Use Prometheus data when configured, regardless of active tab
   const nodesHistoryNumbers =
-    !isInternalMetrics && metricsHistory?.data
+    isPrometheus && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.node_count)
       : nodesHistorySparkline;
 
   const indicesHistoryNumbers =
-    !isInternalMetrics && metricsHistory?.data
+    isPrometheus && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.index_count || 0)
       : indicesHistorySparkline;
 
   const documentsHistoryNumbers =
-    !isInternalMetrics && metricsHistory?.data
+    isPrometheus && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.document_count || 0)
       : documentsHistorySparkline;
 
   const shardsHistoryNumbers =
-    !isInternalMetrics && metricsHistory?.data
+    isPrometheus && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.shard_count || 0)
       : shardsHistorySparkline;
 
   const unassignedHistoryNumbers =
-    !isInternalMetrics && metricsHistory?.data
+    isPrometheus && metricsHistory?.data
       ? metricsHistory.data.map((d) => d.unassigned_shards || 0)
       : unassignedHistorySparkline;
 
@@ -1190,6 +1190,7 @@ export function ClusterView() {
             unassignedHistoryNumbers={unassignedHistoryNumbers}
             handleTabChange={handleTabChange}
             getColor={getColor}
+            isPrometheus={isPrometheus}
           />
         </AppErrorBoundary>
       )}
@@ -1258,7 +1259,7 @@ export function ClusterView() {
         <AppErrorBoundary key="statistics" fallbackTitle="Statistics failed to load">
           <StatisticsView
             clusterInfo={clusterInfo ?? null}
-            isInternalMetrics={!!isInternalMetrics}
+            isPrometheus={isPrometheus}
             metricsLoading={metricsHistoryFetching}
             timeRangeDropdownOpened={timeRangeDropdownOpened}
             setTimeRangeDropdownOpened={setTimeRangeDropdownOpened}

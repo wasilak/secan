@@ -98,7 +98,7 @@ export function DiskTreemapView({ indices, isLoading, showSpecialIndices = true 
         label={(node) => node.id}
         enableParentLabel={false}
         tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
-        animate={false}
+        animate={true}
         margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
       />
     </Box>

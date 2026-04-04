@@ -26,8 +26,8 @@ export function NivoSparkline({ data, color, height = 30 }: NivoSparklineProps) 
         enableArea={true}
         areaOpacity={0.2}
         colors={[color]}
-        isInteractive={false}
-        animate={false}
+        isInteractive={true}
+        animate={true}
       />
     </div>
   );

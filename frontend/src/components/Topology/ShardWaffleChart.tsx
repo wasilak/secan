@@ -1,7 +1,8 @@
-import { ReactNode, FunctionComponent, MouseEvent } from 'react';
+import { ReactNode, FunctionComponent, MouseEvent, useState } from 'react';
+import { animated } from '@react-spring/web';
 import { ResponsiveWaffleHtml, isDataCell } from '@nivo/waffle';
-import type { CellComponentProps, TooltipProps, ComputedDatum } from '@nivo/waffle';
-import { Box } from '@mantine/core';
+import type { CellComponentProps, ComputedDatum } from '@nivo/waffle';
+import { Box, Portal } from '@mantine/core';
 import type { ShardInfo } from '../../types/api';
 
 /** Shape of each shard dot — matches the `dots` array produced by DotBasedTopologyView
@@ -44,19 +45,14 @@ const ShardCell: FunctionComponent<CellComponentProps<ShardDatum>> = ({
   const isPrimary = isDataCell(cell) ? cell.data.data.primary : true;
 
   return (
-    <div
+    <animated.div
       style={{
         position: 'absolute',
-        // @ts-expect-error -- SpringValues are valid style props at runtime
         top: animatedProps.y,
-        // @ts-expect-error -- SpringValues are valid style props at runtime
         left: animatedProps.x,
-        // @ts-expect-error -- SpringValues are valid style props at runtime
         width: animatedProps.size,
-        // @ts-expect-error -- SpringValues are valid style props at runtime
         height: animatedProps.size,
         borderRadius,
-        // @ts-expect-error -- SpringValues are valid style props at runtime
         background: animatedProps.color,
         opacity: isPrimary ? 1 : 0.5,
         boxSizing: 'content-box',
@@ -67,31 +63,19 @@ const ShardCell: FunctionComponent<CellComponentProps<ShardDatum>> = ({
 };
 
 // ---------------------------------------------------------------------------
-// Custom tooltip — renders the dot.tooltip ReactNode inside a dark box.
+// Nivo tooltip stub — we manage our own portal-based tooltip so this is a
+// no-op. Passing it explicitly silences nivo's default tooltip.
 // ---------------------------------------------------------------------------
-
-const ShardTooltip: FunctionComponent<TooltipProps<ShardDatum>> = ({ data }) => {
-  return (
-    <Box
-      p={6}
-      style={{
-        background: 'var(--mantine-color-dark-7)',
-        borderRadius: 4,
-        fontSize: 12,
-        color: 'var(--mantine-color-white)',
-        pointerEvents: 'none',
-      }}
-    >
-      {data.data.tooltipContent}
-    </Box>
-  );
-};
+const NoopTooltip = () => null;
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
 export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) {
+  const [hoveredDatum, setHoveredDatum] = useState<ShardDatum | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
   if (dots.length === 0) return null;
 
   const columns = Math.min(dots.length, 10);
@@ -114,38 +98,73 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
   }));
 
   return (
-    <Box
-      mb={6}
-      style={{ width: totalWidth, height: totalHeight, position: 'relative' }}
-      onPointerDown={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <ResponsiveWaffleHtml<ShardDatum>
-        data={data}
-        total={dots.length}
-        rows={rows}
-        columns={columns}
-        padding={padding}
-        margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-        colors={{ datum: 'color' }}
-        borderRadius={2}
-        borderWidth={0}
-        emptyColor="transparent"
-        emptyOpacity={0}
-        cellComponent={ShardCell}
-        tooltip={ShardTooltip}
-        isInteractive
-        onClick={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
-          if (onShardClick) {
+    <>
+      <Box
+        mb={6}
+        style={{ width: totalWidth, height: totalHeight, position: 'relative', cursor: 'pointer', zIndex: 1 }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => {
+          setHoveredDatum(null);
+          setMousePos(null);
+        }}
+      >
+        <ResponsiveWaffleHtml<ShardDatum>
+          data={data}
+          total={rows * columns}
+          rows={rows}
+          columns={columns}
+          padding={padding}
+          margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          colors={{ datum: 'color' }}
+          borderRadius={2}
+          borderWidth={0}
+          emptyColor="transparent"
+          emptyOpacity={0}
+          cellComponent={ShardCell}
+          tooltip={NoopTooltip}
+          isInteractive
+          onClick={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
+            if (onShardClick) {
+              event.stopPropagation();
+              onShardClick(cellData.data.shard, event);
+            }
+          }}
+          onMouseEnter={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
             event.stopPropagation();
-            onShardClick(cellData.data.shard, event);
-          }
-        }}
-        onMouseEnter={(_cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
-          event.stopPropagation();
-        }}
-        animate={false}
-      />
-    </Box>
+            setHoveredDatum(cellData.data);
+          }}
+          onMouseLeave={() => {
+            setHoveredDatum(null);
+          }}
+          animate={true}
+        />
+      </Box>
+
+      {/* Portal-based tooltip — renders at document body level so it cannot
+          overflow into the sidebar or be clipped by parent containers. */}
+      {hoveredDatum && mousePos && (
+        <Portal>
+          <Box
+            p={6}
+            style={{
+              position: 'fixed',
+              top: mousePos.y + 12,
+              left: mousePos.x + 12,
+              background: 'var(--mantine-color-dark-7)',
+              borderRadius: 4,
+              fontSize: 12,
+              color: 'var(--mantine-color-white)',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              zIndex: 9999,
+            }}
+          >
+            {hoveredDatum.tooltipContent}
+          </Box>
+        </Portal>
+      )}
+    </>
   );
 }

@@ -8,7 +8,7 @@ import type { DataPoint } from '../../hooks/useSparklineData';
 
 interface StatisticsViewProps {
   clusterInfo: { metrics_source?: 'prometheus' | 'internal' | string } | null;
-  isInternalMetrics: boolean;
+  isPrometheus: boolean;
   metricsLoading?: boolean;
   timeRangeDropdownOpened: boolean;
   setTimeRangeDropdownOpened: (open: boolean) => void;
@@ -38,7 +38,7 @@ interface StatisticsViewProps {
 export function StatisticsView(props: StatisticsViewProps): ReactElement {
   const {
     clusterInfo,
-    isInternalMetrics,
+    isPrometheus,
     metricsLoading,
     timeRangeDropdownOpened,
     setTimeRangeDropdownOpened,
@@ -82,7 +82,7 @@ export function StatisticsView(props: StatisticsViewProps): ReactElement {
           </Badge>
         </Group>
         {/* Only show time range selector for Prometheus metrics */}
-        {!isInternalMetrics && (
+        {isPrometheus && (
           <Menu
             opened={timeRangeDropdownOpened}
             onChange={setTimeRangeDropdownOpened}

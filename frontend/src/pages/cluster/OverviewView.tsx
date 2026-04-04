@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Card, Grid, Group, Stack, Text } from '@mantine/core';
+import { Badge, Card, Grid, Group, Stack, Text } from '@mantine/core';
 import { Sparkline } from '../../components/Sparkline';
 import { ProgressWithLabel } from '../../components/ProgressWithLabel';
 import { formatBytes, formatPercentRatio } from '../../utils/formatters';
@@ -14,8 +14,9 @@ interface OverviewViewProps {
   documentsHistoryNumbers: number[];
   shardsHistoryNumbers: number[];
   unassignedHistoryNumbers: number[];
-  handleTabChange: (view: string) => void;
+  handleTabChange: (view: string, searchParams?: string) => void;
   getColor: (value: number) => string;
+  isPrometheus: boolean;
 }
 
 export function OverviewView({
@@ -28,9 +29,19 @@ export function OverviewView({
   unassignedHistoryNumbers,
   handleTabChange,
   getColor,
+  isPrometheus,
 }: OverviewViewProps): ReactElement {
   return (
     <Stack gap="md">
+      {/* Section header with metrics source badge */}
+      <Group gap="xs">
+        <Text size="sm" fw={500}>
+          Cluster Overview
+        </Text>
+        <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
+          {isPrometheus ? 'Prometheus' : 'Internal'}
+        </Badge>
+      </Group>
       {/* First Row: Nodes, Indices, Shards */}
       <Grid>
         <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
@@ -177,7 +188,7 @@ export function OverviewView({
             shadow="sm"
             padding="md"
             style={{ cursor: 'pointer', height: '100%' }}
-            onClick={() => handleTabChange('shards')}
+            onClick={() => handleTabChange('shards', 'shardStates=UNASSIGNED')}
           >
             <Stack gap={4}>
               <Group justify="space-between" wrap="nowrap">
