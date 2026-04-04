@@ -33,6 +33,10 @@ impl SessionConfig {
 
 // ── JWT claims (embedded in every session cookie) ─────────────────────────────
 
+fn default_auth_type() -> String {
+    "local".to_string()
+}
+
 /// Claims embedded in the signed JWT stored in the `session_token` cookie.
 ///
 /// All session state is carried inside the token; no server-side session store
@@ -52,6 +56,9 @@ pub struct SessionClaims {
     /// in /api/auth/me) using the user's groups/roles.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub accessible_clusters: Vec<String>,
+    /// Authentication method used to create this session: "local", "ldap", "oidc", or "open"
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
     /// Expiry (Unix seconds) — validated by the JWT library
     pub exp: u64,
     /// Issued-at (Unix seconds)
@@ -78,6 +85,8 @@ pub struct Session {
     /// Populated from JWT claims where present. After the refactor we keep this
     /// empty in the token and resolve clusters server-side when needed.
     pub accessible_clusters: Vec<String>,
+    /// Authentication method: "local", "ldap", "oidc", or "open"
+    pub auth_type: String,
     /// When the JWT was issued (`iat`)
     pub created_at: DateTime<Utc>,
     /// When the JWT expires (`exp`)
@@ -116,6 +125,9 @@ pub struct AuthUser {
     /// Cluster IDs accessible to this user
     #[serde(default)]
     pub accessible_clusters: Vec<String>,
+    /// Authentication method: "local", "ldap", "oidc", or "open"
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
 }
 
 impl AuthUser {
@@ -125,6 +137,7 @@ impl AuthUser {
             username,
             roles,
             accessible_clusters: Vec::new(),
+            auth_type: default_auth_type(),
         }
     }
 
@@ -140,7 +153,14 @@ impl AuthUser {
             username,
             roles,
             accessible_clusters,
+            auth_type: default_auth_type(),
         }
+    }
+
+    /// Builder: override the authentication type (e.g. "oidc", "ldap", "open").
+    pub fn with_auth_type(mut self, auth_type: impl Into<String>) -> Self {
+        self.auth_type = auth_type.into();
+        self
     }
 }
 
@@ -320,6 +340,7 @@ impl SessionManager {
             username: user.username,
             roles: user.roles,
             accessible_clusters,
+            auth_type: user.auth_type,
             exp,
             iat: now.timestamp() as u64,
             jti: Uuid::new_v4().to_string(),
@@ -378,6 +399,7 @@ impl SessionManager {
             username: claims.username.clone(),
             roles: claims.roles.clone(),
             accessible_clusters: claims.accessible_clusters.clone(),
+            auth_type: claims.auth_type.clone(),
             created_at,
             expires_at,
             last_activity: now,
@@ -394,6 +416,7 @@ impl SessionManager {
                 username: claims.username,
                 roles: claims.roles,
                 accessible_clusters: claims.accessible_clusters,
+                auth_type: claims.auth_type,
                 exp: new_exp,
                 iat: now.timestamp() as u64,
                 // Fresh jti for the renewed token
@@ -496,6 +519,7 @@ impl SessionManager {
             username: user.username,
             roles: user.roles,
             accessible_clusters: user.accessible_clusters,
+            auth_type: user.auth_type,
             exp: (now + Duration::seconds(seconds_from_now)).timestamp() as u64,
             iat: now.timestamp() as u64,
             jti: Uuid::new_v4().to_string(),

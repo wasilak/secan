@@ -52,7 +52,8 @@ pub async fn auth_middleware(
             "open".to_string(),
             vec!["*".to_string()], // Full access in Open mode
             vec!["*".to_string()], // Full cluster access in Open mode
-        );
+        )
+        .with_auth_type("open");
 
         request
             .extensions_mut()
@@ -122,7 +123,8 @@ pub async fn auth_middleware(
         session.username,
         session.roles,
         session.accessible_clusters,
-    );
+    )
+    .with_auth_type(session.auth_type);
 
     tracing::debug!(
         user_id = %user.id,

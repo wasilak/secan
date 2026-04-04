@@ -700,7 +700,8 @@ impl OidcAuthProvider {
             username,
             filtered_groups.clone(),
             accessible_clusters.clone(),
-        );
+        )
+        .with_auth_type("oidc");
 
         // Create session embedding only filtered groups + accessible clusters
         let token = self

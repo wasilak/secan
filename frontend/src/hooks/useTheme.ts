@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMantineColorScheme } from '@mantine/core';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -11,102 +11,49 @@ export interface ThemeContextValue {
 
 const THEME_STORAGE_KEY = 'secan-theme';
 
+const getStoredTheme = (): Theme => {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      return stored;
+    }
+  } catch {
+    // ignore
+  }
+  return 'system';
+};
+
 /**
- * Hook for managing application theme (light, dark, system)
+ * Hook for managing application theme (light, dark, system).
  *
- * Supports three modes:
- * - light: Always use light theme
- * - dark: Always use dark theme
- * - system: Follow OS preference (default)
- *
- * Theme preference is persisted to localStorage and restored on app load.
+ * - 'system' maps to Mantine's 'auto' color scheme so the browser's OS
+ *   preference is followed natively — no manual media query listener needed.
+ * - Theme label state is kept in React state so the UI always reflects the
+ *   selected option even when the resolved color doesn't change (e.g. switching
+ *   from 'light' to 'system' while the OS is also light).
+ * - ThemeInitializer handles the initial application of the stored preference
+ *   at app start; this hook does not duplicate that work.
  */
 export function useTheme(): ThemeContextValue {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
 
-  // Get stored theme preference or default to 'system'
-  const getStoredTheme = (): Theme => {
-    try {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      if (stored === 'light' || stored === 'dark' || stored === 'system') {
-        return stored;
-      }
-    } catch (error) {
-      console.error('Failed to read theme from localStorage:', error);
-    }
-    return 'system';
-  };
+  const [theme, setThemeState] = useState<Theme>(getStoredTheme);
 
-  // Detect system theme preference
-  const getSystemTheme = (): 'light' | 'dark' => {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  };
-
-  // Get current theme from localStorage
-  const currentTheme = getStoredTheme();
-
-  // Resolve the actual theme to apply
+  // resolvedTheme comes from Mantine's own resolved value — correct even in
+  // 'auto' mode where colorScheme is always 'light' or 'dark'.
   const resolvedTheme: 'light' | 'dark' =
-    currentTheme === 'system' ? getSystemTheme() : currentTheme;
+    colorScheme === 'dark' ? 'dark' : 'light';
 
-  // Set theme and persist to localStorage
-  const setTheme = (theme: Theme) => {
+  const setTheme = (newTheme: Theme) => {
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
-
-      // Apply the resolved theme
-      const themeToApply = theme === 'system' ? getSystemTheme() : theme;
-      setColorScheme(themeToApply);
+      localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      setThemeState(newTheme);
+      // 'system' → Mantine 'auto': lets the browser follow OS preference natively
+      setColorScheme(newTheme === 'system' ? 'auto' : newTheme);
     } catch (error) {
       console.error('Failed to save theme to localStorage:', error);
     }
   };
 
-  // Listen for system theme changes when in system mode
-  useEffect(() => {
-    if (currentTheme !== 'system') {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
-    const handleChange = (e: MediaQueryListEvent) => {
-      setColorScheme(e.matches ? 'dark' : 'light');
-    };
-
-    // Set initial theme on mount
-    setColorScheme(mediaQuery.matches ? 'dark' : 'light');
-
-    // Modern browsers
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-    // Legacy browsers
-    else if (mediaQuery.addListener) {
-      mediaQuery.addListener(handleChange);
-      return () => mediaQuery.removeListener(handleChange);
-    }
-  }, [currentTheme, setColorScheme]);
-
-  // Initialize theme on mount
-  useEffect(() => {
-    const storedTheme = getStoredTheme();
-    const themeToApply = storedTheme === 'system' ? getSystemTheme() : storedTheme;
-
-    // Only set if different from current
-    if (colorScheme !== themeToApply) {
-      setColorScheme(themeToApply);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
-
-  return {
-    theme: currentTheme,
-    setTheme,
-    resolvedTheme,
-  };
+  return { theme, setTheme, resolvedTheme };
 }

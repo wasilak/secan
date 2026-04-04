@@ -1,17 +1,36 @@
-import { useTheme } from '../hooks/useTheme';
 import { useMantineColorScheme } from '@mantine/core';
 import { useEffect } from 'react';
 
+const THEME_STORAGE_KEY = 'secan-theme';
+
 /**
- * ThemeInitializer component ensures theme listener is active at app root
- * This guarantees system theme changes are detected even when theme selector isn't visible
+ * ThemeInitializer applies the stored theme preference once on app start
+ * and mirrors Mantine's resolved color scheme onto the document element.
+ *
+ * Deliberately does NOT call useTheme() — multiple hook instances each carry
+ * their own useState and their effects conflict with each other when
+ * setColorScheme triggers a Mantine-wide re-render.
  */
 export function ThemeInitializer() {
-  // Call the hook to ensure listeners are set up
-  useTheme();
-  const { colorScheme } = useMantineColorScheme();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
 
-  // Mirror Mantine color scheme onto the documentElement so CSS can target it
+  // Apply stored preference once on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        setColorScheme(stored);
+      } else {
+        // 'system' or missing → let Mantine follow OS natively
+        setColorScheme('auto');
+      }
+    } catch {
+      // ignore in restricted environments
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Mirror resolved color scheme onto documentElement for CSS targeting
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-secan-color-scheme', colorScheme ?? 'light');
@@ -20,6 +39,5 @@ export function ThemeInitializer() {
     }
   }, [colorScheme]);
 
-  // This component doesn't render anything - it's just for side effects
   return null;
 }

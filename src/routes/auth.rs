@@ -111,6 +111,8 @@ pub struct UserInfoResponse {
     pub groups: Vec<String>,
     /// Cluster IDs the user can access (resolved server-side)
     pub accessible_clusters: Vec<String>,
+    /// Authentication method used: "local", "ldap", "oidc", or "open"
+    pub auth_type: String,
 }
 
 impl IntoResponse for ErrorResponse {
@@ -537,6 +539,7 @@ pub async fn get_current_user(
         username: user.0.username.clone(),
         groups: user.0.roles.clone(),
         accessible_clusters,
+        auth_type: user.0.auth_type.clone(),
     })
 }
 

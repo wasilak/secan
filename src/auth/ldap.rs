@@ -864,6 +864,7 @@ impl LdapAuthProvider {
             username,
             roles: Vec::new(),               // Roles are not extracted from LDAP
             accessible_clusters: Vec::new(), // Clusters are not extracted from LDAP
+            auth_type: "ldap".to_string(),
         }
     }
 
@@ -1176,7 +1177,8 @@ impl LdapAuthProvider {
             auth_user.username.clone(),
             filtered_groups.clone(),
             accessible_clusters.clone(),
-        );
+        )
+        .with_auth_type("ldap");
 
         // Create session using session_manager, embedding only filtered groups
         // and the resolved accessible_clusters into the JWT.

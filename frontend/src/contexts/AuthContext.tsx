@@ -7,6 +7,8 @@ import { apiClient } from '../api/client';
 export interface User {
   username: string;
   roles: string[];
+  /** Authentication method: "local" | "ldap" | "oidc" | "open" */
+  auth_type: string;
 }
 
 /**
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser({
             username: userData.username,
             roles: userData.groups || [],
+            auth_type: userData.auth_type || 'local',
           });
         } else {
           // Not authenticated
@@ -140,7 +143,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const userData = await meResponse.json();
-    setUser({ username: userData.username, roles: userData.groups || [] });
+    setUser({ username: userData.username, roles: userData.groups || [], auth_type: userData.auth_type || 'local' });
   };
 
   /**
