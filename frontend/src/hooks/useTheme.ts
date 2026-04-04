@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMantineColorScheme } from '@mantine/core';
 
 export type Theme = 'light' | 'dark' | 'system';
