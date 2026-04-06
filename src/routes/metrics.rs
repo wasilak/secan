@@ -1,5 +1,4 @@
 use crate::auth::middleware::AuthenticatedUser;
-use crate::cluster::client::ElasticsearchClient;
 use crate::cluster::manager::HealthStatus as ClusterHealthStatus;
 use crate::cluster::Manager as ClusterManager;
 use crate::metrics::service::MetricPoint;
@@ -34,20 +33,10 @@ pub fn metrics_router() -> Router<MetricsState> {
         .route("/nodes/{node_id}", get(get_node_metrics))
 }
 
-/// Error response for metrics operations
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct MetricsErrorResponse {
-    #[schema(example = "MetricsError")]
-    pub error: String,
-    #[schema(example = "Failed to fetch metrics")]
-    pub message: String,
-}
-
-impl IntoResponse for MetricsErrorResponse {
-    fn into_response(self) -> Response {
-        (StatusCode::BAD_REQUEST, Json(self)).into_response()
-    }
-}
+// Note: MetricsErrorResponse removed in favor of the shared ClusterErrorResponse
+// located in crate::routes::clusters. Handlers that previously returned
+// MetricsErrorResponse now return ClusterErrorResponse so the frontend sees
+// a consistent structured error envelope (including cluster_unavailable).
 
 /// Query parameters for metrics requests
 #[derive(Debug, Deserialize, ToSchema, IntoParams)]
@@ -175,9 +164,9 @@ pub struct PrometheusValidationResponse {
     ),
     responses(
         (status = 200, body = ClusterMetricsHistoryResponse),
-        (status = 400, body = MetricsErrorResponse),
-        (status = 401, body = MetricsErrorResponse),
-        (status = 404, body = MetricsErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Metrics"
 )]
@@ -187,7 +176,7 @@ pub async fn get_cluster_metrics(
     Path(cluster_id): Path<String>,
     Query(params): Query<MetricsQuery>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<ClusterMetricsHistoryResponse>, MetricsErrorResponse> {
+) -> Result<Json<ClusterMetricsHistoryResponse>, crate::routes::clusters::ClusterErrorResponse> {
     debug!("Getting metrics for cluster: {}", cluster_id);
 
     // Get cluster connection with auth check
@@ -196,9 +185,11 @@ pub async fn get_cluster_metrics(
             .cluster_manager
             .get_cluster_with_auth(&cluster_id, Some(&user.0 .0))
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "access_denied".to_string(),
-                message: "You do not have access to this cluster or cluster not found".to_string(),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "access_denied",
+                    "You do not have access to this cluster or cluster not found",
+                )
             })?
     } else {
         // In open mode, no auth required
@@ -206,17 +197,30 @@ pub async fn get_cluster_metrics(
             .cluster_manager
             .get_cluster(&cluster_id)
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found", cluster_id),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "cluster_not_found",
+                    format!("Cluster '{}' not found", cluster_id),
+                )
             })?
     };
 
+    // If the cluster connection exists but is marked inaccessible, return a structured
+    // cluster_unavailable response so the frontend can show the reason.
+    if !cluster_conn.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster_conn.accessible_reason.clone(),
+        ));
+    }
+
     // Determine time range
     let time_range = if let (Some(start), Some(end)) = (params.start, params.end) {
-        TimeRange::new(start, end).map_err(|e| MetricsErrorResponse {
-            error: "invalid_time_range".to_string(),
-            message: format!("Invalid time range: {}", e),
+        TimeRange::new(start, end).map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "invalid_time_range",
+                format!("Invalid time range: {}", e),
+            )
         })?
     } else {
         TimeRange::last_24_hours()
@@ -236,19 +240,19 @@ pub async fn get_cluster_metrics(
                 .await
                 .map_err(|e| {
                     error!("Failed to get internal cluster metrics: {}", e);
-                    MetricsErrorResponse {
-                        error: "metrics_error".to_string(),
-                        message: format!("Failed to retrieve metrics: {}", e),
-                    }
+                    crate::routes::clusters::ClusterErrorResponse::simple(
+                        "metrics_error",
+                        format!("Failed to retrieve metrics: {}", e),
+                    )
                 })?
         }
         crate::config::MetricsSource::Prometheus => {
             // Get Prometheus configuration
             let prometheus_config = cluster_conn.prometheus.as_ref().ok_or_else(|| {
-                MetricsErrorResponse {
-                    error: "configuration_error".to_string(),
-                    message: "Prometheus metrics source selected but no Prometheus configuration provided".to_string(),
-                }
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "configuration_error",
+                    "Prometheus metrics source selected but no Prometheus configuration provided",
+                )
             })?;
 
             debug!(
@@ -273,10 +277,10 @@ pub async fn get_cluster_metrics(
             )
             .map_err(|e| {
                 error!("Failed to create Prometheus metrics service: {}", e);
-                MetricsErrorResponse {
-                    error: "metrics_error".to_string(),
-                    message: format!("Failed to initialize Prometheus metrics: {}", e),
-                }
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "metrics_error",
+                    format!("Failed to initialize Prometheus metrics: {}", e),
+                )
             })?;
 
             // For Prometheus metrics source, ALL data comes from Prometheus ONLY
@@ -286,10 +290,10 @@ pub async fn get_cluster_metrics(
                 .await
                 .map_err(|e| {
                     error!("Failed to get Prometheus cluster metrics: {}", e);
-                    MetricsErrorResponse {
-                        error: "metrics_error".to_string(),
-                        message: format!("Failed to retrieve Prometheus metrics: {}", e),
-                    }
+                    crate::routes::clusters::ClusterErrorResponse::simple(
+                        "metrics_error",
+                        format!("Failed to retrieve Prometheus metrics: {}", e),
+                    )
                 })?
         }
     };
@@ -566,9 +570,9 @@ pub struct NodeMetricsHistoryResponse {
     ),
     responses(
         (status = 200, body = NodeMetricsHistoryResponse),
-        (status = 400, body = MetricsErrorResponse),
-        (status = 401, body = MetricsErrorResponse),
-        (status = 404, body = MetricsErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Metrics"
 )]
@@ -578,7 +582,7 @@ pub async fn get_node_metrics(
     Path(params): Path<(String, String)>,
     Query(params_query): Query<MetricsQuery>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<NodeMetricsHistoryResponse>, MetricsErrorResponse> {
+) -> Result<Json<NodeMetricsHistoryResponse>, crate::routes::clusters::ClusterErrorResponse> {
     let (cluster_id, node_id) = params;
     debug!(
         "Getting metrics for node {} in cluster {}",
@@ -591,25 +595,35 @@ pub async fn get_node_metrics(
             .cluster_manager
             .get_cluster_with_auth(&cluster_id, Some(&user.0 .0))
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "access_denied".to_string(),
-                message: "You do not have access to this cluster or cluster not found".to_string(),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "access_denied",
+                    "You do not have access to this cluster or cluster not found",
+                )
             })?
     } else {
         state
             .cluster_manager
             .get_cluster(&cluster_id)
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found", cluster_id),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "cluster_not_found",
+                    format!("Cluster '{}' not found", cluster_id),
+                )
             })?
     };
+
+    if !cluster_conn.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster_conn.accessible_reason.clone(),
+        ));
+    }
 
     // Get node name from Elasticsearch (needed for Prometheus queries)
     // The node_id from URL is the ES node ID, but Prometheus uses node name
     let node_name = cluster_conn
-        .client
         .nodes_info()
         .await
         .ok()
@@ -629,29 +643,27 @@ pub async fn get_node_metrics(
         cluster_conn.metrics_source,
         crate::config::MetricsSource::Prometheus
     ) {
-        return Err(MetricsErrorResponse {
-            error: "not_supported".to_string(),
-            message: "Node-level historical metrics are only available when using Prometheus metrics source".to_string(),
-        });
+        return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+            "not_supported",
+            "Node-level historical metrics are only available when using Prometheus metrics source",
+        ));
     }
 
     // Get Prometheus configuration
-    let prometheus_config =
-        cluster_conn
-            .prometheus
-            .as_ref()
-            .ok_or_else(|| MetricsErrorResponse {
-                error: "configuration_error".to_string(),
-                message:
-                    "Prometheus metrics source selected but no Prometheus configuration provided"
-                        .to_string(),
-            })?;
+    let prometheus_config = cluster_conn.prometheus.as_ref().ok_or_else(|| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "configuration_error",
+            "Prometheus metrics source selected but no Prometheus configuration provided",
+        )
+    })?;
 
     // Determine time range
     let time_range = if let (Some(start), Some(end)) = (params_query.start, params_query.end) {
-        TimeRange::new(start, end).map_err(|e| MetricsErrorResponse {
-            error: "invalid_time_range".to_string(),
-            message: format!("Invalid time range: {}", e),
+        TimeRange::new(start, end).map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "invalid_time_range",
+                format!("Invalid time range: {}", e),
+            )
         })?
     } else {
         TimeRange::last_24_hours()
@@ -664,9 +676,11 @@ pub async fn get_node_metrics(
             auth: None,
             timeout: std::time::Duration::from_secs(30),
         })
-        .map_err(|e| MetricsErrorResponse {
-            error: "configuration_error".to_string(),
-            message: format!("Failed to create Prometheus client: {}", e),
+        .map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "configuration_error",
+                format!("Failed to create Prometheus client: {}", e),
+            )
         })?;
 
     // Build query strings with node name filter AND cluster labels from config
@@ -809,9 +823,11 @@ pub async fn get_node_metrics(
     });
     let prometheus_queries = prometheus_queries
         .as_object()
-        .ok_or_else(|| MetricsErrorResponse {
-            error: "internal_error".to_string(),
-            message: "Failed to construct prometheus queries".to_string(),
+        .ok_or_else(|| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "internal_error",
+                "Failed to construct prometheus queries",
+            )
         })?
         .clone();
 
@@ -847,9 +863,9 @@ pub async fn get_node_metrics(
     ),
     responses(
         (status = 200, description = "Cluster metrics history for heatmap"),
-        (status = 400, body = MetricsErrorResponse),
-        (status = 401, body = MetricsErrorResponse),
-        (status = 404, body = MetricsErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Metrics"
 )]
@@ -859,7 +875,7 @@ pub async fn get_cluster_metrics_history(
     Path(cluster_id): Path<String>,
     Query(params): Query<MetricsQuery>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<serde_json::Value>, MetricsErrorResponse> {
+) -> Result<Json<serde_json::Value>, crate::routes::clusters::ClusterErrorResponse> {
     debug!("Getting metrics history for cluster: {}", cluster_id);
 
     // Get cluster connection with auth check
@@ -868,9 +884,11 @@ pub async fn get_cluster_metrics_history(
             .cluster_manager
             .get_cluster_with_auth(&cluster_id, Some(&user.0 .0))
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "access_denied".to_string(),
-                message: "You do not have access to this cluster or cluster not found".to_string(),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "access_denied",
+                    "You do not have access to this cluster or cluster not found",
+                )
             })?
     } else {
         // In open mode, no auth required
@@ -878,17 +896,30 @@ pub async fn get_cluster_metrics_history(
             .cluster_manager
             .get_cluster(&cluster_id)
             .await
-            .map_err(|_| MetricsErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found", cluster_id),
+            .map_err(|_| {
+                crate::routes::clusters::ClusterErrorResponse::simple(
+                    "cluster_not_found",
+                    format!("Cluster '{}' not found", cluster_id),
+                )
             })?
     };
 
+    // If the cluster connection exists but is marked inaccessible, return a structured
+    // cluster_unavailable response so the frontend can show the reason.
+    if !cluster_conn.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster_conn.accessible_reason.clone(),
+        ));
+    }
+
     // Determine time range (default to 7 days for history)
     let time_range = if let (Some(start), Some(end)) = (params.start, params.end) {
-        TimeRange::new(start, end).map_err(|e| MetricsErrorResponse {
-            error: "invalid_time_range".to_string(),
-            message: format!("Invalid time range: {}", e),
+        TimeRange::new(start, end).map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "invalid_time_range",
+                format!("Invalid time range: {}", e),
+            )
         })?
     } else {
         TimeRange::last_7_days()
@@ -991,8 +1022,8 @@ pub async fn get_cluster_metrics_history(
     request_body = PrometheusValidationRequest,
     responses(
         (status = 200, body = PrometheusValidationResponse),
-        (status = 400, body = MetricsErrorResponse),
-        (status = 401, body = MetricsErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Metrics"
 )]
@@ -1001,15 +1032,15 @@ pub async fn validate_prometheus_endpoint(
     State(_state): State<MetricsState>,
     Json(request): Json<PrometheusValidationRequest>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<PrometheusValidationResponse>, MetricsErrorResponse> {
+) -> Result<Json<PrometheusValidationResponse>, crate::routes::clusters::ClusterErrorResponse> {
     debug!("Validating Prometheus endpoint: {}", request.url);
 
     // Check authentication if required
     if user_ext.is_none() {
-        return Err(MetricsErrorResponse {
-            error: "unauthorized".to_string(),
-            message: "Authentication required for Prometheus validation".to_string(),
-        });
+        return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+            "unauthorized",
+            "Authentication required for Prometheus validation",
+        ));
     }
 
     // Create Prometheus client config
@@ -1052,10 +1083,10 @@ pub async fn validate_prometheus_endpoint(
         },
         Err(e) => {
             error!("Failed to create Prometheus client: {}", e);
-            Err(MetricsErrorResponse {
-                error: "invalid_configuration".to_string(),
-                message: format!("Invalid Prometheus configuration: {}", e),
-            })
+            Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                "invalid_configuration",
+                format!("Invalid Prometheus configuration: {}", e),
+            ))
         }
     }
 }
@@ -1094,15 +1125,7 @@ mod tests {
         assert!(json.contains("\"job_name\":\"elasticsearch\""));
     }
 
-    #[test]
-    fn test_metrics_error_response() {
-        let error = MetricsErrorResponse {
-            error: "test_error".to_string(),
-            message: "Test error message".to_string(),
-        };
-
-        let json = serde_json::to_string(&error).expect("serialize MetricsErrorResponse to JSON");
-        assert!(json.contains("\"error\":\"test_error\""));
-        assert!(json.contains("\"message\":\"Test error message\""));
-    }
+    // MetricsErrorResponse tests removed; ClusterErrorResponse is used for
+    // metrics validation errors. See routes::clusters tests for ClusterErrorResponse
+    // serialization/deserialization checks.
 }

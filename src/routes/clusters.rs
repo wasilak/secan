@@ -1,6 +1,6 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cache::MetadataCache;
-use crate::cluster::{ClusterInfo, ElasticsearchClient, Manager as ClusterManager};
+use crate::cluster::{ClusterInfo, Manager as ClusterManager};
 use axum::{
     extract::{Path, Query, State},
     http::{Method, StatusCode},
@@ -53,6 +53,28 @@ pub struct ClusterState {
 pub struct ClusterErrorResponse {
     pub error: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessible_reason: Option<String>,
+}
+
+impl ClusterErrorResponse {
+    /// Helper to build a simple error response with no accessible reason.
+    pub fn simple<S: Into<String>>(error: &str, message: S) -> Self {
+        ClusterErrorResponse {
+            error: error.to_string(),
+            message: message.into(),
+            accessible_reason: None,
+        }
+    }
+
+    /// Helper to build a cluster_unavailable error including an optional reason.
+    pub fn unavailable(cluster_id: &str, reason: Option<String>) -> Self {
+        ClusterErrorResponse {
+            error: "cluster_unavailable".to_string(),
+            message: format!("Cluster '{}' is inaccessible", cluster_id),
+            accessible_reason: reason,
+        }
+    }
 }
 
 impl IntoResponse for ClusterErrorResponse {
@@ -76,6 +98,8 @@ impl IntoResponse for ClusterErrorResponse {
             | "elasticsearch_error"
             | "response_read_failed"
             | "response_build_failed" => StatusCode::BAD_GATEWAY,
+            // Cluster inaccessible - return 503 so frontend can show why
+            "cluster_unavailable" => StatusCode::SERVICE_UNAVAILABLE,
 
             // Server errors
             "semaphore_error" | "internal_error" => StatusCode::INTERNAL_SERVER_ERROR,
@@ -296,20 +320,20 @@ pub(crate) fn check_cluster_access(
         "User attempted to access forbidden cluster"
     );
 
-    Err(ClusterErrorResponse {
-        error: "access_denied".to_string(),
-        message: format!("Access denied to cluster: {}", cluster_id),
-    })
+    Err(ClusterErrorResponse::simple(
+        "access_denied",
+        format!("Access denied to cluster: {}", cluster_id),
+    ))
 }
 
 /// Validate cluster id and return a clear client error when empty.
 fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
     if cluster_id.is_empty() {
         tracing::debug!(cluster_id = %cluster_id, "Empty cluster id in request");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: "Cluster id is empty".to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            "Cluster id is empty",
+        ));
     }
     Ok(())
 }
@@ -356,11 +380,19 @@ pub async fn get_cluster_stats(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     // Get cluster stats and health using SDK typed methods
     let stats = cluster.cluster_stats().await.map_err(|e| {
@@ -369,10 +401,10 @@ pub async fn get_cluster_stats(
             error = %e,
             "Failed to get cluster stats"
         );
-        ClusterErrorResponse {
-            error: "stats_failed".to_string(),
-            message: format!("Failed to get cluster stats: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "stats_failed",
+            format!("Failed to get cluster stats: {}", e),
+        )
     })?;
 
     let health = cluster.health().await.map_err(|e| {
@@ -381,10 +413,10 @@ pub async fn get_cluster_stats(
             error = %e,
             "Failed to get cluster health"
         );
-        ClusterErrorResponse {
-            error: "health_failed".to_string(),
-            message: format!("Failed to get cluster health: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "health_failed",
+            format!("Failed to get cluster health: {}", e),
+        )
     })?;
 
     // Get nodes stats for CPU metrics
@@ -677,7 +709,7 @@ pub async fn get_cluster_stats(
     );
 
     // Get cluster version from the info endpoint
-    let es_version: Option<String> = cluster.client.info().await.ok().and_then(|info| {
+    let es_version: Option<String> = cluster.info().await.ok().and_then(|info| {
         info["version"]["number"]
             .as_str()
             .map(|v| format!("v{}", v))
@@ -700,10 +732,10 @@ pub async fn get_cluster_stats(
             error = %e,
             "Failed to transform cluster stats"
         );
-        ClusterErrorResponse {
-            error: "transform_failed".to_string(),
-            message: format!("Failed to transform cluster stats: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "transform_failed",
+            format!("Failed to transform cluster stats: {}", e),
+        )
     })?;
 
     tracing::debug!(
@@ -984,15 +1016,14 @@ pub async fn get_cluster_settings(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
 
-    // Get cluster settings
+    // Get cluster settings via ClusterConnection proxy
     let settings = cluster
-        .client
         .cluster_settings(include_defaults)
         .await
         .map_err(|e| {
@@ -1001,10 +1032,10 @@ pub async fn get_cluster_settings(
                 error = %e,
                 "Failed to get cluster settings"
             );
-            ClusterErrorResponse {
-                error: "settings_failed".to_string(),
-                message: format!("Failed to get cluster settings: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "settings_failed",
+                format!("Failed to get cluster settings: {}", e),
+            )
         })?;
 
     tracing::debug!(
@@ -1059,10 +1090,10 @@ pub async fn update_cluster_settings(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
 
     // Build request body for Elasticsearch
@@ -1079,11 +1110,10 @@ pub async fn update_cluster_settings(
     }
 
     if settings_body.is_empty() {
-        return Err(ClusterErrorResponse {
-            error: "no_settings".to_string(),
-            message: "At least one of 'persistent' or 'transient' settings must be provided"
-                .to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "no_settings",
+            "At least one of 'persistent' or 'transient' settings must be provided",
+        ));
     }
 
     // Update cluster settings via cluster manager proxy request
@@ -1102,10 +1132,10 @@ pub async fn update_cluster_settings(
                 error = %e,
                 "Failed to update cluster settings"
             );
-            ClusterErrorResponse {
-                error: "update_failed".to_string(),
-                message: format!("Failed to update cluster settings: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "update_failed",
+                format!("Failed to update cluster settings: {}", e),
+            )
         })?;
 
     let response_value = response.json::<Value>().await.map_err(|e| {
@@ -1114,10 +1144,10 @@ pub async fn update_cluster_settings(
             error = %e,
             "Failed to parse update response"
         );
-        ClusterErrorResponse {
-            error: "parse_failed".to_string(),
-            message: format!("Failed to parse update response: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "parse_failed",
+            format!("Failed to parse update response: {}", e),
+        )
     })?;
 
     tracing::info!(
@@ -1211,10 +1241,10 @@ pub async fn get_nodes(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
 
     // Get nodes info and stats using SDK typed methods
@@ -1224,10 +1254,10 @@ pub async fn get_nodes(
             error = %e,
             "Failed to get nodes info"
         );
-        ClusterErrorResponse {
-            error: "nodes_info_failed".to_string(),
-            message: format!("Failed to get nodes info: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "nodes_info_failed",
+            format!("Failed to get nodes info: {}", e),
+        )
     })?;
 
     let nodes_stats = cluster.nodes_stats().await.map_err(|e| {
@@ -1236,10 +1266,10 @@ pub async fn get_nodes(
             error = %e,
             "Failed to get nodes stats"
         );
-        ClusterErrorResponse {
-            error: "nodes_stats_failed".to_string(),
-            message: format!("Failed to get nodes stats: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "nodes_stats_failed",
+            format!("Failed to get nodes stats: {}", e),
+        )
     })?;
 
     // Get master node ID using lightweight _cat/master API instead of full cluster state
@@ -1629,11 +1659,19 @@ pub async fn get_node_stats(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     // Get nodes info for the specific node
     let nodes_info = cluster.nodes_info().await.map_err(|e| {
@@ -1643,10 +1681,10 @@ pub async fn get_node_stats(
             error = %e,
             "Failed to get node info"
         );
-        ClusterErrorResponse {
-            error: "node_info_failed".to_string(),
-            message: format!("Failed to get node info: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "node_info_failed",
+            format!("Failed to get node info: {}", e),
+        )
     })?;
 
     // Get detailed node stats for the specific node using SDK
@@ -1657,10 +1695,10 @@ pub async fn get_node_stats(
             error = %e,
             "Failed to get node stats"
         );
-        ClusterErrorResponse {
-            error: "node_stats_failed".to_string(),
-            message: format!("Failed to get node stats: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "node_stats_failed",
+            format!("Failed to get node stats: {}", e),
+        )
     })?;
 
     // Get shards for data nodes using lightweight _cat/shards API
@@ -1751,10 +1789,10 @@ pub async fn get_node_stats(
             error = %e,
             "Failed to transform node stats"
         );
-        ClusterErrorResponse {
-            error: "transform_failed".to_string(),
-            message: format!("Failed to transform node stats: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "transform_failed",
+            format!("Failed to transform node stats: {}", e),
+        )
     })?;
 
     tracing::debug!(
@@ -1857,11 +1895,19 @@ pub async fn get_indices(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     // Use lightweight _cat/indices API instead of heavy _stats API
     // This is MUCH faster for large clusters with many indices
@@ -1871,10 +1917,10 @@ pub async fn get_indices(
             error = %e,
             "Failed to get indices information"
         );
-        ClusterErrorResponse {
-            error: "indices_failed".to_string(),
-            message: format!("Failed to get indices information: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "indices_failed",
+            format!("Failed to get indices information: {}", e),
+        )
     })?;
 
     // Transform to frontend format
@@ -1994,11 +2040,19 @@ pub async fn get_shard_stats(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     // Use the SDK method to get shard-level stats
     let indices_stats = cluster
@@ -2011,10 +2065,10 @@ pub async fn get_shard_stats(
                 error = %e,
                 "Failed to get indices stats with shards"
             );
-            ClusterErrorResponse {
-                error: "indices_stats_failed".to_string(),
-                message: format!("Failed to get indices stats with shards: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "indices_stats_failed",
+                format!("Failed to get indices stats with shards: {}", e),
+            )
         })?;
 
     // Navigate to the specific shard in the response
@@ -2133,11 +2187,19 @@ pub async fn get_shards(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     // Phase 1: Get all shards from routing_nodes (minimal fields for pagination/filtering)
     let state_response = cluster
@@ -2149,10 +2211,10 @@ pub async fn get_shards(
                 error = %e,
                 "Failed to get cluster state with routing nodes"
             );
-            ClusterErrorResponse {
-                error: "shards_failed".to_string(),
-                message: format!("Failed to get shard information: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "shards_failed",
+                format!("Failed to get shard information: {}", e),
+            )
         })?;
 
     // Log routing_nodes summary for debugging
@@ -2342,18 +2404,18 @@ pub async fn get_shards(
     let nodes_vec: Vec<NodeInfoResponse> = {
         let nodes_info = cluster.nodes_info().await.map_err(|e| {
             tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to get nodes info for shards response");
-            ClusterErrorResponse {
-                error: "nodes_info_failed".to_string(),
-                message: format!("Failed to get nodes info: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "nodes_info_failed",
+                format!("Failed to get nodes info: {}", e),
+            )
         })?;
 
         let nodes_stats = cluster.nodes_stats().await.map_err(|e| {
             tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to get nodes stats for shards response");
-            ClusterErrorResponse {
-                error: "nodes_stats_failed".to_string(),
-                message: format!("Failed to get nodes stats: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "nodes_stats_failed",
+                format!("Failed to get nodes stats: {}", e),
+            )
         })?;
 
         // Best-effort master node id
@@ -2443,13 +2505,13 @@ pub async fn get_shards(
                 "Missing NodeInfo for referenced nodes in shards page"
             );
 
-            return Err(ClusterErrorResponse {
-                error: "nodes_missing".to_string(),
-                message: format!(
+            return Err(ClusterErrorResponse::simple(
+                "nodes_missing",
+                format!(
                     "Missing NodeInfo for nodes referenced by shards: {}. Backend must supply full node metadata.",
                     missing_names.join(", ")
                 ),
-            });
+            ));
         }
 
         page_nodes
@@ -2515,11 +2577,19 @@ pub async fn get_nodes_shard_summary(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     let shards_data = cluster.cat_shards().await.map_err(|e| {
         tracing::error!(
@@ -2527,10 +2597,10 @@ pub async fn get_nodes_shard_summary(
             error = %e,
             "Failed to fetch cat shards for shard summary"
         );
-        ClusterErrorResponse {
-            error: "shards_failed".to_string(),
-            message: format!("Failed to get shard information: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "shards_failed",
+            format!("Failed to get shard information: {}", e),
+        )
     })?;
 
     let summary = aggregate_shards_by_node(&shards_data);
@@ -2593,10 +2663,10 @@ pub async fn get_node_shards(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
 
     // Use _cluster/state/routing_nodes for native JSON API
@@ -2610,10 +2680,10 @@ pub async fn get_node_shards(
                 error = %e,
                 "Failed to get cluster state with routing nodes"
             );
-            ClusterErrorResponse {
-                error: "shards_failed".to_string(),
-                message: format!("Failed to get shard information: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "shards_failed",
+                format!("Failed to get shard information: {}", e),
+            )
         })?;
 
     // Transform to flat shard list
@@ -2712,11 +2782,19 @@ pub async fn proxy_request(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found: {}", cluster_id, e),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found: {}", cluster_id, e),
+            )
         })?;
+
+    // Short-circuit if cluster is known to be inaccessible
+    if !cluster.accessible {
+        return Err(ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
 
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2739,13 +2817,13 @@ pub async fn proxy_request(
             error = %e,
             "PROXY TIMEOUT: Elasticsearch request timed out"
         );
-        ClusterErrorResponse {
-            error: "proxy_timeout".to_string(),
-            message: format!(
+        ClusterErrorResponse::simple(
+            "proxy_timeout",
+            format!(
                 "Elasticsearch request timed out: {} {} (timeout: 30s)",
                 method, full_path,
             ),
-        }
+        )
     })?
     .map_err(|e| {
         tracing::error!(
@@ -2755,13 +2833,13 @@ pub async fn proxy_request(
             error = %e,
             "PROXY FAILED: Elasticsearch API request failed"
         );
-        ClusterErrorResponse {
-            error: "proxy_failed".to_string(),
-            message: format!(
+        ClusterErrorResponse::simple(
+            "proxy_failed",
+            format!(
                 "Elasticsearch request failed: {} {} - {}",
                 method, full_path, e
             ),
-        }
+        )
     })?;
 
     tracing::debug!(
@@ -2792,10 +2870,10 @@ pub async fn proxy_request(
                 error = %e,
                 "PROXY: Timeout reading response body"
             );
-            ClusterErrorResponse {
-                error: "response_read_timeout".to_string(),
-                message: "Timeout reading Elasticsearch response body".to_string(),
-            }
+            ClusterErrorResponse::simple(
+                "response_read_timeout",
+                "Timeout reading Elasticsearch response body",
+            )
         })?
         .map_err(|e| {
             tracing::error!(
@@ -2803,10 +2881,10 @@ pub async fn proxy_request(
                 error = %e,
                 "Failed to read Elasticsearch response body"
             );
-            ClusterErrorResponse {
-                error: "response_read_failed".to_string(),
-                message: format!("Failed to read response body: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "response_read_failed",
+                format!("Failed to read response body: {}", e),
+            )
         })?;
 
     tracing::debug!(
@@ -2829,10 +2907,10 @@ pub async fn proxy_request(
             response_body = %error_body,
             "Elasticsearch API returned error status"
         );
-        return Err(ClusterErrorResponse {
-            error: "elasticsearch_error".to_string(),
-            message: error_body.to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "elasticsearch_error",
+            error_body.to_string(),
+        ));
     } else {
         tracing::debug!(
             cluster_id = %cluster_id,
@@ -2878,10 +2956,10 @@ pub async fn proxy_request(
                 error = %e,
                 "Failed to build response"
             );
-            ClusterErrorResponse {
-                error: "response_build_failed".to_string(),
-                message: format!("Failed to build response: {}", e),
-            }
+            ClusterErrorResponse::simple(
+                "response_build_failed",
+                format!("Failed to build response: {}", e),
+            )
         })?;
 
     tracing::debug!(
@@ -2937,10 +3015,10 @@ pub async fn relocate_shard(
     // In Open mode, the middleware provides a default user
     let user = user_ext.map(|ext| ext.0 .0).ok_or_else(|| {
         tracing::error!("Authentication required but user not found in request");
-        ClusterErrorResponse {
-            error: "authentication_required".to_string(),
-            message: "Authentication is required for this operation".to_string(),
-        }
+        ClusterErrorResponse::simple(
+            "authentication_required",
+            "Authentication is required for this operation",
+        )
     })?;
 
     tracing::debug!(
@@ -2968,10 +3046,10 @@ pub async fn relocate_shard(
                 error = %e,
                 "Cluster not found"
             );
-            ClusterErrorResponse {
-                error: "cluster_not_found".to_string(),
-                message: format!("Cluster '{}' not found. Please verify the cluster ID and ensure the cluster is configured.", cluster_id),
-            }
+            ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Cluster '{}' not found. Please verify the cluster ID and ensure the cluster is configured.", cluster_id),
+            )
         })?;
 
     // Build the reroute command
@@ -3019,10 +3097,7 @@ pub async fn relocate_shard(
                 format!("Failed to relocate shard: {}. Please check cluster logs for more details.", e)
             };
 
-            ClusterErrorResponse {
-                error: "relocation_failed".to_string(),
-                message,
-            }
+            ClusterErrorResponse::simple("relocation_failed", message)
         })?;
 
     // Check response status
@@ -3033,10 +3108,10 @@ pub async fn relocate_shard(
             error = %e,
             "Failed to read reroute response"
         );
-        ClusterErrorResponse {
-            error: "response_read_failed".to_string(),
-            message: format!("Failed to read response: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "response_read_failed",
+            format!("Failed to read response: {}", e),
+        )
     })?;
 
     // Parse response body
@@ -3046,10 +3121,10 @@ pub async fn relocate_shard(
             error = %e,
             "Failed to parse reroute response"
         );
-        ClusterErrorResponse {
-            error: "response_parse_failed".to_string(),
-            message: format!("Failed to parse response: {}", e),
-        }
+        ClusterErrorResponse::simple(
+            "response_parse_failed",
+            format!("Failed to parse response: {}", e),
+        )
     })?;
 
     // Check if the request was successful
@@ -3096,10 +3171,10 @@ pub async fn relocate_shard(
             )
         };
 
-        return Err(ClusterErrorResponse {
-            error: "elasticsearch_error".to_string(),
-            message: user_message,
-        });
+        return Err(ClusterErrorResponse::simple(
+            "elasticsearch_error",
+            user_message,
+        ));
     }
 
     tracing::info!(
@@ -3125,55 +3200,54 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
     // Validate index name is not empty
     if req.index.is_empty() {
         tracing::warn!("Validation failed: index name is empty");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: "Index name is required. Please provide a valid index name.".to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            "Index name is required. Please provide a valid index name.",
+        ));
     }
 
     // Validate index name format (basic validation)
     // Elasticsearch index names must be lowercase and cannot contain certain characters
     if req.index.chars().any(|c| c.is_uppercase()) {
         tracing::warn!(index = %req.index, "Validation failed: index name contains uppercase characters");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: format!(
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            format!(
                 "Index name '{}' contains uppercase characters. Elasticsearch index names must be lowercase.",
                 req.index
             ),
-        });
+        ));
     }
 
     // Check for invalid characters in index name
     let invalid_chars = ['\\', '/', '*', '?', '"', '<', '>', '|', ' ', ',', '#'];
     if let Some(invalid_char) = req.index.chars().find(|c| invalid_chars.contains(c)) {
         tracing::warn!(index = %req.index, "Validation failed: index name contains invalid characters");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: format!(
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            format!(
                 "Index name '{}' contains invalid character '{}'. Index names cannot contain: \\ / * ? \" < > | space , #",
                 req.index, invalid_char
             ),
-        });
+        ));
     }
 
     // Validate from_node is not empty
     if req.from_node.is_empty() {
         tracing::warn!("Validation failed: from_node is empty");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: "Source node ID is required. Please select a source node.".to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            "Source node ID is required. Please select a source node.",
+        ));
     }
 
     // Validate to_node is not empty
     if req.to_node.is_empty() {
         tracing::warn!("Validation failed: to_node is empty");
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: "Destination node ID is required. Please select a destination node."
-                .to_string(),
-        });
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            "Destination node ID is required. Please select a destination node.",
+        ));
     }
 
     // Validate source and destination are different
@@ -3183,13 +3257,13 @@ fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), Cluster
             to_node = %req.to_node,
             "Validation failed: source and destination nodes are the same"
         );
-        return Err(ClusterErrorResponse {
-            error: "validation_failed".to_string(),
-            message: format!(
+        return Err(ClusterErrorResponse::simple(
+            "validation_failed",
+            format!(
                 "Source and destination nodes must be different (both are {}). Please select a different destination node.",
                 req.from_node
             ),
-        });
+        ));
     }
 
     tracing::debug!(
@@ -3209,10 +3283,7 @@ mod tests {
 
     #[test]
     fn test_cluster_error_response_serialization() {
-        let error = ClusterErrorResponse {
-            error: "cluster_not_found".to_string(),
-            message: "Cluster 'test' not found".to_string(),
-        };
+        let error = ClusterErrorResponse::simple("cluster_not_found", "Cluster 'test' not found");
 
         let json = serde_json::to_string(&error).expect("serialize ClusterErrorResponse to JSON");
         assert!(json.contains("\"error\":\"cluster_not_found\""));

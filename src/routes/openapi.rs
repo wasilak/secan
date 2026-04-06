@@ -89,7 +89,7 @@ use utoipa::OpenApi;
             // Metrics types
             crate::routes::metrics::MetricsQuery,
             crate::routes::metrics::ClusterMetricsHistoryResponse,
-            crate::routes::metrics::MetricsErrorResponse,
+            crate::routes::clusters::ClusterErrorResponse,
             crate::routes::metrics::PrometheusValidationRequest,
             crate::routes::metrics::PrometheusValidationResponse,
             // Health types
