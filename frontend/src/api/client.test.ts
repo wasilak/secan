@@ -7,16 +7,16 @@ import { ClusterInfo, ClusterHealth, ApiClientError } from '../types/api';
 // Mock server for API requests
 const server = setupServer();
 
-// Helper to mock window.location
+// Helper to mock window.location (jsdom types can be strict; use any)
 function mockWindowLocation() {
-  const originalLocation = window.location;
+  const originalLocation = window.location as any;
   delete (window as any).location;
-  window.location = { ...originalLocation, href: '' } as Location;
+  (window as any).location = { ...originalLocation, href: '' };
   return originalLocation;
 }
 
-function restoreWindowLocation(originalLocation: Location) {
-  window.location = originalLocation;
+function restoreWindowLocation(originalLocation: any) {
+  (window as any).location = originalLocation;
 }
 
 describe('ApiClient', () => {
@@ -83,12 +83,14 @@ describe('ApiClient', () => {
         {
           id: 'cluster1',
           name: 'Production',
+          metrics_source: 'internal',
           nodes: ['http://node1:9200'],
           accessible: true,
         },
         {
           id: 'cluster2',
           name: 'Development',
+          metrics_source: 'internal',
           nodes: ['http://node2:9200'],
           accessible: true,
         },
@@ -265,7 +267,86 @@ describe('ApiClient', () => {
       const resp = await client.getNodeMetrics('cluster1', 'nodeA');
       expect(resp.data).toHaveLength(1);
       expect(resp.data[0].cpu_percent).toBeCloseTo(33.3);
-      expect(resp.data[0].memory_used_bytes).toBe(1024);
+      // cast to any because runtime-normalized data points are loosely typed in tests
+      expect((resp.data[0] as any).memory_used_bytes).toBe(1024);
+    });
+  });
+
+  describe('index stats normalization', () => {
+    it('should normalize index stats with snake_case total and primaries', async () => {
+      const raw = {
+        indices: {
+          'my-index': {
+            total: {
+              docs: { count: '123', deleted: '4' },
+              store: { size_in_bytes: '5678' },
+              indexing: { index_total: 42 },
+            },
+            primaries: {
+              docs: { count: '100', deleted: '2' },
+              store: { size_in_bytes: '3000' },
+              search: { query_total: 7 },
+            },
+          },
+        },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/my-index/_stats', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const stats = await client.getIndexStats('cluster1', 'my-index');
+
+      expect(stats.total.docs.count).toBe(123);
+      expect(stats.total.docs.deleted).toBe(4);
+      expect(stats.total.store.sizeInBytes).toBe(5678);
+
+      expect(stats.primaries.docs.count).toBe(100);
+      expect(stats.primaries.docs.deleted).toBe(2);
+      expect(stats.primaries.store.sizeInBytes).toBe(3000);
+
+      // ensure snake_case keys were converted to camelCase in groups
+      expect((stats.total as any).indexing?.indexTotal).toBe(42);
+      expect((stats.primaries as any).search?.queryTotal).toBe(7);
+    });
+
+    it('should normalize totals if provided under _all', async () => {
+      const raw = {
+        indices: {
+          'other-index': {
+            _all: {
+              docs: { count: 55, deleted: 1 },
+              store: { size_in_bytes: 999 },
+            },
+          },
+        },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/other-index/_stats', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const stats = await client.getIndexStats('cluster1', 'other-index');
+
+      expect(stats.total.docs.count).toBe(55);
+      expect(stats.total.store.sizeInBytes).toBe(999);
+    });
+
+    it('should throw when index stats are missing', async () => {
+      server.use(
+        http.get('/api/clusters/cluster1/missing-index/_stats', () => {
+          return HttpResponse.json({ indices: {} }, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      await expect(client.getIndexStats('cluster1', 'missing-index')).rejects.toThrow(/Statistics not found/);
     });
   });
 

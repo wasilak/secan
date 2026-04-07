@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import { getTraceparent } from '../utils/traceparent';
 import {
@@ -44,6 +43,7 @@ import {
 } from '../types/api';
 import { computeHeapPercent } from '../utils/heap';
 import { incrementHeapPercentMissing } from '../utils/metrics';
+import { asRecord, asArray, numOrUndefined, parseTimestamp, getDataArray, pickFirstString } from '../utils/normalize';
 
 /**
  * Retry configuration
@@ -236,10 +236,16 @@ export class ApiClient {
       // The backend passes through ES responses as-is for proxy requests
       let elasticsearchError: ApiError | null = null;
       if (data && typeof data === 'object') {
-        // Check if this is an Elasticsearch error response
-        const responseData = data as unknown as Record<string, unknown>;
-        if (responseData.error && typeof responseData.error === 'object') {
-          elasticsearchError = responseData as unknown as ApiError;
+        // Check if this is an Elasticsearch error response. Use an unknown
+        // intermediate and defensive property check before assigning to ApiError.
+        const responseAny = data as unknown;
+        if (
+          responseAny &&
+          typeof responseAny === 'object' &&
+          'error' in (responseAny as Record<string, unknown>) &&
+          typeof ((responseAny as Record<string, unknown>).error) === 'object'
+        ) {
+          elasticsearchError = responseAny as ApiError;
         }
       }
 
@@ -498,10 +504,9 @@ export class ApiClient {
 
           // Prefer server-provided heapPercent when valid; otherwise derive it from heapUsed/heapMax
            // heapPercent may be present on older servers as a number; treat unknowns safely
-           const serverHeap = Number.isFinite((node as unknown as Record<string, unknown>).heapPercent as number)
-             ? ((node as unknown as Record<string, unknown>).heapPercent as number)
-             : undefined;
-          const heapPercent = serverHeap !== undefined ? serverHeap : computeHeapPercent(node.heapUsed, node.heapMax);
+           const nodeRec = node as unknown as Record<string, unknown>;
+           const serverHeap = Number.isFinite(nodeRec.heapPercent as number) ? (nodeRec.heapPercent as number) : undefined;
+           const heapPercent = serverHeap !== undefined ? serverHeap : computeHeapPercent(node.heapUsed, node.heapMax);
           if (serverHeap === undefined) incrementHeapPercentMissing();
 
           return {
@@ -677,25 +682,23 @@ export class ApiClient {
       // The backend may return the combined PaginatedShardsWithNodes shape for
       // the Index Visualization flow. If so, preserve and return it; otherwise
       // return the legacy PaginatedResponse<ShardInfo>.
-      const data = response.data as unknown as PaginatedShardsWithNodes | PaginatedResponse<ShardInfo>;
+       const dataRec = response.data as unknown as Record<string, unknown>;
 
-      // Normalize relocating_node -> relocatingNode for each shard item so UI helpers
-      // that expect relocatingNode are always satisfied. Accept both snake_case and
-      // camelCase variants from the backend.
-      if (data && Array.isArray((data as Record<string, unknown>).items)) {
-      const normalizedItems = (data as Record<string, unknown>).items
-        ? ((data as Record<string, unknown>).items as unknown[]).map((sh: unknown) => {
-            const rec = sh as Record<string, unknown>;
-            return {
-              ...rec,
-              relocatingNode: rec.relocating_node ?? rec.relocatingNode ?? undefined,
-            };
-          })
-        : [];
-        return { ...(data as Record<string, unknown>), items: normalizedItems } as typeof data;
-      }
+       // Normalize relocating_node -> relocatingNode for each shard item so UI helpers
+       // that expect relocatingNode are always satisfied. Accept both snake_case and
+       // camelCase variants from the backend.
+       if (dataRec && Array.isArray(dataRec.items)) {
+         const normalizedItems = (dataRec.items as unknown[]).map((sh: unknown) => {
+           const rec = sh as Record<string, unknown>;
+           return {
+             ...rec,
+             relocatingNode: rec.relocating_node ?? rec.relocatingNode ?? undefined,
+           };
+         });
+         return { ...dataRec, items: normalizedItems } as PaginatedShardsWithNodes;
+       }
 
-      return data;
+       return response.data as PaginatedResponse<ShardInfo>;
     });
   }
 
@@ -1683,12 +1686,15 @@ export class ApiClient {
    */
   async getIndexStats(clusterId: string, indexName: string): Promise<IndexStats> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<{ indices: Record<string, IndexStats> }>(
+      const response = await this.client.get<Record<string, unknown>>(
         `/clusters/${clusterId}/${indexName}/_stats`
       );
 
-      // The response is an object with indices as keys
-      const indexDataRaw = response.data.indices?.[indexName] as Record<string, unknown> | undefined;
+      // The response is an object with indices as keys; treat as unknown and
+      // perform runtime normalization to avoid TypeScript complaints about
+      // snake_case vs camelCase shapes coming from the server.
+      const indicesObj = response.data.indices as Record<string, unknown> | undefined;
+      const indexDataRaw = indicesObj ? indicesObj[indexName] : undefined;
 
       if (!indexDataRaw) {
         throw new Error(`Statistics not found for index: ${indexName}`);
@@ -1698,49 +1704,79 @@ export class ApiClient {
       // Convert snake_case fields to camelCase and ensure numeric defaults.
       const normalizeNumber = (v: unknown) => (v === undefined || v === null ? 0 : Number(v as number));
 
-      const total = indexDataRaw.total || indexDataRaw._all || {};
-      const primaries = indexDataRaw.primaries || {};
+       const idxRec = indexDataRaw as Record<string, unknown> | undefined;
+       // Prefer idxRec.total, fall back to idxRec._all, otherwise empty object.
+       let total: Record<string, unknown> = {};
+       if (idxRec) {
+         const t = idxRec.total as Record<string, unknown> | undefined;
+         const all = idxRec._all as Record<string, unknown> | undefined;
+         if (t && typeof t === 'object') total = t;
+         else if (all && typeof all === 'object') total = all;
+       }
 
-      const normalized: IndexStats = {
-        total: {
-          docs: {
-            count: normalizeNumber(total.docs?.count ?? total.docs_count ?? total.docs?.count),
-            deleted: normalizeNumber(total.docs?.deleted ?? total.docs_deleted ?? 0),
-          },
-          store: {
-            sizeInBytes: normalizeNumber(
-              total.store?.size_in_bytes ?? total.store?.sizeInBytes ?? total.store_size_in_bytes
-            ),
-          },
-        },
-        primaries: {
-          docs: {
-            count: normalizeNumber(primaries.docs?.count ?? primaries.docs_count ?? 0),
-            deleted: normalizeNumber(primaries.docs?.deleted ?? primaries.docs_deleted ?? 0),
-          },
-          store: {
-            sizeInBytes: normalizeNumber(
-              primaries.store?.size_in_bytes ?? primaries.store?.sizeInBytes ?? 0
-            ),
-          },
-        },
-      } as IndexStats;
+       let primaries: Record<string, unknown> = {};
+       if (idxRec) {
+         const p = idxRec.primaries as Record<string, unknown> | undefined;
+         if (p && typeof p === 'object') primaries = p;
+       }
+
+       // Narrow dynamic groups to Record to perform safe lookups
+       const totalRec = total as Record<string, unknown>;
+       const primariesRec = primaries as Record<string, unknown>;
+
+       const normalized: IndexStats = {
+         total: {
+           docs: {
+             count: normalizeNumber(
+               // check nested docs object then snake_case count then fallback 0
+               ((totalRec.docs as Record<string, unknown> | undefined)?.count) ?? totalRec.docs_count ?? 0
+             ),
+             deleted: normalizeNumber(
+               ((totalRec.docs as Record<string, unknown> | undefined)?.deleted) ?? totalRec.docs_deleted ?? 0
+             ),
+           },
+           store: {
+             sizeInBytes: normalizeNumber(
+               ((totalRec.store as Record<string, unknown> | undefined)?.size_in_bytes) ??
+                 ((totalRec.store as Record<string, unknown> | undefined)?.sizeInBytes) ??
+                 totalRec.store_size_in_bytes ?? 0
+             ),
+           },
+         },
+         primaries: {
+           docs: {
+             count: normalizeNumber(
+               ((primariesRec.docs as Record<string, unknown> | undefined)?.count) ?? primariesRec.docs_count ?? 0
+             ),
+             deleted: normalizeNumber(
+               ((primariesRec.docs as Record<string, unknown> | undefined)?.deleted) ?? primariesRec.docs_deleted ?? 0
+             ),
+           },
+           store: {
+             sizeInBytes: normalizeNumber(
+               ((primariesRec.store as Record<string, unknown> | undefined)?.size_in_bytes) ??
+                 ((primariesRec.store as Record<string, unknown> | undefined)?.sizeInBytes) ??
+                 primariesRec.store_size_in_bytes ?? 0
+             ),
+           },
+         },
+       } as IndexStats;
 
       // Indexing/search/segments/merges/refresh/flush/search fields the UI expects
       // may be nested under total or primaries. Copy over common groups if present.
-      const pickGroup = (src: Record<string, unknown> | undefined, dst: Record<string, unknown>, groupName: string) => {
-        if (!src) return;
-        const alt = groupName.replace(/([A-Z])/g, '_$1').toLowerCase();
-        const g = (src as Record<string, unknown>)[groupName] ?? (src as Record<string, unknown>)[alt];
-        if (g && typeof g === 'object') {
-          dst[groupName] = Object.keys(g as Record<string, unknown>).reduce((acc: Record<string, unknown>, k) => {
-            // convert snake_case keys to camelCase for commonly used fields
-            const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-            acc[camel] = (g as Record<string, unknown>)[k];
-            return acc;
-          }, {} as Record<string, unknown>);
-        }
-      };
+       const pickGroup = (src: Record<string, unknown> | undefined, dst: Record<string, unknown>, groupName: string) => {
+         if (!src) return;
+         const alt = groupName.replace(/([A-Z])/g, '_$1').toLowerCase();
+         const g = src[groupName] ?? src[alt];
+         if (g && typeof g === 'object') {
+           dst[groupName] = Object.keys(g as Record<string, unknown>).reduce((acc: Record<string, unknown>, k) => {
+             // convert snake_case keys to camelCase for commonly used fields
+             const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+             acc[camel] = (g as Record<string, unknown>)[k];
+             return acc;
+           }, {} as Record<string, unknown>);
+         }
+       };
 
       pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'indexing');
       pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'search');
@@ -1809,49 +1845,39 @@ export class ApiClient {
       // Normalize into a consistent frontend-friendly shape:
       // { data: Array<Point>, prometheus_queries?: Record, raw_metrics?: Record }
       const normalizePoint = (p: unknown) => {
-        const rec = p as Record<string, unknown>;
-        // Helper to convert null -> undefined and coerce numeric-like values
-        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
-
-        const timestampIso =
-          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
-          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
-          undefined;
+        const rec = asRecord(p);
+        const timestampIso = parseTimestamp(rec);
 
         return {
-          // preserve any extra fields the backend provided
           ...rec,
-          // then overwrite with normalized fields
           date: timestampIso,
-          node_count: num(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
-          index_count: num(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
-          document_count: num(rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count),
-          shard_count: num(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
-          unassigned_shards: num(
+          node_count: numOrUndefined(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
+          index_count: numOrUndefined(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
+          document_count: numOrUndefined(
+            rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count
+          ),
+          shard_count: numOrUndefined(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
+          unassigned_shards: numOrUndefined(
             rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
           ),
-          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
-          memory_used_bytes: num(
+          cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
+          memory_used_bytes: numOrUndefined(
             rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
           ),
-          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
+          disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
         };
       };
 
-      const rawObj = raw as Record<string, unknown>;
-      const dataArr: unknown[] = Array.isArray(raw)
-        ? (raw as unknown[]).map(normalizePoint)
-        : Array.isArray(rawObj.data)
-        ? (rawObj.data as unknown[]).map(normalizePoint)
-        : [];
+       const dataArr: unknown[] = getDataArray(raw).map(normalizePoint);
 
-      const normalized = {
-        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
-        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
-        data: dataArr,
-        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
-        raw_metrics: raw.raw_metrics ?? raw.rawMetrics ?? {},
-      } as ClusterMetricsHistoryResponse;
+       const rawRec = asRecord(raw);
+       const normalized = {
+         cluster_id: pickFirstString(rawRec, ['cluster_id', 'clusterId'], clusterId),
+         time_range: rawRec.time_range ?? rawRec.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+         data: dataArr,
+         prometheus_queries: asRecord(rawRec.prometheus_queries ?? rawRec.prometheusQueries ?? {}),
+         raw_metrics: asRecord(rawRec.raw_metrics ?? rawRec.rawMetrics ?? {}),
+       } as ClusterMetricsHistoryResponse;
 
       return normalized;
     });
@@ -1881,44 +1907,38 @@ export class ApiClient {
 
       const raw = (await response.json()) as unknown;
 
-      // Reuse the same normalization strategy as getClusterMetrics
+      // Reuse the same normalization helpers as getClusterMetrics
       const normalizePoint = (p: unknown) => {
-        const rec = p as Record<string, unknown>;
-        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
-        const timestampIso =
-          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
-          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
-          undefined;
+        const rec = asRecord(p);
+        const timestampIso = parseTimestamp(rec);
         return {
           ...rec,
           date: timestampIso,
-          node_count: num(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
-          index_count: num(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
-          document_count: num(rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count),
-          shard_count: num(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
-          unassigned_shards: num(
+          node_count: numOrUndefined(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
+          index_count: numOrUndefined(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
+          document_count: numOrUndefined(
+            rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count
+          ),
+          shard_count: numOrUndefined(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
+          unassigned_shards: numOrUndefined(
             rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
           ),
-          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
-          memory_used_bytes: num(
+          cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
+          memory_used_bytes: numOrUndefined(
             rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
           ),
-          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
+          disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
         };
       };
 
-      const dataArr: unknown[] = Array.isArray(raw)
-        ? (raw as unknown[]).map(normalizePoint)
-        : Array.isArray((raw as Record<string, unknown>)?.data)
-        ? ((raw as Record<string, unknown>).data as unknown[]).map(normalizePoint)
-        : [];
-
+      const dataArr: unknown[] = getDataArray(raw).map(normalizePoint);
+      const rawRec = asRecord(raw);
       const normalized = {
-        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
-        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+        cluster_id: pickFirstString(rawRec, ['cluster_id', 'clusterId'], clusterId),
+        time_range: rawRec.time_range ?? rawRec.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
         data: dataArr,
-        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
-        raw_metrics: raw.raw_metrics ?? raw.rawMetrics ?? {},
+        prometheus_queries: asRecord(rawRec.prometheus_queries ?? rawRec.prometheusQueries ?? {}),
+        raw_metrics: asRecord(rawRec.raw_metrics ?? rawRec.rawMetrics ?? {}),
       } as ClusterMetricsHistoryResponse;
 
       return normalized;
@@ -1951,35 +1971,26 @@ export class ApiClient {
       const raw = (await response.json()) as unknown;
 
       const normalizePoint = (p: unknown) => {
-        const rec = p as Record<string, unknown>;
-        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
-        const timestampIso =
-          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
-          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
-          undefined;
-
+        const rec = asRecord(p);
+        const timestampIso = parseTimestamp(rec);
         return {
           ...rec,
           date: timestampIso,
-          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu),
-          memory_used_bytes: num(rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory),
-          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk),
-          heap_used_bytes: num(rec.heap_used_bytes ?? rec.heapUsedBytes ?? rec.heap),
+          cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu),
+          memory_used_bytes: numOrUndefined(rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory),
+          disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk),
+          heap_used_bytes: numOrUndefined(rec.heap_used_bytes ?? rec.heapUsedBytes ?? rec.heap),
         };
       };
 
-      const dataArr: unknown[] = Array.isArray(raw)
-        ? (raw as unknown[]).map(normalizePoint)
-        : Array.isArray((raw as Record<string, unknown>)?.data)
-        ? ((raw as Record<string, unknown>).data as unknown[]).map(normalizePoint)
-        : [];
-
+      const dataArr: unknown[] = getDataArray(raw).map(normalizePoint);
+      const rawRec = asRecord(raw);
       const normalized = {
-        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
-        node_id: raw.node_id ?? raw.nodeId ?? nodeId,
-        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+        cluster_id: pickFirstString(rawRec, ['cluster_id', 'clusterId'], clusterId),
+        node_id: pickFirstString(rawRec, ['node_id', 'nodeId'], nodeId),
+        time_range: rawRec.time_range ?? rawRec.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
         data: dataArr,
-        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
+        prometheus_queries: asRecord(rawRec.prometheus_queries ?? rawRec.prometheusQueries ?? {}),
       } as NodeMetricsHistoryResponse;
 
       return normalized;
@@ -2066,9 +2077,10 @@ export class ApiClient {
       );
 
       // Narrow node.kind to the frontend expected union where possible.
-      const data = response.data as any;
-      const nodes = (data.nodes || []).map((n: any) => {
-        const kindRaw = (n.kind as string | undefined) ?? 'index';
+       const data = asRecord(response.data);
+       const nodes = asArray(data.nodes).map((n: unknown) => {
+         const rec = asRecord(n);
+        const kindRaw = (rec.kind as string | undefined) ?? 'index';
         // Normalize any server variants to one of the three frontend kinds
         const kind: 'index' | 'node' | 'unassigned' =
           kindRaw === 'node' || kindRaw === 'NODE'
@@ -2078,22 +2090,25 @@ export class ApiClient {
             : 'index';
 
         return {
-          id: n.id,
+          id: rec.id as string,
           kind,
-          totalShards: Number(n.totalShards ?? n.total_shards ?? n.total ?? 0),
-          primaryShards: Number(n.primaryShards ?? n.primary_shards ?? n.primary ?? 0),
-          replicaShards: Number(n.replicaShards ?? n.replica_shards ?? n.replica ?? 0),
-          storeBytes: Number(n.storeBytes ?? n.store_bytes ?? 0),
+          totalShards: Number(rec.totalShards ?? rec.total_shards ?? rec.total ?? 0),
+          primaryShards: Number(rec.primaryShards ?? rec.primary_shards ?? rec.primary ?? 0),
+          replicaShards: Number(rec.replicaShards ?? rec.replica_shards ?? rec.replica ?? 0),
+          storeBytes: Number(rec.storeBytes ?? rec.store_bytes ?? 0),
         };
       });
 
-      const links = (data.links || []).map((l: any) => ({
-        source: l.source,
-        target: l.target,
-        totalShards: Number(l.totalShards ?? l.total_shards ?? l.value ?? 0),
-        primaryShards: Number(l.primaryShards ?? l.primary_shards ?? 0),
-        replicaShards: Number(l.replicaShards ?? l.replica_shards ?? 0),
-      }));
+       const links = asArray(data.links).map((l: unknown) => {
+         const r = asRecord(l);
+        return {
+          source: r.source as string,
+          target: r.target as string,
+          totalShards: Number(r.totalShards ?? r.total_shards ?? r.value ?? 0),
+          primaryShards: Number(r.primaryShards ?? r.primary_shards ?? 0),
+          replicaShards: Number(r.replicaShards ?? r.replica_shards ?? 0),
+        };
+      });
 
       return { nodes, links, meta: data.meta ?? {} } as SankeyResponse;
     });
