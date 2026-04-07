@@ -3117,7 +3117,8 @@ pub async fn relocate_shard(
                     tracing::error!(cluster_id = %cluster_id, "RELOCATE: request timed out");
                     return Err(ClusterErrorResponse::simple(
                         "proxy_timeout",
-                        format!("Elasticsearch request timed out: POST /_cluster/reroute (timeout: 30s)"),
+                        "Elasticsearch request timed out: POST /_cluster/reroute (timeout: 30s)"
+                            .to_string(),
                     ));
                 }
                 ProxyRequestError::RequestFailed(reason) => {

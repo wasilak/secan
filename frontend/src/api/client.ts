@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosInstance, AxiosError, Method } from 'axios';
 import { getTraceparent } from '../utils/traceparent';
 import {
@@ -39,8 +40,7 @@ import {
   CancelTaskResponse,
   SankeyResponse,
   SankeyQueryParams,
-  ClusterSettings,
-  IndexSettings,
+  
 } from '../types/api';
 import { computeHeapPercent } from '../utils/heap';
 import { incrementHeapPercentMissing } from '../utils/metrics';
@@ -319,11 +319,14 @@ export class ApiClient {
       // in different contexts (tests/mocks or older endpoints). Always return a
       // PaginatedResponse envelope so consumers can rely on a single shape.
       if (Array.isArray(raw)) {
-        const normalized = raw.map((c: any) => ({
-          ...c,
-          name: c.name ?? undefined,
-          nodes: Array.isArray(c.nodes) ? c.nodes : [],
-        }));
+         const normalized = raw.map((c: unknown) => {
+           const rec = c as Record<string, unknown>;
+           return {
+             ...rec,
+             name: (rec.name as string | undefined) ?? undefined,
+             nodes: Array.isArray(rec.nodes) ? (rec.nodes as unknown[]) : [],
+           };
+         });
         return {
           items: normalized as ClusterInfo[],
           total: normalized.length,
@@ -333,12 +336,15 @@ export class ApiClient {
         } as PaginatedResponse<ClusterInfo>;
       }
 
-      const data = raw as PaginatedResponse<ClusterInfo> & { items?: any };
-      const normalizedItems = (data.items || []).map((c: any) => ({
-        ...c,
-        name: c.name ?? undefined,
-        nodes: Array.isArray(c.nodes) ? c.nodes : [],
-      }));
+      const data = raw as PaginatedResponse<ClusterInfo> & { items?: unknown[] };
+      const normalizedItems = (data.items || []).map((c: unknown) => {
+        const rec = c as Record<string, unknown>;
+        return {
+          ...rec,
+          name: (rec.name as string | undefined) ?? undefined,
+          nodes: Array.isArray(rec.nodes) ? (rec.nodes as unknown[]) : [],
+        } as ClusterInfo;
+      });
 
       return { ...data, items: normalizedItems } as PaginatedResponse<ClusterInfo>;
     });
@@ -401,12 +407,13 @@ export class ApiClient {
    */
   async getClusterStats(clusterId: string): Promise<ClusterStats> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<any>(`/clusters/${clusterId}/stats`);
+      const response = await this.client.get<Record<string, unknown>>(`/clusters/${clusterId}/stats`);
       const raw = response.data || {};
 
       // Helpers to parse numeric fields coming from various server shapes
-      const toNumberOrUndefined = (v: any) => (v === undefined || v === null ? undefined : Number(v));
-      const toNumberOrZero = (v: any) => Number(v ?? 0);
+      const toNumberOrUndefined = (v: unknown) =>
+        (v === undefined || v === null) ? undefined : Number(v as number);
+      const toNumberOrZero = (v: unknown) => Number((v as number) ?? 0);
 
       const normalized: ClusterStats = {
         activePrimaryShards: toNumberOrZero(
@@ -605,28 +612,25 @@ export class ApiClient {
 
       // Normalize common index fields to guarantee frontend-friendly types
       const data = response.data;
-      const normalizedItems = (data.items || []).map((idx: any) => {
-        const docsCount = Number(idx.docsCount ?? idx.docs_count ?? idx.docs?.count ?? 0);
+      const normalizedItems = (data.items || []).map((idx: unknown) => {
+        const rec = idx as Record<string, unknown>;
+        const docsCount = Number(rec.docsCount ?? rec.docs_count ?? ((rec.docs as Record<string, unknown>)?.count as number | undefined) ?? 0);
         const storeSize = Number(
-          idx.storeSize ?? idx.store_size ?? idx.store?.size_in_bytes ?? idx.storeSize ?? 0
+          rec.storeSize ?? rec.store_size ?? ((rec.store as Record<string, unknown>)?.size_in_bytes) ?? rec.storeSize ?? 0
         );
-        const primaryShards = Number(
-          idx.primaryShards ?? idx.primary_shards ?? idx.primaryShards ?? 0
-        );
-        const replicaShards = Number(
-          idx.replicaShards ?? idx.replica_shards ?? idx.replicaShards ?? 0
-        );
+        const primaryShards = Number(rec.primaryShards ?? rec.primary_shards ?? rec.primaryShards ?? 0);
+        const replicaShards = Number(rec.replicaShards ?? rec.replica_shards ?? rec.replicaShards ?? 0);
         return {
-          ...idx,
+          ...rec,
           // Convert null uuid to undefined for cleaner frontend usage
-          uuid: idx.uuid ?? undefined,
-          name: idx.name ?? idx.index ?? idx.index_name ?? '',
+          uuid: rec.uuid ?? undefined,
+          name: (rec.name as string) ?? (rec.index as string) ?? (rec.index_name as string) ?? '',
           docsCount,
           storeSize,
           primaryShards,
           replicaShards,
-          health: idx.health ?? 'unknown',
-          status: idx.status ?? 'open',
+          health: (rec.health as string) ?? 'unknown',
+          status: (rec.status as string) ?? 'open',
         } as IndexInfo;
       });
 
@@ -678,12 +682,17 @@ export class ApiClient {
       // Normalize relocating_node -> relocatingNode for each shard item so UI helpers
       // that expect relocatingNode are always satisfied. Accept both snake_case and
       // camelCase variants from the backend.
-      if (data && Array.isArray((data as any).items)) {
-        const normalizedItems = (data as any).items.map((sh: any) => ({
-          ...sh,
-          relocatingNode: sh.relocating_node ?? sh.relocatingNode ?? undefined,
-        }));
-        return { ...(data as any), items: normalizedItems } as typeof data;
+      if (data && Array.isArray((data as Record<string, unknown>).items)) {
+      const normalizedItems = (data as Record<string, unknown>).items
+        ? ((data as Record<string, unknown>).items as unknown[]).map((sh: unknown) => {
+            const rec = sh as Record<string, unknown>;
+            return {
+              ...rec,
+              relocatingNode: rec.relocating_node ?? rec.relocatingNode ?? undefined,
+            };
+          })
+        : [];
+        return { ...(data as Record<string, unknown>), items: normalizedItems } as typeof data;
       }
 
       return data;
@@ -702,10 +711,13 @@ export class ApiClient {
         `/clusters/${clusterId}/nodes/${nodeId}/shards`
       );
       // Normalize relocating_node to relocatingNode for each shard
-      return (response.data || []).map((sh: any) => ({
-        ...sh,
-        relocatingNode: sh.relocating_node ?? sh.relocatingNode ?? undefined,
-      })) as ShardInfo[];
+      return (response.data || []).map((sh: unknown) => {
+        const rec = sh as Record<string, unknown>;
+        return {
+          ...rec,
+          relocatingNode: rec.relocating_node ?? rec.relocatingNode ?? undefined,
+        } as ShardInfo;
+      });
     });
   }
 
@@ -1251,8 +1263,8 @@ export class ApiClient {
           : `/clusters/${clusterId}/_analyze`;
 
       // Server returns tokens in snake_case. Map to frontend AnalysisToken (camelCase)
-      const response = await this.client.post<any>(endpoint, body);
-      const raw = response.data as { tokens?: Array<Record<string, any>> };
+      const response = await this.client.post<Record<string, unknown>>(endpoint, body);
+      const raw = response.data as { tokens?: Array<Record<string, unknown>> };
       const tokens = raw.tokens
         ? raw.tokens.map((t) => ({
             token: t.token,
@@ -1460,7 +1472,7 @@ export class ApiClient {
    */
   async getSnapshots(clusterId: string, repository: string): Promise<SnapshotInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<{ snapshots: Array<Record<string, any>> }>(
+      const response = await this.client.get<{ snapshots: Array<Record<string, unknown>> }>(
         `/clusters/${clusterId}/_snapshot/${repository}/_all`
       );
 
@@ -1468,35 +1480,36 @@ export class ApiClient {
     // Normalize snake_case fields and compute shards progress if present.
     // Ensure startTime and durationInMillis are always present to satisfy
     // frontend expectations and TypeScript contracts.
-    const normalized: SnapshotInfo[] = raw.map((s) => {
-      const startTime = s.start_time ?? s.startTime ?? new Date(0).toISOString();
-      const endTime = s.end_time ?? s.endTime ?? undefined;
-      const duration = s.duration_in_millis ?? s.durationInMillis ?? 0;
+       const normalized: SnapshotInfo[] = (raw as unknown[]).map((s: unknown) => {
+       const rec = s as Record<string, unknown>;
+       const startTime = (rec.start_time as string | undefined) ?? (rec.startTime as string | undefined) ?? new Date(0).toISOString();
+       const endTime = (rec.end_time as string | undefined) ?? (rec.endTime as string | undefined) ?? undefined;
+       const duration = (rec.duration_in_millis as number | undefined) ?? (rec.durationInMillis as number | undefined) ?? 0;
 
-      const rawShards = s.shards ?? s.shards_stats ?? { total: 0, successful: 0, failed: 0 };
-      const shards = {
-        total: Number(rawShards.total ?? 0),
-        successful: Number(rawShards.successful ?? 0),
-        failed: Number(rawShards.failed ?? 0),
-      };
+       const rawShards = rec.shards ?? rec.shards_stats ?? { total: 0, successful: 0, failed: 0 };
+       const shards = {
+         total: Number((rawShards as Record<string, unknown>).total ?? 0),
+         successful: Number((rawShards as Record<string, unknown>).successful ?? 0),
+         failed: Number((rawShards as Record<string, unknown>).failed ?? 0),
+       };
 
-      const indices = s.indices ?? [];
+       const indices = (rec.indices as unknown[]) ?? [];
 
-      return {
-        snapshot: s.snapshot,
-        uuid: s.uuid,
-        state: s.state,
-        indices: indices,
-        start_time: s.start_time ?? startTime,
-        end_time: s.end_time ?? endTime,
-        duration_in_millis: s.duration_in_millis ?? duration,
+       return {
+         snapshot: rec.snapshot,
+         uuid: rec.uuid,
+         state: rec.state,
+         indices: indices,
+         start_time: rec.start_time ?? startTime,
+         end_time: rec.end_time ?? endTime,
+         duration_in_millis: rec.duration_in_millis ?? duration,
         // Provide camelCase aliases so UI code that reads startTime/durationInMillis
         // can rely on these fields being present after normalization.
         startTime: startTime,
         endTime: endTime,
         durationInMillis: duration,
         shards: shards,
-      } as SnapshotInfo;
+       } as SnapshotInfo;
     });
 
     return normalized;
@@ -1675,7 +1688,7 @@ export class ApiClient {
       );
 
       // The response is an object with indices as keys
-      const indexDataRaw = response.data.indices?.[indexName] as any;
+      const indexDataRaw = response.data.indices?.[indexName] as Record<string, unknown> | undefined;
 
       if (!indexDataRaw) {
         throw new Error(`Statistics not found for index: ${indexName}`);
@@ -1683,7 +1696,7 @@ export class ApiClient {
 
       // Normalize a minimal stats shape used by the UI (IndexStatistics page).
       // Convert snake_case fields to camelCase and ensure numeric defaults.
-      const normalizeNumber = (v: any) => (v === undefined || v === null ? 0 : Number(v));
+      const normalizeNumber = (v: unknown) => (v === undefined || v === null ? 0 : Number(v as number));
 
       const total = indexDataRaw.total || indexDataRaw._all || {};
       const primaries = indexDataRaw.primaries || {};
@@ -1711,34 +1724,37 @@ export class ApiClient {
             ),
           },
         },
-      } as any;
+      } as IndexStats;
 
       // Indexing/search/segments/merges/refresh/flush/search fields the UI expects
       // may be nested under total or primaries. Copy over common groups if present.
-      const pickGroup = (src: any, dst: any, groupName: string) => {
+      const pickGroup = (src: Record<string, unknown> | undefined, dst: Record<string, unknown>, groupName: string) => {
         if (!src) return;
-        const g = src[groupName] ?? src[groupName.replace(/([A-Z])/g, '_$1').toLowerCase()];
-        if (g) dst[groupName] = Object.keys(g).reduce((acc: any, k) => {
-          // convert snake_case keys to camelCase for commonly used fields
-          const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-          acc[camel] = g[k];
-          return acc;
-        }, {} as Record<string, any>);
+        const alt = groupName.replace(/([A-Z])/g, '_$1').toLowerCase();
+        const g = (src as Record<string, unknown>)[groupName] ?? (src as Record<string, unknown>)[alt];
+        if (g && typeof g === 'object') {
+          dst[groupName] = Object.keys(g as Record<string, unknown>).reduce((acc: Record<string, unknown>, k) => {
+            // convert snake_case keys to camelCase for commonly used fields
+            const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+            acc[camel] = (g as Record<string, unknown>)[k];
+            return acc;
+          }, {} as Record<string, unknown>);
+        }
       };
 
-      pickGroup(total, normalized.total as any, 'indexing');
-      pickGroup(total, normalized.total as any, 'search');
-      pickGroup(total, normalized.total as any, 'segments');
-      pickGroup(total, normalized.total as any, 'merges');
-      pickGroup(total, normalized.total as any, 'refresh');
-      pickGroup(total, normalized.total as any, 'flush');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'indexing');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'search');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'segments');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'merges');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'refresh');
+      pickGroup(total as Record<string, unknown> | undefined, normalized.total as Record<string, unknown>, 'flush');
 
-      pickGroup(primaries, normalized.primaries as any, 'indexing');
-      pickGroup(primaries, normalized.primaries as any, 'search');
-      pickGroup(primaries, normalized.primaries as any, 'segments');
-      pickGroup(primaries, normalized.primaries as any, 'merges');
-      pickGroup(primaries, normalized.primaries as any, 'refresh');
-      pickGroup(primaries, normalized.primaries as any, 'flush');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'indexing');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'search');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'segments');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'merges');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'refresh');
+      pickGroup(primaries as Record<string, unknown> | undefined, normalized.primaries as Record<string, unknown>, 'flush');
 
       return normalized;
     });
@@ -1788,42 +1804,45 @@ export class ApiClient {
         throw new Error(`Failed to fetch metrics: ${response.statusText}`);
       }
 
-      const raw = (await response.json()) as any;
+      const raw = (await response.json()) as unknown;
 
       // Normalize into a consistent frontend-friendly shape:
       // { data: Array<Point>, prometheus_queries?: Record, raw_metrics?: Record }
-      const normalizePoint = (p: any) => {
+      const normalizePoint = (p: unknown) => {
+        const rec = p as Record<string, unknown>;
         // Helper to convert null -> undefined and coerce numeric-like values
-        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
 
         const timestampIso =
-          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
+          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
           undefined;
 
         return {
           // preserve any extra fields the backend provided
-          ...p,
+          ...rec,
           // then overwrite with normalized fields
           date: timestampIso,
-          node_count: num(p.node_count ?? p.nodeCount ?? p.nodes ?? p.node_count),
-          index_count: num(p.index_count ?? p.indexCount ?? p.indices ?? p.index_count),
-          document_count: num(p.document_count ?? p.documentCount ?? p.documents ?? p.document_count),
-          shard_count: num(p.shard_count ?? p.shardCount ?? p.shards ?? p.shard_count),
+          node_count: num(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
+          index_count: num(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
+          document_count: num(rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count),
+          shard_count: num(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
           unassigned_shards: num(
-            p.unassigned_shards ?? p.unassignedShards ?? p.unassigned ?? p.unassigned_shards
+            rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
           ),
-          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu ?? p.cpu_percent),
+          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
           memory_used_bytes: num(
-            p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory ?? p.memory_used_bytes
+            rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
           ),
-          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk ?? p.disk_used_bytes),
+          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
         };
       };
 
-      const dataArr: any[] = Array.isArray(raw)
-        ? raw.map(normalizePoint)
-        : Array.isArray(raw?.data)
-        ? raw.data.map(normalizePoint)
+      const rawObj = raw as Record<string, unknown>;
+      const dataArr: unknown[] = Array.isArray(raw)
+        ? (raw as unknown[]).map(normalizePoint)
+        : Array.isArray(rawObj.data)
+        ? (rawObj.data as unknown[]).map(normalizePoint)
         : [];
 
       const normalized = {
@@ -1860,36 +1879,38 @@ export class ApiClient {
         throw new Error(`Failed to fetch metrics history: ${response.statusText}`);
       }
 
-      const raw = (await response.json()) as any;
+      const raw = (await response.json()) as unknown;
 
       // Reuse the same normalization strategy as getClusterMetrics
-      const normalizePoint = (p: any) => {
-        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+      const normalizePoint = (p: unknown) => {
+        const rec = p as Record<string, unknown>;
+        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
         const timestampIso =
-          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
+          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
           undefined;
         return {
-          ...p,
+          ...rec,
           date: timestampIso,
-          node_count: num(p.node_count ?? p.nodeCount ?? p.nodes ?? p.node_count),
-          index_count: num(p.index_count ?? p.indexCount ?? p.indices ?? p.index_count),
-          document_count: num(p.document_count ?? p.documentCount ?? p.documents ?? p.document_count),
-          shard_count: num(p.shard_count ?? p.shardCount ?? p.shards ?? p.shard_count),
+          node_count: num(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
+          index_count: num(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
+          document_count: num(rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count),
+          shard_count: num(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
           unassigned_shards: num(
-            p.unassigned_shards ?? p.unassignedShards ?? p.unassigned ?? p.unassigned_shards
+            rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
           ),
-          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu ?? p.cpu_percent),
+          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
           memory_used_bytes: num(
-            p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory ?? p.memory_used_bytes
+            rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
           ),
-          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk ?? p.disk_used_bytes),
+          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
         };
       };
 
-      const dataArr: any[] = Array.isArray(raw)
-        ? raw.map(normalizePoint)
-        : Array.isArray(raw?.data)
-        ? raw.data.map(normalizePoint)
+      const dataArr: unknown[] = Array.isArray(raw)
+        ? (raw as unknown[]).map(normalizePoint)
+        : Array.isArray((raw as Record<string, unknown>)?.data)
+        ? ((raw as Record<string, unknown>).data as unknown[]).map(normalizePoint)
         : [];
 
       const normalized = {
@@ -1927,28 +1948,30 @@ export class ApiClient {
         throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
       }
 
-      const raw = (await response.json()) as any;
+      const raw = (await response.json()) as unknown;
 
-      const normalizePoint = (p: any) => {
-        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+      const normalizePoint = (p: unknown) => {
+        const rec = p as Record<string, unknown>;
+        const num = (v: unknown) => (v === null || v === undefined ? undefined : Number(v as number));
         const timestampIso =
-          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          (rec.date as string | undefined) ?? (rec.time as string | undefined) ??
+          (rec.timestamp ? new Date(Number(rec.timestamp) * 1000).toISOString() : undefined) ??
           undefined;
 
         return {
-          ...p,
+          ...rec,
           date: timestampIso,
-          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu),
-          memory_used_bytes: num(p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory),
-          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk),
-          heap_used_bytes: num(p.heap_used_bytes ?? p.heapUsedBytes ?? p.heap),
+          cpu_percent: num(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu),
+          memory_used_bytes: num(rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory),
+          disk_used_bytes: num(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk),
+          heap_used_bytes: num(rec.heap_used_bytes ?? rec.heapUsedBytes ?? rec.heap),
         };
       };
 
-      const dataArr: any[] = Array.isArray(raw)
-        ? raw.map(normalizePoint)
-        : Array.isArray(raw?.data)
-        ? raw.data.map(normalizePoint)
+      const dataArr: unknown[] = Array.isArray(raw)
+        ? (raw as unknown[]).map(normalizePoint)
+        : Array.isArray((raw as Record<string, unknown>)?.data)
+        ? ((raw as Record<string, unknown>).data as unknown[]).map(normalizePoint)
         : [];
 
       const normalized = {
@@ -2047,10 +2070,12 @@ export class ApiClient {
       const nodes = (data.nodes || []).map((n: any) => {
         const kindRaw = (n.kind as string | undefined) ?? 'index';
         // Normalize any server variants to one of the three frontend kinds
-        let kind: 'index' | 'node' | 'unassigned' = 'index';
-        if (kindRaw === 'node' || kindRaw === 'NODE') kind = 'node';
-        else if (kindRaw === 'unassigned' || kindRaw === 'unassigned_shard' || kindRaw === 'unassignedShard') kind = 'unassigned';
-        else kind = 'index';
+        const kind: 'index' | 'node' | 'unassigned' =
+          kindRaw === 'node' || kindRaw === 'NODE'
+            ? 'node'
+            : kindRaw === 'unassigned' || kindRaw === 'unassigned_shard' || kindRaw === 'unassignedShard'
+            ? 'unassigned'
+            : 'index';
 
         return {
           id: n.id,
