@@ -524,9 +524,20 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
 
 /* Filter sidebar: force vertical-only scrolling to avoid double horizontal scrollbars
    The Sidebar contains stacked filter controls and should never horizontally overflow. */
-.filter-sidebar-scrollarea .mantine-ScrollArea-viewport {
+.filter-sidebar-scrollarea .mantine-ScrollArea-root,
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport,
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-content {
+  /* Ensure no horizontal overflow anywhere inside the filter sidebar ScrollArea. */
   overflow-x: hidden !important;
   overflow-y: auto !important;
+  min-width: 0 !important;
+}
+
+/* Hide the horizontal scrollbar track in WebKit browsers (Chrome, Safari) so
+   the bottom horizontal bar never appears on hover. We keep vertical
+   scrollbars usable (width is not changed). */
+.filter-sidebar-scrollarea .mantine-ScrollArea-viewport::-webkit-scrollbar {
+  height: 0 !important; /* hide horizontal scrollbar */
 }
 
 .filter-sidebar-scrollarea .mantine-ScrollArea-content {
