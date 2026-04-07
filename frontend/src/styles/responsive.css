@@ -545,4 +545,27 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
   min-width: 0 !important;
   width: 100% !important;
 }
+
+/* Extra defensive rules: ensure the sidebar never shows a horizontal scrollbar
+   — even on hover or when inner content temporarily expands. */
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport,
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-content {
+  overflow-x: hidden !important;
+  scrollbar-width: none !important; /* Firefox */
+}
+
+.filter-sidebar-scrollarea:hover .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
+  overflow-x: hidden !important;
+}
+
+/* Hide WebKit scrollbars completely for this scroll area */
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport::-webkit-scrollbar {
+  height: 0 !important;
+  width: 0 !important;
+}
+
+/* Hide Mantine corner element that can appear between vertical/horizontal bars */
+.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-corner {
+  display: none !important;
+}
 }
