@@ -22,7 +22,7 @@ async fn test_health_check_returns_ok() {
         id: "test".to_string(),
         name: Some("Test".to_string()),
         nodes: vec!["http://localhost:9200".to_string()],
-        auth: None,
+        auth: Vec::new(),
         tls: TlsConfig::default(),
         ..Default::default()
     };
@@ -59,7 +59,7 @@ async fn test_readiness_check_includes_dependencies() {
         id: "test".to_string(),
         name: Some("Test".to_string()),
         nodes: vec!["http://localhost:9200".to_string()],
-        auth: None,
+        auth: Vec::new(),
         tls: TlsConfig::default(),
         ..Default::default()
     };

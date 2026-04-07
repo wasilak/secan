@@ -47,6 +47,9 @@ pub mod config;
 /// and CORS configuration.
 pub mod middleware;
 
+/// Audit logging for proxied Elasticsearch calls
+pub mod audit;
+
 /// Error types and handling
 ///
 /// Provides centralized error types using thiserror for domain-specific errors

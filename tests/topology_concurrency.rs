@@ -48,6 +48,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
         topology_max_tiles_per_request: 64,
         topology_generation_semaphore: topology_generation_semaphore.clone(),
         topology_generation_acquire_timeout_seconds: 1, // short timeout for test
+        audit_log: false,
     };
 
     // We call the handler in-process; no HTTP router is required for this test.

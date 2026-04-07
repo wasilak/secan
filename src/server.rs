@@ -229,6 +229,8 @@ impl Server {
                 .config
                 .topology_generation_acquire_timeout_seconds
                 .unwrap_or(8),
+            // Audit logging enabled flag propagated from top-level config
+            audit_log: self.config.audit_log,
         };
 
         // Create metrics state for metrics routes
@@ -530,6 +532,7 @@ mod tests {
             topology_max_tiles_per_request: None,
             topology_max_concurrent_generations: None,
             topology_generation_acquire_timeout_seconds: None,
+            audit_log: false,
         }
     }
 
@@ -544,7 +547,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: crate::config::TlsConfig::default(),
 
             ..Default::default()
@@ -570,7 +573,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: crate::config::TlsConfig::default(),
 
             ..Default::default()

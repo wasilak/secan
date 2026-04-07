@@ -1,6 +1,10 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cache::MetadataCache;
 use crate::cluster::{ClusterInfo, Manager as ClusterManager};
+use crate::middleware::logging::RequestId;
+// InstrumentedElasticsearchClient is used by ClusterConnection/Client but
+// after migrating handlers to Manager::proxy_request_with_audit it's no
+// longer directly referenced in this file. Keep import commented for now.
 use axum::{
     extract::{Path, Query, State},
     http::{Method, StatusCode},
@@ -46,6 +50,8 @@ pub struct ClusterState {
     /// Timeout (in seconds) to wait for a generation permit before returning an error.
     /// Default: 8 seconds when not configured.
     pub topology_generation_acquire_timeout_seconds: u64,
+    /// Whether to emit structured audit entries for proxied Elasticsearch calls
+    pub audit_log: bool,
 }
 
 /// Error response for cluster operations
@@ -1063,11 +1069,12 @@ pub async fn get_cluster_settings(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, request), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, user_ext, request, request_id_ext), fields(cluster_id = %cluster_id))]
 pub async fn update_cluster_settings(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<crate::middleware::logging::RequestId>>,
     Json(request): Json<ClusterSettingsUpdateRequest>,
 ) -> Result<Json<Value>, ClusterErrorResponse> {
     tracing::debug!(
@@ -1116,34 +1123,94 @@ pub async fn update_cluster_settings(
         ));
     }
 
-    // Update cluster settings via cluster manager proxy request
-    let response = state
+    // Build JSON body value
+    let body_value = serde_json::Value::Object(settings_body);
+
+    // Extract user roles and id for client selection and audit
+    let user = user_ext.as_ref().map(|u| u.0 .0.clone()).ok_or_else(|| {
+        tracing::error!("Authentication required but user not found in request");
+        ClusterErrorResponse::simple(
+            "authentication_required",
+            "Authentication is required for this operation",
+        )
+    })?;
+
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
+
+    // Use centralized proxy helper which performs client selection, timeouts,
+    // response read timeout, and emits an audit entry when the request is
+    // actually forwarded to Elasticsearch.
+    let (_status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request(
+        .proxy_request_with_audit(
             &cluster_id,
             Method::PUT,
             "/_cluster/settings",
-            Some(serde_json::Value::Object(settings_body)),
+            Some(body_value.clone()),
+            Some(user.id.clone()),
+            &user.roles,
+            &request_id,
+            state.audit_log,
         )
         .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Failed to update cluster settings"
-            );
-            ClusterErrorResponse::simple(
-                "update_failed",
-                format!("Failed to update cluster settings: {}", e),
-            )
-        })?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
 
-    let response_value = response.json::<Value>().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to parse update response"
-        );
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(ClusterErrorResponse::simple(
+                        "access_denied",
+                        "You do not have permissions to perform this operation on the requested cluster",
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "UPDATE SETTINGS: request timed out");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        "Elasticsearch request timed out: PUT /_cluster/settings (timeout: 30s)"
+                            .to_string(),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "UPDATE SETTINGS: request failed");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_failed",
+                        format!("Failed to update cluster settings: {}", reason),
+                    ));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "Timeout reading update response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read update response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response body: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "UPDATE SETTINGS: Unexpected error");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_failed",
+                        format!("Failed to proxy request: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
+
+    let response_value = serde_json::from_slice::<Value>(&body_vec).map_err(|e| {
+        tracing::error!(cluster_id = %cluster_id, error = %e, "Failed to parse update response");
         ClusterErrorResponse::simple(
             "parse_failed",
             format!("Failed to parse update response: {}", e),
@@ -2734,12 +2801,15 @@ pub async fn get_node_shards(
     ),
     tag = "Clusters"
 )]
+#[axum::debug_handler]
 #[instrument(skip(state, query, body), fields(cluster_id = %cluster_id, http_method = %method))]
 pub async fn proxy_request(
     State(state): State<ClusterState>,
     Path((cluster_id, path)): Path<(String, String)>,
     method: Method,
     axum::extract::RawQuery(query): axum::extract::RawQuery,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<RequestId>>,
     body: Option<Json<serde_json::Value>>,
 ) -> Result<Response, ClusterErrorResponse> {
     // Construct full path with query string if present
@@ -2766,139 +2836,94 @@ pub async fn proxy_request(
     // TODO: Extract authenticated user from request
     // TODO: Check RBAC authorization
 
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        "PROXY: Getting cluster connection"
-    );
+    // Use centralized proxy helper which performs client selection, timeouts,
+    // response body read timeout, and emits an audit entry when the request
+    // is actually forwarded to Elasticsearch. The helper returns status,
+    // headers and body so we can construct the Axum response here.
+    let user_roles: Vec<String> = user_ext
+        .as_ref()
+        .map(|u| u.0 .0.roles.clone())
+        .unwrap_or_default();
 
-    // Get the cluster
-    let cluster = state
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
+
+    let (status, headers, body_bytes, _matched_role_label) = match state
         .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Cluster not found"
-            );
-            ClusterErrorResponse::simple(
-                "cluster_not_found",
-                format!("Cluster '{}' not found: {}", cluster_id, e),
-            )
-        })?;
-
-    // Short-circuit if cluster is known to be inaccessible
-    if !cluster.accessible {
-        return Err(ClusterErrorResponse::unavailable(
+        .proxy_request_with_audit(
             &cluster_id,
-            cluster.accessible_reason.clone(),
-        ));
-    }
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        "PROXY: Sending request to Elasticsearch"
-    );
-
-    // Proxy the request with timeout
-    let response = tokio::time::timeout(
-        std::time::Duration::from_secs(30),
-        cluster.request(method.clone(), &full_path, body.map(|j| j.0)),
-    )
-    .await
-    .map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            method = %method,
-            path = %full_path,
-            error = %e,
-            "PROXY TIMEOUT: Elasticsearch request timed out"
-        );
-        ClusterErrorResponse::simple(
-            "proxy_timeout",
-            format!(
-                "Elasticsearch request timed out: {} {} (timeout: 30s)",
-                method, full_path,
-            ),
+            method.clone(),
+            &full_path,
+            body.map(|j| j.0),
+            user_ext.as_ref().map(|u| u.0 .0.id.clone()),
+            &user_roles,
+            &request_id,
+            state.audit_log,
         )
-    })?
-    .map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            method = %method,
-            path = %full_path,
-            error = %e,
-            "PROXY FAILED: Elasticsearch API request failed"
-        );
-        ClusterErrorResponse::simple(
-            "proxy_failed",
-            format!(
-                "Elasticsearch request failed: {} {} - {}",
-                method, full_path, e
-            ),
-        )
-    })?;
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        status = %response.status(),
-        "PROXY: Elasticsearch response received"
-    );
-
-    // Convert reqwest::Response to axum::Response
-    let status = response.status();
-    let headers = response.headers().clone();
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        "PROXY: Reading response body..."
-    );
-
-    // Read response body with timeout
-    let body_bytes = tokio::time::timeout(std::time::Duration::from_secs(10), response.bytes())
         .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "PROXY: Timeout reading response body"
-            );
-            ClusterErrorResponse::simple(
-                "response_read_timeout",
-                "Timeout reading Elasticsearch response body",
-            )
-        })?
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Failed to read Elasticsearch response body"
-            );
-            ClusterErrorResponse::simple(
-                "response_read_failed",
-                format!("Failed to read response body: {}", e),
-            )
-        })?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
 
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        bytes = body_bytes.len(),
-        "PROXY: Response body read successfully"
-    );
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(ClusterErrorResponse::simple(
+                        "access_denied",
+                        format!("Access denied to cluster: {}", cluster_id),
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "PROXY: request timed out");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        format!(
+                            "Elasticsearch request timed out: {} {} (timeout: 30s)",
+                            method, full_path
+                        ),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::warn!(error = %reason, "PROXY: request failed");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_failed",
+                        format!(
+                            "Elasticsearch request failed: {} {} - {}",
+                            method, full_path, reason
+                        ),
+                    ));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "PROXY: Timeout reading response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: Failed to read response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response body: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "PROXY: Unexpected error");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_failed",
+                        format!("Failed to proxy request: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
 
-    // Log Elasticsearch API errors (4xx and 5xx responses) with response body
+    // If upstream returned an error status, map it to a structured error
     if status.is_client_error() || status.is_server_error() {
-        // Try to parse the error response body for better logging
-        let error_body = String::from_utf8_lossy(&body_bytes);
+        let error_body = String::from_utf8_lossy(&body_bytes).to_string();
         tracing::warn!(
             cluster_id = %cluster_id,
             method = %method,
@@ -2909,26 +2934,16 @@ pub async fn proxy_request(
         );
         return Err(ClusterErrorResponse::simple(
             "elasticsearch_error",
-            error_body.to_string(),
+            error_body,
         ));
-    } else {
-        tracing::debug!(
-            cluster_id = %cluster_id,
-            method = %method,
-            path = %full_path,
-            status = status.as_u16(),
-            "Elasticsearch API request successful"
-        );
     }
 
+    // Build Axum response using headers returned by helper
     let mut axum_response = Response::builder().status(status);
-
-    // Copy headers from Elasticsearch response, filtering out HTTP/2 specific headers
     let mut has_content_type = false;
     for (key, value) in headers.iter() {
-        let key_lower = key.to_string().to_lowercase();
+        let key_lower = key.as_str().to_lowercase();
 
-        // Skip HTTP/2 pseudo-headers and connection-specific headers
         if key_lower.starts_with(':')
             || key_lower == "connection"
             || key_lower == "transfer-encoding"
@@ -2944,7 +2959,6 @@ pub async fn proxy_request(
         axum_response = axum_response.header(key, value);
     }
 
-    // Ensure we have a content-type header
     if !has_content_type {
         axum_response = axum_response.header("content-type", "application/json");
     }
@@ -2952,22 +2966,12 @@ pub async fn proxy_request(
     let axum_response = axum_response
         .body(axum::body::Body::from(body_bytes))
         .map_err(|e| {
-            tracing::error!(
-                error = %e,
-                "Failed to build response"
-            );
+            tracing::error!(error = %e, "Failed to build response");
             ClusterErrorResponse::simple(
                 "response_build_failed",
                 format!("Failed to build response: {}", e),
             )
         })?;
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        "PROXY: Response sent to client"
-    );
 
     Ok(axum_response)
 }
@@ -2997,6 +3001,7 @@ pub async fn relocate_shard(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     user_ext: Option<axum::Extension<crate::auth::middleware::AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<crate::middleware::logging::RequestId>>,
     Json(req): Json<RelocateShardRequest>,
 ) -> Result<Json<Value>, ClusterErrorResponse> {
     tracing::info!(
@@ -3035,8 +3040,8 @@ pub async fn relocate_shard(
     // Validate request parameters
     validate_relocation_request(&req)?;
 
-    // Get the cluster
-    let cluster = state
+    // Get the cluster (ensure it exists)
+    let _cluster = state
         .cluster_manager
         .get_cluster(&cluster_id)
         .await
@@ -3070,52 +3075,95 @@ pub async fn relocate_shard(
         "Executing cluster reroute"
     );
 
-    // Execute the reroute command
-    let response = cluster
-        .request(Method::POST, "/_cluster/reroute", Some(reroute_command))
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                index = %req.index,
-                shard = req.shard,
-                error = %e,
-                "Shard relocation failed"
-            );
+    // Select per-request client based on user roles (first-match-wins). If no match,
+    // return local 403 and do NOT forward or audit that denial. `user` was extracted earlier.
 
-            // Provide actionable error messages based on error type - Requirements: 8.10
-            let error_str = e.to_string();
-            let message = if error_str.contains("timeout") || error_str.contains("timed out") {
-                "Shard relocation request timed out. The cluster may be slow or unreachable. Please check cluster health and try again.".to_string()
-            } else if error_str.contains("connection") || error_str.contains("connect") {
-                "Cannot connect to cluster. Please verify the cluster is running and accessible.".to_string()
-            } else if error_str.contains("unauthorized") || error_str.contains("401") {
-                "Authentication failed. Please check your cluster credentials.".to_string()
-            } else if error_str.contains("forbidden") || error_str.contains("403") {
-                "Permission denied. You may not have the required permissions to relocate shards.".to_string()
-            } else {
-                format!("Failed to relocate shard: {}. Please check cluster logs for more details.", e)
-            };
+    // Determine RequestId string for audit (use empty string if missing)
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
 
-            ClusterErrorResponse::simple("relocation_failed", message)
-        })?;
-
-    // Check response status
-    let status = response.status();
-    let body_bytes = response.bytes().await.map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to read reroute response"
-        );
-        ClusterErrorResponse::simple(
-            "response_read_failed",
-            format!("Failed to read response: {}", e),
+    // Use centralized proxy helper which performs client selection, timeouts,
+    // response read timeout, and emits an audit entry when the request
+    // actually reaches Elasticsearch.
+    let (status, _headers, body_vec, _matched_role) = match state
+        .cluster_manager
+        .proxy_request_with_audit(
+            &cluster_id,
+            Method::POST,
+            "/_cluster/reroute",
+            Some(reroute_command.clone()),
+            Some(user.id.clone()),
+            &user.roles,
+            &request_id,
+            state.audit_log,
         )
-    })?;
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
+
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(ClusterErrorResponse::simple(
+                        "access_denied",
+                        "You do not have permissions to perform this operation on the requested cluster",
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "RELOCATE: request timed out");
+                    return Err(ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        format!("Elasticsearch request timed out: POST /_cluster/reroute (timeout: 30s)"),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "RELOCATE: request failed");
+                    // Map to user-friendly relocation_failed message
+                    let message = if reason.contains("timeout") || reason.contains("timed out") {
+                        "Shard relocation request timed out. The cluster may be slow or unreachable. Please check cluster health and try again.".to_string()
+                    } else if reason.contains("connection") || reason.contains("connect") {
+                        "Cannot connect to cluster. Please verify the cluster is running and accessible.".to_string()
+                    } else if reason.contains("unauthorized") || reason.contains("401") {
+                        "Authentication failed. Please check your cluster credentials.".to_string()
+                    } else if reason.contains("forbidden") || reason.contains("403") {
+                        "Permission denied. You may not have the required permissions to relocate shards.".to_string()
+                    } else {
+                        format!("Failed to relocate shard: {}. Please check cluster logs for more details.", reason)
+                    };
+
+                    return Err(ClusterErrorResponse::simple("relocation_failed", message));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "Timeout reading reroute response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read reroute response body");
+                    return Err(ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "RELOCATE: Unexpected error");
+                    return Err(ClusterErrorResponse::simple(
+                        "relocation_failed",
+                        format!("Failed to relocate shard: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
 
     // Parse response body
-    let body: Value = serde_json::from_slice(&body_bytes).map_err(|e| {
+    let body: Value = serde_json::from_slice(&body_vec).map_err(|e| {
         tracing::error!(
             cluster_id = %cluster_id,
             error = %e,

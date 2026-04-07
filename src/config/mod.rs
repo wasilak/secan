@@ -25,6 +25,10 @@ pub struct Config {
     /// If not specified, defaults to 8 seconds.
     #[serde(default)]
     pub topology_generation_acquire_timeout_seconds: Option<u64>,
+    /// Emit one-line JSON audit entries for proxied Elasticsearch calls when true.
+    /// Defaults to false when omitted.
+    #[serde(default)]
+    pub audit_log: bool,
 }
 
 /// Server configuration
@@ -369,10 +373,19 @@ pub struct ClusterConfig {
     pub nodes: Vec<String>,
     /// Authentication configuration for this cluster.
     ///
-    /// Supported types: `basic` (username/password), `api_key`, or `bearer` token.
-    /// If not configured, the cluster is accessed without authentication.
-    #[serde(default)]
-    pub auth: Option<ClusterAuth>,
+    /// We support an ordered list of role-based credentials. The runtime will
+    /// iterate this list in order and pick the first matching RoleCredential
+    /// for the authenticated user's roles (first-match-wins).
+    ///
+    /// For backwards compatibility, this field may be provided as either:
+    /// - a single ClusterAuth object (legacy shape) or
+    /// - an array of RoleCredential entries (new shape).
+    ///
+    /// When a single ClusterAuth object is provided we convert it into a
+    /// single RoleCredential that matches any role (roles = ["*"]). The
+    /// field defaults to an empty list when omitted.
+    #[serde(default, deserialize_with = "deserialize_role_credentials")]
+    pub auth: Vec<RoleCredential>,
     #[serde(default)]
     pub tls: TlsConfig,
     /// Metrics data source for this cluster
@@ -392,9 +405,81 @@ impl ClusterConfig {
         Self {
             id,
             nodes,
-            auth: None,
+            auth: Vec::new(),
             ..Default::default()
         }
+    }
+
+    /// Backwards-compatible helper to get the first configured auth entry.
+    ///
+    /// When we migrate to per-role credentials this helper can be updated to
+    /// return the first RoleCredential's auth. For now it returns the legacy
+    /// `auth` field.
+    pub fn first_auth_opt(&self) -> Option<&ClusterAuth> {
+        // Return the first configured role credential's auth if available
+        // (preserves behaviour for single-auth clusters).
+        // Use `first()` to satisfy clippy::get_first lint
+        self.auth.first().map(|rc| &rc.auth)
+    }
+
+    /// Whether this cluster has any auth configured (legacy single-auth).
+    pub fn has_auth(&self) -> bool {
+        !self.auth.is_empty()
+    }
+}
+
+/// Mapping of roles to a cluster-level credential.
+///
+/// The runtime will iterate the configured Vec<RoleCredential> in order and
+/// select the first entry whose `roles` contains one of the user's roles.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoleCredential {
+    /// List of role names that this credential applies to. Use "*" as a
+    /// wildcard to match any user.
+    pub roles: Vec<String>,
+
+    /// The authentication credentials to use when this RoleCredential matches.
+    pub auth: ClusterAuth,
+}
+
+// Custom deserializer to accept either a single ClusterAuth (legacy) or an
+// array of RoleCredential entries (new shape). When a single ClusterAuth is
+// provided we produce a single RoleCredential matching any role ("*").
+fn deserialize_role_credentials<'de, D>(d: D) -> Result<Vec<RoleCredential>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde_json::Value;
+
+    let v = Value::deserialize(d)?;
+
+    match v {
+        Value::Null => Ok(Vec::new()),
+        Value::Array(arr) => {
+            // Deserialize array of RoleCredential
+            let creds: Vec<RoleCredential> =
+                serde_json::from_value(Value::Array(arr)).map_err(serde::de::Error::custom)?;
+            Ok(creds)
+        }
+        // If it's an object, it could be either a RoleCredential or a bare ClusterAuth
+        Value::Object(_) => {
+            // Try to deserialize as RoleCredential first (has `roles` and `auth`)
+            if let Ok(rc) = serde_json::from_value::<RoleCredential>(v.clone()) {
+                return Ok(vec![rc]);
+            }
+
+            // Otherwise try to deserialize as ClusterAuth (legacy single-auth)
+            let ca = serde_json::from_value::<ClusterAuth>(v).map_err(serde::de::Error::custom)?;
+            let rc = RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ca,
+            };
+            Ok(vec![rc])
+        }
+        other => Err(serde::de::Error::custom(format!(
+            "unexpected auth field type: {}",
+            other
+        ))),
     }
 }
 
@@ -724,8 +809,8 @@ impl ClusterConfig {
         self.tls.validate()?;
 
         // Validate authentication configuration (optional; absence means no-auth cluster)
-        if let Some(auth) = &self.auth {
-            auth.validate(&self.id)?;
+        for rc in &self.auth {
+            rc.auth.validate(&self.id)?;
         }
 
         // Validate metrics source configuration
@@ -1043,6 +1128,7 @@ mod tests {
             topology_max_tiles_per_request: None,
             topology_max_concurrent_generations: None,
             topology_generation_acquire_timeout_seconds: None,
+            audit_log: false,
         };
 
         assert!(config.validate().is_err());
@@ -1120,7 +1206,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
             ..Default::default()
         };

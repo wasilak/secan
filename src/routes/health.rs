@@ -341,7 +341,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: crate::config::TlsConfig::default(),
             ..Default::default()
         };

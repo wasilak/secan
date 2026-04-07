@@ -90,7 +90,9 @@ pub trait ElasticsearchClient: Send + Sync {
 impl Client {
     /// Create a new Elasticsearch client from configuration
     pub async fn new(config: &ClusterConfig) -> Result<Self> {
-        Self::new_with_auth(config, config.auth.as_ref()).await
+        // Use first configured RoleCredential if present, otherwise fall back to legacy single `auth`.
+        let first_auth = config.first_auth_opt();
+        Self::new_with_auth(config, first_auth).await
     }
 
     /// Create a new Elasticsearch client from configuration and an optional `ClusterAuth`.
@@ -872,7 +874,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
             ..Default::default()
         };
@@ -890,10 +892,13 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::Basic {
-                username: "user".to_string(),
-                password: "pass".to_string(),
-            }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::Basic {
+                    username: "user".to_string(),
+                    password: "pass".to_string(),
+                },
+            }],
             tls: TlsConfig::default(),
             ..Default::default()
         };
@@ -908,9 +913,12 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::ApiKey {
-                key: "id:key".to_string(),
-            }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::ApiKey {
+                    key: "id:key".to_string(),
+                },
+            }],
             tls: TlsConfig::default(),
             ..Default::default()
         };
@@ -925,7 +933,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -938,7 +946,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -959,7 +967,10 @@ mod tests {
             id: "pre".to_string(),
             name: Some("Preencoded".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::ApiKey { key: token.clone() }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::ApiKey { key: token.clone() },
+            }],
             tls: TlsConfig::default(),
             ..Default::default()
         };
@@ -982,9 +993,12 @@ mod tests {
             id: "raw".to_string(),
             name: Some("RawKey".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::ApiKey {
-                key: raw_key.clone(),
-            }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::ApiKey {
+                    key: raw_key.clone(),
+                },
+            }],
             tls: TlsConfig::default(),
             ..Default::default()
         };
@@ -1008,9 +1022,12 @@ mod tests {
             id: "full".to_string(),
             name: Some("Full".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::ApiKey {
-                key: "id:secret".to_string(),
-            }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::ApiKey {
+                    key: "id:secret".to_string(),
+                },
+            }],
             tls: TlsConfig::default(),
             ..Default::default()
         };

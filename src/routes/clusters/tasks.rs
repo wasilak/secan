@@ -1,7 +1,5 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -11,6 +9,8 @@ use utoipa::{IntoParams, ToSchema};
 
 use super::ClusterState;
 use crate::auth::middleware::AuthenticatedUser;
+use crate::middleware::logging::RequestId;
+use axum::http::Method;
 
 /// Task information from Elasticsearch Tasks API
 ///
@@ -215,7 +215,8 @@ pub async fn fetch_cluster_tasks(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<TasksQueryParams>,
-    _user: Option<axum::Extension<AuthenticatedUser>>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<RequestId>>,
 ) -> Result<Json<TasksListResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -224,7 +225,9 @@ pub async fn fetch_cluster_tasks(
         "Listing cluster tasks"
     );
 
-    // Get cluster connection
+    // Validate cluster id and get cluster
+    crate::routes::clusters::validate_cluster_id(&cluster_id)?;
+
     let cluster = state
         .cluster_manager
         .get_cluster(&cluster_id)
@@ -243,19 +246,88 @@ pub async fn fetch_cluster_tasks(
         ));
     }
 
-    // Fetch tasks from Elasticsearch via the ClusterConnection request proxy
-    let tasks_response = cluster
-        .request(reqwest::Method::GET, "/_tasks?pretty", None)
-        .await
-        .map_err(|e| {
-            tracing::warn!(error = %e, "Failed to fetch tasks");
-            crate::routes::clusters::ClusterErrorResponse::simple(
-                "fetch_failed",
-                format!("Failed to fetch tasks: {}", e),
-            )
-        })?;
+    // Extract user (if present) for role selection. In Open mode middleware may
+    // inject an open user; otherwise absence of user will pass an empty role list
+    // which will only match wildcard role clients.
+    let user_opt = user_ext.as_ref().map(|u| u.0 .0.clone());
+    let roles: Vec<String> = user_opt
+        .as_ref()
+        .map(|u| u.roles.clone())
+        .unwrap_or_default();
 
-    let text = tasks_response.text().await.map_err(|e| {
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
+
+    // Proxy the request using Manager helper which performs client selection,
+    // timeouts and audit emission.
+    let (_status, _headers, body_vec, _matched_role_label) = match state
+        .cluster_manager
+        .proxy_request_with_audit(
+            &cluster_id,
+            Method::GET,
+            "/_tasks?pretty",
+            None::<Value>,
+            user_opt.as_ref().map(|u| u.id.clone()),
+            &roles,
+            &request_id,
+            state.audit_log,
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
+
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "access_denied",
+                        "You do not have permissions to perform this operation on the requested cluster".to_string(),
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "FETCH TASKS: request timed out");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        "Elasticsearch request timed out: GET /_tasks (timeout: 30s)".to_string(),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::warn!(error = %reason, "Failed to fetch tasks");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "fetch_failed",
+                        format!("Failed to fetch tasks: {}", reason),
+                    ));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "Timeout reading tasks response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read tasks response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response body: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "Failed to fetch tasks");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "fetch_failed",
+                        format!("Failed to fetch tasks: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
+
+    let text = String::from_utf8(body_vec).map_err(|e| {
         crate::routes::clusters::ClusterErrorResponse::simple(
             "parse_error",
             format!("Failed to parse response: {}", e),
@@ -318,7 +390,8 @@ pub async fn fetch_cluster_tasks(
 pub async fn get_task_details(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,
-    _user: Option<axum::Extension<AuthenticatedUser>>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<RequestId>>,
 ) -> Result<Json<TaskDetailsResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -326,7 +399,8 @@ pub async fn get_task_details(
         "Fetching task details"
     );
 
-    // Get cluster connection
+    crate::routes::clusters::validate_cluster_id(&cluster_id)?;
+
     let cluster = state
         .cluster_manager
         .get_cluster(&cluster_id)
@@ -345,23 +419,86 @@ pub async fn get_task_details(
         ));
     }
 
-    // Fetch task details from Elasticsearch via the ClusterConnection request proxy
-    let task_response = cluster
-        .request(
-            reqwest::Method::GET,
+    let user_opt = user_ext.as_ref().map(|u| u.0 .0.clone());
+    let roles: Vec<String> = user_opt
+        .as_ref()
+        .map(|u| u.roles.clone())
+        .unwrap_or_default();
+
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
+
+    let (_status, _headers, body_vec, _matched_role_label) = match state
+        .cluster_manager
+        .proxy_request_with_audit(
+            &cluster_id,
+            Method::GET,
             &format!("/_tasks/{}?pretty", task_id),
-            None,
+            None::<Value>,
+            user_opt.as_ref().map(|u| u.id.clone()),
+            &roles,
+            &request_id,
+            state.audit_log,
         )
         .await
-        .map_err(|e| {
-            tracing::warn!(error = %e, "Failed to fetch task details");
-            crate::routes::clusters::ClusterErrorResponse::simple(
-                "fetch_failed",
-                format!("Failed to fetch task details: {}", e),
-            )
-        })?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
 
-    let text = task_response.text().await.map_err(|e| {
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "access_denied",
+                        "You do not have permissions to perform this operation on the requested cluster".to_string(),
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "GET TASK: request timed out");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        format!(
+                            "Elasticsearch request timed out: GET /_tasks/{} (timeout: 30s)",
+                            task_id
+                        ),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::warn!(error = %reason, "Failed to fetch task details");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "fetch_failed",
+                        format!("Failed to fetch task details: {}", reason),
+                    ));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "Timeout reading task details response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read task details response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response body: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "Failed to fetch task details");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "fetch_failed",
+                        format!("Failed to fetch task details: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
+
+    let text = String::from_utf8(body_vec).map_err(|e| {
         crate::routes::clusters::ClusterErrorResponse::simple(
             "parse_error",
             format!("Failed to parse response: {}", e),
@@ -471,7 +608,8 @@ pub async fn get_task_details(
 pub async fn cancel_cluster_task(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,
-    _user: Option<axum::Extension<AuthenticatedUser>>,
+    user_ext: Option<axum::Extension<AuthenticatedUser>>,
+    request_id_ext: Option<axum::Extension<RequestId>>,
 ) -> Result<Json<CancelTaskResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -479,7 +617,8 @@ pub async fn cancel_cluster_task(
         "Cancelling task"
     );
 
-    // Get cluster connection
+    crate::routes::clusters::validate_cluster_id(&cluster_id)?;
+
     let cluster = state
         .cluster_manager
         .get_cluster(&cluster_id)
@@ -498,24 +637,86 @@ pub async fn cancel_cluster_task(
         ));
     }
 
-    // Cancel task via Elasticsearch API using ClusterConnection request proxy
-    let response = cluster
-        .request(
-            reqwest::Method::POST,
+    let user_opt = user_ext.as_ref().map(|u| u.0 .0.clone());
+    let roles: Vec<String> = user_opt
+        .as_ref()
+        .map(|u| u.roles.clone())
+        .unwrap_or_default();
+
+    let request_id = request_id_ext
+        .as_ref()
+        .map(|r| r.0.as_str().to_string())
+        .unwrap_or_default();
+
+    let (status, _headers, body_vec, _matched_role_label) = match state
+        .cluster_manager
+        .proxy_request_with_audit(
+            &cluster_id,
+            Method::POST,
             &format!("/_tasks/{}/_cancel", task_id),
-            None,
+            None::<Value>,
+            user_opt.as_ref().map(|u| u.id.clone()),
+            &roles,
+            &request_id,
+            state.audit_log,
         )
         .await
-        .map_err(|e| {
-            tracing::warn!(error = %e, "Failed to cancel task");
-            crate::routes::clusters::ClusterErrorResponse::simple(
-                "cancel_failed",
-                format!("Failed to cancel task: {}", e),
-            )
-        })?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            use crate::cluster::ProxyRequestError;
 
-    let status = response.status();
-    let text = response.text().await.map_err(|e| {
+            match e {
+                ProxyRequestError::AccessDenied => {
+                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "access_denied",
+                        "You do not have permissions to perform this operation on the requested cluster".to_string(),
+                    ));
+                }
+                ProxyRequestError::ProxyTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "CANCEL TASK: request timed out");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "proxy_timeout",
+                        format!(
+                            "Elasticsearch request timed out: POST /_tasks/{}/_cancel (timeout: 30s)",
+                            task_id
+                        ),
+                    ));
+                }
+                ProxyRequestError::RequestFailed(reason) => {
+                    tracing::warn!(error = %reason, "Failed to cancel task");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "cancel_failed",
+                        format!("Failed to cancel task: {}", reason),
+                    ));
+                }
+                ProxyRequestError::ResponseReadTimeout => {
+                    tracing::error!(cluster_id = %cluster_id, "Timeout reading cancel response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_timeout",
+                        "Timeout reading Elasticsearch response body",
+                    ));
+                }
+                ProxyRequestError::ResponseReadFailed(reason) => {
+                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read cancel response body");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "response_read_failed",
+                        format!("Failed to read response body: {}", reason),
+                    ));
+                }
+                ProxyRequestError::Other(reason) => {
+                    tracing::warn!(error = %reason, "Failed to cancel task");
+                    return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                        "cancel_failed",
+                        format!("Failed to cancel task: {}", reason),
+                    ));
+                }
+            }
+        }
+    };
+
+    let text = String::from_utf8(body_vec).map_err(|e| {
         crate::routes::clusters::ClusterErrorResponse::simple(
             "parse_error",
             format!("Failed to parse response: {}", e),

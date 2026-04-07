@@ -7,12 +7,13 @@ use crate::config::{
 use crate::telemetry::client::InstrumentedElasticsearchClient;
 use anyhow::{Context, Result};
 use indexmap::IndexMap;
-use reqwest::{Method, Response};
+use reqwest::{header::HeaderMap, Method, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::instrument;
 use utoipa::ToSchema;
@@ -27,7 +28,14 @@ pub struct ClusterConnection {
     /// List of node URLs for this cluster
     pub nodes: Vec<String>,
     /// Pre-created client for this cluster. `None` if the cluster is inaccessible.
+    ///
+    /// For backwards compatibility we keep `client` pointing to the first
+    /// pre-created role-specific client (if any). New code should prefer
+    /// `role_clients` and Manager::get_client_for_user for per-request selection.
     pub client: Option<Arc<Client>>,
+    /// Per-role pre-created clients for this cluster. Entries are created at
+    /// startup in the same order as configured RoleCredential entries.
+    pub role_clients: Vec<RoleClient>,
     /// TLS configuration
     pub tls_config: crate::config::TlsConfig,
     /// Metrics source configuration
@@ -38,6 +46,17 @@ pub struct ClusterConnection {
     pub accessible: bool,
     /// Optional human-friendly reason why cluster is inaccessible
     pub accessible_reason: Option<String>,
+}
+
+/// Pre-created client bound to a set of roles
+#[derive(Debug, Clone)]
+pub struct RoleClient {
+    /// Roles this client applies to (may contain "*" for wildcard)
+    pub roles: Vec<String>,
+    /// The HTTP client configured with the matching credential
+    pub client: Arc<Client>,
+    /// Human-readable label for the matched role (joined roles)
+    pub label: String,
 }
 
 /// Cluster health status
@@ -107,6 +126,9 @@ impl ClusterConnection {
             name: config.name.clone(),
             nodes: config.nodes.clone(),
             client: Some(Arc::new(c)),
+            // For now initialize role_clients empty. Manager will populate
+            // per-role clients at startup in a subsequent change.
+            role_clients: Vec::new(),
             tls_config: config.tls.clone(),
             metrics_source: config.metrics_source.clone(),
             prometheus: config.prometheus.clone(),
@@ -344,7 +366,7 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -365,10 +387,13 @@ mod tests {
             id: "test".to_string(),
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: Some(ClusterAuth::Basic {
-                username: "user".to_string(),
-                password: "pass".to_string(),
-            }),
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["*".to_string()],
+                auth: ClusterAuth::Basic {
+                    username: "user".to_string(),
+                    password: "pass".to_string(),
+                },
+            }],
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -443,6 +468,8 @@ pub struct Manager {
     health_cache: MetadataCache<ClusterHealth>,
 }
 
+use crate::cluster::ProxyRequestError;
+
 impl Manager {
     /// Create a new cluster manager from configuration
     ///
@@ -484,6 +511,7 @@ impl Manager {
                     name: config.name.clone(),
                     nodes: config.nodes.clone(),
                     client: None,
+                    role_clients: Vec::new(),
                     tls_config: config.tls.clone(),
                     metrics_source: config.metrics_source.clone(),
                     prometheus: config.prometheus.clone(),
@@ -494,31 +522,111 @@ impl Manager {
                 continue;
             }
 
-            match ClusterConnection::new(&config).await {
-                Ok(connection) => {
-                    clusters.insert(config.id.clone(), Arc::new(connection));
+            // Initialize cluster connections. Pre-create one HTTP client per
+            // configured RoleCredential to allow per-role credential selection
+            // at runtime. If no RoleCredential entries are configured we fall
+            // back to legacy behaviour and create a single client.
+            if config.auth.is_empty() {
+                match Client::new(&config).await {
+                    Ok(c) => {
+                        let connection = ClusterConnection {
+                            id: config.id.clone(),
+                            name: config.name.clone(),
+                            nodes: config.nodes.clone(),
+                            client: Some(Arc::new(c)),
+                            role_clients: Vec::new(),
+                            tls_config: config.tls.clone(),
+                            metrics_source: config.metrics_source.clone(),
+                            prometheus: config.prometheus.clone(),
+                            accessible: true,
+                            accessible_reason: None,
+                        };
+                        clusters.insert(config.id.clone(), Arc::new(connection));
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            cluster_id = %config.id,
+                            error = %e,
+                            "Failed to initialise cluster — it will be marked inaccessible"
+                        );
+                        let placeholder = ClusterConnection {
+                            id: config.id.clone(),
+                            name: config.name.clone(),
+                            nodes: config.nodes.clone(),
+                            client: None,
+                            role_clients: Vec::new(),
+                            tls_config: config.tls.clone(),
+                            metrics_source: config.metrics_source.clone(),
+                            prometheus: config.prometheus.clone(),
+                            accessible: false,
+                            accessible_reason: Some(e.to_string()),
+                        };
+                        clusters.insert(config.id.clone(), Arc::new(placeholder));
+                    }
                 }
-                Err(e) => {
-                    // A single unreachable/misconfigured cluster must not block startup.
-                    // Insert an inaccessible placeholder instead so cluster shows up in UI.
+            } else {
+                // Create one client per RoleCredential in configuration order
+                let mut role_clients: Vec<RoleClient> = Vec::new();
+                let mut init_error: Option<anyhow::Error> = None;
+
+                for rc in &config.auth {
+                    match Client::new_with_auth(&config, Some(&rc.auth)).await {
+                        Ok(c) => {
+                            let arc = Arc::new(c);
+                            let label = rc.roles.join(",");
+                            role_clients.push(RoleClient {
+                                roles: rc.roles.clone(),
+                                client: arc,
+                                label,
+                            });
+                        }
+                        Err(e) => {
+                            init_error = Some(e);
+                            break;
+                        }
+                    }
+                }
+
+                if init_error.is_some() {
                     tracing::warn!(
                         cluster_id = %config.id,
-                        error = %e,
-                        "Failed to initialise cluster — it will be marked inaccessible"
+                        error = %init_error.as_ref().map(|e| e.to_string()).unwrap_or_default(),
+                        "Failed to initialise role-specific clients — cluster will be marked inaccessible"
                     );
                     let placeholder = ClusterConnection {
                         id: config.id.clone(),
                         name: config.name.clone(),
                         nodes: config.nodes.clone(),
                         client: None,
+                        role_clients: Vec::new(),
                         tls_config: config.tls.clone(),
                         metrics_source: config.metrics_source.clone(),
                         prometheus: config.prometheus.clone(),
                         accessible: false,
-                        accessible_reason: Some(e.to_string()),
+                        accessible_reason: init_error.as_ref().map(|e| e.to_string()),
                     };
                     clusters.insert(config.id.clone(), Arc::new(placeholder));
+                    continue;
                 }
+
+                // For backwards compatibility keep `client` pointing at the first role client
+                // Use `first()` to satisfy clippy::get_first
+                let primary = role_clients.first().map(|rc| rc.client.clone());
+
+                let connection = ClusterConnection {
+                    id: config.id.clone(),
+                    name: config.name.clone(),
+                    nodes: config.nodes.clone(),
+                    client: primary,
+                    role_clients,
+                    tls_config: config.tls.clone(),
+                    metrics_source: config.metrics_source.clone(),
+                    prometheus: config.prometheus.clone(),
+                    accessible: true,
+                    accessible_reason: None,
+                };
+
+                clusters.insert(config.id.clone(), Arc::new(connection));
             }
         }
 
@@ -841,6 +949,134 @@ impl Manager {
         let clusters = self.clusters.read().await;
         clusters.contains_key(cluster_id)
     }
+
+    /// Select a pre-created client for a user based on their roles.
+    ///
+    /// Iterates configured RoleClient entries in order (first-match-wins).
+    /// Returns the Arc<Client> and a matched role label on success. If the
+    /// cluster has no role-specific clients (legacy/unauthenticated) the
+    /// legacy `client` is returned and the matched role label is "*".
+    #[instrument(skip(self), fields(cluster_id = %cluster_id))]
+    pub async fn get_client_for_user(
+        &self,
+        cluster_id: &str,
+        user_roles: &[String],
+    ) -> Result<(Arc<Client>, String)> {
+        let clusters = self.clusters.read().await;
+
+        let conn = clusters
+            .get(cluster_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("Cluster '{}' not found", cluster_id))?;
+
+        if !conn.accessible {
+            anyhow::bail!("Cluster '{}' is inaccessible", cluster_id);
+        }
+
+        // If there are no role-specific clients, fall back to legacy client
+        if conn.role_clients.is_empty() {
+            if let Some(c) = &conn.client {
+                return Ok((c.clone(), "*".to_string()));
+            } else {
+                anyhow::bail!("Cluster '{}' has no available client", cluster_id);
+            }
+        }
+
+        // Iterate role_clients in order and pick first that matches user roles
+        for rc in &conn.role_clients {
+            // wildcard match
+            if rc.roles.iter().any(|r| r == "*") {
+                return Ok((rc.client.clone(), rc.label.clone()));
+            }
+
+            // exact role match
+            for ur in user_roles {
+                if rc.roles.iter().any(|r| r == ur) {
+                    return Ok((rc.client.clone(), rc.label.clone()));
+                }
+            }
+        }
+
+        anyhow::bail!(
+            "No matching role credential for user roles {:?} on cluster '{}'",
+            user_roles,
+            cluster_id
+        );
+    }
+
+    /// Proxy a request to a specific cluster while emitting a structured
+    /// audit entry when the request reaches Elasticsearch and a response is
+    /// received. This centralises client selection, timeouts, and audit
+    /// emission so handlers can remain thin.
+    #[allow(clippy::too_many_arguments)]
+    #[instrument(skip(self), fields(cluster_id = %cluster_id, http_method = %method, path = %path))]
+    pub async fn proxy_request_with_audit(
+        &self,
+        cluster_id: &str,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        user_id: Option<String>,
+        user_roles: &[String],
+        request_id: &str,
+        audit_enabled: bool,
+    ) -> std::result::Result<(StatusCode, HeaderMap, Vec<u8>, String), ProxyRequestError> {
+        // Select client for this user/cluster. If no match, return an error
+        // that callers should map to a local access_denied response. Do NOT
+        // emit audit for local access_denied.
+        let (client, matched_role_label) =
+            match self.get_client_for_user(cluster_id, user_roles).await {
+                Ok(pair) => pair,
+                Err(_) => return Err(ProxyRequestError::AccessDenied),
+            };
+
+        // Perform the request with a 30s timeout and 10s read timeout for
+        // response body (matches existing handler behaviour).
+        let start = Instant::now();
+        // Perform the instrumented request with a timeout. Convert tokio::time::Elapsed
+        // into ProxyRequestError::ProxyTimeout via From, and attempt to downcast
+        // anyhow::Error returned by the instrumented_request into more specific
+        // errors (reqwest::Error, io::Error) before falling back to Other.
+        let inner_res = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            client
+                .as_ref()
+                .instrumented_request(method.clone(), path, body, cluster_id),
+        )
+        .await
+        .map_err(Into::<ProxyRequestError>::into)?; // Elapsed -> ProxyTimeout
+
+        // Classify any error returned by the instrumented_request into a
+        // ProxyRequestError using the helper in src/cluster/error.rs.
+        let resp = inner_res.map_err(|e| crate::cluster::error::classify_anyhow(&e))?;
+
+        let status = resp.status();
+        // Clone headers before consuming the response body
+        let headers = resp.headers().clone();
+        let bytes =
+            match tokio::time::timeout(std::time::Duration::from_secs(10), resp.bytes()).await {
+                Err(_) => return Err(ProxyRequestError::ResponseReadTimeout),
+                Ok(inner) => inner.map_err(ProxyRequestError::from)?,
+            };
+
+        let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
+
+        // Emit audit entry for forwarded requests (only if request reached ES)
+        let entry = crate::audit::AuditEntry::now(
+            request_id.to_string(),
+            user_id.unwrap_or_default(),
+            user_roles.to_vec(),
+            cluster_id.to_string(),
+            matched_role_label.clone(),
+            method.to_string(),
+            path.to_string(),
+            status.as_u16(),
+            duration_ms,
+        );
+        crate::audit::emit_if_enabled(audit_enabled, &entry);
+
+        Ok((status, headers, bytes.to_vec(), matched_role_label))
+    }
 }
 
 #[cfg(test)]
@@ -855,7 +1091,7 @@ mod manager_tests {
                 id: "cluster1".to_string(),
                 name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -864,7 +1100,7 @@ mod manager_tests {
                 id: "cluster2".to_string(),
                 name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -893,7 +1129,7 @@ mod manager_tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -916,7 +1152,7 @@ mod manager_tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -933,13 +1169,106 @@ mod manager_tests {
     }
 
     #[tokio::test]
+    async fn test_proxy_request_with_audit_success() {
+        use serde_json::json;
+        use wiremock::matchers::{method, path_regex};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        // Start a mock HTTP server to simulate Elasticsearch
+        let mock_server = MockServer::start().await;
+
+        // Respond to GET /_tasks (with optional query) with a JSON body
+        Mock::given(method("GET"))
+            .and(path_regex(r"^/_tasks(\?.*)?$"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({ "ok": true, "tasks": [] })),
+            )
+            .mount(&mock_server)
+            .await;
+
+        // Create cluster config pointing to the mock server
+        let cfg = crate::config::ClusterConfig {
+            id: "mock-cluster".to_string(),
+            nodes: vec![mock_server.uri()],
+            ..Default::default()
+        };
+
+        let manager = Manager::new(vec![cfg], std::time::Duration::from_secs(30))
+            .await
+            .expect("create manager");
+
+        // Call proxy_request_with_audit and assert success
+        let res = manager
+            .proxy_request_with_audit(
+                "mock-cluster",
+                Method::GET,
+                "/_tasks?pretty",
+                None::<serde_json::Value>,
+                Some("user-1".to_string()),
+                &Vec::<String>::new(),
+                "req-1",
+                true,
+            )
+            .await
+            .expect("proxy should succeed");
+
+        let (status, _headers, body_vec, matched_role_label) = res;
+        assert_eq!(status.as_u16(), 200);
+        let v: serde_json::Value = serde_json::from_slice(&body_vec).expect("parse JSON");
+        assert_eq!(v["ok"], serde_json::Value::Bool(true));
+        // Legacy client path should return matched role label of "*"
+        assert_eq!(matched_role_label, "*");
+    }
+
+    #[tokio::test]
+    async fn test_proxy_request_with_audit_access_denied() {
+        // Create cluster config with a role-specific credential (so role_clients is non-empty)
+        let cfg = crate::config::ClusterConfig {
+            id: "role-cluster".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: vec![crate::config::RoleCredential {
+                roles: vec!["admin".to_string()],
+                auth: crate::config::ClusterAuth::Basic {
+                    username: "u".to_string(),
+                    password: "p".to_string(),
+                },
+            }],
+            ..Default::default()
+        };
+
+        let manager = Manager::new(vec![cfg], std::time::Duration::from_secs(30))
+            .await
+            .expect("create manager");
+
+        // No matching user roles -> AccessDenied
+        let err = manager
+            .proxy_request_with_audit(
+                "role-cluster",
+                Method::GET,
+                "/_tasks?pretty",
+                None::<serde_json::Value>,
+                Some("user-1".to_string()),
+                &Vec::<String>::new(),
+                "req-2",
+                false,
+            )
+            .await
+            .expect_err("should be access denied");
+
+        match err {
+            ProxyRequestError::AccessDenied => {}
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
     async fn test_list_clusters() {
         let configs = vec![
             ClusterConfig {
                 id: "cluster1".to_string(),
                 name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -948,7 +1277,7 @@ mod manager_tests {
                 id: "cluster2".to_string(),
                 name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -971,7 +1300,7 @@ mod manager_tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -992,7 +1321,7 @@ mod manager_tests {
                 id: "cluster1".to_string(),
                 name: Some("Cluster 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1001,7 +1330,7 @@ mod manager_tests {
                 id: "cluster2".to_string(),
                 name: Some("Cluster 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1021,10 +1350,13 @@ mod manager_tests {
                 id: "basic".to_string(),
                 name: Some("Basic Auth".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: Some(ClusterAuth::Basic {
-                    username: "user".to_string(),
-                    password: "pass".to_string(),
-                }),
+                auth: vec![crate::config::RoleCredential {
+                    roles: vec!["*".to_string()],
+                    auth: ClusterAuth::Basic {
+                        username: "user".to_string(),
+                        password: "pass".to_string(),
+                    },
+                }],
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1033,9 +1365,12 @@ mod manager_tests {
                 id: "apikey".to_string(),
                 name: Some("API Key".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: Some(ClusterAuth::ApiKey {
-                    key: "key123".to_string(),
-                }),
+                auth: vec![crate::config::RoleCredential {
+                    roles: vec!["*".to_string()],
+                    auth: ClusterAuth::ApiKey {
+                        key: "key123".to_string(),
+                    },
+                }],
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1044,7 +1379,7 @@ mod manager_tests {
                 id: "none".to_string(),
                 name: Some("No Auth".to_string()),
                 nodes: vec!["http://localhost:9202".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1068,7 +1403,7 @@ mod manager_tests {
                 id: "prod-cluster-1".to_string(),
                 name: Some("Production 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1077,7 +1412,7 @@ mod manager_tests {
                 id: "dev-cluster-1".to_string(),
                 name: Some("Development 1".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1131,7 +1466,7 @@ mod manager_tests {
                 id: "prod-cluster-1".to_string(),
                 name: Some("Production 1".to_string()),
                 nodes: vec!["http://localhost:9200".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1140,7 +1475,7 @@ mod manager_tests {
                 id: "prod-cluster-2".to_string(),
                 name: Some("Production 2".to_string()),
                 nodes: vec!["http://localhost:9201".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1149,7 +1484,7 @@ mod manager_tests {
                 id: "dev-cluster-1".to_string(),
                 name: Some("Development 1".to_string()),
                 nodes: vec!["http://localhost:9202".to_string()],
-                auth: None,
+                auth: Vec::new(),
                 tls: TlsConfig::default(),
 
                 ..Default::default()
@@ -1188,7 +1523,7 @@ mod manager_tests {
             id: "prod-cluster-1".to_string(),
             name: Some("Production 1".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -1225,7 +1560,7 @@ mod manager_tests {
             id: "prod-cluster-1".to_string(),
             name: Some("Production 1".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -1261,7 +1596,7 @@ mod manager_tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()
@@ -1284,7 +1619,7 @@ mod manager_tests {
             id: "test".to_string(),
             name: Some("Test".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
-            auth: None,
+            auth: Vec::new(),
             tls: TlsConfig::default(),
 
             ..Default::default()

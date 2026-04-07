@@ -8,8 +8,6 @@ use crate::prometheus::client::{
 };
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
