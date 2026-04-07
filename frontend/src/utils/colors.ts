@@ -188,7 +188,9 @@ export function getColorForIndex(indexName: string, separateSystemIndexColors: b
   // -my-index-2026-02-03 -> my-index
   // The regex removes one or more trailing groups that start with '-' and
   // contain digits possibly separated by '.' or '-'.
-  working = working.replace(/(?:-\d+(?:[.\-]\d+)*)+$/, '');
+  // Place the hyphen at the end of the character class to avoid unnecessary
+  // escaping which ESLint flags as a useless escape.
+  working = working.replace(/(?:-\d+(?:[.-]\d+)*)+$/, '');
 
   // Fallback if stripping emptied the name (unlikely) — use the original stripped name
   if (!working) working = isSystem ? indexName.slice(1) : indexName;

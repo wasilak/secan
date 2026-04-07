@@ -10,7 +10,9 @@ import {
   useReactFlow,
   useNodesState,
   useStore,
+  useOnViewportChange,
   applyNodeChanges,
+  type Viewport,
   type NodeTypes,
   type Node,
   type NodeChange,
@@ -101,13 +103,66 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   const isDraggingRef = useRef(false);
   const pendingLayoutRef = useRef<Node[] | null>(null);
 
-  // Track zoom for LOD threshold crossings. Must be inside ReactFlowProvider boundary.
-  const zoom = useStore((s) => s.transform[2]);
-  useEffect(() => {
-    onZoomChange?.(zoom);
-  }, [zoom, onZoomChange]);
+  // Track settled viewport for LOD threshold crossings and viewport culling.
+  // We use useOnViewportChange.onEnd so the parent is only notified when the
+  // user finishes interacting with the viewport (pan/zoom). This prevents
+  // firing expensive shard fetches on every RAF tick during continuous gestures.
+  const containerWidth = useStore((s) => s.width);
+  const [settledViewport, setSettledViewport] = useState<Viewport | null>(null);
+
+  useOnViewportChange({
+    onEnd: (vp) => {
+      onZoomChange?.(vp.zoom);
+      setSettledViewport(vp);
+    },
+  });
 
   const [flowNodes, setFlowNodes] = useNodesState(layoutNodes);
+
+  // Culling: produce a view-level node list where shard dots are removed for
+  // nodes that are not fully within the current viewport. We intentionally
+  // perform culling here (inside the ReactFlowProvider boundary) where we
+  // can read the settled viewport and ReactFlow container dimensions.
+  //
+  // Notes:
+  // - We skip culling for grouped/precomputed layouts to avoid resolving
+  //   child absolute positions relative to parents (complex and not needed
+  //   for the common case).
+  // - We only cull when we have a settledViewport (onEnd fired) so that
+  //   in-flight gestures don't cause thrashing.
+  const CONTAINER_HEIGHT = 600; // matches parent Box h={600}
+  const culledFlowNodes = useMemo(() => {
+    if (!settledViewport || !containerWidth || usePrecomputedLayout) return flowNodes;
+    const tx = settledViewport.x;
+    const ty = settledViewport.y;
+    const zoom = settledViewport.zoom;
+
+    return flowNodes.map((node) => {
+      // Only clusterGroup nodes contain dots
+      if ((node as any).type !== 'clusterGroup') return node;
+      const data = (node as any).data as Record<string, unknown> | undefined;
+      const dots = data?.dots as unknown as unknown[] | undefined;
+      if (!dots || dots.length === 0) return node;
+
+      const measured = (node as any).measured as { width?: number; height?: number } | undefined;
+      const w = measured?.width;
+      const h = measured?.height;
+      if (!w || !h) return node; // not measured yet — don't cull
+
+      const screenLeft = node.position.x * zoom + tx;
+      const screenTop = node.position.y * zoom + ty;
+      const screenRight = screenLeft + w * zoom;
+      const screenBottom = screenTop + h * zoom;
+
+      const fullyVisible =
+        screenLeft >= 0 && screenRight <= containerWidth && screenTop >= 0 && screenBottom <= CONTAINER_HEIGHT;
+
+      if (!fullyVisible) {
+        return { ...node, data: { ...data, dots: [] } };
+      }
+      return node;
+    });
+  }, [flowNodes, settledViewport, containerWidth, usePrecomputedLayout]);
 
   // Defensive: ensure nodeTypes contains only valid React component types.
   // If some renderer is invalid (e.g. undefined due to import failure), replace
@@ -444,7 +499,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   return (
     <ReactFlow
       className="secan-reactflow secan-canvas-topology-flow"
-      nodes={flowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
+      nodes={culledFlowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
       edges={[]}
       defaultEdgeOptions={{ type: 'simplebezier' }}
       nodeTypes={safeNodeTypes}
