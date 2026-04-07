@@ -48,8 +48,7 @@ export function FilterSidebar({
         </ActionIcon>
       </Box>
 
-      {isExpanded && (
-        {/* Use Mantine's scrollbars prop to restrict to vertical-only scrollbars */}
+      {isExpanded ? (
         <ScrollArea className="filter-sidebar-scrollarea" style={{ flex: 1 }} p="xs" scrollbars="y">
           <Stack gap="md">
             {textFilters && textFilters.length > 0 && (
@@ -121,7 +120,7 @@ export function FilterSidebar({
             )}
           </Stack>
         </ScrollArea>
-      )}
+      ) : null}
     </Box>
   );
 }
