@@ -39,6 +39,8 @@ import {
   CancelTaskResponse,
   SankeyResponse,
   SankeyQueryParams,
+  ClusterSettings,
+  IndexSettings,
 } from '../types/api';
 import { computeHeapPercent } from '../utils/heap';
 import { incrementHeapPercentMissing } from '../utils/metrics';
@@ -307,7 +309,38 @@ export class ApiClient {
           version: filters?.version || '',
         },
       });
-      return response.data;
+
+      // Normalize cluster items for frontend consumers:
+      // - Convert null `name` to undefined
+      // - Ensure `nodes` is always an array
+      const raw = response.data;
+
+      // Backend may return either a paginated object or a plain array of clusters
+      // in different contexts (tests/mocks or older endpoints). Always return a
+      // PaginatedResponse envelope so consumers can rely on a single shape.
+      if (Array.isArray(raw)) {
+        const normalized = raw.map((c: any) => ({
+          ...c,
+          name: c.name ?? undefined,
+          nodes: Array.isArray(c.nodes) ? c.nodes : [],
+        }));
+        return {
+          items: normalized as ClusterInfo[],
+          total: normalized.length,
+          page: 1,
+          page_size: normalized.length,
+          total_pages: 1,
+        } as PaginatedResponse<ClusterInfo>;
+      }
+
+      const data = raw as PaginatedResponse<ClusterInfo> & { items?: any };
+      const normalizedItems = (data.items || []).map((c: any) => ({
+        ...c,
+        name: c.name ?? undefined,
+        nodes: Array.isArray(c.nodes) ? c.nodes : [],
+      }));
+
+      return { ...data, items: normalizedItems } as PaginatedResponse<ClusterInfo>;
     });
   }
 
@@ -368,8 +401,40 @@ export class ApiClient {
    */
   async getClusterStats(clusterId: string): Promise<ClusterStats> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<ClusterStats>(`/clusters/${clusterId}/stats`);
-      return response.data;
+      const response = await this.client.get<any>(`/clusters/${clusterId}/stats`);
+      const raw = response.data || {};
+
+      // Helpers to parse numeric fields coming from various server shapes
+      const toNumberOrUndefined = (v: any) => (v === undefined || v === null ? undefined : Number(v));
+      const toNumberOrZero = (v: any) => Number(v ?? 0);
+
+      const normalized: ClusterStats = {
+        activePrimaryShards: toNumberOrZero(
+          raw.activePrimaryShards ?? raw.active_primary_shards ?? raw.active_primary_shards
+        ),
+        activeShards: toNumberOrZero(raw.activeShards ?? raw.active_shards ?? raw.active_shards),
+        clusterName:
+          raw.clusterName ?? raw.cluster_name ?? raw.cluster ?? raw.name ?? clusterId,
+        cpuPercent: toNumberOrUndefined(raw.cpuPercent ?? raw.cpu_percent),
+        diskTotal: toNumberOrUndefined(raw.diskTotal ?? raw.disk_total_bytes ?? raw.disk_total),
+        diskUsed: toNumberOrUndefined(raw.diskUsed ?? raw.disk_used_bytes ?? raw.disk_used),
+        esVersion: raw.esVersion ?? raw.es_version ?? undefined,
+        health: raw.health ?? raw.status ?? 'unreachable',
+        initializingShards: toNumberOrZero(raw.initializingShards ?? raw.initializing_shards ?? 0),
+        loadAverage15m: toNumberOrUndefined(raw.loadAverage15m ?? raw.load_average_15m),
+        loadAverage1m: toNumberOrUndefined(raw.loadAverage1m ?? raw.load_average_1m),
+        loadAverage5m: toNumberOrUndefined(raw.loadAverage5m ?? raw.load_average_5m),
+        memoryTotal: toNumberOrUndefined(raw.memoryTotal ?? raw.memory_total),
+        memoryUsed: toNumberOrUndefined(raw.memoryUsed ?? raw.memory_used),
+        numberOfDataNodes: toNumberOrZero(raw.numberOfDataNodes ?? raw.number_of_data_nodes ?? 0),
+        numberOfDocuments: toNumberOrZero(raw.numberOfDocuments ?? raw.number_of_documents ?? 0),
+        numberOfIndices: toNumberOrZero(raw.numberOfIndices ?? raw.number_of_indices ?? 0),
+        numberOfNodes: toNumberOrZero(raw.numberOfNodes ?? raw.number_of_nodes ?? 0),
+        relocatingShards: toNumberOrZero(raw.relocatingShards ?? raw.relocating_shards ?? 0),
+        unassignedShards: toNumberOrZero(raw.unassignedShards ?? raw.unassigned_shards ?? 0),
+      } as ClusterStats;
+
+      return normalized;
     });
   }
 
@@ -537,7 +602,35 @@ export class ApiClient {
           },
         }
       );
-      return response.data;
+
+      // Normalize common index fields to guarantee frontend-friendly types
+      const data = response.data;
+      const normalizedItems = (data.items || []).map((idx: any) => {
+        const docsCount = Number(idx.docsCount ?? idx.docs_count ?? idx.docs?.count ?? 0);
+        const storeSize = Number(
+          idx.storeSize ?? idx.store_size ?? idx.store?.size_in_bytes ?? idx.storeSize ?? 0
+        );
+        const primaryShards = Number(
+          idx.primaryShards ?? idx.primary_shards ?? idx.primaryShards ?? 0
+        );
+        const replicaShards = Number(
+          idx.replicaShards ?? idx.replica_shards ?? idx.replicaShards ?? 0
+        );
+        return {
+          ...idx,
+          // Convert null uuid to undefined for cleaner frontend usage
+          uuid: idx.uuid ?? undefined,
+          name: idx.name ?? idx.index ?? idx.index_name ?? '',
+          docsCount,
+          storeSize,
+          primaryShards,
+          replicaShards,
+          health: idx.health ?? 'unknown',
+          status: idx.status ?? 'open',
+        } as IndexInfo;
+      });
+
+      return { ...data, items: normalizedItems } as PaginatedResponse<IndexInfo>;
     });
   }
 
@@ -581,6 +674,18 @@ export class ApiClient {
       // the Index Visualization flow. If so, preserve and return it; otherwise
       // return the legacy PaginatedResponse<ShardInfo>.
       const data = response.data as unknown as PaginatedShardsWithNodes | PaginatedResponse<ShardInfo>;
+
+      // Normalize relocating_node -> relocatingNode for each shard item so UI helpers
+      // that expect relocatingNode are always satisfied. Accept both snake_case and
+      // camelCase variants from the backend.
+      if (data && Array.isArray((data as any).items)) {
+        const normalizedItems = (data as any).items.map((sh: any) => ({
+          ...sh,
+          relocatingNode: sh.relocating_node ?? sh.relocatingNode ?? undefined,
+        }));
+        return { ...(data as any), items: normalizedItems } as typeof data;
+      }
+
       return data;
     });
   }
@@ -596,7 +701,11 @@ export class ApiClient {
       const response = await this.client.get<ShardInfo[]>(
         `/clusters/${clusterId}/nodes/${nodeId}/shards`
       );
-      return response.data;
+      // Normalize relocating_node to relocatingNode for each shard
+      return (response.data || []).map((sh: any) => ({
+        ...sh,
+        relocatingNode: sh.relocating_node ?? sh.relocatingNode ?? undefined,
+      })) as ShardInfo[];
     });
   }
 
@@ -1141,8 +1250,22 @@ export class ApiClient {
           ? `/clusters/${clusterId}/${request.index}/_analyze`
           : `/clusters/${clusterId}/_analyze`;
 
-      const response = await this.client.post<AnalyzeTextResponse>(endpoint, body);
-      return response.data;
+      // Server returns tokens in snake_case. Map to frontend AnalysisToken (camelCase)
+      const response = await this.client.post<any>(endpoint, body);
+      const raw = response.data as { tokens?: Array<Record<string, any>> };
+      const tokens = raw.tokens
+        ? raw.tokens.map((t) => ({
+            token: t.token,
+            position: t.position,
+            startOffset: t.start_offset,
+            endOffset: t.end_offset,
+            type: t.type,
+            positionLength: t.position_length ?? undefined,
+          }))
+        : [];
+
+      // Always return tokens array (frontend expects tokens to be defined)
+      return { tokens } as AnalyzeTextResponse;
     });
   }
 
@@ -1167,6 +1290,70 @@ export class ApiClient {
         filters: analysis.filter || {},
         charFilters: analysis.char_filter || {},
       } as IndexAnalyzersResponse;
+    });
+  }
+
+  /**
+   * Helper: fetch index settings and normalize to return the inner settings object
+   * The frontend expects response.data[indexName].settings to exist; return
+   * an empty object when missing to simplify callers.
+   */
+  async getIndexSettings(clusterId: string, indexName: string): Promise<Record<string, unknown>> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, unknown>>(
+        `/clusters/${clusterId}/${indexName}/_settings`
+      );
+
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName] as Record<string, unknown> | undefined;
+      if (!indexData || typeof indexData !== 'object') return {};
+      const settings = indexData.settings as Record<string, unknown> | undefined;
+      return settings && typeof settings === 'object' ? settings : {};
+    });
+  }
+
+  /**
+   * Helper: fetch index mappings and normalize to return the inner mappings object
+   * Return empty object when mappings are missing to simplify callers.
+   */
+  async getIndexMappings(clusterId: string, indexName: string): Promise<Record<string, unknown>> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, unknown>>(
+        `/clusters/${clusterId}/${indexName}/_mapping`
+      );
+
+      const responseData = (response.data || {}) as Record<string, unknown>;
+      const indexData = responseData[indexName] as Record<string, unknown> | undefined;
+      if (!indexData || typeof indexData !== 'object') return {};
+      const mappings = indexData.mappings as Record<string, unknown> | undefined;
+      return mappings && typeof mappings === 'object' ? mappings : {};
+    });
+  }
+
+  /**
+   * Helper: fetch cluster settings and ensure transient/persistent keys exist
+   * Consumers currently expect clusterSettings.transient and .persistent to be
+   * objects or undefined; normalize to always provide objects to simplify callers.
+   */
+  async getClusterSettings(
+    clusterId: string,
+    options?: { includeDefaults?: boolean; flatSettings?: boolean }
+  ): Promise<{ transient: Record<string, unknown>; persistent: Record<string, unknown>; defaults?: Record<string, unknown> }> {
+    return this.executeWithRetry(async () => {
+      const url = `/clusters/${clusterId}/_cluster/settings` +
+        (options ? `?${new URLSearchParams({
+          ...(options.includeDefaults ? { include_defaults: 'true' } : {}),
+          ...(options.flatSettings === false ? { flat_settings: 'false' } : {}),
+        }).toString()}` : '');
+
+      const response = await this.client.get<Record<string, unknown>>(url);
+
+      const data = (response.data || {}) as Record<string, unknown>;
+      const transient = (data.transient as Record<string, unknown> | undefined) ?? {};
+      const persistent = (data.persistent as Record<string, unknown> | undefined) ?? {};
+      const defaults = (data.defaults as Record<string, unknown> | undefined) ?? undefined;
+
+      return { transient, persistent, defaults };
     });
   }
 
@@ -1273,11 +1460,46 @@ export class ApiClient {
    */
   async getSnapshots(clusterId: string, repository: string): Promise<SnapshotInfo[]> {
     return this.executeWithRetry(async () => {
-      const response = await this.client.get<{ snapshots: SnapshotInfo[] }>(
+      const response = await this.client.get<{ snapshots: Array<Record<string, any>> }>(
         `/clusters/${clusterId}/_snapshot/${repository}/_all`
       );
 
-      return response.data.snapshots || [];
+    const raw = response.data.snapshots || [];
+    // Normalize snake_case fields and compute shards progress if present.
+    // Ensure startTime and durationInMillis are always present to satisfy
+    // frontend expectations and TypeScript contracts.
+    const normalized: SnapshotInfo[] = raw.map((s) => {
+      const startTime = s.start_time ?? s.startTime ?? new Date(0).toISOString();
+      const endTime = s.end_time ?? s.endTime ?? undefined;
+      const duration = s.duration_in_millis ?? s.durationInMillis ?? 0;
+
+      const rawShards = s.shards ?? s.shards_stats ?? { total: 0, successful: 0, failed: 0 };
+      const shards = {
+        total: Number(rawShards.total ?? 0),
+        successful: Number(rawShards.successful ?? 0),
+        failed: Number(rawShards.failed ?? 0),
+      };
+
+      const indices = s.indices ?? [];
+
+      return {
+        snapshot: s.snapshot,
+        uuid: s.uuid,
+        state: s.state,
+        indices: indices,
+        start_time: s.start_time ?? startTime,
+        end_time: s.end_time ?? endTime,
+        duration_in_millis: s.duration_in_millis ?? duration,
+        // Provide camelCase aliases so UI code that reads startTime/durationInMillis
+        // can rely on these fields being present after normalization.
+        startTime: startTime,
+        endTime: endTime,
+        durationInMillis: duration,
+        shards: shards,
+      } as SnapshotInfo;
+    });
+
+    return normalized;
     });
   }
 
@@ -1453,13 +1675,72 @@ export class ApiClient {
       );
 
       // The response is an object with indices as keys
-      const indexData = response.data.indices?.[indexName];
+      const indexDataRaw = response.data.indices?.[indexName] as any;
 
-      if (!indexData) {
+      if (!indexDataRaw) {
         throw new Error(`Statistics not found for index: ${indexName}`);
       }
 
-      return indexData;
+      // Normalize a minimal stats shape used by the UI (IndexStatistics page).
+      // Convert snake_case fields to camelCase and ensure numeric defaults.
+      const normalizeNumber = (v: any) => (v === undefined || v === null ? 0 : Number(v));
+
+      const total = indexDataRaw.total || indexDataRaw._all || {};
+      const primaries = indexDataRaw.primaries || {};
+
+      const normalized: IndexStats = {
+        total: {
+          docs: {
+            count: normalizeNumber(total.docs?.count ?? total.docs_count ?? total.docs?.count),
+            deleted: normalizeNumber(total.docs?.deleted ?? total.docs_deleted ?? 0),
+          },
+          store: {
+            sizeInBytes: normalizeNumber(
+              total.store?.size_in_bytes ?? total.store?.sizeInBytes ?? total.store_size_in_bytes
+            ),
+          },
+        },
+        primaries: {
+          docs: {
+            count: normalizeNumber(primaries.docs?.count ?? primaries.docs_count ?? 0),
+            deleted: normalizeNumber(primaries.docs?.deleted ?? primaries.docs_deleted ?? 0),
+          },
+          store: {
+            sizeInBytes: normalizeNumber(
+              primaries.store?.size_in_bytes ?? primaries.store?.sizeInBytes ?? 0
+            ),
+          },
+        },
+      } as any;
+
+      // Indexing/search/segments/merges/refresh/flush/search fields the UI expects
+      // may be nested under total or primaries. Copy over common groups if present.
+      const pickGroup = (src: any, dst: any, groupName: string) => {
+        if (!src) return;
+        const g = src[groupName] ?? src[groupName.replace(/([A-Z])/g, '_$1').toLowerCase()];
+        if (g) dst[groupName] = Object.keys(g).reduce((acc: any, k) => {
+          // convert snake_case keys to camelCase for commonly used fields
+          const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+          acc[camel] = g[k];
+          return acc;
+        }, {} as Record<string, any>);
+      };
+
+      pickGroup(total, normalized.total as any, 'indexing');
+      pickGroup(total, normalized.total as any, 'search');
+      pickGroup(total, normalized.total as any, 'segments');
+      pickGroup(total, normalized.total as any, 'merges');
+      pickGroup(total, normalized.total as any, 'refresh');
+      pickGroup(total, normalized.total as any, 'flush');
+
+      pickGroup(primaries, normalized.primaries as any, 'indexing');
+      pickGroup(primaries, normalized.primaries as any, 'search');
+      pickGroup(primaries, normalized.primaries as any, 'segments');
+      pickGroup(primaries, normalized.primaries as any, 'merges');
+      pickGroup(primaries, normalized.primaries as any, 'refresh');
+      pickGroup(primaries, normalized.primaries as any, 'flush');
+
+      return normalized;
     });
   }
 
@@ -1507,7 +1788,53 @@ export class ApiClient {
         throw new Error(`Failed to fetch metrics: ${response.statusText}`);
       }
 
-      return response.json() as Promise<ClusterMetricsHistoryResponse>;
+      const raw = (await response.json()) as any;
+
+      // Normalize into a consistent frontend-friendly shape:
+      // { data: Array<Point>, prometheus_queries?: Record, raw_metrics?: Record }
+      const normalizePoint = (p: any) => {
+        // Helper to convert null -> undefined and coerce numeric-like values
+        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+
+        const timestampIso =
+          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          undefined;
+
+        return {
+          // preserve any extra fields the backend provided
+          ...p,
+          // then overwrite with normalized fields
+          date: timestampIso,
+          node_count: num(p.node_count ?? p.nodeCount ?? p.nodes ?? p.node_count),
+          index_count: num(p.index_count ?? p.indexCount ?? p.indices ?? p.index_count),
+          document_count: num(p.document_count ?? p.documentCount ?? p.documents ?? p.document_count),
+          shard_count: num(p.shard_count ?? p.shardCount ?? p.shards ?? p.shard_count),
+          unassigned_shards: num(
+            p.unassigned_shards ?? p.unassignedShards ?? p.unassigned ?? p.unassigned_shards
+          ),
+          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu ?? p.cpu_percent),
+          memory_used_bytes: num(
+            p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory ?? p.memory_used_bytes
+          ),
+          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk ?? p.disk_used_bytes),
+        };
+      };
+
+      const dataArr: any[] = Array.isArray(raw)
+        ? raw.map(normalizePoint)
+        : Array.isArray(raw?.data)
+        ? raw.data.map(normalizePoint)
+        : [];
+
+      const normalized = {
+        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
+        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+        data: dataArr,
+        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
+        raw_metrics: raw.raw_metrics ?? raw.rawMetrics ?? {},
+      } as ClusterMetricsHistoryResponse;
+
+      return normalized;
     });
   }
 
@@ -1533,7 +1860,47 @@ export class ApiClient {
         throw new Error(`Failed to fetch metrics history: ${response.statusText}`);
       }
 
-      return response.json() as Promise<ClusterMetricsHistoryResponse>;
+      const raw = (await response.json()) as any;
+
+      // Reuse the same normalization strategy as getClusterMetrics
+      const normalizePoint = (p: any) => {
+        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+        const timestampIso =
+          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          undefined;
+        return {
+          ...p,
+          date: timestampIso,
+          node_count: num(p.node_count ?? p.nodeCount ?? p.nodes ?? p.node_count),
+          index_count: num(p.index_count ?? p.indexCount ?? p.indices ?? p.index_count),
+          document_count: num(p.document_count ?? p.documentCount ?? p.documents ?? p.document_count),
+          shard_count: num(p.shard_count ?? p.shardCount ?? p.shards ?? p.shard_count),
+          unassigned_shards: num(
+            p.unassigned_shards ?? p.unassignedShards ?? p.unassigned ?? p.unassigned_shards
+          ),
+          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu ?? p.cpu_percent),
+          memory_used_bytes: num(
+            p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory ?? p.memory_used_bytes
+          ),
+          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk ?? p.disk_used_bytes),
+        };
+      };
+
+      const dataArr: any[] = Array.isArray(raw)
+        ? raw.map(normalizePoint)
+        : Array.isArray(raw?.data)
+        ? raw.data.map(normalizePoint)
+        : [];
+
+      const normalized = {
+        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
+        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+        data: dataArr,
+        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
+        raw_metrics: raw.raw_metrics ?? raw.rawMetrics ?? {},
+      } as ClusterMetricsHistoryResponse;
+
+      return normalized;
     });
   }
 
@@ -1548,20 +1915,52 @@ export class ApiClient {
    params?: { start?: number; end?: number }
   ): Promise<NodeMetricsHistoryResponse> {
    return this.executeWithRetry(async () => {
-     const url = new URL(`/api/clusters/${clusterId}/metrics/nodes/${nodeId}`, window.location.origin);
-     if (params?.start) url.searchParams.append('start', String(params.start));
-     if (params?.end) url.searchParams.append('end', String(params.end));
+      const url = new URL(`/api/clusters/${clusterId}/metrics/nodes/${nodeId}`, window.location.origin);
+      if (params?.start) url.searchParams.append('start', String(params.start));
+      if (params?.end) url.searchParams.append('end', String(params.end));
 
-     const response = await fetch(url.toString(), {
-       credentials: 'include',
-     });
+      const response = await fetch(url.toString(), {
+        credentials: 'include',
+      });
 
-     if (!response.ok) {
-       throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
-     }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch node metrics: ${response.statusText}`);
+      }
 
-     return response.json() as Promise<NodeMetricsHistoryResponse>;
-   });
+      const raw = (await response.json()) as any;
+
+      const normalizePoint = (p: any) => {
+        const num = (v: any) => (v === null || v === undefined ? undefined : Number(v));
+        const timestampIso =
+          p.date ?? p.time ?? (p.timestamp ? new Date(Number(p.timestamp) * 1000).toISOString() : undefined) ??
+          undefined;
+
+        return {
+          ...p,
+          date: timestampIso,
+          cpu_percent: num(p.cpu_percent ?? p.cpuPercent ?? p.cpu),
+          memory_used_bytes: num(p.memory_used_bytes ?? p.memoryUsedBytes ?? p.memory),
+          disk_used_bytes: num(p.disk_used_bytes ?? p.diskUsedBytes ?? p.disk),
+          heap_used_bytes: num(p.heap_used_bytes ?? p.heapUsedBytes ?? p.heap),
+        };
+      };
+
+      const dataArr: any[] = Array.isArray(raw)
+        ? raw.map(normalizePoint)
+        : Array.isArray(raw?.data)
+        ? raw.data.map(normalizePoint)
+        : [];
+
+      const normalized = {
+        cluster_id: raw.cluster_id ?? raw.clusterId ?? clusterId,
+        node_id: raw.node_id ?? raw.nodeId ?? nodeId,
+        time_range: raw.time_range ?? raw.timeRange ?? { start: params?.start ?? 0, end: params?.end ?? 0 },
+        data: dataArr,
+        prometheus_queries: raw.prometheus_queries ?? raw.prometheusQueries ?? {},
+      } as NodeMetricsHistoryResponse;
+
+      return normalized;
+    });
   }
 
   /**
@@ -1626,10 +2025,10 @@ export class ApiClient {
    *
    * Requirements: topology-sankey-view 2.1
    */
-  async getSankeyData(
-    clusterId: string,
-    params?: SankeyQueryParams
-  ): Promise<SankeyResponse> {
+   async getSankeyData(
+     clusterId: string,
+     params?: SankeyQueryParams
+   ): Promise<SankeyResponse> {
     return this.executeWithRetry(async () => {
       const queryParams: Record<string, string | number | boolean> = {};
       if (params?.topIndices !== undefined) queryParams['topIndices'] = params.topIndices;
@@ -1642,7 +2041,36 @@ export class ApiClient {
         `/clusters/${clusterId}/topology/sankey`,
         { params: queryParams }
       );
-      return response.data;
+
+      // Narrow node.kind to the frontend expected union where possible.
+      const data = response.data as any;
+      const nodes = (data.nodes || []).map((n: any) => {
+        const kindRaw = (n.kind as string | undefined) ?? 'index';
+        // Normalize any server variants to one of the three frontend kinds
+        let kind: 'index' | 'node' | 'unassigned' = 'index';
+        if (kindRaw === 'node' || kindRaw === 'NODE') kind = 'node';
+        else if (kindRaw === 'unassigned' || kindRaw === 'unassigned_shard' || kindRaw === 'unassignedShard') kind = 'unassigned';
+        else kind = 'index';
+
+        return {
+          id: n.id,
+          kind,
+          totalShards: Number(n.totalShards ?? n.total_shards ?? n.total ?? 0),
+          primaryShards: Number(n.primaryShards ?? n.primary_shards ?? n.primary ?? 0),
+          replicaShards: Number(n.replicaShards ?? n.replica_shards ?? n.replica ?? 0),
+          storeBytes: Number(n.storeBytes ?? n.store_bytes ?? 0),
+        };
+      });
+
+      const links = (data.links || []).map((l: any) => ({
+        source: l.source,
+        target: l.target,
+        totalShards: Number(l.totalShards ?? l.total_shards ?? l.value ?? 0),
+        primaryShards: Number(l.primaryShards ?? l.primary_shards ?? 0),
+        replicaShards: Number(l.replicaShards ?? l.replica_shards ?? 0),
+      }));
+
+      return { nodes, links, meta: data.meta ?? {} } as SankeyResponse;
     });
   }
 }

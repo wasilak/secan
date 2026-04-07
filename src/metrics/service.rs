@@ -7,7 +7,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tracing::{debug, warn};
 use utoipa::ToSchema;
 
-use crate::cluster::client::ElasticsearchClient;
 use crate::cluster::manager::{
     ClusterConnection, HealthStatus, HealthStatus as ClusterHealthStatus,
 };
@@ -243,7 +242,7 @@ impl MetricsService for InternalMetricsService {
     ) -> Result<ClusterMetrics> {
         // For internal metrics, we fetch current live data
         // Historical data is not available, so we return instant snapshot
-        let client = &self.cluster_connection.client;
+        let conn = &self.cluster_connection;
 
         let mut metrics = ClusterMetrics {
             cluster_id: self.cluster_connection.id.clone(),
@@ -260,7 +259,7 @@ impl MetricsService for InternalMetricsService {
         };
 
         // Get cluster health
-        if let Ok(health) = client.health().await {
+        if let Ok(health) = conn.health().await {
             if let Ok(health_struct) =
                 serde_json::from_value::<crate::cluster::manager::ClusterHealth>(health)
             {
@@ -274,7 +273,7 @@ impl MetricsService for InternalMetricsService {
         }
 
         // Get node count from cluster state
-        if let Ok(state) = client.cluster_state().await {
+        if let Ok(state) = conn.cluster_state().await {
             if let Some(nodes) = state.get("nodes") {
                 if let Some(node_map) = nodes.as_object() {
                     metrics.node_count = Some(node_map.len() as u32);
@@ -283,7 +282,7 @@ impl MetricsService for InternalMetricsService {
         }
 
         // Get index count and document count from indices stats
-        if let Ok(indices) = client.indices_stats().await {
+        if let Ok(indices) = conn.indices_stats().await {
             if let Some(indices_obj) = indices.get("indices") {
                 if let Some(indices_map) = indices_obj.as_object() {
                     // Count indices (subtract "_all" if present)
@@ -303,7 +302,7 @@ impl MetricsService for InternalMetricsService {
         }
 
         // Aggregate node-level metrics (CPU, memory, disk) from nodes stats
-        if let Ok(nodes_stats) = client.nodes_stats().await {
+        if let Ok(nodes_stats) = conn.nodes_stats().await {
             if let Some(stats_nodes) = nodes_stats.get("nodes").and_then(|n| n.as_object()) {
                 let mut total_cpu = 0.0;
                 let mut total_memory_used = 0.0;
@@ -380,13 +379,13 @@ impl MetricsService for InternalMetricsService {
     }
 
     async fn get_node_metrics(&self, _cluster_id: &str) -> Result<Vec<NodeMetrics>> {
-        let client = &self.cluster_connection.client;
+        let conn = &self.cluster_connection;
 
         let mut node_metrics = Vec::new();
 
         // Get nodes info and stats
-        if let Ok(nodes_info) = client.nodes_info().await {
-            if let Ok(nodes_stats) = client.nodes_stats().await {
+        if let Ok(nodes_info) = conn.nodes_info().await {
+            if let Ok(nodes_stats) = conn.nodes_stats().await {
                 if let Some(nodes) = nodes_info.get("nodes").and_then(|n| n.as_object()) {
                     for (node_id, node_info) in nodes {
                         let node_name = node_info
@@ -447,8 +446,8 @@ impl MetricsService for InternalMetricsService {
     }
 
     async fn get_health(&self, _cluster_id: &str) -> Result<Option<HealthStatus>> {
-        let client = &self.cluster_connection.client;
-        match client.health().await {
+        let conn = &self.cluster_connection;
+        match conn.health().await {
             Ok(health) => {
                 if let Ok(health_struct) =
                     serde_json::from_value::<crate::cluster::manager::ClusterHealth>(health)
@@ -466,7 +465,7 @@ impl MetricsService for InternalMetricsService {
     }
 
     async fn health_check(&self) -> Result<bool> {
-        match self.cluster_connection.client.health().await {
+        match self.cluster_connection.health().await {
             Ok(_) => Ok(true),
             Err(_) => Ok(false),
         }

@@ -146,13 +146,9 @@ export interface TasksQueryParams {
   action_filter?: string;
 }
 
-/**
- * Error response from tasks API
- */
-export interface TaskErrorResponse {
-  error: string;
-  message: string;
-}
+// Task API errors are described by the shared ClusterErrorResponse in the
+// generated API types (frontend/src/types/api.ts). We intentionally do not
+// duplicate the shape here to avoid divergence.
 
 /**
  * Combined composite ID for tasks (node:id)

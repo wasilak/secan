@@ -106,7 +106,7 @@ function ClusterDropdownItemInner({
             }}
             aria-label={`Health: ${stats?.health || 'unknown'}`}
           />
-          <Text size="sm">{cluster.name}</Text>
+          <Text size="sm">{cluster.name ?? cluster.id}</Text>
         </Group>
         {isActive && (
           <div

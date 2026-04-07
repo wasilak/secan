@@ -187,13 +187,9 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
         throw new Error('Cluster ID and index name are required');
       }
 
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        clusterId,
-        'GET',
-        `/${indexName}/_stats`
-      );
-
-      return response.data;
+      // Use typed client helper which normalizes stats response
+      const stats = await apiClient.getIndexStats(clusterId, indexName);
+      return stats as unknown as Record<string, unknown>;
     },
     enabled: !!clusterId && !!indexName && activeTab === 'stats',
   });
@@ -210,22 +206,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
         throw new Error('Cluster ID and index name are required');
       }
 
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        clusterId,
-        'GET',
-        `/${indexName}/_settings`
-      );
-
-      const responseData = (response.data || {}) as Record<string, unknown>;
-      const indexData = responseData[indexName];
-      
-      // Handle case where index response is empty (empty index with 0 docs)
-      if (!indexData || typeof indexData !== 'object') {
-        return {} as Record<string, unknown>;
-      }
-      
-      const settings = (indexData as Record<string, unknown>).settings;
-      return (settings && typeof settings === 'object') ? (settings as Record<string, unknown>) : ({} as Record<string, unknown>);
+      return await apiClient.getIndexSettings(clusterId, indexName);
     },
     enabled: !!clusterId && !!indexName,
   });
@@ -242,22 +223,7 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
         throw new Error('Cluster ID and index name are required');
       }
 
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        clusterId,
-        'GET',
-        `/${indexName}/_mapping`
-      );
-
-      const responseData = (response.data || {}) as Record<string, unknown>;
-      const indexData = responseData[indexName];
-      
-      // Handle case where index has no mappings (empty index with 0 docs)
-      if (!indexData || typeof indexData !== 'object') {
-        return {} as Record<string, unknown>;
-      }
-      
-      const mappings = (indexData as Record<string, unknown>).mappings;
-      return (mappings && typeof mappings === 'object') ? (mappings as Record<string, unknown>) : ({} as Record<string, unknown>);
+      return await apiClient.getIndexMappings(clusterId, indexName);
     },
     enabled: !!clusterId && !!indexName,
   });

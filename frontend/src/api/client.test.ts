@@ -102,7 +102,13 @@ describe('ApiClient', () => {
 
       const client = new ApiClient();
       const clusters = await client.getClusters();
-      expect(clusters).toEqual(mockClusters);
+      expect(clusters).toEqual({
+        items: mockClusters,
+        total: mockClusters.length,
+        page: 1,
+        page_size: mockClusters.length,
+        total_pages: 1,
+      });
     });
 
     it('should handle authorization errors', async () => {
@@ -198,6 +204,167 @@ describe('ApiClient', () => {
       const response = await client.proxyRequest('cluster1', 'GET', '_cat/nodes');
       expect(response.data).toEqual([]);
       expect(response.contentType).toBe('application/json');
+    });
+  });
+
+  describe('metrics normalization', () => {
+    it('should normalize cluster metrics (array shape)', async () => {
+      const raw = [
+        { date: '2023-01-01T00:00:00Z', node_count: '3', index_count: '10', cpu_percent: '12.5' },
+      ];
+
+      server.use(
+        http.get('/api/clusters/cluster1/metrics', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const resp = await client.getClusterMetrics('cluster1');
+      expect(resp.data).toHaveLength(1);
+      expect(resp.data[0].node_count).toBe(3);
+      expect(resp.data[0].index_count).toBe(10);
+      expect(resp.data[0].cpu_percent).toBe(12.5);
+    });
+
+    it('should normalize cluster metrics (object with data)', async () => {
+      const raw = {
+        data: [
+          { date: '2023-01-01T00:00:00Z', nodeCount: 4, indexCount: 20, cpuPercent: 5 },
+        ],
+        prometheus_queries: { q: 'up' },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/metrics/history', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const resp = await client.getClusterMetricsHistory('cluster1');
+      expect(resp.data).toHaveLength(1);
+      expect(resp.data[0].node_count).toBe(4);
+      expect(resp.prometheus_queries).toBeDefined();
+    });
+
+    it('should normalize node metrics', async () => {
+      const raw = {
+        data: [
+          { date: '2023-01-01T00:00:00Z', cpuPercent: '33.3', memory_used_bytes: '1024' },
+        ],
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/metrics/nodes/nodeA', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const resp = await client.getNodeMetrics('cluster1', 'nodeA');
+      expect(resp.data).toHaveLength(1);
+      expect(resp.data[0].cpu_percent).toBeCloseTo(33.3);
+      expect(resp.data[0].memory_used_bytes).toBe(1024);
+    });
+  });
+
+  describe('index helpers', () => {
+    it('should return index settings when available', async () => {
+      const raw = {
+        'my-index': {
+          settings: {
+            index: { number_of_shards: 1 },
+          },
+        },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/my-index/_settings', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const settings = await client.getIndexSettings('cluster1', 'my-index');
+      expect(settings).toEqual(raw['my-index'].settings);
+    });
+
+    it('should return empty object for missing settings', async () => {
+      server.use(
+        http.get('/api/clusters/cluster1/empty-index/_settings', () => {
+          return HttpResponse.json({}, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const settings = await client.getIndexSettings('cluster1', 'empty-index');
+      expect(settings).toEqual({});
+    });
+
+    it('should return index mappings when available', async () => {
+      const raw = {
+        'my-index': {
+          mappings: {
+            properties: { foo: { type: 'keyword' } },
+          },
+        },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/my-index/_mapping', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const mappings = await client.getIndexMappings('cluster1', 'my-index');
+      expect(mappings).toEqual(raw['my-index'].mappings);
+    });
+
+    it('should return empty object for missing mappings', async () => {
+      server.use(
+        http.get('/api/clusters/cluster1/empty-index/_mapping', () => {
+          return HttpResponse.json({}, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const mappings = await client.getIndexMappings('cluster1', 'empty-index');
+      expect(mappings).toEqual({});
+    });
+  });
+
+  describe('cluster settings helper', () => {
+    it('should normalize missing settings to empty objects', async () => {
+      server.use(
+        http.get('/api/clusters/cluster1/_cluster/settings', () => {
+          return HttpResponse.json({}, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const settings = await client.getClusterSettings('cluster1');
+      expect(settings.transient).toEqual({});
+      expect(settings.persistent).toEqual({});
+    });
+
+    it('should return provided transient and persistent settings', async () => {
+      const raw = {
+        transient: { 'cluster.routing.allocation.enable': 'none' },
+        persistent: { 'indices.recovery.max_bytes_per_sec': '40mb' },
+      };
+
+      server.use(
+        http.get('/api/clusters/cluster1/_cluster/settings', () => {
+          return HttpResponse.json(raw, { headers: { 'content-type': 'application/json' } });
+        })
+      );
+
+      const client = new ApiClient();
+      const settings = await client.getClusterSettings('cluster1');
+      expect(settings.transient).toEqual(raw.transient);
+      expect(settings.persistent).toEqual(raw.persistent);
     });
   });
 

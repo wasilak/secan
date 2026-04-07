@@ -11,7 +11,6 @@ use utoipa::{IntoParams, ToSchema};
 
 use super::ClusterState;
 use crate::auth::middleware::AuthenticatedUser;
-use crate::cluster::client::ElasticsearchClient;
 
 /// Task information from Elasticsearch Tasks API
 ///
@@ -88,20 +87,8 @@ pub struct CancelTaskResponse {
     pub message: String,
 }
 
-/// Error response for task operations
-#[derive(Debug, Serialize, ToSchema)]
-pub struct TaskErrorResponse {
-    #[schema(example = "cluster_not_found")]
-    pub error: String,
-    #[schema(example = "Failed to get cluster: Connection refused")]
-    pub message: String,
-}
-
-impl IntoResponse for TaskErrorResponse {
-    fn into_response(self) -> axum::response::Response {
-        (StatusCode::BAD_REQUEST, Json(self)).into_response()
-    }
-}
+// Note: Task handlers use crate::routes::clusters::ClusterErrorResponse for errors.
+// TaskErrorResponse was removed to centralize cluster error handling.
 
 /// Query parameters for listing tasks
 #[derive(Debug, Deserialize, IntoParams, ToSchema)]
@@ -218,9 +205,9 @@ fn apply_filters(
     ),
     responses(
         (status = 200, body = TasksListResponse),
-        (status = 400, body = TaskErrorResponse),
-        (status = 401, body = TaskErrorResponse),
-        (status = 404, body = TaskErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Clusters"
 )]
@@ -229,7 +216,7 @@ pub async fn fetch_cluster_tasks(
     Path(cluster_id): Path<String>,
     Query(params): Query<TasksQueryParams>,
     _user: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<TasksListResponse>, TaskErrorResponse> {
+) -> Result<Json<TasksListResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         type_filter = ?params.type_filter,
@@ -242,32 +229,44 @@ pub async fn fetch_cluster_tasks(
         .cluster_manager
         .get_cluster(&cluster_id)
         .await
-        .map_err(|e| TaskErrorResponse {
-            error: "cluster_not_found".to_string(),
-            message: format!("Failed to get cluster: {}", e),
+        .map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Failed to get cluster: {}", e),
+            )
         })?;
 
-    // Fetch tasks from Elasticsearch via the client's request method
+    if !cluster.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
+
+    // Fetch tasks from Elasticsearch via the ClusterConnection request proxy
     let tasks_response = cluster
-        .client
         .request(reqwest::Method::GET, "/_tasks?pretty", None)
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "Failed to fetch tasks");
-            TaskErrorResponse {
-                error: "fetch_failed".to_string(),
-                message: format!("Failed to fetch tasks: {}", e),
-            }
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "fetch_failed",
+                format!("Failed to fetch tasks: {}", e),
+            )
         })?;
 
-    let text = tasks_response.text().await.map_err(|e| TaskErrorResponse {
-        error: "parse_error".to_string(),
-        message: format!("Failed to parse response: {}", e),
+    let text = tasks_response.text().await.map_err(|e| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "parse_error",
+            format!("Failed to parse response: {}", e),
+        )
     })?;
 
-    let tasks_json: Value = serde_json::from_str(&text).map_err(|e| TaskErrorResponse {
-        error: "json_error".to_string(),
-        message: format!("Failed to parse JSON: {}", e),
+    let tasks_json: Value = serde_json::from_str(&text).map_err(|e| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "json_error",
+            format!("Failed to parse JSON: {}", e),
+        )
     })?;
 
     // Transform response
@@ -310,9 +309,9 @@ pub async fn fetch_cluster_tasks(
     ),
     responses(
         (status = 200, body = TaskDetailsResponse),
-        (status = 400, body = TaskErrorResponse),
-        (status = 401, body = TaskErrorResponse),
-        (status = 404, body = TaskErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Clusters"
 )]
@@ -320,7 +319,7 @@ pub async fn get_task_details(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,
     _user: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<TaskDetailsResponse>, TaskErrorResponse> {
+) -> Result<Json<TaskDetailsResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         task_id = %task_id,
@@ -332,14 +331,22 @@ pub async fn get_task_details(
         .cluster_manager
         .get_cluster(&cluster_id)
         .await
-        .map_err(|e| TaskErrorResponse {
-            error: "cluster_not_found".to_string(),
-            message: format!("Failed to get cluster: {}", e),
+        .map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Failed to get cluster: {}", e),
+            )
         })?;
 
-    // Fetch task details from Elasticsearch via the client's request method
+    if !cluster.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
+
+    // Fetch task details from Elasticsearch via the ClusterConnection request proxy
     let task_response = cluster
-        .client
         .request(
             reqwest::Method::GET,
             &format!("/_tasks/{}?pretty", task_id),
@@ -348,20 +355,24 @@ pub async fn get_task_details(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "Failed to fetch task details");
-            TaskErrorResponse {
-                error: "fetch_failed".to_string(),
-                message: format!("Failed to fetch task details: {}", e),
-            }
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "fetch_failed",
+                format!("Failed to fetch task details: {}", e),
+            )
         })?;
 
-    let text = task_response.text().await.map_err(|e| TaskErrorResponse {
-        error: "parse_error".to_string(),
-        message: format!("Failed to parse response: {}", e),
+    let text = task_response.text().await.map_err(|e| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "parse_error",
+            format!("Failed to parse response: {}", e),
+        )
     })?;
 
-    let task_json: Value = serde_json::from_str(&text).map_err(|e| TaskErrorResponse {
-        error: "json_error".to_string(),
-        message: format!("Failed to parse JSON: {}", e),
+    let task_json: Value = serde_json::from_str(&text).map_err(|e| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "json_error",
+            format!("Failed to parse JSON: {}", e),
+        )
     })?;
 
     // Extract task info and create TaskDetails
@@ -423,10 +434,10 @@ pub async fn get_task_details(
 
     let task_info = serde_json::from_value::<TaskInfo>(task_value.clone()).map_err(|e| {
         tracing::warn!(error = %e, "Failed to deserialize task");
-        TaskErrorResponse {
-            error: "deserialize_error".to_string(),
-            message: format!("Failed to deserialize task: {}", e),
-        }
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "deserialize_error",
+            format!("Failed to deserialize task: {}", e),
+        )
     })?;
 
     let task_details = TaskDetails {
@@ -451,9 +462,9 @@ pub async fn get_task_details(
     ),
     responses(
         (status = 200, body = CancelTaskResponse),
-        (status = 400, body = TaskErrorResponse),
-        (status = 401, body = TaskErrorResponse),
-        (status = 404, body = TaskErrorResponse)
+        (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
+        (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
     ),
     tag = "Clusters"
 )]
@@ -461,7 +472,7 @@ pub async fn cancel_cluster_task(
     State(state): State<ClusterState>,
     Path((cluster_id, task_id)): Path<(String, String)>,
     _user: Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<Json<CancelTaskResponse>, TaskErrorResponse> {
+) -> Result<Json<CancelTaskResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         task_id = %task_id,
@@ -473,14 +484,22 @@ pub async fn cancel_cluster_task(
         .cluster_manager
         .get_cluster(&cluster_id)
         .await
-        .map_err(|e| TaskErrorResponse {
-            error: "cluster_not_found".to_string(),
-            message: format!("Failed to get cluster: {}", e),
+        .map_err(|e| {
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "cluster_not_found",
+                format!("Failed to get cluster: {}", e),
+            )
         })?;
 
-    // Cancel task via Elasticsearch API using client's request method
+    if !cluster.accessible {
+        return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+            &cluster_id,
+            cluster.accessible_reason.clone(),
+        ));
+    }
+
+    // Cancel task via Elasticsearch API using ClusterConnection request proxy
     let response = cluster
-        .client
         .request(
             reqwest::Method::POST,
             &format!("/_tasks/{}/_cancel", task_id),
@@ -489,16 +508,18 @@ pub async fn cancel_cluster_task(
         .await
         .map_err(|e| {
             tracing::warn!(error = %e, "Failed to cancel task");
-            TaskErrorResponse {
-                error: "cancel_failed".to_string(),
-                message: format!("Failed to cancel task: {}", e),
-            }
+            crate::routes::clusters::ClusterErrorResponse::simple(
+                "cancel_failed",
+                format!("Failed to cancel task: {}", e),
+            )
         })?;
 
     let status = response.status();
-    let text = response.text().await.map_err(|e| TaskErrorResponse {
-        error: "parse_error".to_string(),
-        message: format!("Failed to parse response: {}", e),
+    let text = response.text().await.map_err(|e| {
+        crate::routes::clusters::ClusterErrorResponse::simple(
+            "parse_error",
+            format!("Failed to parse response: {}", e),
+        )
     })?;
 
     if status.is_success() {
@@ -525,10 +546,10 @@ pub async fn cancel_cluster_task(
             "Failed to cancel task"
         );
 
-        Err(TaskErrorResponse {
-            error: "cancel_error".to_string(),
-            message: format!("Failed to cancel task: {}", error_msg),
-        })
+        Err(crate::routes::clusters::ClusterErrorResponse::simple(
+            "cancel_error",
+            format!("Failed to cancel task: {}", error_msg),
+        ))
     }
 }
 

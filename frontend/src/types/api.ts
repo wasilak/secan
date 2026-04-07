@@ -1,67 +1,82 @@
 /**
- * API types for Secan backend communication
+ * Compatibility shim for OpenAPI-generated types.
+ *
+ * Keep this file small: prefer aliases to the generated types in
+ * ./openapi.generated.ts. Add local normalization only where the generated
+ * schema uses `null` and the frontend expects `undefined`.
  */
 
-/**
- * Generic paginated response wrapper
- */
-export interface PaginatedResponse<T> {
-  /** Items for the current page */
+import * as OAPI from './openapi.generated';
+export { OAPI };
+
+// Convert `null` in generated types to `undefined` recursively for nicer usage
+type NullToUndefined<T> = T extends null
+  ? undefined
+  : T extends (infer U)[]
+  ? NullToUndefined<U>[]
+  : T extends object
+  ? { [K in keyof T]: NullToUndefined<T[K]> }
+  : T;
+
+export type PaginatedResponse<T> = {
   items: T[];
-  /** Total count of all items across all pages */
-  total: number;
-  /** Current page number (1-indexed) */
-  page: number;
-  /** Items per page */
-  page_size: number;
-  /** Total number of pages */
-  total_pages: number;
-}
-
-/**
- * Paginated shards response that includes authoritative node metadata
- * returned by the backend for the Index Visualization flow.
- */
-export interface PaginatedShardsWithNodes {
-  items: ShardInfo[];
   total: number;
   page: number;
   page_size: number;
   total_pages: number;
-  nodes: NodeInfo[];
-}
+};
 
-/**
- * Helper to extract items from paginated response or return empty array
- */
-export function getPaginatedItems<T>(
-  response: PaginatedResponse<T> | undefined
-): T[] {
+export function getPaginatedItems<T>(response: PaginatedResponse<T> | undefined): T[] {
   return response?.items ?? [];
 }
 
-/**
- * Cluster information returned by the backend
- */
-export interface ClusterInfo {
-  id: string;
-  name: string;
+// Common aliases
+// Tighten ClusterInfo for frontend: convert nullable name -> optional string
+// and ensure nodes is an array. We keep the generated shape as the source of
+// truth but expose a friendlier frontend alias where name may be undefined.
+type _ClusterInfoGenerated = OAPI.components['schemas']['ClusterInfo'];
+export type ClusterInfo = Omit<_ClusterInfoGenerated, 'name' | 'nodes'> & {
+  name?: string | undefined;
   nodes: string[];
-  accessible: boolean;
-  es_version?: number;
-  metrics_source?: 'internal' | 'prometheus';
-}
+};
+// Keep HealthStatus permissive: server may return additional values
+// Include null in health status union for places that may pass null
+export type HealthStatus = 'green' | 'yellow' | 'red' | null | 'unreachable' | string;
 
-/**
- * Cluster health status
- */
-export type HealthStatus = 'green' | 'yellow' | 'red';
+// Normalize a few frequently-used responses
+export type ClusterStats = NullToUndefined<OAPI.components['schemas']['ClusterStatsResponse']>;
+export type NodeInfo = NullToUndefined<OAPI.components['schemas']['NodeInfoResponse']>;
+// NodeDetailStats: generated type declares cpuPercent and uptimeMillis as required
+// but the frontend treats them as possibly missing/undefined. Provide a small
+// targeted override to make those fields optional while preserving the
+// NullToUndefined normalization for nested nulls.
+type _NodeDetailStatsGenerated = NullToUndefined<
+  OAPI.components['schemas']['NodeDetailStatsResponse']
+>;
+export type NodeDetailStats = Omit<_NodeDetailStatsGenerated, 'cpuPercent' | 'uptimeMillis' | 'loadAverage'> & {
+  cpuPercent?: number | undefined;
+  uptimeMillis?: number | undefined;
+  loadAverage?: number[] | undefined;
+};
 
-/**
- * Cluster health information
- */
-export interface ClusterHealth {
-  status: HealthStatus;
+// ShardInfo: generated ShardInfoResponse doesn't include relocatingNode used by
+// several UI helpers. Add it as an optional field while keeping generated shape.
+export type ShardInfo = NullToUndefined<
+  OAPI.components['schemas']['ShardInfoResponse']
+> & { relocatingNode?: string | undefined };
+// Ensure items use our ShardInfo (which adds relocatingNode)
+export type PaginatedShardsWithNodes = Omit<
+  NullToUndefined<OAPI.components['schemas']['PaginatedShardsWithNodes']>,
+  'items'
+> & { items: ShardInfo[] };
+
+// Backwards-compatible frontend-facing types not always present or named in the
+// generated OpenAPI output. Prefer aliases to generated types where available
+// and provide small local interfaces for server-only shapes.
+
+// Cluster health returned by proxied _cluster/health (camelCased in frontend)
+export type ClusterHealth = {
+  status: 'green' | 'yellow' | 'red' | 'unreachable' | string;
   clusterName: string;
   numberOfNodes: number;
   numberOfDataNodes: number;
@@ -70,264 +85,24 @@ export interface ClusterHealth {
   relocatingShards: number;
   initializingShards: number;
   unassignedShards: number;
+};
+
+// Cluster settings shape returned by /_cluster/settings
+export interface ClusterSettings {
+  persistent: Record<string, unknown>;
+  transient: Record<string, unknown>;
+  defaults?: Record<string, unknown>;
 }
 
-/**
- * Login request payload
- */
-export interface LoginRequest {
-  username: string;
-  password: string;
-}
+// Index settings (inner settings object returned under indexName.settings)
+export type IndexSettings = Record<string, unknown>;
 
-/**
- * API error response
- */
-export interface ApiError {
-   data?: {
-     reason?: string;
-     root_cause?: Array<{ reason: string }>;
-   };
-   status?: number;
-  error: string;
-  message: string;
-  details?: unknown;
-  requestId?: string;
-}
+// IndexInfo maps to generated IndexInfoResponse
+export type IndexInfo = NullToUndefined<
+  OAPI.components['schemas']['IndexInfoResponse']
+>;
 
-/**
- * Custom error class for API errors
- */
-export class ApiClientError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public error?: ApiError,
-public response?: ApiError,
-public status?: number
-  ) {
-    super(message);
-    this.name = 'ApiClientError';
-  }
-}
-
-/**
- * Cluster statistics for overview display
- */
-export interface ClusterStats {
-  health: HealthStatus;
-  clusterName: string;
-  numberOfNodes: number;
-  numberOfDataNodes: number;
-  numberOfIndices: number;
-  numberOfDocuments: number;
-  activePrimaryShards: number;
-  activeShards: number;
-  relocatingShards: number;
-  initializingShards: number;
-  unassignedShards: number;
-  memoryUsed?: number;
-  memoryTotal?: number;
-  diskUsed?: number;
-  diskTotal?: number;
-  cpuPercent?: number;
-  esVersion?: string;
-}
-
-/**
- * Node role types
- */
-export type NodeRole =
-  | 'master'
-  | 'data'
-  | 'ingest'
-  | 'coordinating'
-  | 'ml'
-  | 'remote_cluster_client'
-  | 'voting_only'
-  | 'transform'
-  | 'data_content'
-  | 'data_hot'
-  | 'data_warm'
-  | 'data_cold'
-  | 'data_frozen';
-
-/**
- * Node information
- */
-export interface NodeInfo {
-  id: string;
-  name: string;
-  roles: NodeRole[];
-  heapUsed: number;
-  heapMax: number;
-  heapPercent: number;
-  diskUsed: number;
-  diskTotal: number;
-  cpuPercent?: number;
-  ip?: string;
-  version?: string;
-  tags?: string[];
-  isMaster: boolean;
-  isMasterEligible: boolean;
-  loadAverage?: number[]; // [1m, 5m, 15m]
-  uptime?: string;
-  uptimeMillis?: number;
-}
-
-/**
- * Shard statistics
- */
-export interface ShardStats {
-  total: number;
-  primary: number;
-  replica: number;
-  list: ShardInfo[];
-}
-
-/**
- * Indexing statistics
- */
-export interface IndexingStats {
-  indexTotal: number;
-  indexTimeInMillis: number;
-  indexCurrent: number;
-  indexFailed: number;
-  deleteTotal: number;
-  deleteTimeInMillis: number;
-}
-
-/**
- * Search statistics
- */
-export interface SearchStats {
-  queryTotal: number;
-  queryTimeInMillis: number;
-  queryCurrent: number;
-  fetchTotal: number;
-  fetchTimeInMillis: number;
-}
-
-/**
- * File system statistics
- */
-export interface FileSystemStats {
-  total: number;
-  available: number;
-  used: number;
-  path: string;
-  type: string;
-}
-
-/**
- * Network statistics
- */
-export interface NetworkStats {
-  rxBytes: number;
-  txBytes: number;
-}
-
-/**
- * JVM statistics
- */
-export interface JvmStats {
-  gcCollectors: Record<
-    string,
-    {
-      collectionCount: number;
-      collectionTimeInMillis: number;
-    }
-  >;
-}
-
-/**
- * Thread pool statistics
- */
-export interface ThreadPoolStats {
-  threads: number;
-  queue: number;
-  active: number;
-  rejected: number;
-  largest: number;
-  completed: number;
-}
-
-/**
- * Detailed node statistics
- */
-export interface NodeDetailStats {
-  id: string;
-  name: string;
-  roles?: NodeRole[];
-  ip?: string;
-  version: string;
-  jvmVersion: string;
-  heapUsed: number;
-  heapMax: number;
-  heapPercent: number; // Guaranteed to be present: computed server-side or derived client-side in ApiClient
-  diskUsed: number;
-  diskTotal: number;
-  diskPercent: number;
-  cpuPercent?: number;
-  loadAverage?: [number, number, number]; // 1m, 5m, 15m
-  threadPools?: Record<string, ThreadPoolStats>;
-  uptime?: string;
-  uptimeMillis?: number;
-  isMaster: boolean;
-  isMasterEligible: boolean;
-  shards?: ShardStats;
-  indexing?: IndexingStats;
-  search?: SearchStats;
-  fs?: FileSystemStats;
-  network?: NetworkStats;
-  jvm?: JvmStats;
-}
-
-/**
- * Index status
- */
-export type IndexStatus = 'open' | 'close';
-
-/**
- * Index information
- */
-export interface IndexInfo {
-  name: string;
-  health: HealthStatus;
-  status: IndexStatus;
-  primaryShards: number;
-  replicaShards: number;
-  docsCount: number;
-  storeSize: number;
-  uuid?: string;
-}
-
-/**
- * Shard information
- *
- * Requirements: 9.1, 9.2, 9.3
- */
-export interface ShardInfo {
-  index: string;
-  shard: number;
-  primary: boolean;
-  state: 'STARTED' | 'INITIALIZING' | 'RELOCATING' | 'UNASSIGNED';
-  node?: string;
-  relocatingNode?: string;
-  /** Document count - always present, 0 if unavailable (Requirement 9.3) */
-  docs: number;
-  /** Store size in bytes - always present, 0 if unavailable (Requirement 9.3) */
-  store: number;
-}
-
-/**
- * Per-node shard count summary (lightweight — no individual shard objects).
- * Returned by GET /clusters/:id/nodes/shard-summary.
- * Used by CanvasTopologyView at L0/L1 zoom to show badge totals without
- * fetching full ShardInfo arrays.
- *
- * Requirements: 4.9
- */
+// NodeShardSummary is a server-side aggregation (not in OpenAPI), define locally
 export interface NodeShardSummary {
   nodeId: string;
   nodeName: string;
@@ -337,49 +112,9 @@ export interface NodeShardSummary {
   total: number;
 }
 
-/**
- * Detailed shard statistics
- * Extends ShardInfo with additional metrics from shard stats API
- * Requirements: 4.6
- */
-export interface DetailedShardStats extends ShardInfo {
-  segments?: number;
-  merges?: number;
-  refreshes?: number;
-  flushes?: number;
-}
+// Alias / request/response shapes used by client.ts but not present in generated types
+export type LoginRequest = OAPI.components['schemas']['LoginRequest'];
 
-/**
- * Node with shards for shard grid visualization
- * Extends NodeInfo with shard allocation map
- */
-export interface NodeWithShards extends NodeInfo {
-  shards: Map<string, ShardInfo[]>; // index name -> shards on this node
-}
-
-/**
- * Index metadata for shard grid
- * Extends IndexInfo with additional metadata
- */
-export interface IndexMetadata extends IndexInfo {
-  shardCount: number; // Total number of shards (primary + replicas)
-  docsCount: number; // Total document count
-  size: number; // Total size in bytes
-}
-
-/**
- * Shard grid data structure
- * Contains all data needed for shard grid visualization
- */
-export interface ShardGridData {
-  nodes: NodeWithShards[];
-  indices: IndexMetadata[];
-  unassignedShards: ShardInfo[];
-}
-
-/**
- * Alias information
- */
 export interface AliasInfo {
   alias: string;
   index: string;
@@ -390,65 +125,40 @@ export interface AliasInfo {
   isWriteIndex?: boolean;
 }
 
-/**
- * Create alias request
- */
 export interface CreateAliasRequest {
   alias: string;
   indices: string[];
-  filter?: Record<string, unknown>;
+  filter?: unknown;
   routing?: string;
   indexRouting?: string;
   searchRouting?: string;
   isWriteIndex?: boolean;
 }
 
-/**
- * Template information
- */
 export interface TemplateInfo {
   name: string;
-  indexPatterns: string[];
-  order?: number;
+  indexPatterns?: string[];
   priority?: number;
   version?: number;
   settings?: Record<string, unknown>;
   mappings?: Record<string, unknown>;
   aliases?: Record<string, unknown>;
   composable?: boolean;
+  order?: number;
 }
 
-/**
- * Create template request
- */
 export interface CreateTemplateRequest {
   name: string;
   indexPatterns: string[];
-  order?: number;
+  composable?: boolean;
   priority?: number;
   version?: number;
   settings?: Record<string, unknown>;
   mappings?: Record<string, unknown>;
   aliases?: Record<string, unknown>;
-  composable?: boolean;
+  order?: number;
 }
 
-/**
- * Text analysis token information
- */
-export interface AnalysisToken {
-  token: string;
-  startOffset: number;
-  endOffset: number;
-  type: string;
-  position: number;
-  positionLength?: number;
-  [key: string]: unknown; // Additional attributes
-}
-
-/**
- * Text analysis request
- */
 export interface AnalyzeTextRequest {
   text: string;
   analyzer?: string;
@@ -459,27 +169,17 @@ export interface AnalyzeTextRequest {
   index?: string;
 }
 
-/**
- * Text analysis response
- */
 export interface AnalyzeTextResponse {
   tokens: AnalysisToken[];
 }
 
-/**
- * Analyzer information
- */
-export interface AnalyzerInfo {
-  name: string;
-  type?: string;
-  tokenizer?: string;
-  filter?: string[];
-  charFilter?: string[];
+export interface IndexAnalyzersResponse {
+  analyzers: Record<string, unknown>;
+  tokenizers: Record<string, unknown>;
+  filters: Record<string, unknown>;
+  charFilters: Record<string, unknown>;
 }
 
-/**
- * Field information for analyzer inspection
- */
 export interface FieldInfo {
   name: string;
   type: string;
@@ -492,73 +192,44 @@ export interface FieldInfo {
   stored?: boolean;
 }
 
-/**
- * Index analyzers response
- */
-export interface IndexAnalyzersResponse {
-  analyzers: Record<string, AnalyzerInfo>;
-  tokenizers: Record<string, unknown>;
-  filters: Record<string, unknown>;
-  charFilters: Record<string, unknown>;
-}
-
-/**
- * Index fields response
- */
 export interface IndexFieldsResponse {
   fields: FieldInfo[];
 }
 
-/**
- * Repository type
- */
-export type RepositoryType = 'fs' | 's3' | 'azure' | 'gcs' | 'hdfs' | 'url';
-
-/**
- * Repository information
- */
+export type RepositoryType = string;
 export interface RepositoryInfo {
   name: string;
   type: RepositoryType;
-  settings: Record<string, unknown>;
+  settings?: Record<string, unknown>;
 }
 
-/**
- * Create repository request
- */
 export interface CreateRepositoryRequest {
   name: string;
   type: RepositoryType;
-  settings: Record<string, unknown>;
+  settings?: Record<string, unknown>;
 }
 
-/**
- * Snapshot state
- */
-export type SnapshotState = 'IN_PROGRESS' | 'SUCCESS' | 'FAILED' | 'PARTIAL';
-
-/**
- * Snapshot information
- */
 export interface SnapshotInfo {
   snapshot: string;
-  uuid: string;
-  state: SnapshotState;
+  uuid?: string;
+  state?: string;
+  // Indices and shards are required for frontend consumers — client normalizes
+  // responses to always provide these fields (empty array / zeroed shards).
   indices: string[];
+  // Keep both camelCase and snake_case tolerated by runtime normalizers
+  // For frontend use we require startTime and durationInMillis to be present
+  // — client.getSnapshots guarantees defaults for these fields.
   startTime: string;
-  endTime?: string;
-  durationInMillis?: number;
-  shards?: {
-    total: number;
-    successful: number;
-    failed: number;
-  };
-  failures?: unknown[];
+  endTime: string | undefined;
+  durationInMillis: number;
+  // raw fields from server may be present; compatibility shim keeps snake_case too
+  start_time?: string;
+  end_time?: string;
+  duration_in_millis?: number;
+  // shards progress object is required (normalized to numbers)
+  shards: { total: number; successful: number; failed: number };
 }
 
-/**
- * Create snapshot request
- */
 export interface CreateSnapshotRequest {
   snapshot: string;
   indices?: string[];
@@ -567,9 +238,6 @@ export interface CreateSnapshotRequest {
   partial?: boolean;
 }
 
-/**
- * Restore snapshot request
- */
 export interface RestoreSnapshotRequest {
   indices?: string[];
   ignoreUnavailable?: boolean;
@@ -580,116 +248,138 @@ export interface RestoreSnapshotRequest {
   partial?: boolean;
 }
 
-/**
- * Cat API endpoint information
- */
-export interface CatEndpoint {
-  endpoint: string;
-  description: string;
-  help?: string;
+// Provide a tightened IndexStats shape used by IndexStatistics page.
+// Use camelCase keys matching the normalized shape produced by client.getIndexStats.
+export interface StatsDocs {
+  count: number;
+  deleted: number;
 }
 
-/**
- * Cat API response (generic table data)
- */
-export interface CatApiResponse {
-  columns: string[];
-  rows: Array<Record<string, string | number>>;
+export interface StatsStore {
+  sizeInBytes: number;
 }
 
-/**
- * Relocate shard request
- * Requirements: 6.1, 6.2
- */
-export interface RelocateShardRequest {
-  index: string;
-  shard: number;
-  from_node: string;
-  to_node: string;
+export interface StatsSegments {
+  count: number;
+  memoryInBytes: number;
 }
 
-/**
- * Relocate shard response
- * Requirements: 6.7
- */
+export interface StatsIndexing {
+  indexTotal?: number;
+  indexTimeInMillis?: number;
+  indexCurrent?: number;
+  indexFailed?: number;
+  deleteTotal?: number;
+  deleteTimeInMillis?: number;
+  deleteCurrent?: number;
+  throttleTimeInMillis?: number;
+}
+
+export interface StatsSearch {
+  queryTotal?: number;
+  queryTimeInMillis?: number;
+  queryCurrent?: number;
+  fetchTotal?: number;
+  fetchTimeInMillis?: number;
+  fetchCurrent?: number;
+  scrollTotal?: number;
+  scrollTimeInMillis?: number;
+  scrollCurrent?: number;
+}
+
+export interface IndexStatsAlias {
+  total: {
+    docs: StatsDocs;
+    store: StatsStore;
+    segments?: StatsSegments;
+    indexing?: StatsIndexing;
+    search?: StatsSearch;
+    merges?: Record<string, number>;
+    refresh?: Record<string, number>;
+    flush?: Record<string, number>;
+  };
+  primaries: {
+    docs: StatsDocs;
+    store: StatsStore;
+    segments?: StatsSegments;
+    indexing?: StatsIndexing;
+    search?: StatsSearch;
+    merges?: Record<string, number>;
+    refresh?: Record<string, number>;
+    flush?: Record<string, number>;
+  };
+}
+
+// Replace the permissive shape with the tightened alias so components get
+// strong types. The client already normalizes values to these camelCase fields.
+export type IndexStats = IndexStatsAlias;
+
+// Relocate shard response - keep minimal shape expected by client
 export interface RelocateShardResponse {
-  acknowledged: boolean;
-  state?: {
-    cluster_name: string;
-    version: number;
-    state_uuid: string;
-  };
+  acknowledged?: boolean;
+  state?: unknown;
 }
 
-/**
- * Index statistics
- */
-export interface IndexStats {
-  indexName: string;
-  uuid: string;
-  primaries: IndexShardStats;
-  total: IndexShardStats;
+// Frontend Sankey response: narrow the node.kind union and expose the small
+// shape the UI expects. We normalize server variants in client.getSankeyData.
+export type SankeyNodeKind = 'index' | 'node' | 'unassigned';
+export interface SankeyNode {
+  id: string;
+  kind: SankeyNodeKind;
+  totalShards: number;
+  primaryShards: number;
+  replicaShards: number;
+  storeBytes: number;
 }
 
-/**
- * Index shard statistics
- */
-export interface IndexShardStats {
-  docs: {
-    count: number;
-    deleted: number;
-  };
-  store: {
-    sizeInBytes: number;
-  };
-  indexing: {
-    indexTotal: number;
-    indexTimeInMillis: number;
-    indexCurrent: number;
-    indexFailed: number;
-    deleteTotal: number;
-    deleteTimeInMillis: number;
-    deleteCurrent: number;
-    throttleTimeInMillis: number;
-  };
-  search: {
-    queryTotal: number;
-    queryTimeInMillis: number;
-    queryCurrent: number;
-    fetchTotal: number;
-    fetchTimeInMillis: number;
-    fetchCurrent: number;
-    scrollTotal: number;
-    scrollTimeInMillis: number;
-    scrollCurrent: number;
-  };
-  merges: {
-    current: number;
-    currentDocs: number;
-    currentSizeInBytes: number;
-    total: number;
-    totalTimeInMillis: number;
-    totalDocs: number;
-    totalSizeInBytes: number;
-  };
-  refresh: {
-    total: number;
-    totalTimeInMillis: number;
-  };
-  flush: {
-    total: number;
-    totalTimeInMillis: number;
-  };
-  segments: {
-    count: number;
-    memoryInBytes: number;
-  };
+export interface SankeyLink {
+  source: string;
+  target: string;
+  totalShards: number;
+  primaryShards: number;
+  replicaShards: number;
 }
 
-/**
- * Bulk operation types for index operations
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
- */
+export interface SankeyResponse {
+  nodes: SankeyNode[];
+  links: SankeyLink[];
+  meta: { truncated?: boolean; displayedIndices?: number; totalIndices?: number };
+}
+
+export interface SankeyQueryParams {
+  topIndices?: number;
+  includeUnassigned?: boolean;
+  roles?: string;
+  states?: string;
+  excludeSpecial?: boolean;
+  sortBy?: string;
+}
+
+// Metrics history responses - alias to generated where present
+export type ClusterMetricsHistoryResponse = NullToUndefined<
+  OAPI.components['schemas']['ClusterMetricsHistoryResponse']
+>;
+export type NodeMetricsHistoryResponse = NullToUndefined<
+  OAPI.components['schemas']['NodeMetricsHistoryResponse']
+>;
+
+// Task types
+export type TaskInfo = OAPI.components['schemas']['TaskInfo'];
+export type TaskDetails = OAPI.components['schemas']['TaskDetails'];
+export type TasksListResponse = OAPI.components['schemas']['TasksListResponse'];
+// Small missing/renamed aliases expected by client.ts
+export type CancelTaskResponse = NullToUndefined<
+  OAPI.components['schemas']['CancelTaskResponse']
+>;
+export type TaskDetailsResponse = NullToUndefined<
+  OAPI.components['schemas']['TaskDetailsResponse']
+>;
+export type RelocateShardRequest = OAPI.components['schemas']['RelocateShardRequest'];
+
+// ThreadPoolStats is present in the generated schema
+export type ThreadPoolStats = OAPI.components['schemas']['ThreadPoolStats'];
+
+// Bulk operation types used by bulk-operations utilities and UI
 export type BulkOperationType =
   | 'open'
   | 'close'
@@ -698,261 +388,92 @@ export type BulkOperationType =
   | 'set_read_only'
   | 'set_writable';
 
-/**
- * Result of bulk operation validation
- * Shows which indices will be affected and which will be ignored
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
- */
 export interface BulkOperationValidationResult {
-  /** Indices that will be affected by the operation */
   validIndices: string[];
-  /** Indices that will be skipped */
   ignoredIndices: string[];
-  /** Reason for ignoring each index */
   ignoreReasons: Record<string, string>;
 }
 
-/**
- * Response from bulk operation execution
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
- */
-export interface BulkOperationResponse {
-  /** Successfully processed indices */
-  success: string[];
-  /** Failed indices with error details */
-  failed: Array<{
-    index: string;
-    error: string;
-  }>;
+// Analyzer/token shapes expected by IndexAnalyzers/TextAnalysis pages
+export interface AnalyzerInfo {
+  type?: string;
+  tokenizer?: string;
+  filter?: string[];
+  charFilter?: string[];
+  // Keep permissive for any other analyzer config
+  [key: string]: unknown;
 }
 
-/**
- * Time range for metrics queries
- */
+export interface AnalysisToken {
+  token: string;
+  position: number;
+  startOffset: number;
+  endOffset: number;
+  type?: string;
+  positionLength?: number;
+}
+
+// Snapshot state literal union expected by UI
+export type SnapshotState = 'SUCCESS' | 'IN_PROGRESS' | 'FAILED' | 'PARTIAL' | string;
+
+// TimeRange and ClusterMetrics used by metrics store
+// Include label here — frontend stores expect it on TimeRange
 export interface TimeRange {
-  start: number; // Unix timestamp in seconds
-  end: number; // Unix timestamp in seconds
-  label: string; // Human-readable label
+  start: number;
+  end: number;
+  label: string;
+}
+export type ClusterMetrics = NullToUndefined<
+  OAPI.components['schemas']['ClusterMetricsPoint']
+>;
+
+// Local shapes used by shard-grid parser and UI
+export interface NodeWithShards extends NullToUndefined<OAPI.components['schemas']['NodeInfoResponse']> {
+  // Map of index name -> array of shards on this node
+  shards: Map<string, ShardInfo[]>;
 }
 
-/**
- * Cluster metrics data point
- */
-export interface ClusterMetrics {
-  clusterId: string;
-  timestamp: number;
-  health: 'green' | 'yellow' | 'red';
-  nodeCount?: number;
-  indexCount?: number;
-  documentCount?: number;
-  shardCount?: number;
-  unassignedShards?: number;
-  memoryUsagePercent?: number;
-  diskUsagePercent?: number;
-  cpuUsagePercent?: number;
+export interface IndexMetadata extends IndexInfo {
+  shardCount: number;
+  docsCount: number;
+  size: number;
 }
 
-/**
- * Labeled metric point for multi-series support
- */
-export interface LabeledMetricPoint {
-  timestamp: number;
-  value: number;
-  labels?: Record<string, string>;
+export interface ShardGridData {
+  nodes: NodeWithShards[];
+  indices: IndexMetadata[];
+  unassignedShards: ShardInfo[];
 }
 
-/**
- * Raw metrics with labels for flexible rendering
- */
-export interface RawMetrics {
-  memory?: LabeledMetricPoint[];
-  cpu?: LabeledMetricPoint[];
+export interface DetailedShardStats extends ShardInfo {
+  segments?: number;
+  merges?: number;
+  refreshes?: number;
+  flushes?: number;
 }
 
-/**
- * Cluster metrics history response from API (for heatmap/sparklines)
- */
-export interface ClusterMetricsHistoryResponse {
-  cluster_id: string;
-  time_range: TimeRange;
-  data: Array<{
-    timestamp: number;
-    date: string;
-    health: 'green' | 'yellow' | 'red';
-    node_count: number;
-    index_count?: number;
-    document_count?: number;
-    shard_count?: number;
-    unassigned_shards?: number;
-    disk_used_bytes?: number;
-    disk_total_bytes?: number;
-    cpu_percent?: number;
-    memory_used_bytes?: number;
-    memory_non_heap_bytes?: number;
-  }>;
-  raw_metrics?: RawMetrics;
-  prometheus_queries?: Record<string, string>;
-}
-
-/**
- * Node metrics data point from Prometheus
- */
-export interface NodeMetricsPoint {
-  timestamp: number;
-  date: string;
-  heap_used_bytes?: number;
-  heap_max_bytes?: number;
-  cpu_percent?: number;
-  disk_used_percent?: number;
-  load_average_1m?: number;
-  load_average_5m?: number;
-  load_average_15m?: number;
-}
-
-/**
- * Node metrics history response from API
- */
-export interface NodeMetricsHistoryResponse {
-  cluster_id: string;
-  node_id: string;
-  time_range: TimeRange;
-  data: NodeMetricsPoint[];
-  prometheus_queries?: {
-    heap?: string;
-    disk?: string;
-    cpu?: string;
-    load?: string;
-  };
-}
-
-/**
- * Task information from cluster tasks API
- */
-export interface TaskInfo {
-  node: string;
-  id: number;
-  type: string;
-  action: string;
-  start_time_in_millis: number;
-  cancellable: boolean;
-  cancelled: boolean;
-  parent_task_id?: string;
-  running_time_millis?: number;
-}
-
-/**
- * Detailed task information
- */
-export interface TaskDetails extends TaskInfo {
-  raw?: Record<string, unknown>;
-}
-
-/**
- * Tasks list response from API
- */
-export interface TasksListResponse {
-  tasks: TaskInfo[];
-  unique_types: string[];
-  unique_actions: string[];
-  timestamp: number;
-}
-
-/**
- * Task details response from API
- */
-export interface TaskDetailsResponse {
-  task: TaskDetails;
-}
-
-/**
- * Cancel task response from API
- */
-export interface CancelTaskResponse {
-  success: boolean;
+// Local API error shape kept for backward compatibility
+export interface ApiError {
+  data?: { reason?: string; root_cause?: Array<{ reason: string }> };
+  status?: number;
+  error: string;
   message: string;
+  details?: unknown;
+  requestId?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Sankey topology types
-// ---------------------------------------------------------------------------
-
-/**
- * A node in the Sankey diagram — represents either an index, a cluster node,
- * or the synthetic "Unassigned" bucket.
- */
-export interface SankeyNode {
-  /** Unique identifier used as the Sankey node id (index name or node name). */
-  id: string;
-  /** Whether this entry represents an ES index, a cluster node, or the unassigned bucket. */
-  kind: 'index' | 'node' | 'unassigned';
-  /** Total number of shards (primary + replica) carried by this node/index. */
-  totalShards: number;
-  /** Number of primary shards. */
-  primaryShards: number;
-  /** Number of replica shards. */
-  replicaShards: number;
-  /** Total store size in bytes (0 if unavailable). */
-  storeBytes: number;
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public error?: ApiError,
+    public response?: ApiError,
+    public status?: number
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
 }
 
-/**
- * A directed link in the Sankey diagram connecting an index to a cluster node.
- */
-export interface SankeyLink {
-  /** id of the source SankeyNode (index). */
-  source: string;
-  /** id of the target SankeyNode (cluster node or "Unassigned"). */
-  target: string;
-  /** Total shards flowing through this link. */
-  totalShards: number;
-  /** Primary shards on this link. */
-  primaryShards: number;
-  /** Replica shards on this link. */
-  replicaShards: number;
-}
-
-/**
- * Metadata about truncation and totals for the Sankey response.
- */
-export interface SankeyMeta {
-  /** True when `topIndices` caused some indices to be omitted. */
-  truncated: boolean;
-  /** Number of indices included in this response. */
-  displayedIndices: number;
-  /** Total number of distinct indices in the cluster (before truncation). */
-  totalIndices: number;
-  /** Total number of cluster nodes represented as Sankey nodes. */
-  totalNodes: number;
-  /** Total number of links in this response. */
-  totalLinks: number;
-}
-
-/**
- * Full Sankey response returned by GET /api/clusters/{id}/topology/sankey
- */
-export interface SankeyResponse {
-  nodes: SankeyNode[];
-  links: SankeyLink[];
-  meta: SankeyMeta;
-}
-
-/**
- * Optional query parameters for GET /api/clusters/{id}/topology/sankey
- */
-export interface SankeyQueryParams {
-  /** Maximum number of top indices to include (default: 50, clamped 5–200). */
-  topIndices?: number;
-  /** Whether to include the synthetic "Unassigned" node (default: true). */
-  includeUnassigned?: boolean;
-  /** Comma-separated node roles to filter by. */
-  roles?: string;
-  /** Comma-separated shard states to filter by (e.g. "STARTED,UNASSIGNED"). */
-  states?: string;
-  /**
-   * When true, dot-prefixed (special/system) indices are excluded before the
-   * top-N ranking so the limit applies only to non-special indices.
-   */
-  excludeSpecial?: boolean;
-  /** Criterion used to rank and select the top-N indices (default: "shards"). */
-  sortBy?: 'shards' | 'primary' | 'replicas' | 'store';
-}
+// Expose the generated openapi object for ad-hoc imports when necessary
+export { OAPI as openapi };

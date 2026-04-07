@@ -156,6 +156,16 @@ clusters:
       key: "VuaCfGcBxxx=="
     es_version: 8
 
+  # Example: Cluster with Bearer token auth
+  - id: "monitoring-bearer"
+    name: "Monitoring (Bearer Token)"
+    nodes:
+      - "https://es-monitoring.example.com:9200"
+    auth:
+      type: "bearer"
+      token: "your-bearer-token-here"
+    es_version: 8
+
   # Example: Cluster with Prometheus metrics (for historical data)
   - id: "production-with-prometheus"
     name: "Production with Prometheus"

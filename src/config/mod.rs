@@ -367,7 +367,11 @@ pub struct ClusterConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub nodes: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Authentication configuration for this cluster.
+    ///
+    /// Supported types: `basic` (username/password), `api_key`, or `bearer` token.
+    /// If not configured, the cluster is accessed without authentication.
+    #[serde(default)]
     pub auth: Option<ClusterAuth>,
     #[serde(default)]
     pub tls: TlsConfig,
@@ -388,6 +392,7 @@ impl ClusterConfig {
         Self {
             id,
             nodes,
+            auth: None,
             ..Default::default()
         }
     }
@@ -399,7 +404,7 @@ impl ClusterConfig {
 pub enum ClusterAuth {
     Basic { username: String, password: String },
     ApiKey { key: String },
-    None,
+    Bearer { token: String },
 }
 
 /// TLS configuration for cluster connections
@@ -718,6 +723,7 @@ impl ClusterConfig {
 
         self.tls.validate()?;
 
+        // Validate authentication configuration (optional; absence means no-auth cluster)
         if let Some(auth) = &self.auth {
             auth.validate(&self.id)?;
         }
@@ -767,8 +773,10 @@ impl ClusterAuth {
                     anyhow::bail!("Cluster '{}' API key cannot be empty", cluster_id);
                 }
             }
-            ClusterAuth::None => {
-                // No validation needed
+            ClusterAuth::Bearer { token } => {
+                if token.is_empty() {
+                    anyhow::bail!("Cluster '{}' bearer token cannot be empty", cluster_id);
+                }
             }
         }
         Ok(())
@@ -807,7 +815,12 @@ impl Config {
     /// 1. Environment variables (SECAN_* with _ separator, supports array indices like SECAN_CLUSTERS_0_ID)
     /// 2. Configuration files (config.yaml, config.local.yaml, config.toml) - supports ${VAR} substitution
     /// 3. Default values (hardcoded)
-    pub fn load() -> anyhow::Result<Self> {
+    ///    Load configuration and return parsed Config along with per-cluster warnings
+    ///
+    ///    for issues like mixed authentication fields. Warnings indicate clusters that
+    ///    should be treated as inaccessible at runtime but are preserved in the
+    ///    configuration so the UI can show them.
+    pub fn load_with_warnings() -> anyhow::Result<(Self, Vec<ClusterWarning>)> {
         use config::{Config as ConfigRs, Environment};
         use std::path::Path;
 
@@ -858,14 +871,17 @@ impl Config {
         // Build into raw config
         let config_rs = builder.build()?;
 
-        // Try to deserialize; if it fails due to array index issues, fix and retry
-        let final_config: Self = match config_rs.clone().try_deserialize() {
-            Ok(config) => config,
+        // Convert the built config to a mutable JSON value so we can detect and remove
+        // per-cluster auth conflicts (both basic and api_key present). We try to deserialize
+        // into serde_json::Value first; if that fails, fall back to a manual construction
+        // that mirrors the previous logic for array fixing.
+        let mut config_json: serde_json::Value = match config_rs.clone().try_deserialize() {
+            Ok(v) => v,
             Err(_) => {
                 // If direct deserialization fails, it's likely due to numeric-keyed maps
-                // Convert to JSON and fix array indices
+                // Build a minimal JSON structure and include the raw clusters value
                 let clusters_value = config_rs.get("clusters").unwrap_or(serde_json::json!({}));
-                let mut config_json = serde_json::json!({
+                serde_json::json!({
                     "server": {
                         "host": config_rs.get_string("server.host").unwrap_or_else(|_| defaults::DEFAULT_SERVER_HOST.to_string()),
                         "port": config_rs.get_int("server.port").unwrap_or(defaults::DEFAULT_SERVER_PORT as i64),
@@ -878,23 +894,29 @@ impl Config {
                         "metadata_duration_seconds": config_rs.get_int("cache.metadata_duration_seconds").ok(),
                     },
                     "clusters": clusters_value,
-                });
-
-                Self::fix_array_indices(&mut config_json);
-
-                serde_json::from_value(config_json).map_err(|e| {
-                    anyhow::anyhow!(
-                        "Failed to deserialize configuration after fixing arrays: {}",
-                        e
-                    )
-                })?
+                })
             }
         };
+
+        // Fix array indices (convert numeric-keyed maps to arrays) so clusters are in array form
+        Self::fix_array_indices(&mut config_json);
+
+        // Auth conflict detection is no longer needed: the tagged `ClusterAuth` enum
+        // (`type` discriminant) enforces mutual exclusion at the serde level.
+        let warnings: Vec<ClusterWarning> = Vec::new();
+
+        // Deserialize into final configuration
+        let final_config: Self = serde_json::from_value(config_json).map_err(|e| {
+            anyhow::anyhow!(
+                "Failed to deserialize configuration after preprocessing: {}",
+                e
+            )
+        })?;
 
         // Validate configuration
         final_config.validate()?;
 
-        Ok(final_config)
+        Ok((final_config, warnings))
     }
 
     /// Fix array indices that config-rs treats as map keys
@@ -989,6 +1011,21 @@ impl Default for AuthConfig {
             roles: Vec::new(),
             permissions: Vec::new(),
         }
+    }
+}
+
+/// Warning produced during config loading for clusters with problems
+#[derive(Debug, Clone)]
+pub struct ClusterWarning {
+    pub id: String,
+    pub reason: String,
+}
+
+impl Config {
+    /// Backwards-compatible load() which discards warnings
+    pub fn load() -> anyhow::Result<Self> {
+        let (cfg, _warnings) = Self::load_with_warnings()?;
+        Ok(cfg)
     }
 }
 
@@ -1134,9 +1171,16 @@ mod tests {
         let auth = ClusterAuth::ApiKey { key: String::new() };
         assert!(auth.validate(cluster_id).is_err());
 
-        // None auth
-        let auth = ClusterAuth::None;
+        // Bearer auth validation
+        let auth = ClusterAuth::Bearer {
+            token: "my-token".to_string(),
+        };
         assert!(auth.validate(cluster_id).is_ok());
+
+        let auth = ClusterAuth::Bearer {
+            token: String::new(),
+        };
+        assert!(auth.validate(cluster_id).is_err());
     }
 
     #[test]

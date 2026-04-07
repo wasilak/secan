@@ -107,13 +107,7 @@ export function useWatermarks(clusterId: string | undefined, enabled: boolean = 
       if (!clusterId) throw new Error('Cluster ID is required');
 
       // Fetch cluster settings with defaults to get watermark values
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        clusterId,
-        'GET',
-        '/_cluster/settings?include_defaults=true&flat_settings=false'
-      );
-
-      return response;
+      return apiClient.getClusterSettings(clusterId, { includeDefaults: true, flatSettings: false });
     },
     enabled: enabled && !!clusterId,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes - watermarks don't change often

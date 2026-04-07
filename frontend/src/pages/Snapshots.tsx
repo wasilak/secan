@@ -230,8 +230,8 @@ export function Snapshots() {
                       <Badge
                         size="sm"
                         variant="light"
-                        color={getStateColor(snapshot.state)}
-                        leftSection={getStateIcon(snapshot.state)}
+                        color={getStateColor(snapshot.state ?? 'UNKNOWN')}
+                        leftSection={getStateIcon(snapshot.state ?? 'UNKNOWN')}
                       >
                         {snapshot.state}
                       </Badge>
@@ -265,10 +265,10 @@ export function Snapshots() {
                       )}
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{new Date(snapshot.startTime).toLocaleString()}</Text>
+                      <Text size="sm">{new Date(snapshot.startTime!).toLocaleString()}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{formatDuration(snapshot.durationInMillis)}</Text>
+                      <Text size="sm">{formatDuration(snapshot.durationInMillis!)}</Text>
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">

@@ -13,6 +13,7 @@ use url::Url;
 enum ElasticsearchAuth {
     Basic { username: String, password: String },
     ApiKey { id: String, api_key: String },
+    Bearer { token: String },
 }
 
 /// Elasticsearch client using HTTP
@@ -89,6 +90,12 @@ pub trait ElasticsearchClient: Send + Sync {
 impl Client {
     /// Create a new Elasticsearch client from configuration
     pub async fn new(config: &ClusterConfig) -> Result<Self> {
+        Self::new_with_auth(config, config.auth.as_ref()).await
+    }
+
+    /// Create a new Elasticsearch client from configuration and an optional `ClusterAuth`.
+    /// Pass `None` for unauthenticated access.
+    pub async fn new_with_auth(config: &ClusterConfig, auth: Option<&ClusterAuth>) -> Result<Self> {
         // Parse the first node URL
         let node_url = config
             .nodes
@@ -116,26 +123,25 @@ impl Client {
         }
 
         // Store authentication info
-        let auth_info = if let Some(auth) = &config.auth {
-            match auth {
-                ClusterAuth::Basic { username, password } => Some(ElasticsearchAuth::Basic {
-                    username: username.clone(),
-                    password: password.clone(),
-                }),
-                ClusterAuth::ApiKey { key } => {
-                    // ApiKey requires both id and api_key
-                    let parts: Vec<&str> = key.splitn(2, ':').collect();
-                    let (id, api_key) = if parts.len() == 2 {
-                        (parts[0].to_string(), parts[1].to_string())
-                    } else {
-                        (String::new(), key.clone())
-                    };
-                    Some(ElasticsearchAuth::ApiKey { id, api_key })
-                }
-                ClusterAuth::None => None,
+        let auth_info = match auth {
+            None => None,
+            Some(ClusterAuth::Basic { username, password }) => Some(ElasticsearchAuth::Basic {
+                username: username.clone(),
+                password: password.clone(),
+            }),
+            Some(ClusterAuth::ApiKey { key }) => {
+                // ApiKey requires both id and api_key
+                let parts: Vec<&str> = key.splitn(2, ':').collect();
+                let (id, api_key) = if parts.len() == 2 {
+                    (parts[0].to_string(), parts[1].to_string())
+                } else {
+                    (String::new(), key.clone())
+                };
+                Some(ElasticsearchAuth::ApiKey { id, api_key })
             }
-        } else {
-            None
+            Some(ClusterAuth::Bearer { token }) => Some(ElasticsearchAuth::Bearer {
+                token: token.clone(),
+            }),
         };
 
         let http_client = http_client_builder
@@ -147,6 +153,54 @@ impl Client {
             base_url,
             auth: auth_info,
         })
+    }
+
+    /// Apply authentication headers/basic auth to a request builder
+    /// Centralises logic for Basic and ApiKey handling and supports pre-encoded API key tokens.
+    fn apply_auth_headers(&self, mut req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if let Some(ref auth) = self.auth {
+            match auth {
+                ElasticsearchAuth::Basic { username, password } => {
+                    req = req.basic_auth(username, Some(password));
+                }
+                ElasticsearchAuth::ApiKey { id, api_key } => {
+                    // If id is provided, always encode id:api_key
+                    if !id.is_empty() {
+                        let encoded = base64::engine::general_purpose::STANDARD
+                            .encode(format!("{}:{}", id, api_key));
+                        req = req.header("Authorization", format!("ApiKey {}", encoded));
+                    } else {
+                        // No id: decide if api_key is a pre-encoded token or raw
+                        match base64::engine::general_purpose::STANDARD.decode(api_key) {
+                            Ok(decoded) => {
+                                // If decoded contains ':' treat the provided string as a pre-encoded id:api_key token
+                                if decoded.as_slice().contains(&b':') {
+                                    req =
+                                        req.header("Authorization", format!("ApiKey {}", api_key));
+                                } else {
+                                    // Decoded doesn't look like id:api_key — treat provided value as raw api_key
+                                    let encoded = base64::engine::general_purpose::STANDARD
+                                        .encode(format!(":{}", api_key));
+                                    req =
+                                        req.header("Authorization", format!("ApiKey {}", encoded));
+                                }
+                            }
+                            Err(_) => {
+                                // Not valid base64 — treat as raw api_key and encode :api_key
+                                let encoded = base64::engine::general_purpose::STANDARD
+                                    .encode(format!(":{}", api_key));
+                                req = req.header("Authorization", format!("ApiKey {}", encoded));
+                            }
+                        }
+                    }
+                }
+                ElasticsearchAuth::Bearer { token } => {
+                    req = req.header("Authorization", format!("Bearer {}", token));
+                }
+            }
+        }
+
+        req
     }
 
     /// Get the base URL of the Elasticsearch cluster
@@ -169,19 +223,7 @@ impl Client {
         tracing::Span::current().record("http.url", url.as_str());
 
         let mut req = self.http_client.get(&url);
-
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let result = req.send().await;
 
@@ -245,20 +287,8 @@ impl ElasticsearchClient for Client {
             Method::HEAD => self.http_client.head(&url),
             _ => anyhow::bail!("Unsupported HTTP method: {}", method),
         };
-
         // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         // Add body if present
         if let Some(b) = body {
@@ -307,20 +337,7 @@ impl ElasticsearchClient for Client {
     async fn info(&self) -> Result<Value> {
         let url = format!("{}/", self.base_url);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Info request failed")?;
 
@@ -339,20 +356,7 @@ impl ElasticsearchClient for Client {
     async fn cluster_stats(&self) -> Result<Value> {
         let url = format!("{}/_cluster/stats", self.base_url);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Cluster stats request failed")?;
 
@@ -370,20 +374,7 @@ impl ElasticsearchClient for Client {
     async fn nodes_info(&self) -> Result<Value> {
         let url = format!("{}/_nodes", self.base_url);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Nodes info request failed")?;
 
@@ -401,20 +392,7 @@ impl ElasticsearchClient for Client {
     async fn nodes_stats(&self) -> Result<Value> {
         let url = format!("{}/_nodes/stats", self.base_url);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Nodes stats request failed")?;
 
@@ -432,20 +410,7 @@ impl ElasticsearchClient for Client {
     async fn node_stats(&self, node_id: &str) -> Result<Value> {
         let url = format!("{}/_nodes/{}/stats", self.base_url, node_id);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Node stats request failed")?;
 
@@ -463,20 +428,7 @@ impl ElasticsearchClient for Client {
     async fn indices_get(&self, index: &str) -> Result<Value> {
         let url = format!("{}/{}", self.base_url, index);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req.send().await.context("Indices get request failed")?;
 
@@ -495,20 +447,7 @@ impl ElasticsearchClient for Client {
         // Get stats for open indices (closed indices don't have stats)
         let stats_url = format!("{}/_stats", self.base_url);
         let mut stats_req = self.http_client.get(&stats_url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    stats_req = stats_req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    stats_req = stats_req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        stats_req = self.apply_auth_headers(stats_req);
 
         let stats_response = stats_req
             .send()
@@ -547,20 +486,7 @@ impl ElasticsearchClient for Client {
         // Get all indices including closed ones from cluster state
         let state_url = format!("{}/_cluster/state", self.base_url);
         let mut state_req = self.http_client.get(&state_url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    state_req = state_req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    state_req = state_req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        state_req = self.apply_auth_headers(state_req);
 
         let state_response = state_req
             .send()
@@ -661,20 +587,7 @@ impl ElasticsearchClient for Client {
     async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
         let url = format!("{}/{}/_stats?level=shards", self.base_url, index);
         let mut req = self.http_client.get(&url);
-
-        // Add authentication if configured
-        if let Some(ref auth) = self.auth {
-            match auth {
-                ElasticsearchAuth::Basic { username, password } => {
-                    req = req.basic_auth(username, Some(password));
-                }
-                ElasticsearchAuth::ApiKey { id, api_key } => {
-                    let encoded = base64::engine::general_purpose::STANDARD
-                        .encode(format!("{}:{}", id, api_key));
-                    req = req.header("Authorization", format!("ApiKey {}", encoded));
-                }
-            }
-        }
+        req = self.apply_auth_headers(req);
 
         let response = req
             .send()
@@ -709,6 +622,9 @@ impl ElasticsearchClient for Client {
                     let encoded = base64::engine::general_purpose::STANDARD
                         .encode(format!("{}:{}", id, api_key));
                     req = req.header("Authorization", format!("ApiKey {}", encoded));
+                }
+                ElasticsearchAuth::Bearer { token } => {
+                    req = req.header("Authorization", format!("Bearer {}", token));
                 }
             }
         }
@@ -1030,5 +946,87 @@ mod tests {
 
         // SAFETY: Creating a client with valid config should always succeed in tests
         let _client = Client::new(&config).await.expect("create client");
+    }
+
+    #[tokio::test]
+    async fn test_api_key_header_preencoded_and_raw() {
+        use base64::engine::general_purpose::STANDARD;
+
+        // Pre-encoded token that decodes to "id:key"
+        let token = STANDARD.encode("id:key");
+
+        let cfg_pre = ClusterConfig {
+            id: "pre".to_string(),
+            name: Some("Preencoded".to_string()),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: Some(ClusterAuth::ApiKey { key: token.clone() }),
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        let client_pre = Client::new(&cfg_pre).await.expect("create client");
+        let rb = client_pre.http_client.get("http://example");
+        let rb = client_pre.apply_auth_headers(rb);
+        let req = rb.build().expect("build request");
+        let header_val = req
+            .headers()
+            .get("Authorization")
+            .expect("Authorization header present")
+            .to_str()
+            .expect("header to str");
+        assert_eq!(header_val, format!("ApiKey {}", token));
+
+        // Raw api_key without id should be encoded as :api_key
+        let raw_key = "rawsecret".to_string();
+        let cfg_raw = ClusterConfig {
+            id: "raw".to_string(),
+            name: Some("RawKey".to_string()),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: Some(ClusterAuth::ApiKey {
+                key: raw_key.clone(),
+            }),
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        let client_raw = Client::new(&cfg_raw).await.expect("create client");
+        let rb = client_raw.http_client.get("http://example");
+        let rb = client_raw.apply_auth_headers(rb);
+        let req = rb.build().expect("build request");
+        let header_val = req
+            .headers()
+            .get("Authorization")
+            .expect("Authorization header present")
+            .to_str()
+            .expect("header to str");
+
+        let expected = STANDARD.encode(format!(":{}", raw_key));
+        assert_eq!(header_val, format!("ApiKey {}", expected));
+
+        // id:api_key form should also be encoded
+        let cfg_full = ClusterConfig {
+            id: "full".to_string(),
+            name: Some("Full".to_string()),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: Some(ClusterAuth::ApiKey {
+                key: "id:secret".to_string(),
+            }),
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        let client_full = Client::new(&cfg_full).await.expect("create client");
+        let rb = client_full.http_client.get("http://example");
+        let rb = client_full.apply_auth_headers(rb);
+        let req = rb.build().expect("build request");
+        let header_val = req
+            .headers()
+            .get("Authorization")
+            .expect("Authorization header present")
+            .to_str()
+            .expect("header to str");
+
+        let expected_full = STANDARD.encode("id:secret");
+        assert_eq!(header_val, format!("ApiKey {}", expected_full));
     }
 }

@@ -165,11 +165,11 @@ export function Dashboard() {
 
       // Prefer the configured cluster name from the clusters list, then
       // fall back to the authoritative clusterName from cluster stats if available.
-      const displayName = cluster.name ?? stats?.clusterName ?? '';
+      const displayName = cluster.name ?? stats?.clusterName ?? cluster.id;
       if (!displayName) {
         // This is unexpected: the API contract guarantees a cluster name.
         // Log as an error so it's visible in development and can be escalated.
-         
+        
         console.error(`[Dashboard] Missing cluster name for cluster ${cluster.id} (neither clusters list nor stats provided a name)`);
       }
 

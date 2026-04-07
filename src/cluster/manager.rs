@@ -2,7 +2,7 @@ use crate::auth::{AuthUser, RbacManager};
 use crate::cache::MetadataCache;
 use crate::cluster::client::{Client, ElasticsearchClient};
 use crate::config::{
-    ClusterAuth, ClusterConfig, MetricsSource, PrometheusConfig as ClusterPrometheusConfig,
+    ClusterConfig, ClusterWarning, MetricsSource, PrometheusConfig as ClusterPrometheusConfig,
 };
 use crate::telemetry::client::InstrumentedElasticsearchClient;
 use anyhow::{Context, Result};
@@ -26,16 +26,18 @@ pub struct ClusterConnection {
     pub name: Option<String>,
     /// List of node URLs for this cluster
     pub nodes: Vec<String>,
-    /// Elasticsearch client for this cluster
-    pub client: Client,
-    /// Authentication configuration
-    pub auth: Option<ClusterAuth>,
+    /// Pre-created client for this cluster. `None` if the cluster is inaccessible.
+    pub client: Option<Arc<Client>>,
     /// TLS configuration
     pub tls_config: crate::config::TlsConfig,
     /// Metrics source configuration
     pub metrics_source: MetricsSource,
     /// Prometheus configuration (if metrics_source is Prometheus)
     pub prometheus: Option<ClusterPrometheusConfig>,
+    /// Whether this cluster is considered accessible at runtime
+    pub accessible: bool,
+    /// Optional human-friendly reason why cluster is inaccessible
+    pub accessible_reason: Option<String>,
 }
 
 /// Cluster health status
@@ -68,11 +70,20 @@ pub struct ClusterInfo {
     pub name: Option<String>,
     pub nodes: Vec<String>,
     pub accessible: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessible_reason: Option<String>,
     /// Metrics source (internal or prometheus)
     pub metrics_source: MetricsSource,
 }
 
 impl ClusterConnection {
+    fn client_ref(&self) -> Result<&Client> {
+        self.client
+            .as_ref()
+            .map(|c| c.as_ref())
+            .ok_or_else(|| anyhow::anyhow!("Cluster '{}' is inaccessible", self.id))
+    }
+
     /// Create a new cluster connection from configuration
     ///
     /// # Arguments
@@ -87,7 +98,7 @@ impl ClusterConnection {
     ///
     /// Validates: Requirements 2.5, 2.6, 2.10, 2.11, 2.12, 2.13
     pub async fn new(config: &ClusterConfig) -> Result<Self> {
-        let client = Client::new(config)
+        let c = Client::new(config)
             .await
             .with_context(|| format!("Failed to create client for cluster '{}'", config.id))?;
 
@@ -95,11 +106,12 @@ impl ClusterConnection {
             id: config.id.clone(),
             name: config.name.clone(),
             nodes: config.nodes.clone(),
-            client,
-            auth: config.auth.clone(),
+            client: Some(Arc::new(c)),
             tls_config: config.tls.clone(),
             metrics_source: config.metrics_source.clone(),
             prometheus: config.prometheus.clone(),
+            accessible: true,
+            accessible_reason: None,
         })
     }
 
@@ -114,8 +126,8 @@ impl ClusterConnection {
     /// Validates: Requirements 2.10, 2.14
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn check_health(&self) -> Result<ClusterHealth> {
-        let health_json = self
-            .client
+        let client = self.client_ref()?;
+        let health_json = client
             .health()
             .await
             .context("Failed to fetch cluster health")?;
@@ -189,22 +201,36 @@ impl ClusterConnection {
         body: Option<Value>,
     ) -> Result<Response> {
         // Use instrumented request for tracing
-        self.client
+        let client = self.client_ref()?;
+        client
             .instrumented_request(method, path, body, &self.id)
             .await
     }
 
     /// Get cluster health using SDK typed method
     pub async fn health(&self) -> Result<Value> {
-        self.client.health().await
+        let client = self.client_ref()?;
+        client.health().await
+    }
+
+    /// Get cluster info (root endpoint) using SDK typed method
+    pub async fn info(&self) -> Result<Value> {
+        let client = self.client_ref()?;
+        client.info().await
+    }
+
+    /// Get cluster settings using SDK typed method
+    pub async fn cluster_settings(&self, include_defaults: bool) -> Result<Value> {
+        let client = self.client_ref()?;
+        client.cluster_settings(include_defaults).await
     }
 
     /// Get cluster stats using SDK typed method
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cluster_stats(&self) -> Result<Value> {
         // Use instrumented request for tracing
-        let response = self
-            .client
+        let client = self.client_ref()?;
+        let response = client
             .instrumented_request(Method::GET, "_cluster/stats", None::<Value>, &self.id)
             .await?;
         Ok(response.json().await?)
@@ -212,69 +238,82 @@ impl ClusterConnection {
 
     /// Get nodes info using SDK typed method
     pub async fn nodes_info(&self) -> Result<Value> {
-        self.client.nodes_info().await
+        let client = self.client_ref()?;
+        client.nodes_info().await
     }
 
     /// Get nodes stats using SDK typed method
     pub async fn nodes_stats(&self) -> Result<Value> {
-        self.client.nodes_stats().await
+        let client = self.client_ref()?;
+        client.nodes_stats().await
     }
 
     /// Get stats for a specific node using SDK typed method
     pub async fn node_stats(&self, node_id: &str) -> Result<Value> {
-        self.client.node_stats(node_id).await
+        let client = self.client_ref()?;
+        client.node_stats(node_id).await
     }
 
     /// Get indices using SDK typed method
     pub async fn indices_get(&self, index: &str) -> Result<Value> {
-        self.client.indices_get(index).await
+        let client = self.client_ref()?;
+        client.indices_get(index).await
     }
 
     /// Get indices stats using SDK typed method
     pub async fn indices_stats(&self) -> Result<Value> {
-        self.client.indices_stats().await
+        let client = self.client_ref()?;
+        client.indices_stats().await
     }
 
     /// Merge cluster health status into indices stats (non-critical operation)
     pub async fn merge_indices_health(&self, stats: &mut Value) -> Result<()> {
-        self.client.merge_indices_health(stats).await
+        let client = self.client_ref()?;
+        client.merge_indices_health(stats).await
     }
 
     /// Get cluster state using SDK typed method
     pub async fn cluster_state(&self) -> Result<Value> {
-        self.client.cluster_state().await
+        let client = self.client_ref()?;
+        client.cluster_state().await
     }
 
     /// Get indices stats with shard-level details using SDK typed method
     pub async fn indices_stats_with_shards(&self, index: &str) -> Result<Value> {
-        self.client.indices_stats_with_shards(index).await
+        let client = self.client_ref()?;
+        client.indices_stats_with_shards(index).await
     }
 
     /// Get shard information using _cat/shards API (memory-efficient)
     pub async fn cat_shards(&self) -> Result<Value> {
-        self.client.cat_shards().await
+        let client = self.client_ref()?;
+        client.cat_shards().await
     }
 
     /// Get indices information using _cat/indices API (lightweight)
     pub async fn cat_indices(&self) -> Result<Value> {
-        self.client.cat_indices().await
+        let client = self.client_ref()?;
+        client.cat_indices().await
     }
 
     /// Get shard information for a specific node (memory-efficient)
     pub async fn cat_shards_for_node(&self, node_id: &str) -> Result<Value> {
-        self.client.cat_shards_for_node(node_id).await
+        let client = self.client_ref()?;
+        client.cat_shards_for_node(node_id).await
     }
 
     /// Get shard information for a specific index
     /// Returns full shard details including docs and store
     pub async fn cat_shards_for_index(&self, index: &str) -> Result<Value> {
-        self.client.cat_shards_for_index(index).await
+        let client = self.client_ref()?;
+        client.cat_shards_for_index(index).await
     }
 
     /// Get cluster state with routing_nodes metric for paginated shard listing
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value> {
-        self.client
+        let client = self.client_ref()?;
+        client
             .cluster_state_routing_nodes(indices)
             .await
             .context("Failed to get cluster state with routing nodes")
@@ -283,8 +322,8 @@ impl ClusterConnection {
     /// Get master node ID using _cat/master API (memory-efficient)
     #[instrument(skip(self), fields(cluster_id = %self.id))]
     pub async fn cat_master(&self) -> Result<String> {
-        let response = self
-            .client
+        let client = self.client_ref()?;
+        let response = client
             .cat_master()
             .await
             .context("Failed to get master node info")?;
@@ -297,7 +336,7 @@ impl ClusterConnection {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::config::TlsConfig;
+    use crate::config::{ClusterAuth, TlsConfig};
 
     #[tokio::test]
     async fn test_cluster_connection_creation() {
@@ -339,7 +378,7 @@ mod tests {
         assert!(connection.is_ok());
 
         let conn = connection.expect("ClusterConnection::new should succeed in test");
-        assert!(conn.auth.is_some());
+        assert!(conn.client.is_some());
     }
 
     #[test]
@@ -379,6 +418,7 @@ mod tests {
             name: Some("Test Cluster".to_string()),
             nodes: vec!["http://localhost:9200".to_string()],
             accessible: true,
+            accessible_reason: None,
 
             metrics_source: MetricsSource::Internal,
         };
@@ -419,16 +459,40 @@ impl Manager {
     /// # Requirements
     ///
     /// Validates: Requirements 2.1, 2.14, 2.17, 31.2
-    pub async fn new(
+    pub async fn new_with_warnings(
         cluster_configs: Vec<ClusterConfig>,
         cache_duration: Duration,
+        cluster_warnings: Option<Vec<ClusterWarning>>,
     ) -> Result<Self> {
         let mut clusters = IndexMap::new();
         let total = cluster_configs.len();
 
+        let warnings_map: std::collections::HashMap<String, String> = cluster_warnings
+            .unwrap_or_default()
+            .into_iter()
+            .map(|w| (w.id, w.reason))
+            .collect();
+
         for config in cluster_configs {
             let display_name = config.name.as_deref().unwrap_or(&config.id);
             tracing::debug!(cluster_id = %config.id, cluster_name = %display_name, "Initializing cluster");
+
+            if let Some(reason) = warnings_map.get(&config.id) {
+                tracing::warn!(cluster_id = %config.id, reason = %reason, "Cluster has config warning and will be marked inaccessible");
+                let placeholder = ClusterConnection {
+                    id: config.id.clone(),
+                    name: config.name.clone(),
+                    nodes: config.nodes.clone(),
+                    client: None,
+                    tls_config: config.tls.clone(),
+                    metrics_source: config.metrics_source.clone(),
+                    prometheus: config.prometheus.clone(),
+                    accessible: false,
+                    accessible_reason: Some(reason.clone()),
+                };
+                clusters.insert(config.id.clone(), Arc::new(placeholder));
+                continue;
+            }
 
             match ClusterConnection::new(&config).await {
                 Ok(connection) => {
@@ -436,12 +500,24 @@ impl Manager {
                 }
                 Err(e) => {
                     // A single unreachable/misconfigured cluster must not block startup.
-                    // It will show as inaccessible in the UI.
+                    // Insert an inaccessible placeholder instead so cluster shows up in UI.
                     tracing::warn!(
                         cluster_id = %config.id,
                         error = %e,
                         "Failed to initialise cluster — it will be marked inaccessible"
                     );
+                    let placeholder = ClusterConnection {
+                        id: config.id.clone(),
+                        name: config.name.clone(),
+                        nodes: config.nodes.clone(),
+                        client: None,
+                        tls_config: config.tls.clone(),
+                        metrics_source: config.metrics_source.clone(),
+                        prometheus: config.prometheus.clone(),
+                        accessible: false,
+                        accessible_reason: Some(e.to_string()),
+                    };
+                    clusters.insert(config.id.clone(), Arc::new(placeholder));
                 }
             }
         }
@@ -461,6 +537,14 @@ impl Manager {
             rbac: None,
             health_cache: MetadataCache::new(cache_duration),
         })
+    }
+
+    /// Backwards-compatible constructor that doesn't accept load-time warnings
+    pub async fn new(
+        cluster_configs: Vec<ClusterConfig>,
+        cache_duration: Duration,
+    ) -> Result<Self> {
+        Self::new_with_warnings(cluster_configs, cache_duration, None).await
     }
 
     /// Create a new cluster manager with RBAC enabled
@@ -530,7 +614,8 @@ impl Manager {
                 id: conn.id.clone(),
                 name: conn.name.clone(),
                 nodes: conn.nodes.clone(),
-                accessible: true, // Will be determined by health checks
+                accessible: conn.accessible, // reflect initialization result
+                accessible_reason: conn.accessible_reason.clone(),
                 metrics_source: conn.metrics_source.clone(),
             })
             .collect()
@@ -761,7 +846,7 @@ impl Manager {
 #[cfg(test)]
 mod manager_tests {
     use super::*;
-    use crate::config::TlsConfig;
+    use crate::config::{ClusterAuth, TlsConfig};
 
     #[tokio::test]
     async fn test_manager_creation() {

@@ -145,7 +145,7 @@ export function Templates() {
                       </Table.Td>
                       <Table.Td>
                         <Group gap="xs">
-                          {template.indexPatterns.map((pattern) => (
+                          {(template.indexPatterns || []).map((pattern) => (
                             <Badge key={pattern} size="sm" variant="outline">
                               {pattern}
                             </Badge>

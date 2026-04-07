@@ -84,7 +84,6 @@ use utoipa::OpenApi;
             crate::routes::clusters::tasks::TasksListResponse,
             crate::routes::clusters::tasks::TaskDetailsResponse,
             crate::routes::clusters::tasks::CancelTaskResponse,
-            crate::routes::clusters::tasks::TaskErrorResponse,
             crate::routes::clusters::tasks::TasksQueryParams,
             // Metrics types
             crate::routes::metrics::MetricsQuery,

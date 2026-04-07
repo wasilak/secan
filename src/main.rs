@@ -98,9 +98,18 @@ async fn main() -> anyhow::Result<()> {
     info!("Secan - Elasticsearch Cluster Management Tool");
     info!("Starting backend server...");
 
-    // Load configuration
-    let config = Config::load().context("Failed to load application configuration")?;
+    // Load configuration and collect any cluster-level warnings (e.g. mixed auth)
+    let (config, cluster_warnings) =
+        Config::load_with_warnings().context("Failed to load application configuration")?;
     info!("Configuration loaded successfully");
+
+    // If there were cluster-level problems detected during config parsing, log a startup summary
+    if !cluster_warnings.is_empty() {
+        tracing::warn!(count = cluster_warnings.len(), "Detected cluster configuration issues; affected clusters will be visible but marked inaccessible");
+        for w in &cluster_warnings {
+            tracing::warn!(cluster_id = %w.id, reason = %w.reason, "Cluster marked inaccessible due to configuration problem");
+        }
+    }
 
     // Log startup configuration (sanitized - no sensitive data)
     info!(
@@ -128,7 +137,12 @@ async fn main() -> anyhow::Result<()> {
     // Initialize cluster manager
     tracing::debug!("Initializing cluster manager...");
     let cache_duration = std::time::Duration::from_secs(config.cache.get_duration_secs());
-    let cluster_manager = ClusterManager::new(config.clusters.clone(), cache_duration).await?;
+    let cluster_manager = ClusterManager::new_with_warnings(
+        config.clusters.clone(),
+        cache_duration,
+        Some(cluster_warnings),
+    )
+    .await?;
     tracing::debug!("Cluster manager initialized successfully");
 
     // Read and validate session secret — must be set and at least 32 characters.

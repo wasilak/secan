@@ -130,12 +130,7 @@ export function ShardManagement() {
   const { data: clusterSettings, isLoading: settingsLoading } = useQuery({
     queryKey: queryKeys.cluster(id!).settings(),
     queryFn: async () => {
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        id!,
-        'GET',
-        '/_cluster/settings'
-      );
-      return response.data;
+      return apiClient.getClusterSettings(id!);
     },
     enabled: !!id,
   });

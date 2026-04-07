@@ -343,6 +343,15 @@ pub async fn get_sankey(
     let shards: Vec<ShardInfoResponse> = match state.cluster_manager.get_cluster(&cluster_id).await
     {
         Ok(cluster_conn) => {
+            // If cluster is inaccessible, return an explicit unavailable error so
+            // the frontend can show why the cluster is not usable.
+            if !cluster_conn.accessible {
+                return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+                    &cluster_id,
+                    cluster_conn.accessible_reason.clone(),
+                ));
+            }
+
             let routing = cluster_conn.cluster_state_routing_nodes(None).await.ok();
             routing
                 .as_ref()

@@ -30,12 +30,7 @@ export function useClusterSettings(
   return useQuery<ClusterSettings>({
     queryKey: queryKeys.cluster(clusterId).settings(),
     queryFn: async () => {
-      const response = await apiClient.proxyRequest<Record<string, unknown>>(
-        clusterId,
-        'GET',
-        '/_cluster/settings'
-      );
-      return response.data as unknown as ClusterSettings;
+      return apiClient.getClusterSettings(clusterId) as unknown as ClusterSettings;
     },
     enabled: !!clusterId,
     ...options,

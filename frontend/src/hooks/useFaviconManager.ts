@@ -10,7 +10,8 @@ import { useEffect } from 'react';
  * When clusterHealth is 'yellow', displays yellow favicon
  * When clusterHealth is 'red', displays red favicon
  */
-export function useFaviconManager(clusterHealth: 'green' | 'yellow' | 'red' | null): void {
+// Accept broader clusterHealth values (some backends may return unknown strings)
+export function useFaviconManager(clusterHealth: string | null): void {
   useEffect(() => {
     const faviconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
 

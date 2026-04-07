@@ -88,14 +88,14 @@ pub async fn post_tiles(
             max = max_tiles,
             "Too many tiles requested in a single call"
         );
-        return Err(crate::routes::clusters::ClusterErrorResponse {
-            error: "too_many_tiles".to_string(),
-            message: format!(
+        return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+            "too_many_tiles",
+            format!(
                 "Request contains {} tiles which exceeds the allowed maximum of {}",
                 requests.len(),
                 max_tiles
             ),
-        });
+        ));
     }
 
     // Attempt to fetch cluster nodes and shards from ClusterManager via ClusterState
@@ -105,6 +105,14 @@ pub async fn post_tiles(
     // Acquire a ClusterConnection for the requested cluster
     match state.cluster_manager.get_cluster(&cluster_id).await {
         Ok(cluster_conn) => {
+            // Short-circuit if cluster is marked inaccessible so callers don't
+            // attempt live network calls through ClusterConnection.
+            if !cluster_conn.accessible {
+                return Err(crate::routes::clusters::ClusterErrorResponse::unavailable(
+                    &cluster_id,
+                    cluster_conn.accessible_reason.clone(),
+                ));
+            }
             // Fetch nodes_info and nodes_stats via cluster connection
             let nodes_info_opt = cluster_conn.nodes_info().await.ok();
             let nodes_stats_opt = cluster_conn.nodes_stats().await.ok();
@@ -236,17 +244,17 @@ pub async fn post_tiles(
                         }
                         Ok(Err(e)) => {
                             tracing::error!(error = %e, "Semaphore closed unexpectedly");
-                            return Err(crate::routes::clusters::ClusterErrorResponse {
-                                error: "semaphore_error".to_string(),
-                                message: format!("Failed to acquire generation permit: {}", e),
-                            });
+                            return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                                "semaphore_error",
+                                format!("Failed to acquire generation permit: {}", e),
+                            ));
                         }
                         Err(_) => {
                             tracing::warn!("Timed out waiting for generation permit");
-                            return Err(crate::routes::clusters::ClusterErrorResponse {
-                                error: "generation_concurrency_limited".to_string(),
-                                message: "Server is currently handling maximum concurrent tile generations; try again later".to_string(),
-                            });
+                            return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+                                "generation_concurrency_limited",
+                                "Server is currently handling maximum concurrent tile generations; try again later",
+                            ));
                         }
                     }
                 }
