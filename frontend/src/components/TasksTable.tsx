@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ReactElement } from 'react';
-import { Table, Text, Tooltip, Group, Badge, Checkbox } from '@mantine/core';
+import { Table, Text, Tooltip, Group, Badge, Checkbox, UnstyledButton } from '@mantine/core';
 import { TaskInfo } from '../types/api';
 import { formatTimestamp } from '../utils/formatters';
 
@@ -50,6 +50,10 @@ interface TasksTableProps {
   onToggleSelect?: (taskId: string) => void;
   onSelectAll?: (tasks: TaskInfo[]) => void;
   onClearSelection?: () => void;
+  // Optional mapping from node id (or node name) to display name
+  nodeNameMap?: Record<string, string>;
+  // Optional handler to open node modal; if provided the node name will be clickable
+  openNodeModal?: (nodeId: string) => void;
 }
 
 export const TasksTable = React.memo(function TasksTable({
@@ -62,6 +66,8 @@ export const TasksTable = React.memo(function TasksTable({
   onToggleSelect,
   onSelectAll,
   onClearSelection,
+  nodeNameMap,
+  openNodeModal,
 }: TasksTableProps): ReactElement {
   const cancellableTasks = tasks.filter(task => task.cancellable);
   const allSelected = cancellableTasks.length > 0 && cancellableTasks.every((task) => selectedTasks.has(`${task.node}:${task.id}`));
@@ -147,11 +153,28 @@ export const TasksTable = React.memo(function TasksTable({
               />
             </Table.Td>
             <Table.Td>
-              <Tooltip label={task.node}>
-                <Text size="sm" truncate>
-                  {task.node.substring(0, 8)}...
-                </Text>
-              </Tooltip>
+              {nodeNameMap && nodeNameMap[task.node] ? (
+                <Tooltip label={nodeNameMap[task.node]}>
+                  <UnstyledButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openNodeModal?.(task.node);
+                    }}
+                    aria-label={`Open node ${nodeNameMap[task.node]} details`}
+                    style={{ padding: 0, margin: 0, display: 'inline-block', textAlign: 'left' }}
+                  >
+                    <Text size="sm" truncate style={{ textDecoration: openNodeModal ? 'underline' : undefined }}>
+                      {nodeNameMap[task.node]}
+                    </Text>
+                  </UnstyledButton>
+                </Tooltip>
+              ) : (
+                <Tooltip label={task.node}>
+                  <Text size="sm" truncate>
+                    {task.node.substring(0, 8)}...
+                  </Text>
+                </Tooltip>
+              )}
             </Table.Td>
             <Table.Td>
               <Text size="sm">{task.id}</Text>

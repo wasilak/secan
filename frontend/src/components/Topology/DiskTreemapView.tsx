@@ -1,7 +1,7 @@
 import { ResponsiveTreeMap } from '@nivo/treemap';
 import type { ComputedNodeWithoutStyles } from '@nivo/treemap';
 import { Skeleton, Text, Box } from '@mantine/core';
-import { getHealthColorValue } from '../../utils/colors';
+import { getColorForIndex } from '../../utils/colors';
 import { formatBytes } from '../../utils/formatters';
 import type { IndexInfo, HealthStatus } from '../../types/api';
 
@@ -22,6 +22,11 @@ export interface DiskTreemapViewProps {
   indices: IndexInfo[];
   isLoading?: boolean;
   showSpecialIndices?: boolean;
+  /**
+   * When true, treat leading-dot system indices as distinct buckets so
+   * `.my-index` maps to a different color than `my-index`.
+   */
+  separateSystemIndices?: boolean;
 }
 
 function DiskTreemapTooltip({
@@ -54,7 +59,14 @@ function DiskTreemapTooltip({
   );
 }
 
-export function DiskTreemapView({ indices, isLoading, showSpecialIndices = true }: DiskTreemapViewProps) {
+export function DiskTreemapView({
+  indices,
+  isLoading,
+  showSpecialIndices = true,
+  // Default to treating system indices separately so examples like
+  // `.my-index` and `my-index` map to distinct colors.
+  separateSystemIndices = true,
+}: DiskTreemapViewProps) {
   if (isLoading) {
     return <Skeleton height={400} radius="sm" />;
   }
@@ -89,13 +101,18 @@ export function DiskTreemapView({ indices, isLoading, showSpecialIndices = true 
         value="value"
         leavesOnly
         colors={(node: ComputedNodeWithoutStyles<DiskTreemapDatum>) =>
-          getHealthColorValue((node.data as DiskTreemapDatum).health)
+          // Use deterministic color per index (based on prefix/hash) for better visual grouping
+          // Allow caller to choose whether system indices (leading dot) are treated separately.
+          getColorForIndex(node.id, separateSystemIndices)
         }
         nodeOpacity={0.9}
         borderWidth={2}
         borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
         labelSkipSize={24}
-        label={(node) => node.id}
+        label={(node) =>
+          // Truncate long index names for label display while tooltip shows full name
+          node.id.length > 24 ? `${node.id.slice(0, 21)}...` : node.id
+        }
         enableParentLabel={false}
         tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
         animate={true}

@@ -62,9 +62,14 @@ export function ClusterESNodeCardFlowWrapper(props: { data: ClusterGroupNodeData
     throw new Error('ClusterESNodeCardFlowWrapper data missing summaryCounts');
   }
 
-  return (
-    <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
+    return (
+      <div className="secan-rf-node-contains-card" style={{ position: 'relative', display: 'inline-block', pointerEvents: 'auto' }}>
       <Handle type="target" position={Position.Top} style={{ left: '50%', transform: 'translateX(-50%)', top: -6 }} />
+      {/* Render the inner card. Previously we hid the inner border and relied on
+          the RF wrapper to draw the outline, but that produced cases where the
+          wrapper border wasn't visible (CSS load/order issues). Keep the
+          inner card responsible for its own border to ensure consistent
+          visibility across themes. */}
       <ClusterESNodeCard {...(data as unknown as ClusterGroupNodeDataFlat)} isLoading={Boolean((data as unknown as { isLoading?: boolean }).isLoading)} />
       <Handle type="source" position={Position.Bottom} style={{ left: '50%', transform: 'translateX(-50%)', bottom: -6 }} />
     </div>

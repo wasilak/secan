@@ -521,4 +521,17 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
     overflow-x: auto !important;
     overflow-y: auto !important;
   }
+
+/* Filter sidebar: force vertical-only scrolling to avoid double horizontal scrollbars
+   The Sidebar contains stacked filter controls and should never horizontally overflow. */
+.filter-sidebar-scrollarea .mantine-ScrollArea-viewport {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.filter-sidebar-scrollarea .mantine-ScrollArea-content {
+  /* Prevent children from forcing horizontal overflow */
+  min-width: 0 !important;
+  width: 100% !important;
+}
 }

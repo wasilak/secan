@@ -5,15 +5,32 @@
 
 /* Per-theme derived tokens used by RF overrides */
 html[data-secan-color-scheme="light"] .secan-reactflow {
-  --secan-rf-edge-color: var(--mantine-color-default-border);
+  /* Stronger, explicit edge color for light theme to ensure visibility
+     against the dotted background. We keep node tokens untouched. */
+  --secan-rf-edge-color: rgba(0,0,0,0.18);
   --secan-rf-node-text: var(--mantine-color-gray-7);
   --secan-rf-node-title-weight: 700;
+  /* Token for node border inside ReactFlow; light theme needs a stronger
+     and deterministic border so node cards remain visible against the dotted
+     background. Use a subtle opaque stroke to avoid appearing too heavy. */
+  --secan-node-border: rgba(0,0,0,0.12);
 }
 
 html[data-secan-color-scheme="dark"] .secan-reactflow {
-  --secan-rf-edge-color: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
+  /* Slightly stronger edge color for dark theme so edges remain perceptible. */
+  --secan-rf-edge-color: rgba(255,255,255,0.18);
   --secan-rf-node-text: var(--mantine-color-gray-0);
   --secan-rf-node-title-weight: 700;
+  /* Keep dark theme default for node border (no change) */
+  --secan-node-border: var(--mantine-color-default-border);
+}
+
+/* Make grouped RF parent containers more visible in light theme by using the
+   same stronger node border token. This affects container nodes like the
+   GroupContainerNode so their outer borders remain visible on pale backgrounds. */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node.group-parent > div,
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node.group-parent > div > .react-flow__node-default {
+  border: 1.5px solid var(--secan-node-border) !important;
 }
 
 /* Surface border token — pick a dim token per color scheme */
@@ -96,7 +113,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   border-radius: 8px !important;
   box-shadow: none !important;
   /* Default: do not force an inner border here — dark-mode will add one where needed */
-  border: none !important;
+  border: none;
 }
 
 /* Node label/text */
@@ -110,7 +127,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   /* do not force border by default; dark-mode adds one */
-  border: none !important;
+  border: none;
 }
 
 /* Additional fallbacks: cover different RF markup patterns for node content */
@@ -123,7 +140,7 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   /* Do not add an extra border — inner node components render their own */
-  border: none !important;
+  border: none;
 }
 
 /* Ensure the actual ClusterESNodeCard element keeps its visual styles when used inside RF.
@@ -136,6 +153,9 @@ html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node {
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
+  /* Ensure inner card always renders a visible border in light theme. Use
+     a stronger gray token so it stands out on the dotted background. */
+  border: 1px solid var(--secan-node-border, var(--mantine-color-gray-6)) !important;
 }
 
 .react-flow__node .secan-cluster-node-card {
@@ -232,11 +252,16 @@ html[data-secan-color-scheme="dark"] .secan-shard-node:hover {
   box-shadow: inset 0 0 0 2px rgba(0,0,0,0.18), 0 0 0 3px rgba(0,0,0,0.18) !important;
 }
 
-/* Edge paths / connectors - use same color as nodes */
-.secan-reactflow .react-flow__edge-path {
-  stroke: var(--secan-rf-edge-color) !important;
+/* NOTE: removed broad edge overrides so React Flow's native edge color
+   (suitable for light theme) is preserved. We only add a dark-mode
+   override below to ensure edges are visible on dark surfaces. */
+
+/* Dark-mode: ensure RF edges are perceptible on dark backgrounds. This
+   override intentionally targets only the dark color-scheme so light
+   theme uses RF defaults (#b1b1b7) which are well-balanced on white. */
+html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__edge-path {
+  stroke: rgba(255,255,255,0.28) !important;
   stroke-width: 1.4 !important;
-  opacity: 0.95 !important;
   stroke-linecap: round !important;
 }
 
@@ -278,12 +303,25 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__background {
   opacity: 1 !important;
 }
 
+/* Ensure regular RF nodes (those that do NOT contain our ClusterESNodeCard)
+   have a visible border in light theme. We avoid double borders by targeting
+   nodes whose immediate wrapper does not include the helper class
+   .secan-rf-node-contains-card (the clusterGroup renderer adds that class). */
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div:not(.secan-rf-node-contains-card),
+html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node .react-flow__node-default:not(.secan-rf-node-contains-card) {
+  border: 1px solid var(--secan-node-border, var(--mantine-color-default-border)) !important;
+}
+
 html[data-secan-color-scheme="light"] .secan-reactflow .secan-cluster-node-card {
   /* Only set background/typography for light mode; leave borders to the node renderer */
   background: var(--mantine-color-body) !important;
   color: var(--mantine-color-gray-7) !important;
   border-radius: 8px !important;
   box-shadow: none !important;
+  /* fallback outline: use an inset stroke via box-shadow so it remains visible
+     even if inline border styles are changed/removed. This mirrors dark mode
+     where RF wrapper draws visible borders by default. */
+  box-shadow: inset 0 0 0 1px var(--secan-node-border, rgba(0,0,0,0.12)) !important;
 }
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node-default,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > .react-flow__handle ~ div,
@@ -301,28 +339,21 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__handle {
   border: 1px solid rgba(0,0,0,0.06) !important;
 }
 
-html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__edge-path {
-  stroke: var(--mantine-color-gray-4, rgba(0,0,0,0.12)) !important;
-}
+/* End of file edge customisations. Light theme uses RF defaults; dark theme
+   receives a scoped override above. */
 
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__minimap__mask {
   fill: rgba(0,0,0,0.01) !important;
 }
 
-/*
-  Remove ReactFlow wrapper borders when our ClusterESNodeCard is used inside the node.
-  Some RF wrapper selectors add a 1px border which becomes visible together with
-  the card's own inline border, producing a double-inner outline. Use :has() to
-  target only RF nodes that contain our card and remove the wrapper border.
-  Modern browsers support :has(), and LightningCSS accepts it. If you need
-  broader toolchain compatibility we can fallback to avoiding RF border rules
-  entirely and rely solely on the card's inline border instead.
-*/
+/* When a React Flow node contains our ClusterESNodeCard, prefer the RF wrapper
+   to draw the outer border (consistent with dark mode). This avoids double
+   borders while guaranteeing a visible outline in both light and dark themes. */
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) > div,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default,
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node:has(.secan-cluster-node-card) .react-flow__node-default {
-  border: none !important;
+  border: 1px solid var(--secan-node-border) !important;
   box-shadow: none !important;
   background: transparent !important;
 }
@@ -334,7 +365,7 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.s
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card,
 html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default,
 html[data-secan-color-scheme="dark"] .secan-reactflow .react-flow__node > div.secan-rf-node-contains-card .react-flow__node-default {
-  border: none !important;
+  border: 1px solid var(--secan-node-border) !important;
   box-shadow: none !important;
   background: transparent !important;
 }

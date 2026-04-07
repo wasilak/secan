@@ -29,7 +29,7 @@ function IndexGroupNodeComponent({ data }: { data: IndexGroupNodeData }) {
   const { indexName, health, shardCount, primaryCount, replicaCount } = data;
 
   return (
-    <div style={{ display: 'inline-block', boxSizing: 'border-box', padding: '6px 10px', backgroundColor: 'transparent', border: 'none', textAlign: 'center' }}>
+    <div style={{ display: 'inline-block', boxSizing: 'border-box', padding: '6px 10px', backgroundColor: 'transparent', border: '1px solid var(--secan-node-border, var(--mantine-color-default-border))', textAlign: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <Text fw={700} size="md" lineClamp={1} style={{ minWidth: 0 }}>

@@ -49,7 +49,8 @@ export function FilterSidebar({
       </Box>
 
       {isExpanded && (
-        <ScrollArea style={{ flex: 1 }} p="xs">
+        // Add a specific class so we can disable horizontal scrolling
+        <ScrollArea className="filter-sidebar-scrollarea" style={{ flex: 1 }} p="xs">
           <Stack gap="md">
             {textFilters && textFilters.length > 0 && (
               <Stack gap="xs">

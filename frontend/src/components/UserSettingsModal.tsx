@@ -1,27 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-  Avatar,
-  Badge,
-  Center,
-  Group,
-  Stack,
-  Text,
-  Tabs,
-  SegmentedControl,
-  Box,
-  Divider,
-  Alert,
-} from '@mantine/core';
+import { Avatar, Badge, Center, Group, Stack, Text, Tabs, SegmentedControl, Box, Divider } from '@mantine/core';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  IconUser,
-  IconSettings,
-  IconKey,
-  IconSun,
-  IconMoon,
-  IconDeviceDesktop,
-  IconInfoCircle,
-} from '@tabler/icons-react';
+import { IconUser, IconSettings, IconSun, IconMoon, IconDeviceDesktop } from '@tabler/icons-react';
 import { ManagedModal } from './ManagedModal';
 import { AuthTypeBadge, getAuthTypeColor } from './AuthTypeBadge';
 import { useTheme } from '../hooks/useTheme';
@@ -172,16 +152,8 @@ function SettingsTab() {
 
 // ── API Keys Tab ──────────────────────────────────────────────────────────────
 
-function ApiKeysTab() {
-  return (
-    <Stack gap="lg" pt="md">
-      <Alert icon={<IconInfoCircle size={16} />} color="gray" variant="light">
-        API key management is coming soon. You will be able to generate and revoke
-        personal access tokens for programmatic access.
-      </Alert>
-    </Stack>
-  );
-}
+// ApiKeysTab intentionally removed; API key management will not be implemented in this
+// UI. Keeping the implementation out of the modal prevents UX dead-ends.
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
@@ -218,33 +190,26 @@ export function UserSettingsModal({ opened, onClose, user }: UserSettingsModalPr
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: DURATIONS.slow, ease: EASINGS.default }}
           >
-            <Box pb="md">
-              <Tabs value={activeTab} onChange={setActiveTab}>
-                <Tabs.List>
-                  <Tabs.Tab value="profile" leftSection={<IconUser size={14} />}>
-                    Profile
-                  </Tabs.Tab>
-                  <Tabs.Tab value="settings" leftSection={<IconSettings size={14} />}>
-                    User Settings
-                  </Tabs.Tab>
-                  <Tabs.Tab value="apikeys" leftSection={<IconKey size={14} />}>
-                    API Keys
-                  </Tabs.Tab>
-                </Tabs.List>
+              <Box pb="md">
+                <Tabs value={activeTab} onChange={setActiveTab}>
+                  <Tabs.List>
+                    <Tabs.Tab value="profile" leftSection={<IconUser size={14} />}>
+                      Profile
+                    </Tabs.Tab>
+                    <Tabs.Tab value="settings" leftSection={<IconSettings size={14} />}>
+                      User Settings
+                    </Tabs.Tab>
+                  </Tabs.List>
 
-                <Tabs.Panel value="profile">
-                  <ProfileTab user={user} />
-                </Tabs.Panel>
+                  <Tabs.Panel value="profile">
+                    <ProfileTab user={user} />
+                  </Tabs.Panel>
 
-                <Tabs.Panel value="settings">
-                  <SettingsTab />
-                </Tabs.Panel>
-
-                <Tabs.Panel value="apikeys">
-                  <ApiKeysTab />
-                </Tabs.Panel>
-              </Tabs>
-            </Box>
+                  <Tabs.Panel value="settings">
+                    <SettingsTab />
+                  </Tabs.Panel>
+                </Tabs>
+              </Box>
           </motion.div>
         )}
       </AnimatePresence>

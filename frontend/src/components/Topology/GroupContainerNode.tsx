@@ -29,7 +29,7 @@ export function GroupContainerNode({ data }: NodeProps) {
         height: '100%',
         position: 'relative',
         borderRadius: '10px',
-        border: '1.5px solid var(--mantine-color-default-border)',
+        border: '1.5px solid var(--secan-node-border, var(--mantine-color-default-border))',
         backgroundColor: 'var(--mantine-color-body)',
         boxShadow: '0 1px 3px rgba(0,0,0,0.06) inset',
         pointerEvents: 'none',

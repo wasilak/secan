@@ -99,15 +99,17 @@ export function getShardStateColor(state: ShardInfo['state']): string {
 export function getShardBorderColor(state: ShardInfo['state']): string {
   switch (state) {
     case 'STARTED':
-      return 'var(--mantine-color-green-6)';
+      // Use a darker shade for borders so they remain visible
+      // on light backgrounds (shade 9 provides stronger contrast).
+      return 'var(--mantine-color-green-9)';
     case 'INITIALIZING':
-      return 'var(--mantine-color-yellow-6)';
+      return 'var(--mantine-color-yellow-9)';
     case 'RELOCATING':
-      return 'var(--mantine-color-violet-6)';
+      return 'var(--mantine-color-violet-9)';
     case 'UNASSIGNED':
       return 'transparent'; // No border for unassigned shards
     default:
-      return 'var(--mantine-color-gray-6)';
+      return 'var(--mantine-color-gray-7)';
   }
 }
 
@@ -152,6 +154,67 @@ export function getShardDotColor(state: ShardInfo['state']): string {
     default:
       return 'var(--mantine-color-gray-6)';
   }
+}
+
+/**
+ * Deterministic color lookup for an index name.
+ * Uses a simple hash of the index name and maps into a palette.
+ */
+/**
+ * Deterministic color lookup for an index name.
+ *
+ * Behaviour:
+ * - Strips common trailing numeric/date/time suffixes (e.g. -2026.02.03, -2026.02.03-232320, -232320)
+ *   so variants of the same logical index map to the same color.
+ * - Optionally, honors the leading dot (system indices) as distinct when
+ *   `separateSystemIndexColors` is true (so `.my-index` becomes a different
+ *   bucket than `my-index`). Default behaviour groups `.my-index` with
+ *   `my-index` to produce fewer colors.
+ *
+ * @param indexName - Full index name
+ * @param separateSystemIndexColors - If true, treat leading '.' as part of the key
+ */
+export function getColorForIndex(indexName: string, separateSystemIndexColors: boolean = true): string {
+  if (!indexName) return 'var(--mantine-color-gray-6)';
+
+  const isSystem = indexName.startsWith('.');
+  // Work on the name without leading dot for extraction purposes
+  let working = isSystem ? indexName.slice(1) : indexName;
+
+  // Remove trailing numeric/date/timestamp-like suffixes. Examples:
+  // -my-index-2026.02.03 -> my-index
+  // -my-index-2026.02.03-232320 -> my-index
+  // -my-index-232320 -> my-index
+  // -my-index-2026-02-03 -> my-index
+  // The regex removes one or more trailing groups that start with '-' and
+  // contain digits possibly separated by '.' or '-'.
+  working = working.replace(/(?:-\d+(?:[.\-]\d+)*)+$/, '');
+
+  // Fallback if stripping emptied the name (unlikely) — use the original stripped name
+  if (!working) working = isSystem ? indexName.slice(1) : indexName;
+
+  // Decide the key for hashing. If separateSystemIndexColors is true and
+  // the index originally had a leading dot, prefix the key so it's different.
+  const key = separateSystemIndexColors && isSystem ? `.${working}` : working;
+
+  // simple djb2-like hash on the key
+  let hash = 5381;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 33) ^ key.charCodeAt(i);
+  }
+
+  const colors = [
+    'var(--mantine-color-blue-6)',
+    'var(--mantine-color-cyan-6)',
+    'var(--mantine-color-violet-6)',
+    'var(--mantine-color-pink-6)',
+    'var(--mantine-color-green-6)',
+    'var(--mantine-color-yellow-6)',
+    'var(--mantine-color-orange-6)',
+    'var(--mantine-color-red-6)',
+  ];
+  const idx = Math.abs(hash) % colors.length;
+  return colors[idx];
 }
 
 /**

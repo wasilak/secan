@@ -1319,7 +1319,8 @@ export function ClusterView() {
       {/* Tasks Section */}
       {activeView === 'tasks' && (
         <AppErrorBoundary key="tasks" fallbackTitle="Tasks view failed to load">
-          <TasksView clusterId={id!} />
+          {/* Pass prebuilt nodeNameMap into TasksView to avoid duplicate node fetching in TasksTab */}
+          <TasksView clusterId={id!} openNodeModal={openNodeModal} nodeNameMap={Object.fromEntries(allNodesArray.map(n => [n.id, n.name || n.id]))} />
         </AppErrorBoundary>
       )}
 

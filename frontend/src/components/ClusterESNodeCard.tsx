@@ -66,7 +66,11 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           backgroundColor: selected ? 'var(--mantine-color-blue-light)' : 'var(--mantine-color-body)',
           cursor: isDestinationClickable ? 'pointer' : 'default',
           opacity: isLoading ? 0.6 : 1,
-          border: hideInnerBorder ? 'none' : (isValidDestination ? '2px dashed var(--mantine-color-violet-6)' : '1px solid var(--mantine-color-default-border)'),
+          border: hideInnerBorder
+            ? 'none'
+            : (isValidDestination
+              ? '2px dashed var(--mantine-color-violet-6)'
+              : `1px solid var(--secan-node-border, var(--mantine-color-default-border))`),
         }}
       >
         <Group gap="xs" wrap="nowrap" justify="space-between" mb={4}>
@@ -141,7 +145,13 @@ export function ClusterESNodeCard(props: ClusterESNodeCardProps) {
           : 'var(--mantine-color-body)',
         cursor: isDestinationClickable ? 'pointer' : 'default',
         opacity: isLoading ? 0.6 : 1,
-        border: hideInnerBorder ? 'none' : (isValidDestination ? '2px dashed var(--mantine-color-violet-6)' : '1px solid var(--mantine-color-default-border)'),
+        // If hideInnerBorder is true, the RF wrapper should render the border.
+        // Otherwise draw the inline border using the theme token.
+        border: hideInnerBorder
+          ? 'none'
+          : (isValidDestination
+            ? '2px dashed var(--mantine-color-violet-6)'
+            : `1px solid var(--secan-node-border, var(--mantine-color-default-border))`),
       }}
       onClick={() => {
         if (isDestinationClickable && onDestinationClick) {

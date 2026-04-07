@@ -4,6 +4,7 @@ import { Stack, Alert, Button, Group, Modal, Text, Grid, Table } from '@mantine/
 import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useClusterNodes } from '../hooks/useClusterNodes';
 import { TaskInfo } from '../types/api';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useRefreshInterval } from '../contexts/RefreshContext';
@@ -34,9 +35,16 @@ import TableSkeleton from './TableSkeleton';
 interface TasksTabProps {
   clusterId: string;
   isActive: boolean;
+  // optional handler forwarded from ClusterView to open node modal without remounting
+  openNodeModal?: (nodeId: string) => void;
+  // Optional prebuilt map from node id (or name) -> display name. When provided
+  // TasksTab will use this instead of fetching nodes itself. This avoids
+  // duplicate network calls when the surrounding ClusterView already loaded
+  // node data.
+  nodeNameMap?: Record<string, string>;
 }
 
-export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
+export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: TasksTabProps): ReactElement {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedTask, setSelectedTask] = useState<TaskInfo | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -113,6 +121,30 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
       return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
   }, [tasks, sortBy, sortOrder]);
+
+  // Build or reuse a nodeNameMap for TasksTable. If a prebuilt map is provided
+  // by the parent (ClusterView), prefer it to avoid duplicate fetching. Only
+  // call useClusterNodes when we don't have a map already and the tab is active.
+  const { data: nodesPaginated } = useClusterNodes(clusterId, {
+    page: 1,
+    pageSize: 1000,
+    enabled: !!clusterId && isActive && !nodeNameMap,
+    placeholderData: (previousData) => previousData,
+  });
+
+  // If parent provided nodeNameMap via props, use it; otherwise derive from fetched nodes
+  const derivedNodeNameMap = nodeNameMap;
+
+  const nodeNameMapComputed = useMemo(() => {
+    if (derivedNodeNameMap) return derivedNodeNameMap;
+    const map: Record<string, string> = {};
+    const items = nodesPaginated?.items || [];
+    for (const n of items) {
+      if (n.id) map[n.id] = n.name || n.id;
+      if (n.name) map[n.name] = n.name; // allow lookup by name too
+    }
+    return map;
+  }, [derivedNodeNameMap, nodesPaginated?.items]);
 
   // Handle sort column click
   const handleSort = useCallback((column: string) => {
@@ -272,6 +304,8 @@ export function TasksTab({ clusterId, isActive }: TasksTabProps): ReactElement {
                   onToggleSelect={toggleSelection}
                   onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
                   onClearSelection={clearSelection}
+                  nodeNameMap={nodeNameMapComputed}
+                  openNodeModal={openNodeModal}
                 />
               )}
             </div>

@@ -115,7 +115,12 @@ export function SpotlightSearch() {
           id: `node-${node.id}`,
           label: node.name,
           description: `${node.ip} - ${node.roles.join(', ')}`,
-          onClick: () => navigate(`/cluster/${currentClusterId}/nodes/${node.id}`),
+          onClick: () => {
+            // Open node details via modal query param (no path change)
+            const params = new URLSearchParams(location.search);
+            params.set('nodeModal', node.id);
+            navigate(`${location.pathname}?${params.toString()}`);
+          },
           leftSection: <IconServer size={20} />,
           keywords: ['node', node.name, ...(node.ip ? [node.ip] : []), ...node.roles, ...(clusterName ? [clusterName] : [])],
         }));
@@ -129,8 +134,12 @@ export function SpotlightSearch() {
           id: `index-${index.name}`,
           label: index.name,
           description: `${index.health} - ${index.docsCount?.toLocaleString() || 0} docs`,
-          onClick: () =>
-            navigate(`/cluster/${currentClusterId}/indices/${encodeURIComponent(index.name)}`),
+          onClick: () => {
+            // Open index details via modal query param so ClusterView keeps mounted
+            const params = new URLSearchParams(location.search);
+            params.set('indexModal', index.name);
+            navigate(`${location.pathname}?${params.toString()}`);
+          },
           leftSection: <IconDatabase size={20} />,
           keywords: ['index', index.name, ...(clusterName ? [clusterName] : [])],
         }));
@@ -179,7 +188,16 @@ export function SpotlightSearch() {
     }
 
     return groups;
-  }, [clusters, currentClusterId, currentClusterName, nodes, indices, navigate]);
+  }, [
+    clusters,
+    currentClusterId,
+    currentClusterName,
+    nodes,
+    indices,
+    navigate,
+    location.pathname,
+    location.search,
+  ]);
 
   return (
     <Spotlight
