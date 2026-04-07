@@ -49,8 +49,8 @@ export function FilterSidebar({
       </Box>
 
       {isExpanded && (
-        // Add a specific class so we can disable horizontal scrolling
-        <ScrollArea className="filter-sidebar-scrollarea" style={{ flex: 1 }} p="xs">
+        {/* Use Mantine's scrollbars prop to restrict to vertical-only scrollbars */}
+        <ScrollArea className="filter-sidebar-scrollarea" style={{ flex: 1 }} p="xs" scrollbars="y">
           <Stack gap="md">
             {textFilters && textFilters.length > 0 && (
               <Stack gap="xs">

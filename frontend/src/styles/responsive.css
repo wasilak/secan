@@ -524,48 +524,14 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
 
 /* Filter sidebar: force vertical-only scrolling to avoid double horizontal scrollbars
    The Sidebar contains stacked filter controls and should never horizontally overflow. */
-.filter-sidebar-scrollarea .mantine-ScrollArea-root,
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport,
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-content {
-  /* Ensure no horizontal overflow anywhere inside the filter sidebar ScrollArea. */
+.filter-sidebar-scrollarea .mantine-ScrollArea-viewport {
   overflow-x: hidden !important;
   overflow-y: auto !important;
-  min-width: 0 !important;
-}
-
-/* Hide the horizontal scrollbar track in WebKit browsers (Chrome, Safari) so
-   the bottom horizontal bar never appears on hover. We keep vertical
-   scrollbars usable (width is not changed). */
-.filter-sidebar-scrollarea .mantine-ScrollArea-viewport::-webkit-scrollbar {
-  height: 0 !important; /* hide horizontal scrollbar */
 }
 
 .filter-sidebar-scrollarea .mantine-ScrollArea-content {
   /* Prevent children from forcing horizontal overflow */
   min-width: 0 !important;
   width: 100% !important;
-}
-
-/* Extra defensive rules: ensure the sidebar never shows a horizontal scrollbar
-   — even on hover or when inner content temporarily expands. */
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport,
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-content {
-  overflow-x: hidden !important;
-  scrollbar-width: none !important; /* Firefox */
-}
-
-.filter-sidebar-scrollarea:hover .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
-  overflow-x: hidden !important;
-}
-
-/* Hide WebKit scrollbars completely for this scroll area */
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-viewport::-webkit-scrollbar {
-  height: 0 !important;
-  width: 0 !important;
-}
-
-/* Hide Mantine corner element that can appear between vertical/horizontal bars */
-.filter-sidebar-scrollarea .mantine-ScrollArea-root .mantine-ScrollArea-corner {
-  display: none !important;
 }
 }
