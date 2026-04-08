@@ -172,6 +172,30 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'cluster/:id/topology/canvas',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/topology/sankey',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/topology/disk',
+        element: (
+          <LazyRoute>
+            <ClusterView />
+          </LazyRoute>
+        ),
+      },
+      {
         path: 'cluster/:id/topology/index',
         element: (
           <LazyRoute>

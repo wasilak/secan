@@ -1,4 +1,17 @@
 import { RouteObject } from 'react-router-dom';
+import type React from 'react';
+import {
+  IconDashboard,
+  IconTopologyFull,
+  IconChartLine,
+  IconServer,
+  IconPackage,
+  IconBox,
+  IconPlayerPlay,
+  IconCircle,
+  IconLayout,
+  IconList,
+} from '@tabler/icons-react';
 
 /**
  * Cluster section types
@@ -56,10 +69,16 @@ export const clusterRoutes: RouteObject[] = [
     path: 'cluster/:id/topology/dot',
   },
   {
+    path: 'cluster/:id/topology/sankey',
+  },
+  {
     path: 'cluster/:id/topology/index',
   },
   {
     path: 'cluster/:id/topology/canvas',
+  },
+  {
+    path: 'cluster/:id/topology/disk',
   },
   {
     path: 'cluster/:id/statistics',
@@ -148,3 +167,43 @@ export function isValidClusterSection(value: string): value is ClusterSection {
  * @type {ClusterSection}
  */
 export const defaultSection: ClusterSection = 'overview';
+
+/**
+ * Navigation item interfaces and a single source-of-truth nav definition
+ * Shared by sidebar, header breadcrumb, and spotlight
+ */
+export interface ClusterNavSubItem {
+  label: string;
+  path: string; // relative path, e.g. '/topology/canvas'
+  icon: React.ComponentType<{ size?: number }>; // icon component reference
+}
+
+export interface ClusterNavItem {
+  value: ClusterSection;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  path: string; // relative path, e.g. '/overview'
+  children?: ClusterNavSubItem[];
+}
+
+export const CLUSTER_NAV: ClusterNavItem[] = [
+  { value: 'overview', label: 'Overview', icon: IconDashboard, path: '/overview' },
+  {
+    value: 'topology',
+    label: 'Topology',
+    icon: IconTopologyFull,
+    path: '/topology',
+    children: [
+      { label: 'Node Overview', path: '/topology/dot', icon: IconCircle },
+      { label: 'Shard Grid', path: '/topology/index', icon: IconList },
+      { label: 'Cluster Map', path: '/topology/canvas', icon: IconLayout },
+      { label: 'Shard Flow', path: '/topology/sankey', icon: IconTopologyFull },
+      { label: 'Disk Usage', path: '/topology/disk', icon: IconChartLine },
+    ],
+  },
+  { value: 'statistics', label: 'Statistics', icon: IconChartLine, path: '/statistics' },
+  { value: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
+  { value: 'indices', label: 'Indices', icon: IconPackage, path: '/indices' },
+  { value: 'shards', label: 'Shards', icon: IconBox, path: '/shards' },
+  { value: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
+];

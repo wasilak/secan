@@ -185,11 +185,17 @@ export function ClusterView() {
   // Topology view type state
   // Topology view type state — read from searchParam or infer from pathname on first mount
   const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas' | 'sankey' | 'disk'>(() => {
+    // Prefer explicit pathname sub-route if present (e.g. /topology/sankey)
+    if (location.pathname.includes('/topology/sankey')) return 'sankey';
+    if (location.pathname.includes('/topology/disk')) return 'disk';
+    if (location.pathname.includes('/topology/canvas')) return 'canvas';
+    if (location.pathname.includes('/topology/index')) return 'index';
+    if (location.pathname.includes('/topology/dot')) return 'node';
+
+    // Fallback to explicit query param if provided
     const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | 'sankey' | 'disk' | null;
     if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas' || urlParam === 'sankey' || urlParam === 'disk') return urlParam;
-    if (location.pathname.includes('/topology/index')) return 'index';
-    if (location.pathname.includes('/topology/canvas')) return 'canvas';
-    if (location.pathname.includes('/topology/dot')) return 'node';
+
     return 'node';
   });
 

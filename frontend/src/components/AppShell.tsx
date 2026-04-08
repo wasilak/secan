@@ -14,6 +14,7 @@ import {
   Menu,
   Button,
   useMantineColorScheme,
+  Popover,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
@@ -25,12 +26,6 @@ import {
   IconAlertCircle,
   IconChevronRight,
   IconChevronDown,
-  IconMap,
-  IconPackage,
-  IconDatabase,
-  IconBox,
-  IconChartLine,
-  IconPlayerPlay,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect, useCallback, memo } from 'react';
@@ -51,21 +46,10 @@ import { APP_VERSION, getAppVersion } from '../utils/version';
 import { extractSectionFromPath } from '../utils/urlBuilders';
 import { queryKeys } from '../utils/queryKeys';
 import { DURATIONS, EASINGS } from '../lib/transitions';
-import { defaultSection, isValidClusterSection, type ClusterSection } from '../routes/clusterRoutes';
+import { defaultSection, isValidClusterSection, type ClusterSection, CLUSTER_NAV } from '../routes/clusterRoutes';
 import type { ClusterInfo, ClusterStats } from '../types/api';
 
-/**
- * Section configuration for cluster navigation
- */
-const CLUSTER_SECTIONS = [
-  { value: 'overview', label: 'Overview', icon: <IconDashboard size={16} /> },
-  { value: 'topology', label: 'Topology', icon: <IconMap size={16} /> },
-  { value: 'statistics', label: 'Statistics', icon: <IconChartLine size={16} /> },
-  { value: 'nodes', label: 'Nodes', icon: <IconDatabase size={16} /> },
-  { value: 'indices', label: 'Indices', icon: <IconPackage size={16} /> },
-  { value: 'shards', label: 'Shards', icon: <IconBox size={16} /> },
-  { value: 'tasks', label: 'Tasks', icon: <IconPlayerPlay size={16} /> },
-];
+// CLUSTER_NAV is imported from routes and provides navigation metadata
 
 /**
  * Individual cluster health display component used in dropdown menu
@@ -219,14 +203,15 @@ function HeaderTitle() {
   // Track which menus are open
   const [clusterMenuOpen, setClusterMenuOpen] = useState(false);
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
+  // Track which section's popover (nested submenu) is open in the header
+  const [openSectionPopover, setOpenSectionPopover] = useState<string | null>(null);
 
   // Get resolved cluster name
   const clusterName = useClusterName(clusterId || '');
 
   // Get current section from path parameter (defaults to 'overview')
   const activeSection = extractSectionFromPath(location.pathname) || defaultSection;
-  const activeSectionLabel =
-    CLUSTER_SECTIONS.find((s) => s.value === activeSection)?.label || 'Overview';
+  const activeSectionLabel = CLUSTER_NAV.find((s) => s.value === activeSection)?.label || 'Overview';
 
   // Fetch cluster stats if we're viewing a cluster
   const { data: clusterStats } = useQuery({
@@ -336,40 +321,132 @@ function HeaderTitle() {
             </Text>
           </Button>
         </Menu.Target>
-        <Menu.Dropdown>
-          {CLUSTER_SECTIONS.map((section) => (
-            <Menu.Item
-              key={section.value}
-              component="a"
-              href={`/cluster/${clusterId}/${section.value}`}
-              onClick={(e) => {
-                if (e.metaKey || e.ctrlKey) {
-                  // Let browser handle Cmd+Click/Ctrl+Click for new tab
-                  return;
-                }
-                e.preventDefault();
-                handleSelectSection(section.value);
-              }}
-              leftSection={
-                section.value === activeSection ? (
-                  <div
-                    style={{
-                      width: '4px',
-                      height: '16px',
-                      backgroundColor: 'var(--mantine-color-orange-6)',
-                      borderRadius: '2px',
-                    }}
-                  />
-                ) : null
+          <Menu.Dropdown>
+            {CLUSTER_NAV.map((section) => {
+              if (section.children && section.children.length > 0) {
+                // Render parent item as a Popover.Target and show children in a Popover dropdown
+                return (
+                  <div key={section.value} style={{ display: 'inline-block' }}>
+                    <Popover
+                      opened={openSectionPopover === section.value}
+                      onChange={(open) => setOpenSectionPopover(open ? section.value : null)}
+                      position="right-start"
+                      withArrow
+                      closeOnClickOutside
+                    >
+                      <Popover.Target>
+                        <div
+                          onMouseEnter={() => setOpenSectionPopover(section.value)}
+                          onMouseLeave={() => setOpenSectionPopover(null)}
+                        >
+                          <Menu.Item
+                            // Parent items with children are toggle-only in the
+                            // header: clicking should open/close the popover
+                            // rather than navigate. Keep the active-section
+                            // orange bar on the left to indicate the current
+                            // active section while the chevron on the right
+                            // signals expandability.
+                            onClick={() => {
+                              setOpenSectionPopover((prev) => (prev === section.value ? null : section.value));
+                            }}
+                            leftSection={
+                              section.value === activeSection ? (
+                                <div
+                                  style={{
+                                    width: '4px',
+                                    height: '16px',
+                                    backgroundColor: 'var(--mantine-color-orange-6)',
+                                    borderRadius: '2px',
+                                  }}
+                                />
+                              ) : null
+                            }
+                          >
+                            <Group style={{ width: '100%', justifyContent: 'space-between' }}>
+                              <Group gap="xs">
+                                <section.icon size={16} />
+                                <Text size="sm">{section.label}</Text>
+                              </Group>
+                              <IconChevronRight
+                                size={12}
+                                style={{
+                                  color: openSectionPopover === section.value || section.value === activeSection
+                                    ? 'var(--mantine-color-orange-6)'
+                                    : 'var(--mantine-color-dimmed)',
+                                  transform: openSectionPopover === section.value || section.value === activeSection ? 'rotate(90deg)' : 'rotate(0deg)',
+                                  transition: 'transform 150ms ease, color 150ms ease',
+                                }}
+                              />
+                            </Group>
+                          </Menu.Item>
+                        </div>
+                      </Popover.Target>
+
+                      <Popover.Dropdown
+                        onMouseEnter={() => setOpenSectionPopover(section.value)}
+                        onMouseLeave={() => setOpenSectionPopover(null)}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 220 }}>
+                          {section.children.map((child) => (
+                            <Menu.Item
+                              key={child.path}
+                              component="a"
+                              href={`/cluster/${clusterId}${child.path}`}
+                              onClick={(e) => {
+                                if (e.metaKey || e.ctrlKey) return;
+                                e.preventDefault();
+                                navigate(`/cluster/${clusterId}${child.path}`);
+                                setSectionMenuOpen(false);
+                                setOpenSectionPopover(null);
+                              }}
+                              leftSection={<child.icon size={14} />}
+                              style={{ paddingLeft: 8 }}
+                            >
+                              <Text size="sm">{child.label}</Text>
+                            </Menu.Item>
+                          ))}
+                        </div>
+                      </Popover.Dropdown>
+                    </Popover>
+                  </div>
+                );
               }
-            >
-              <Group gap="xs">
-                {section.icon}
-                <Text size="sm">{section.label}</Text>
-              </Group>
-            </Menu.Item>
-          ))}
-        </Menu.Dropdown>
+
+              return (
+                <Menu.Item
+                  key={section.value}
+                  component="a"
+                  href={`/cluster/${clusterId}/${section.value}`}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey) {
+                      // Let browser handle Cmd+Click/Ctrl+Click for new tab
+                      return;
+                    }
+                    e.preventDefault();
+                    handleSelectSection(section.value);
+                  }}
+                  leftSection={
+                    section.value === activeSection ? (
+                      <div
+                        style={{
+                          width: '4px',
+                          height: '16px',
+                          backgroundColor: 'var(--mantine-color-orange-6)',
+                          borderRadius: '2px',
+                        }}
+                      />
+                    ) : null
+                  }
+                >
+                  <Group gap="xs">
+                    {/* Render icon component at 16px */}
+                    <section.icon size={16} />
+                    <Text size="sm">{section.label}</Text>
+                  </Group>
+                </Menu.Item>
+              );
+            })}
+          </Menu.Dropdown>
       </Menu>
     </Group>
   );
@@ -399,6 +476,11 @@ function ClusterNavItemInner({
   const clusterName = useClusterName(clusterId);
   const refreshInterval = useRefreshInterval();
   useMantineColorScheme();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Local UI state: which section parents have their children expanded in the sidebar
+  const [openChildSections, setOpenChildSections] = useState<Record<string, boolean>>({});
 
   // Fetch cluster stats for health status (independent of useClusterName to ensure fresh data)
   const { data: clusterStats } = useQuery({
@@ -480,7 +562,7 @@ function ClusterNavItemInner({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: DURATIONS.normal, ease: EASINGS.default }}
           >
-            {CLUSTER_SECTIONS.map((section, index) => {
+            {CLUSTER_NAV.map((section, index) => {
               const isSectionActive = isActive && currentSection === section.value;
               return (
                 <motion.div
@@ -490,11 +572,22 @@ function ClusterNavItemInner({
                   transition={{ delay: index * 0.02, duration: DURATIONS.normal }}
                 >
                   <NavLink
-                    href={`/cluster/${clusterId}/${section.value}`}
                     label={section.label}
-                    leftSection={section.icon}
+                    leftSection={<section.icon size={16} />}
                     active={isSectionActive}
                     onClick={(e) => {
+                      // If this section has children, clicking should toggle its children
+                      // in the sidebar (not navigate). If it has no children, navigate.
+                      if (section.children && section.children.length > 0) {
+                        e.preventDefault();
+                        if (e.metaKey || e.ctrlKey) return;
+                        setOpenChildSections((prev) => ({
+                          ...prev,
+                          [section.value]: !prev[section.value],
+                        }));
+                        return;
+                      }
+
                       if (e.metaKey || e.ctrlKey) {
                         // Let browser handle Cmd+Click/Ctrl+Click for new tab
                         return;
@@ -502,23 +595,39 @@ function ClusterNavItemInner({
                       e.preventDefault();
                       onSectionNavigate(clusterId, section.value as ClusterSection);
                     }}
-                      styles={(theme) => ({
-                        root: {
-                          // Keep entries visually minimal: no persistent or hover
-                          // background to avoid the blocky gray bars in the nav.
+                    styles={(theme) => ({
+                      root: {
+                        // Keep entries visually minimal: no persistent or hover
+                        // background to avoid the blocky gray bars in the nav.
+                        backgroundColor: 'transparent',
+                        '&:hover': {
                           backgroundColor: 'transparent',
-                          '&:hover': {
-                            backgroundColor: 'transparent',
-                          },
                         },
-                        label: {
-                          color: theme.colors.gray[7],
-                          fontWeight: 400,
-                          fontSize: '14px',
-                        },
-                      })}
+                      },
+                      label: {
+                        color: theme.colors.gray[7],
+                        fontWeight: 400,
+                        fontSize: '14px',
+                      },
+                    })}
                     rightSection={
-                      isSectionActive ? (
+                      // If the section has children, show a small chevron that
+                      // rotates when the section is active or its children are
+                      // expanded. If it has no children, keep the existing
+                      // orange active bar behavior.
+                      section.children && section.children.length > 0 ? (
+                        <IconChevronRight
+                          size={12}
+                          style={{
+                            color: isSectionActive || openChildSections[section.value]
+                              ? 'var(--mantine-color-orange-6)'
+                              : 'var(--mantine-color-dimmed)',
+                            transform: isSectionActive || openChildSections[section.value] ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 150ms ease, color 150ms ease',
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : isSectionActive ? (
                         <div
                           style={{
                             width: '4px',
@@ -531,6 +640,33 @@ function ClusterNavItemInner({
                       ) : null
                     }
                   />
+                  {/* Render second-level nav for children (e.g. topology sub-tabs) */}
+                  {/* Render second-level nav for children (e.g. topology sub-tabs).
+                      Children are shown either when the section is active (route)
+                      or when the user toggles the parent in the sidebar. */}
+                  {(isSectionActive || openChildSections[section.value]) && section.children && section.children.length > 0 && (
+                    <div style={{ paddingLeft: 16, marginTop: 6 }}>
+                      {section.children.map((child) => (
+                        <NavLink
+                          key={child.path}
+                          href={`/cluster/${clusterId}${child.path}`}
+                          label={child.label}
+                          leftSection={<child.icon size={14} />}
+                          active={location.pathname === `/cluster/${clusterId}${child.path}`}
+                          onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey) return;
+                            e.preventDefault();
+                            const url = `/cluster/${clusterId}${child.path}`;
+                            navigate(url);
+                          }}
+                          styles={(theme) => ({
+                            root: { backgroundColor: 'transparent' },
+                            label: { color: theme.colors.gray[6], fontSize: '13px' },
+                          })}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

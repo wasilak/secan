@@ -1,15 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Spotlight, type SpotlightActionData, type SpotlightActionGroupData } from '@mantine/spotlight';
-import {
-  IconDashboard,
-  IconServer,
-  IconSearch,
-  IconDatabase,
-  IconChartBar,
-  IconCopy,
-  IconTopologyFull,
-  IconPlayerPlay,
-} from '@tabler/icons-react';
+import { IconDashboard, IconServer, IconSearch, IconDatabase } from '@tabler/icons-react';
+import { CLUSTER_NAV } from '../routes/clusterRoutes';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { getPaginatedItems } from '../types/api';
@@ -19,17 +11,7 @@ import { useClusterIndices } from '../hooks/useClusterIndices';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { useMemo } from 'react';
 
-// Tab definitions shared between cluster-view and dashboard-view groups
-// Defined outside the component so it's stable and doesn't need to be in useMemo deps
-const clusterTabs = [
-  { id: 'overview', label: 'Overview', icon: IconChartBar, path: '/overview' },
-  { id: 'statistics', label: 'Statistics', icon: IconChartBar, path: '/statistics' },
-  { id: 'nodes', label: 'Nodes', icon: IconServer, path: '/nodes' },
-  { id: 'indices', label: 'Indices', icon: IconDatabase, path: '/indices' },
-  { id: 'shards', label: 'Shards', icon: IconCopy, path: '/shards' },
-  { id: 'topology', label: 'Topology', icon: IconTopologyFull, path: '/topology' },
-  { id: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-];
+// CLUSTER_NAV (imported) is the single source-of-truth for cluster navigation
 
 /**
  * SpotlightSearch component provides keyboard-driven navigation
@@ -95,7 +77,13 @@ export function SpotlightSearch() {
       // In cluster view — show the current cluster's tabs, nodes, and indices
       const clusterName = currentClusterName;
 
-      const tabActions: SpotlightActionData[] = clusterTabs.map((tab) => ({
+      // Build flattened tab list including top-level tabs and children
+      const flattenedTabs = CLUSTER_NAV.flatMap((t) => [
+        { id: t.value, label: t.label, icon: t.icon, path: t.path },
+        ...(t.children ? t.children.map((c) => ({ id: `${t.value}${c.path}`, label: c.label, icon: c.icon, path: c.path })) : []),
+      ]);
+
+      const tabActions: SpotlightActionData[] = flattenedTabs.map((tab) => ({
         id: `cluster-${currentClusterId}-${tab.id}`,
         label: tab.label,
         description: `View ${clusterName ?? currentClusterId} ${tab.label.toLowerCase()}`,
@@ -170,19 +158,15 @@ export function SpotlightSearch() {
       } else {
         // Dashboard context: full tab group per cluster for direct deep-linking
         otherClusters.forEach((cluster) => {
-          const clusterActions: SpotlightActionData[] = clusterTabs.map((tab) => ({
-            id: `cluster-${cluster.id}-${tab.id}`,
-            label: tab.label,
-            description: `View ${cluster.name ?? cluster.id} ${tab.label.toLowerCase()}`,
-            onClick: () => navigate(`/cluster/${cluster.id}${tab.path}`),
-            leftSection: <tab.icon size={20} />,
-            keywords: ['cluster', tab.label.toLowerCase(), cluster.name ?? cluster.id],
-          }));
+          // Use flattened CLUSTER_NAV so children are also available as direct links
+          const clusterActions: SpotlightActionData[] = CLUSTER_NAV.flatMap((t) => [
+            { id: `cluster-${cluster.id}-${t.value}`, label: t.label, description: `View ${cluster.name ?? cluster.id} ${t.label.toLowerCase()}`, onClick: () => navigate(`/cluster/${cluster.id}${t.path}`), leftSection: <t.icon size={20} />, keywords: ['cluster', t.label.toLowerCase(), cluster.name ?? cluster.id] },
+            ...(t.children
+              ? t.children.map((c) => ({ id: `cluster-${cluster.id}-${t.value}${c.path}`, label: c.label, description: `View ${cluster.name ?? cluster.id} ${c.label.toLowerCase()}`, onClick: () => navigate(`/cluster/${cluster.id}${c.path}`), leftSection: <c.icon size={20} />, keywords: ['cluster', c.label.toLowerCase(), cluster.name ?? cluster.id] }))
+              : []),
+          ]);
 
-          groups.push({
-            group: cluster.name ?? cluster.id,
-            actions: clusterActions,
-          });
+          groups.push({ group: cluster.name ?? cluster.id, actions: clusterActions });
         });
       }
     }
