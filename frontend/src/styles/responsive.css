@@ -367,9 +367,10 @@ html {
 /* Ensure Mantine ScrollArea viewport allows horizontal scrolling when console is pinned */
 .fullwidth-container[data-console-pinned="true"] .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
   /* Ensure horizontal scrolling is available even when Mantine sets inline overflow styles.
-     Use !important because Mantine sometimes writes inline 'overflow: scroll' on this element. */
-  overflow-x: auto !important;
-  overflow-y: auto !important;
+     Use a more specific selector to avoid relying on high-specificity overrides while still overriding
+     Mantine in most cases. Keep the comments to explain the defensive intent. */
+  overflow-x: auto;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-width: 0; /* allow flex children to shrink and show the scrollbar */
 }
@@ -393,15 +394,15 @@ html {
   .mantine-ScrollArea-root .mantine-Table-table,
   .mantine-Table-root > table,
   .mantine-Table-table {
-    min-width: max-content !important; /* don't let the table shrink below its content */
-    table-layout: auto !important;
+    min-width: max-content; /* don't let the table shrink below its content */
+    table-layout: auto;
   }
 
   .mantine-ScrollArea-root .mantine-Table-table th,
   .mantine-ScrollArea-root .mantine-Table-table td,
   .mantine-Table-table th,
   .mantine-Table-table td {
-    white-space: nowrap !important; /* prevent wrapping that causes columns to compress */
+    white-space: nowrap; /* prevent wrapping that causes columns to compress */
   }
 }
 
@@ -432,14 +433,14 @@ html {
 /* Only force a custom hover background in dark mode — in light mode rely on Mantine's
    default highlightOnHover so we don't accidentally apply dark tints (black) in light theme. */
 html[data-secan-color-scheme="dark"] .clickable-row:hover td {
-  background-color: var(--mantine-color-dark-6) !important;
+  background-color: var(--mantine-color-dark-6);
 }
 
-/* App-wide override: ensure Mantine accordion separators use our surface border token
-   (Mantine may render computed colors inline; !important here ensures our token
-   wins and gives a dim border in dark mode). */
+  /* App-wide override: ensure Mantine accordion separators use our surface border token
+     (Mantine may render computed colors inline; this rule ensures our token wins
+     and gives a dim border in dark mode). */
 .mantine-Accordion-item {
-  border-bottom-color: var(--secan-surface-border-weak) !important;
+   border-bottom-color: var(--secan-surface-border-weak);
 }
 
 
@@ -498,40 +499,40 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
   .mantine-Group-root,
   .mantine-ScrollArea-root,
   .mantine-Table-root {
-    min-width: 0 !important;
+    min-width: 0;
   }
 
   /* Let ScrollArea content size to its children (tables) instead of forcing 100% width */
   .mantine-ScrollArea-root .mantine-ScrollArea-content {
-    min-width: max-content !important;
-    width: auto !important;
+    min-width: max-content;
+    width: auto;
   }
 
   /* Ensure tables inside ScrollArea keep intrinsic width and don't wrap */
   .mantine-ScrollArea-root .mantine-Table-table,
   .mantine-ScrollArea-root .mantine-Table-table th,
   .mantine-ScrollArea-root .mantine-Table-table td {
-    min-width: max-content !important;
-    white-space: nowrap !important;
-    table-layout: auto !important;
+    min-width: max-content;
+    white-space: nowrap;
+    table-layout: auto;
   }
 
   /* Make viewport scrollable if content overflows */
   .mantine-ScrollArea-root .mantine-ScrollArea-viewport {
-    overflow-x: auto !important;
-    overflow-y: auto !important;
+    overflow-x: auto;
+    overflow-y: auto;
   }
 
 /* Filter sidebar: force vertical-only scrolling to avoid double horizontal scrollbars
    The Sidebar contains stacked filter controls and should never horizontally overflow. */
 .filter-sidebar-scrollarea .mantine-ScrollArea-viewport {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .filter-sidebar-scrollarea .mantine-ScrollArea-content {
   /* Prevent children from forcing horizontal overflow */
-  min-width: 0 !important;
-  width: 100% !important;
+  min-width: 0;
+  width: 100%;
 }
 }

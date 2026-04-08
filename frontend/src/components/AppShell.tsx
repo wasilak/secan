@@ -452,9 +452,9 @@ function ClusterNavItemInner({
       }
       styles={(theme) => ({
         root: {
-          backgroundColor: `${isDark ? theme.colors.dark[6] : theme.colors.gray[2]} !important`,
+          backgroundColor: `${isDark ? theme.colors.dark[6] : theme.colors.gray[2]}`,
           '&:hover': {
-            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]} !important`,
+            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]}`,
           },
         },
         label: {
@@ -500,19 +500,19 @@ function ClusterNavItemInner({
                       e.preventDefault();
                       onSectionNavigate(clusterId, section.value as ClusterSection);
                     }}
-                    styles={(theme) => ({
-                      root: {
-                        backgroundColor: 'transparent !important',
-                        '&:hover': {
-                          backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]} !important`,
+                      styles={(theme) => ({
+                        root: {
+                          backgroundColor: 'transparent',
+                          '&:hover': {
+                            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]}`,
+                          },
                         },
-                      },
-                      label: {
-                        color: theme.colors.gray[7],
-                        fontWeight: 400,
-                        fontSize: '14px',
-                      },
-                    })}
+                        label: {
+                          color: theme.colors.gray[7],
+                          fontWeight: 400,
+                          fontSize: '14px',
+                        },
+                      })}
                     rightSection={
                       isSectionActive ? (
                         <div
