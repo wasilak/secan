@@ -4,8 +4,7 @@ import type { ClusterGroupNodeDataFlat } from '../../utils/canvasLayout';
 import ClusterESNodeCard from '../ClusterESNodeCard';
 
 // Debug: ensure this module loads in runtime builds
- 
-console.log('ClusterGroupNode module loaded');
+// (removed stray console.log left in production builds)
 
 /**
  * Data interface for ClusterGroupNode.
@@ -42,8 +41,16 @@ function ClusterGroupNodeComponent({ data, selected }: NodeProps & { data: Clust
   }
 
   // Delegate visual rendering to the extracted mantine-only component
-  // so we can reuse it across non-RF and RF contexts.
-  return <ClusterESNodeCard {...data} selected={selected} />;
+  // so we can reuse it across non-RF and RF contexts. When loading is true,
+  // render a small spinner overlay so the user sees per-node loading state.
+  return (
+    <div style={{ position: 'relative' }}>
+      {data.loading ? (
+        <div className="secan-node-spinner"><div className="secan-spinner-inner" /></div>
+      ) : null}
+      <ClusterESNodeCard {...data} selected={selected} />
+    </div>
+  );
 }
 
 function shallowArrayEqual(a?: Record<string, unknown>[], b?: Record<string, unknown>[]): boolean {

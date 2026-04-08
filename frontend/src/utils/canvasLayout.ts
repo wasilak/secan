@@ -53,8 +53,10 @@ export interface ClusterGroupNodeDataFlat {
     // Include shard info so node renderer can emit shard-specific interactions
     shard: ShardInfo;
   }>;
-  /** When true, UI should not display shard summary pills (used to avoid showing "0 shards") */
-  suppressShardSummary?: boolean;
+   /** When true, UI should not display shard summary pills (used to avoid showing "0 shards") */
+   suppressShardSummary?: boolean;
+  /** When true, the node is currently loading/shard-list is not yet available. */
+  loading?: boolean;
 
   // Handlers (should be stable and at most one or two, for simple id click)
   onNodeClick?: (nodeId: string) => void;
@@ -147,6 +149,8 @@ export interface CanvasLayoutInput {
    * synthetic Unassigned node with a count badge even without full shard data.
    */
   unassignedShardsHint?: number;
+  /** Global loading flag propagated into generated node data (per-node loading preserved by caller). */
+  loading?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -279,6 +283,7 @@ function emitGroupNode(
     onNodeClick: input.onNodeClick,
     onDestinationClick: input.onDestinationClick,
     onShardClick: input.onShardClick,
+    loading: input.loading ?? false,
   };
 
     // Provide a width hint based on node header content so dagre/collision

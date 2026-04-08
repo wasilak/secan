@@ -671,6 +671,7 @@ export function CanvasTopologyView({
       onDestinationClick,
       getIndexHealthColor,
       unassignedShardsHint: unassignedCountHint,
+      loading: isLoading,
     });
 
     // Apply summary badge counts from the lightweight endpoint.

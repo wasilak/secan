@@ -18,6 +18,8 @@ export interface ShardNodeData extends Record<string, unknown> {
    * Useful when ShardNodes are present only to act as edge endpoints in index viz.
    */
   invisible?: boolean;
+  /** When true, show a loading spinner instead of the shard visuals. */
+  loading?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export interface ShardNodeData extends Record<string, unknown> {
  */
 function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
   const { shard, onShardClick, invisible } = data as ShardNodeData;
+  const loading = (data as ShardNodeData).loading;
   if (invisible) {
     // Render an invisible placeholder that retains RF position/size but
     // doesn't show visuals or receive pointer events. This allows edges to
@@ -99,6 +102,11 @@ function ShardNodeComponent({ data }: NodeProps & { data: ShardNodeData }) {
           transition: 'box-shadow 150ms ease, transform 150ms ease',
         }}
       >
+        {loading ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 16, height: 16, borderRadius: 4, borderTop: '2px solid var(--mantine-color-blue-6)', borderLeft: '2px solid transparent', animation: 'secan-spin 0.8s linear infinite' }} />
+          </div>
+        ) : null}
         {/* Shard number */}
         <span
           style={{
