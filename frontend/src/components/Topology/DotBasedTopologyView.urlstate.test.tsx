@@ -84,20 +84,16 @@ function renderWithGrouping(groupingConfig: GroupingConfig = { attribute: 'none'
   
   const result = render(
     <MantineProvider>
-      <MemoryRouter initialEntries={['/cluster/test/topology?topologyView=node']}>
+      <MemoryRouter initialEntries={['/cluster/test/topology?topologyView=node-overview']}>
         <Routes>
-          <Route
-            path="/cluster/:clusterId/topology"
-            element={
-              <DotBasedTopologyView
+          <Route path="/cluster/:clusterId/topology" element={<DotBasedTopologyView
                 nodes={mockNodes}
                 shards={mockShards}
                 indices={mockIndices}
                 searchParams={searchParams}
                 clusterId="test"
                 groupingConfig={groupingConfig}
-              />
-            }
+              />}
           />
         </Routes>
       </MemoryRouter>

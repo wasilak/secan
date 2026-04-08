@@ -602,7 +602,7 @@ export function CanvasTopologyView({
   // Measure available container size so the ReactFlow canvas can be given an
   // explicit height. This avoids ResizeObserver/layout feedback loops caused
   // by responsive chart components measuring their own container.
-  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 400, debounceMs: 120 });
+  const { containerRef, size, measure } = useMeasuredSize({ bottomMargin: 48, minHeight: 400, debounceMs: 120 });
 
   // Track whether the canvas is at L2 zoom (> 0.7) for shard dot rendering.
   // State is updated via handleZoomChange which is called by Flow on every zoom tick.
@@ -620,6 +620,21 @@ export function CanvasTopologyView({
     const count = allShards.filter((s) => !s.node).length;
     setUnassignedCountHint(count);
   }, [allShards]);
+
+  // Trigger measurement when key layout data changes so the Flow receives an
+  // up-to-date containerHeight. Retry once after a short delay if the initial
+  // measurement yields zero (layout not yet settled).
+  useEffect(() => {
+    if (!containerRef || !containerRef.current) return;
+    measure();
+    let retry: number | null = null;
+    if (size.width === 0 || size.height === 0) {
+      retry = window.setTimeout(() => measure(), 160) as unknown as number;
+    }
+    return () => {
+      if (retry) window.clearTimeout(retry);
+    };
+  }, [nodes, allShards, indices, groupingConfig, measure, size]);
 
   const handleZoomChange = useCallback((zoom: number) => {
     const newIsL2 = zoom > L2_ZOOM_THRESHOLD;
@@ -772,6 +787,7 @@ export function CanvasTopologyView({
       // should call measure() explicitly where appropriate.
       data-secan-measure-available={true}
     >
+      {/* Measurement triggered via effect above */}
       {showLoadingSkeleton ? (
         <Box p="md">
           <Skeleton height={180} radius="sm" mb="md" />

@@ -35,8 +35,8 @@ interface TopologyViewProps {
   statsUnassignedCount: number;
   searchParams: URLSearchParams;
   setSearchParams: (params: URLSearchParams, options?: { replace?: boolean }) => void;
-  topologyViewType: 'node' | 'index' | 'canvas' | 'sankey' | 'disk';
-  setTopologyViewType: (value: 'node' | 'index' | 'canvas' | 'sankey' | 'disk') => void;
+  topologyViewType: 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage';
+  setTopologyViewType: (value: 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage') => void;
   topologyGroupingConfig: GroupingConfig;
   handleTopologyGroupingChange: (attribute: GroupingAttribute, tagValue?: string) => void;
   indexNameFilter: string;
@@ -203,7 +203,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             ]}
             conditionalSections={[
                {
-                visible: topologyViewType === 'sankey',
+                visible: topologyViewType === 'shard-flow',
                 content: (() => {
                   const maxIndices = statsIndexCount > 0 ? statsIndexCount : undefined;
                   const ratio = maxIndices && maxIndices > 0 ? pendingSankeyTopIndices / maxIndices : 0;
@@ -255,7 +255,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 })(),
               },
               {
-                visible: topologyViewType === 'sankey',
+                visible: topologyViewType === 'shard-flow',
                 content: (
                   <Select
                     label="Rank by"
@@ -277,7 +277,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
               },
             ]}
             rightSection={
-              topologyViewType === 'node' || topologyViewType === 'canvas' ? (
+               topologyViewType === 'node-overview' || topologyViewType === 'cluster-map' ? (
                 <GroupingControl
                   currentGrouping={topologyGroupingConfig.attribute}
                   currentGroupingValue={topologyGroupingConfig.value}
@@ -309,15 +309,15 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             {/* View type tabs (right column header row) */}
             <Group justify="space-between" align="flex-end">
               <Tabs
-                value={topologyViewType}
-                onChange={(value) => setTopologyViewType(value as 'node' | 'index' | 'canvas' | 'sankey' | 'disk')}
+                 value={topologyViewType}
+                 onChange={(value) => setTopologyViewType(value as 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage')}
               >
                 <Tabs.List>
-                  <Tabs.Tab value="node">Node Overview</Tabs.Tab>
-                  <Tabs.Tab value="index">Shard Grid</Tabs.Tab>
-                  <Tabs.Tab value="canvas">Cluster Map</Tabs.Tab>
-                  <Tabs.Tab value="sankey">Shard Flow</Tabs.Tab>
-                  <Tabs.Tab value="disk">Disk Usage</Tabs.Tab>
+                  <Tabs.Tab value="node-overview">Node Overview</Tabs.Tab>
+                  <Tabs.Tab value="shard-grid">Shard Grid</Tabs.Tab>
+                  <Tabs.Tab value="cluster-map">Cluster Map</Tabs.Tab>
+                  <Tabs.Tab value="shard-flow">Shard Flow</Tabs.Tab>
+                  <Tabs.Tab value="disk-usage">Disk Usage</Tabs.Tab>
                 </Tabs.List>
               </Tabs>
             </Group>
@@ -351,7 +351,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
             )}
 
             {/* View */}
-            {topologyViewType === 'node' ? (
+  {topologyViewType === 'node-overview' ? (
               <DotBasedTopologyView
                 nodes={allNodesArray}
                 shards={allShards || []}
@@ -371,7 +371,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 isLoading={nodesLoading || allIndicesLoading || allShardsLoading}
                 groupingConfig={topologyGroupingConfig}
               />
-            ) : topologyViewType === 'canvas' ? (
+            ) : topologyViewType === 'cluster-map' ? (
               <CanvasTopologyView
                 nodes={allNodesArray}
                 shardSummary={shardSummary ?? []}
@@ -395,7 +395,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 onNodeDragStart={handleNodeDragStart}
                 onNodeDragStop={handleNodeDragStop}
               />
-            ) : topologyViewType === 'sankey' ? (
+            ) : topologyViewType === 'shard-flow' ? (
               <SankeyTopologyView
                 clusterId={clusterId}
                 selectedShardStates={selectedShardStates}
@@ -405,7 +405,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 openIndexModal={openIndexModal}
                 showSpecialIndices={showSpecialIndices}
               />
-            ) : topologyViewType === 'disk' ? (
+            ) : topologyViewType === 'disk-usage' ? (
               <DiskTreemapView
                 indices={allIndicesArray || []}
                 isLoading={allIndicesLoading}

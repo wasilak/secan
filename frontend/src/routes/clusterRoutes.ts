@@ -66,19 +66,7 @@ export const clusterRoutes: RouteObject[] = [
     path: 'cluster/:id/topology',
   },
   {
-    path: 'cluster/:id/topology/dot',
-  },
-  {
-    path: 'cluster/:id/topology/sankey',
-  },
-  {
-    path: 'cluster/:id/topology/index',
-  },
-  {
-    path: 'cluster/:id/topology/canvas',
-  },
-  {
-    path: 'cluster/:id/topology/disk',
+    // legacy per-tab topology paths removed; prefer /topology?topologyView=<...>
   },
   {
     path: 'cluster/:id/statistics',
@@ -194,11 +182,11 @@ export const CLUSTER_NAV: ClusterNavItem[] = [
     icon: IconTopologyFull,
     path: '/topology',
     children: [
-      { label: 'Node Overview', path: '/topology?topologyView=node', icon: IconCircle },
-      { label: 'Shard Grid', path: '/topology?topologyView=index', icon: IconList },
-      { label: 'Cluster Map', path: '/topology?topologyView=canvas', icon: IconLayout },
-      { label: 'Shard Flow', path: '/topology?topologyView=sankey', icon: IconTopologyFull },
-      { label: 'Disk Usage', path: '/topology?topologyView=disk', icon: IconChartLine },
+      { label: 'Node Overview', path: '/topology?topologyView=node-overview', icon: IconCircle },
+      { label: 'Shard Grid', path: '/topology?topologyView=shard-grid', icon: IconList },
+      { label: 'Cluster Map', path: '/topology?topologyView=cluster-map', icon: IconLayout },
+      { label: 'Shard Flow', path: '/topology?topologyView=shard-flow', icon: IconTopologyFull },
+      { label: 'Disk Usage', path: '/topology?topologyView=disk-usage', icon: IconChartLine },
     ],
   },
   { value: 'statistics', label: 'Statistics', icon: IconChartLine, path: '/statistics' },

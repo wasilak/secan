@@ -1,4 +1,6 @@
+import React from 'react';
 import type { ReactElement, FunctionComponent } from 'react';
+import { useEffect } from 'react';
 import { Alert, Badge, Group, Paper, Skeleton, Stack, Text, Box } from '@mantine/core';
 import { IconAlertTriangle, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
 import { Sankey } from '@nivo/sankey';
@@ -134,7 +136,7 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
 
   // Measure container early so hooks rules are satisfied even if we return
   // early for loading / error states.
-  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 320, debounceMs: 120 });
+  const { containerRef, size, measure } = useMeasuredSize({ bottomMargin: 48, minHeight: 320, debounceMs: 120 });
 
   const { data, loading, error, refetch } = useSankeyData({
     clusterId,
@@ -144,11 +146,25 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     excludeSpecial: !showSpecialIndices,
     sortBy,
   });
+  // Measurement effects must run on every render (hooks order must be stable).
+  // Measure when data arrives and retry once if measurement reports zero.
+  useEffect(() => {
+    if (data) measure();
+  }, [data, measure]);
 
-  
-
+  useEffect(() => {
+    if (!data) return;
+    if (size.width > 0 && size.height > 0) return;
+    measure();
+    const t = window.setTimeout(() => {
+      measure();
+    }, 160);
+    return () => window.clearTimeout(t);
+  }, [data, size.width, size.height, measure]);
   // Note: limitValue state was removed because it's unused; keep hooks at
   // the top-level to satisfy rules-of-hooks when adding new hooks later.
+
+  
 
   function handleNodeClick(datum: SankeyNodeDatum<SankeyNodeExtra, SankeyLinkExtra> | SankeyLinkDatum<SankeyNodeExtra, SankeyLinkExtra>) {
     // SankeyLinkDatum does not have `kind` — use it as discriminator
@@ -236,6 +252,8 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
   // Resolve a concrete pixel height for the container. Keep a sensible
   // fallback so the UI remains stable while the hook measures.
   const resolvedHeight = size.height > 0 ? size.height : 320;
+
+  
 
   return (
     <Stack gap="sm">

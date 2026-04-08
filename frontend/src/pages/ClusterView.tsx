@@ -185,20 +185,27 @@ export function ClusterView() {
   // Topology view type state
   // Query-param-first: prefer ?topologyView=<...> when present so tab switching
   // is driven purely by search params and does not require pathname routes.
-  const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas' | 'sankey' | 'disk'>(() => {
-    const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | 'sankey' | 'disk' | null;
-    if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas' || urlParam === 'sankey' || urlParam === 'disk') return urlParam;
-    // Strict query-param-only: default to 'node' when not provided.
-    return 'node';
+  const [topologyViewType, setTopologyViewTypeState] = useState<'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage'>(() => {
+    const urlParam = searchParams.get('topologyView') as 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage' | null;
+    if (
+      urlParam === 'node-overview' ||
+      urlParam === 'shard-grid' ||
+      urlParam === 'cluster-map' ||
+      urlParam === 'shard-flow' ||
+      urlParam === 'disk-usage'
+    ) return urlParam;
+    // Strict query-param-only: default to 'node-overview' when not provided.
+    return 'node-overview';
   });
 
-  const setTopologyViewType = (value: 'node' | 'index' | 'canvas' | 'sankey' | 'disk') => {
+  const setTopologyViewType = (value: 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage') => {
     setTopologyViewTypeState(value);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('topologyView', value);
-    // Update only the search params so the pathname does not change. This
-    // keeps tab switches client-side and avoids remounting pages.
-    setSearchParams(newParams, { replace: true });
+    // Update only the search params so the pathname does not change. Use
+    // push (replace: false) so tab switches are recorded in browser history
+    // and users can use Back/Forward to navigate between tabs.
+    setSearchParams(newParams, { replace: false });
   };
 
   // Topology grouping state
@@ -981,13 +988,13 @@ export function ClusterView() {
     allShards,
     isInitialLoading: allShardsLoading,
     firstError: allShardsError,
-  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && (topologyViewType !== 'canvas' || canvasIsL2 || hasAnyFilter), 4);
+  } = usePerNodeShards(id, nodeIdsForShards, !!id && activeView === 'topology' && (topologyViewType !== 'cluster-map' || canvasIsL2 || hasAnyFilter), 4);
 
   // Lightweight per-node shard count summary for the canvas topology view.
   // Issues a single _cat/shards request on the backend rather than one request
   // per node. Only enabled when the canvas sub-view is active.
   const { data: canvasShardSummary = [] } = useNodesShardSummary(id, {
-    enabled: !!id && activeView === 'topology' && topologyViewType === 'canvas',
+    enabled: !!id && activeView === 'topology' && topologyViewType === 'cluster-map',
     refetchInterval: refreshInterval,
   });
 

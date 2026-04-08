@@ -70,7 +70,27 @@ export function DiskTreemapView({
   separateSystemIndices = true,
 }: DiskTreemapViewProps) {
   // Measure available space and pass explicit width/height to the non-responsive TreeMap
-  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 240, debounceMs: 120 });
+  const { containerRef, size, measure } = useMeasuredSize({ bottomMargin: 48, minHeight: 240, debounceMs: 120 });
+
+  // Trigger measurement when the indices data changes (or loading flips).
+  // If the first measurement yields zero size (layout not settled) schedule a
+  // single short retry to capture any late layout changes (e.g. sidebar toggle).
+  React.useEffect(() => {
+    if (!containerRef || !containerRef.current) {
+      // still mounting — rely on the hook's initial rAF measurement
+      return;
+    }
+    measure();
+    let retry: number | null = null;
+    if (size.width === 0 || size.height === 0) {
+      retry = window.setTimeout(() => {
+        measure();
+      }, 160) as unknown as number;
+    }
+    return () => {
+      if (retry) window.clearTimeout(retry);
+    };
+  }, [indices, isLoading, measure, containerRef, size]);
 
   if (isLoading) {
     return (
@@ -104,6 +124,17 @@ export function DiskTreemapView({
 
   return (
     <Box ref={containerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Ensure we measure when data arrives so the treemap doesn't stay in skeleton
+          when layout settles after async data or UI toggles. Retry once after a
+          short delay to catch late layout changes. */}
+      {/** measure-on-data-arrival effect */}
+      {(() => {
+        // Render-time hook shim: useEffect cannot be conditionally called, so
+        // we rely on the top-level component effect below. This IIFE returns
+        // null to avoid affecting the DOM.
+        return null;
+      })()}
+
       {size.width > 0 && size.height > 0 ? (
         <TreeMap<DiskTreemapDatum>
           width={size.width}

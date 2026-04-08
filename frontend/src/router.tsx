@@ -165,39 +165,10 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      // Legacy path-based topology routes are redirected to the query-param
-      // canonical route. This preserves backwards compatibility for existing
-      // external links while centralizing tab state in ?topologyView.
-      {
-        path: 'cluster/:id/topology/dot',
-        element: (
-          <Navigate to="/cluster/:id/topology?topologyView=node" replace />
-        ),
-      },
-      {
-        path: 'cluster/:id/topology/canvas',
-        element: (
-          <Navigate to="/cluster/:id/topology?topologyView=canvas" replace />
-        ),
-      },
-      {
-        path: 'cluster/:id/topology/sankey',
-        element: (
-          <Navigate to="/cluster/:id/topology?topologyView=sankey" replace />
-        ),
-      },
-      {
-        path: 'cluster/:id/topology/disk',
-        element: (
-          <Navigate to="/cluster/:id/topology?topologyView=disk" replace />
-        ),
-      },
-      {
-        path: 'cluster/:id/topology/index',
-        element: (
-          <Navigate to="/cluster/:id/topology?topologyView=index" replace />
-        ),
-      },
+      // Legacy path-based topology routes removed. Topology tab selection is
+      // now canonicalized to the ?topologyView query parameter (hyphenated
+      // values). Old path-based deep links will no longer redirect — this is
+      // intentional to encourage using the centralized query-param approach.
       {
         path: 'cluster/:id/statistics',
         element: (

@@ -436,7 +436,8 @@ export function IndexEdit({ constrainToParent = false, hideHeader = false, onSha
       params.set('indexTab', value);
       // Remove old 'tab' param if it exists
       params.delete('tab');
-      setSearchParams(params);
+      // Push a new history entry so Back/Forward navigates between index tabs
+      setSearchParams(params, { replace: false });
     }
   };
 
