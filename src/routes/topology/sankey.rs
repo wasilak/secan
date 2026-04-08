@@ -352,10 +352,14 @@ pub async fn get_sankey(
                 ));
             }
 
-            let routing = cluster_conn.cluster_state_routing_nodes(None).await.ok();
-            routing
-                .as_ref()
-                .map(crate::routes::clusters::transform::transform_routing_nodes_to_shards)
+            // Use _cat/shards which returns human-readable node names in the
+            // `node` column. transform_shards converts the cat output into the
+            // same ShardInfoResponse shape expected by the aggregate function.
+            cluster_conn
+                .cat_shards()
+                .await
+                .ok()
+                .map(|s| crate::routes::clusters::transform::transform_shards(&s))
                 .unwrap_or_default()
         }
         Err(_) => {
