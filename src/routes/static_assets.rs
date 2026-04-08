@@ -6,6 +6,9 @@ use axum::{
     response::Response,
 };
 use mime_guess;
+use std::fs;
+use std::path::Path;
+use std::sync::Once;
 
 /// Error type for static asset serving
 #[derive(Debug)]
@@ -36,6 +39,54 @@ impl std::error::Error for StaticAssetError {}
 /// Validates: Requirements 1.2
 pub async fn serve_static(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');
+
+    // Prefer serving files from the frontend/dist directory on disk when
+    // available. This allows a local development workflow where the
+    // frontend is built unminified into frontend/dist and the backend serves
+    // those files directly without requiring a recompile/embed cycle.
+    //
+    // Behavior: if frontend/dist/<path> exists, serve it. For SPA fallback
+    // (unknown paths) we'll attempt to serve frontend/dist/index.html when
+    // present.
+    let dev_dir =
+        std::env::var("SECAN_DEV_ASSETS_DIR").unwrap_or_else(|_| "frontend/dist".to_string());
+
+    // Log once whether we will prefer serving static assets from disk
+    // (useful for local development to confirm unminified assets are being used).
+    static STARTUP_LOG: Once = Once::new();
+    let dev_dir_clone = dev_dir.clone();
+    STARTUP_LOG.call_once(move || {
+        if Path::new(&dev_dir_clone).exists() {
+            tracing::info!(dev_assets_dir = %dev_dir_clone, "Serving static assets from disk (developer mode)");
+        } else {
+            tracing::info!("Serving embedded static assets (no frontend/dist found)");
+        }
+    });
+    let candidate = if path.is_empty() {
+        Path::new(&dev_dir).join("index.html")
+    } else {
+        Path::new(&dev_dir).join(path)
+    };
+    if candidate.exists() && candidate.is_file() {
+        if let Ok(bytes) = fs::read(&candidate) {
+            let mime_type = if path.is_empty() {
+                mime_guess::from_path("index.html").first_or_octet_stream()
+            } else {
+                mime_guess::from_path(path).first_or_octet_stream()
+            };
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime_type.as_ref())
+                .body(Body::from(bytes))
+                .map_err(|_| StaticAssetError::ResponseBuildError)
+                .unwrap_or_else(|_| {
+                    Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Internal Server Error"))
+                        .unwrap_or_else(|_| panic!("Failed to build error response"))
+                });
+        }
+    }
 
     // Try to get the requested file
     if let Some(content) = Assets::get(path) {
