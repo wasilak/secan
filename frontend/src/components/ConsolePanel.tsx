@@ -6,47 +6,7 @@ import { useModalManager } from '../contexts/ModalManagerContext';
 import { ConsoleContent } from './ConsoleContent';
 
 import '@gfazioli/mantine-split-pane/styles.css';
-
-// Custom CSS to override the library's default styles
-const customResizerStyles = `
-  .mantine-SplitResizer-root {
-    width: 4px !important;
-    min-width: 4px !important;
-    max-width: 4px !important;
-    flex: 0 0 4px !important;
-  }
-  
-  button.mantine-SplitResizer-root {
-    width: 4px !important;
-    min-width: 4px !important;
-    max-width: 4px !important;
-  }
-
-  /* Force split pane and all parent containers to be full height */
-  .mantine-SplitPane-root,
-  .mantine-SplitPane-root > div,
-  .mantine-SplitPane-pane {
-    height: 100% !important;
-  }
-
-  /* Ensure the Split container is full height */
-  [data-orientation="vertical"] {
-    height: 100% !important;
-  }
-
-  /* Console panel animation */
-  .console-pane-enter {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  
-  .console-pane-enter-active {
-    opacity: 1;
-    transform: translateX(0);
-    transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
-                transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-`;
+import '../styles/console-resizer.css';
 
 /**
  * Minimum console panel width in pixels
@@ -169,7 +129,7 @@ export function ConsolePanel({ children }: ConsolePanelProps) {
 
   return (
     <>
-      <style>{customResizerStyles}</style>
+      {/* Console resizer styles moved to frontend/src/styles/console-resizer.css */}
 
       {/* Main content always rendered; when pinned we render the console inline as a right column */}
       <Box style={{ flex: 1, height: '100%', width: '100%', minHeight: 0 }}>

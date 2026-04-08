@@ -19,11 +19,12 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import '../../styles/reactflow-overrides.css';
-import { Box, Skeleton } from '@mantine/core';
+import { Box, Skeleton, useMantineColorScheme } from '@mantine/core';
 import type { ShardInfo, IndexInfo, NodeInfo, NodeShardSummary } from '../../types/api';
 import ClusterESNodeCardFlowWrapper from '../ClusterESNodeCardFlowWrapper';
 import { GroupContainerNode } from './GroupContainerNode';
 import { calculateCanvasLayout, CONTAINER_PADDING_BOTTOM, CONTAINER_PADDING_TOP, CONTAINER_PADDING_X, CONTAINER_VERTICAL_GAP, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, UNASSIGNED_KEY, VERTICAL_GAP } from '../../utils/canvasLayout';
+import { getIndexHealthColor as makeGetIndexHealthColor } from '../../utils/getIndexHealthColor';
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
@@ -97,6 +98,8 @@ interface FlowProps {
 }
 
 function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout }: FlowProps) {
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
   const { fitView, getNodes } = useReactFlow();
   const initialized = useNodesInitialized();
   const hasFitViewRun = useRef(false);
@@ -496,9 +499,12 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     fitContainersToChildren();
   }, [childGeometryKey, usePrecomputedLayout, fitContainersToChildren]);
 
+  const rfExtraProps = { colorMode: isDark ? 'dark' : 'light' } as any;
+
   return (
     <ReactFlow
       className="secan-reactflow secan-canvas-topology-flow"
+      {...rfExtraProps}
       nodes={culledFlowNodes.map(n => ({ ...n, type: (n.type && (safeNodeTypes as any)[n.type]) ? n.type : 'default' }))}
       edges={[]}
       defaultEdgeOptions={{ type: 'simplebezier' }}
@@ -588,18 +594,7 @@ export function CanvasTopologyView({
     return map;
   }, [indices]);
 
-  const getIndexHealthColor = useCallback(
-    (indexName: string): string => {
-      const health = indexHealthMap.get(indexName);
-      switch (health) {
-        case 'green':  return 'var(--mantine-color-green-6)';
-        case 'yellow': return 'var(--mantine-color-yellow-6)';
-        case 'red':    return 'var(--mantine-color-red-6)';
-        default:       return 'var(--mantine-color-gray-6)';
-      }
-    },
-    [indexHealthMap],
-  );
+  const getIndexHealthColor = useMemo<((indexName: string) => string)>(() => makeGetIndexHealthColor(indexHealthMap), [indexHealthMap]);
 
   // ── Filter: nodes ─────────────────────────────────────────────────────────
   const filteredNodes = useMemo(() => {

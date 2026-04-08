@@ -1,0 +1,41 @@
+/* Console resizer overrides extracted from ConsolePanel.tsx
+   Keep necessary !important rules because they must override
+   third-party split-pane inline styles. */
+
+.mantine-SplitResizer-root {
+  width: 4px !important;
+  min-width: 4px !important;
+  max-width: 4px !important;
+  flex: 0 0 4px !important;
+}
+
+button.mantine-SplitResizer-root {
+  width: 4px !important;
+  min-width: 4px !important;
+  max-width: 4px !important;
+}
+
+/* Force split pane and all parent containers to be full height */
+.mantine-SplitPane-root,
+.mantine-SplitPane-root > div,
+.mantine-SplitPane-pane {
+  height: 100% !important;
+}
+
+/* Ensure the Split container is full height */
+[data-orientation="vertical"] {
+  height: 100% !important;
+}
+
+/* Console panel animation (kept here for portal/inline transitions) */
+.console-pane-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.console-pane-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}

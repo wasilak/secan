@@ -1,8 +1,9 @@
-import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { Grid, Text, Box, Divider, Skeleton } from '@mantine/core';
 import { ShardInfo, IndexInfo, NodeInfo } from '../../types/api';
 import { UnassignedShardsRow } from './UnassignedShardsRow';
 import { SHARD_STATE_COLORS } from '../../utils/colors';
+import { getIndexHealthColor as makeGetIndexHealthColor } from '../../utils/getIndexHealthColor';
 import ClusterESNodeCard from '../ClusterESNodeCard';
 import { UNASSIGNED_KEY } from '../../utils/canvasLayout';
 import { formatBytes, getLoadColor } from '../../utils/formatters';
@@ -186,7 +187,7 @@ export function DotBasedTopologyView({
     });
   }, [indices, indexNameFilter, matchesWildcard, searchParams]);
 
-  // Create index health lookup map
+  // Create index health lookup map and shared helper
   const indexHealthMap = useMemo(() => {
     const map = new Map<string, IndexInfo['health']>();
     indices.forEach((index) => {
@@ -195,16 +196,7 @@ export function DotBasedTopologyView({
     return map;
   }, [indices]);
 
-  // Get index health color
-  const getIndexHealthColor = useCallback((indexName: string): string => {
-    const health = indexHealthMap.get(indexName);
-    switch (health) {
-      case 'green': return 'var(--mantine-color-green-6)';
-      case 'yellow': return 'var(--mantine-color-yellow-6)';
-      case 'red': return 'var(--mantine-color-red-6)';
-      default: return 'var(--mantine-color-gray-6)';
-    }
-  }, [indexHealthMap]);
+  const getIndexHealthColor = useMemo(() => makeGetIndexHealthColor(indexHealthMap), [indexHealthMap]);
 
   // Use initial shards directly (already loaded)
   const allShards = initialShards;
