@@ -45,6 +45,7 @@ const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default:
 const ShardManagement = lazy(() =>
   import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
 );
+const DevWaffle = lazy(() => import('./pages/DevWaffle').then((m) => ({ default: m.DevWaffle })));
 const TextAnalysisPage = lazy(() =>
   import('./pages/TextAnalysis').then((m) => ({ default: m.TextAnalysisPage }))
 );
@@ -315,6 +316,15 @@ export const router = createBrowserRouter([
         element: (
           <LazyRoute>
             <CatApiPage />
+          </LazyRoute>
+        ),
+      },
+      // Dev-only waffle test route
+      {
+        path: 'dev/waffle',
+        element: (
+          <LazyRoute>
+            <DevWaffle />
           </LazyRoute>
         ),
       },
