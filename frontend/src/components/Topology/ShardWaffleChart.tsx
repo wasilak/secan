@@ -1,6 +1,7 @@
-import { ReactNode, MouseEvent, useState } from 'react';
-import { ResponsiveWaffleCanvas } from '@nivo/waffle';
-import type { ComputedDatum } from '@nivo/waffle';
+import { ReactNode, FunctionComponent, MouseEvent, useState } from 'react';
+import { animated } from '@react-spring/web';
+import { ResponsiveWaffleHtml, isDataCell } from '@nivo/waffle';
+import type { CellComponentProps, ComputedDatum } from '@nivo/waffle';
 import { Box, Portal } from '@mantine/core';
 import type { ShardInfo } from '../../types/api';
 import { useMeasuredSize } from '../../hooks/useMeasuredSize';
@@ -31,8 +32,36 @@ interface ShardDatum {
   tooltipContent: ReactNode;
 }
 
-// Canvas variant draws cells into a single <canvas> which is much faster for
-// large numbers of cells. We no longer need a custom cell component.
+// ---------------------------------------------------------------------------
+// Custom cell — renders a rect with opacity 0.5 for replicas.
+// We use the WaffleHtml variant (div cells) to avoid @react-spring/web SVG
+// attribute type issues on the SVG variant.
+// ---------------------------------------------------------------------------
+
+const ShardCell: FunctionComponent<CellComponentProps<ShardDatum>> = ({
+  cell,
+  animatedProps,
+  borderRadius,
+}) => {
+  const isPrimary = isDataCell(cell) ? cell.data.data.primary : true;
+
+  return (
+    <animated.div
+      style={{
+        position: 'absolute',
+        top: animatedProps.y,
+        left: animatedProps.x,
+        width: animatedProps.size,
+        height: animatedProps.size,
+        borderRadius,
+        background: animatedProps.color,
+        opacity: isPrimary ? 1 : 0.5,
+        boxSizing: 'content-box',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Nivo tooltip stub — we manage our own portal-based tooltip so this is a
@@ -96,7 +125,7 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
           setMousePos(null);
         }}
       >
-        <ResponsiveWaffleCanvas<ShardDatum>
+        <ResponsiveWaffleHtml<ShardDatum>
           data={data}
           total={rows * columns}
           rows={rows}
@@ -111,9 +140,8 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
           borderWidth={0}
           emptyColor="transparent"
           emptyOpacity={0}
-          // Canvas variant: disable animation (no transitions) — faster for
-          // large datasets and acceptable for dev UX.
-          animate={false}
+          cellComponent={ShardCell}
+          tooltip={NoopTooltip}
           isInteractive
           onClick={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
             if (onShardClick) {
@@ -121,12 +149,14 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
               onShardClick(cellData.data.shard, event);
             }
           }}
-          onMouseMove={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
-            if (cellData) {
-              event.stopPropagation();
-              setHoveredDatum(cellData.data);
-            }
+          onMouseEnter={(cellData: ComputedDatum<ShardDatum>, event: MouseEvent<HTMLElement>) => {
+            event.stopPropagation();
+            setHoveredDatum(cellData.data);
           }}
+          onMouseLeave={() => {
+            setHoveredDatum(null);
+          }}
+          animate={true}
         />
       </Box>
 
