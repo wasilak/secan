@@ -398,8 +398,7 @@ function ClusterNavItemInner({
 }) {
   const clusterName = useClusterName(clusterId);
   const refreshInterval = useRefreshInterval();
-  const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  useMantineColorScheme();
 
   // Fetch cluster stats for health status (independent of useClusterName to ensure fresh data)
   const { data: clusterStats } = useQuery({
@@ -505,9 +504,11 @@ function ClusterNavItemInner({
                     }}
                       styles={(theme) => ({
                         root: {
+                          // Keep entries visually minimal: no persistent or hover
+                          // background to avoid the blocky gray bars in the nav.
                           backgroundColor: 'transparent',
                           '&:hover': {
-                            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.violet[0]}`,
+                            backgroundColor: 'transparent',
                           },
                         },
                         label: {
