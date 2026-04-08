@@ -452,9 +452,12 @@ function ClusterNavItemInner({
       }
       styles={(theme) => ({
         root: {
-          backgroundColor: `${isDark ? theme.colors.dark[6] : theme.colors.gray[2]}`,
+          // Remove the solid background used previously for cluster items in
+          // the sidebar/drawer. It created large gray blocks behind each
+          // cluster entry which are visually noisy and unnecessary.
+          backgroundColor: 'transparent',
           '&:hover': {
-            backgroundColor: `${isDark ? theme.colors.dark[5] : theme.colors.gray[3]}`,
+            backgroundColor: 'transparent',
           },
         },
         label: {
