@@ -444,36 +444,69 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   // apart if they overlap. Mirrors IndexVisualizationFlow behavior.
   // Skipped for grouped layouts where positions are precomputed and RF
   // parent-child coordinates must not be touched.
-  const layoutRunId = useRef(0);
+  //
+  // IMPORTANT: don't depend on `flowNodes` here. Calling setFlowNodes() will
+  // change flowNodes and re-run this effect repeatedly (feedback loop) on
+  // large clusters where measured heights change after each render. Instead
+  // run once per incoming layoutNodes and read the current nodes via getNodes().
+  const resolvedForLayout = useRef<Node[] | null>(null);
   useEffect(() => {
     if (usePrecomputedLayout) return;
+    // Only run resolver once per new layout
+    if (resolvedForLayout.current === layoutNodes) return;
+    resolvedForLayout.current = layoutNodes;
 
-    layoutRunId.current += 1;
-    const runId = layoutRunId.current;
     let cancelled = false;
+    let rafHandle = 0;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 40; // cap RAF polling (~40 frames ~ 667ms at 60fps)
 
     const attemptResolve = () => {
-    const nodesArr = (flowNodes as unknown as Record<string, unknown>[]) || [];
-      if (nodesArr.length === 0) return;
-      const measuredReady = nodesArr.every((n) => {
+      if (cancelled) return;
+      attempts += 1;
+      const rfNodes = (getNodes() as unknown as Record<string, unknown>[]) || [];
+      if (rfNodes.length === 0) return;
+
+      const measuredReady = rfNodes.every((n) => {
         const m = (n as any).measured;
         return !!m && (m as any).width > 0 && (m as any).height > 0;
       });
-        if (!measuredReady) {
-          requestAnimationFrame(attemptResolve);
-          return;
-        }
 
-      const resolved = resolveCollisions(nodesArr as any, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
-
-      if (!cancelled && runId === layoutRunId.current) {
-        setFlowNodes(resolved as any);
+      if (!measuredReady) {
+        if (attempts >= MAX_ATTEMPTS) return; // give up, measurements taking too long
+        rafHandle = requestAnimationFrame(attemptResolve);
+        return;
       }
+
+      const resolved = resolveCollisions(rfNodes as any, { margin: 12, overlapThreshold: 0.5, maxIterations: 1000 });
+
+      if (cancelled) return;
+
+      // Check whether any node position actually changed beyond a tiny threshold
+      let maxDelta = 0;
+      for (let i = 0; i < rfNodes.length; i++) {
+        const before = rfNodes[i] as Node;
+        const after = resolved[i] as Node;
+        if (!before || !after) continue;
+        const dx = Math.abs((before.position?.x ?? 0) - (after.position?.x ?? 0));
+        const dy = Math.abs((before.position?.y ?? 0) - (after.position?.y ?? 0));
+        if (dx > maxDelta) maxDelta = dx;
+        if (dy > maxDelta) maxDelta = dy;
+      }
+
+      // If movement is negligible, skip updating flowNodes to avoid a render
+      // cycle that would re-trigger measurements. 1px threshold is conservative.
+      if (maxDelta < 1) return;
+
+      setFlowNodes(resolved as any);
     };
 
-    requestAnimationFrame(attemptResolve);
-    return () => { cancelled = true; };
-  }, [flowNodes, setFlowNodes, usePrecomputedLayout]);
+    rafHandle = requestAnimationFrame(attemptResolve);
+    return () => {
+      cancelled = true;
+      if (rafHandle) cancelAnimationFrame(rafHandle);
+    };
+  }, [layoutNodes, setFlowNodes, usePrecomputedLayout, getNodes]);
 
   // ── useStore subscription: fit containers when any child geometry changes ────
   // Subscribes to RF's internal nodeLookup (Zustand store). The selector
