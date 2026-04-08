@@ -4,6 +4,7 @@ import { ResponsiveWaffleHtml, isDataCell } from '@nivo/waffle';
 import type { CellComponentProps, ComputedDatum } from '@nivo/waffle';
 import { Box, Portal } from '@mantine/core';
 import type { ShardInfo } from '../../types/api';
+import { useMeasuredSize } from '../../hooks/useMeasuredSize';
 
 /** Shape of each shard dot — matches the `dots` array produced by DotBasedTopologyView
  *  and canvasLayout. */
@@ -78,12 +79,25 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
 
   if (dots.length === 0) return null;
 
-  const columns = Math.min(dots.length, 10);
-  const rows = Math.ceil(dots.length / columns);
-
   // Each cell ~14px; 2px padding between cells gives 16px per cell
   const cellSize = 14;
   const padding = 2;
+
+  // Measure available width so we can compute columns dynamically instead of
+  // using a hard cap. This lets the waffle expand beyond 10 columns when the
+  // container is wide enough. Falls back to 10 columns until measurement is
+  // available to avoid render flashes.
+  const { containerRef, size } = useMeasuredSize({ debounceMs: 80 });
+  const availableWidth = size?.width ?? 0;
+
+  const cellTotal = cellSize + padding;
+  // Subtract side paddings (padding*2) and compute how many cells fit.
+  const maxColumns = availableWidth > 0
+    ? Math.max(1, Math.floor((availableWidth - padding * 2 + padding) / cellTotal))
+    : 10;
+  const columns = Math.min(dots.length, maxColumns);
+  const rows = Math.ceil(dots.length / Math.max(1, columns));
+
   const totalWidth = columns * cellSize + (columns - 1) * padding + padding * 2;
   const totalHeight = rows * cellSize + (rows - 1) * padding + padding * 2;
 
@@ -100,8 +114,9 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
   return (
     <>
       <Box
+        ref={containerRef}
         mb={6}
-        style={{ width: totalWidth, height: totalHeight, position: 'relative', cursor: 'pointer', zIndex: 1 }}
+        style={{ width: '100%', height: totalHeight, position: 'relative', cursor: 'pointer', zIndex: 1 }}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
@@ -117,9 +132,9 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
           columns={columns}
           padding={padding}
           margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          // Explicitly fill top->bottom so cells populate each column vertically
-          // and new columns appear left->right as the shard count grows.
-          fillDirection="top"
+          // Fill row-major (left->right then top->bottom). We compute columns
+          // from the container width so the grid naturally fills rows horizontally.
+          fillDirection="right"
           colors={{ datum: 'color' }}
           borderRadius={2}
           borderWidth={0}
