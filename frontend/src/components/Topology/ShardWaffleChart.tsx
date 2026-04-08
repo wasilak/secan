@@ -117,6 +117,9 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
           columns={columns}
           padding={padding}
           margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+          // Explicitly fill top->bottom so cells populate each column vertically
+          // and new columns appear left->right as the shard count grows.
+          fillDirection="top"
           colors={{ datum: 'color' }}
           borderRadius={2}
           borderWidth={0}
