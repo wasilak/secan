@@ -68,7 +68,7 @@ export function DiskTreemapView({
   separateSystemIndices = true,
 }: DiskTreemapViewProps) {
   if (isLoading) {
-    return <Skeleton height={400} radius="sm" />;
+    return <Skeleton style={{ flex: 1, minHeight: 400, overflow: 'hidden' }} radius="sm" />;
   }
 
   const filtered = indices
@@ -93,37 +93,29 @@ export function DiskTreemapView({
     })),
   };
 
-  // Truncate index names with a middle ellipsis so we retain both the
-  // meaningful prefix and suffix (dates, suffixes) which are often the
-  // distinguishing parts of index names like "service-live-2026...".
-  const truncateIndexLabel = (name: string, maxLen = 24) => {
-    if (name.length <= maxLen) return name;
-    // Reserve one char for the ellipsis
-    const keepPrefix = Math.ceil((maxLen - 1) / 2);
-    const keepSuffix = (maxLen - 1) - keepPrefix;
-    return `${name.slice(0, keepPrefix)}…${name.slice(name.length - keepSuffix)}`;
-  };
-
   return (
-    <Box style={{ height: 400 }}>
+    <Box style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
       <ResponsiveTreeMap<DiskTreemapDatum>
         data={data as unknown as DiskTreemapDatum}
         identity="id"
         value="value"
         leavesOnly
         colors={(node: ComputedNodeWithoutStyles<DiskTreemapDatum>) =>
-          // Use deterministic color per index (based on prefix/hash) for better visual grouping
-          // Allow caller to choose whether system indices (leading dot) are treated separately.
-          getColorForIndex(node.id, separateSystemIndices)
+        // Use deterministic color per index (based on prefix/hash) for better visual grouping
+        // Allow caller to choose whether system indices (leading dot) are treated separately.
+        getColorForIndex(node.id, separateSystemIndices)
         }
         nodeOpacity={0.9}
         borderWidth={2}
         borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
+        // Use built-in labels and skip rendering for small tiles
+        label="id"
+        // Nivo renders labels as SVG <text> elements which do not support
+        // CSS text-overflow. However, setting labelSkipSize avoids rendering
+        // labels on tiny tiles where text would overflow. For larger tiles the
+        // SVG text will be clipped by the tile boundary so long overflowing
+        // text does not visually exceed the tile. This keeps the view tidy.
         labelSkipSize={24}
-        label={(node) =>
-          // Use middle-ellipsis truncation to keep both prefix and suffix
-          truncateIndexLabel(node.id, 24)
-        }
         enableParentLabel={false}
         tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
         animate={true}

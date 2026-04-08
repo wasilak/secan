@@ -173,7 +173,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
       </Grid.Col>
 
       <Grid.Col span={12}>
-        <Group gap="md" wrap="nowrap" align="flex-start">
+        <Group gap="md" wrap="nowrap" align="stretch" style={{ height: '100%' }}>
           {/* Filter Sidebar */}
           <FilterSidebar
             textFilters={[
@@ -305,7 +305,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
           />
 
             {/* View Content */}
-          <Stack gap="md" style={{ flex: 1 }}>
+          <Stack gap="md" style={{ flex: 1, minHeight: 0, height: 0, overflow: 'hidden' }}>
             {/* View type tabs (right column header row) */}
             <Group justify="space-between" align="flex-end">
               <Tabs
