@@ -183,19 +183,12 @@ export function ClusterView() {
   const activeView = activeSection;
 
   // Topology view type state
-  // Topology view type state — read from searchParam or infer from pathname on first mount
+  // Query-param-first: prefer ?topologyView=<...> when present so tab switching
+  // is driven purely by search params and does not require pathname routes.
   const [topologyViewType, setTopologyViewTypeState] = useState<'node' | 'index' | 'canvas' | 'sankey' | 'disk'>(() => {
-    // Prefer explicit pathname sub-route if present (e.g. /topology/sankey)
-    if (location.pathname.includes('/topology/sankey')) return 'sankey';
-    if (location.pathname.includes('/topology/disk')) return 'disk';
-    if (location.pathname.includes('/topology/canvas')) return 'canvas';
-    if (location.pathname.includes('/topology/index')) return 'index';
-    if (location.pathname.includes('/topology/dot')) return 'node';
-
-    // Fallback to explicit query param if provided
     const urlParam = searchParams.get('topologyView') as 'node' | 'index' | 'canvas' | 'sankey' | 'disk' | null;
     if (urlParam === 'node' || urlParam === 'index' || urlParam === 'canvas' || urlParam === 'sankey' || urlParam === 'disk') return urlParam;
-
+    // Strict query-param-only: default to 'node' when not provided.
     return 'node';
   });
 
@@ -203,6 +196,8 @@ export function ClusterView() {
     setTopologyViewTypeState(value);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('topologyView', value);
+    // Update only the search params so the pathname does not change. This
+    // keeps tab switches client-side and avoids remounting pages.
     setSearchParams(newParams, { replace: true });
   };
 

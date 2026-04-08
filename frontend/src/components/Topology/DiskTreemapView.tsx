@@ -1,9 +1,11 @@
-import { ResponsiveTreeMap } from '@nivo/treemap';
+import { TreeMap } from '@nivo/treemap';
+import React from 'react';
 import type { ComputedNodeWithoutStyles } from '@nivo/treemap';
 import { Skeleton, Text, Box } from '@mantine/core';
 import { getColorForIndex } from '../../utils/colors';
 import { formatBytes } from '../../utils/formatters';
 import type { IndexInfo, HealthStatus } from '../../types/api';
+import { useMeasuredSize } from '../../hooks/useMeasuredSize';
 
 interface DiskTreemapDatum {
   id: string;
@@ -67,6 +69,9 @@ export function DiskTreemapView({
   // `.my-index` and `my-index` map to distinct colors.
   separateSystemIndices = true,
 }: DiskTreemapViewProps) {
+  // Measure available space and pass explicit width/height to the non-responsive TreeMap
+  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 240, debounceMs: 120 });
+
   if (isLoading) {
     return (
       <div style={{ flex: 1, minHeight: 400, overflow: 'hidden' }}>
@@ -98,33 +103,41 @@ export function DiskTreemapView({
   };
 
   return (
-    <Box style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      <ResponsiveTreeMap<DiskTreemapDatum>
-        data={data as unknown as DiskTreemapDatum}
-        identity="id"
-        value="value"
-        leavesOnly
-        colors={(node: ComputedNodeWithoutStyles<DiskTreemapDatum>) =>
-        // Use deterministic color per index (based on prefix/hash) for better visual grouping
-        // Allow caller to choose whether system indices (leading dot) are treated separately.
-        getColorForIndex(node.id, separateSystemIndices)
-        }
-        nodeOpacity={0.9}
-        borderWidth={2}
-        borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
-        // Use built-in labels and skip rendering for small tiles
-        label="id"
-        // Nivo renders labels as SVG <text> elements which do not support
-        // CSS text-overflow. However, setting labelSkipSize avoids rendering
-        // labels on tiny tiles where text would overflow. For larger tiles the
-        // SVG text will be clipped by the tile boundary so long overflowing
-        // text does not visually exceed the tile. This keeps the view tidy.
-        labelSkipSize={24}
-        enableParentLabel={false}
-        tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
-        animate={true}
-        margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
-      />
+    <Box ref={containerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {size.width > 0 && size.height > 0 ? (
+        <TreeMap<DiskTreemapDatum>
+          width={size.width}
+          height={size.height}
+          data={data as unknown as DiskTreemapDatum}
+          identity="id"
+          value="value"
+          leavesOnly
+          colors={(node: ComputedNodeWithoutStyles<DiskTreemapDatum>) =>
+            // Use deterministic color per index (based on prefix/hash) for better visual grouping
+            // Allow caller to choose whether system indices (leading dot) are treated separately.
+            getColorForIndex(node.id, separateSystemIndices)
+          }
+          nodeOpacity={0.9}
+          borderWidth={2}
+          borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
+          // Use built-in labels and skip rendering for small tiles
+          label="id"
+          // Nivo renders labels as SVG <text> elements which do not support
+          // CSS text-overflow. However, setting labelSkipSize avoids rendering
+          // labels on tiny tiles where text would overflow. For larger tiles the
+          // SVG text will be clipped by the tile boundary so long overflowing
+          // text does not visually exceed the tile. This keeps the view tidy.
+          labelSkipSize={24}
+          enableParentLabel={false}
+          tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
+          animate={true}
+          margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+        />
+      ) : (
+        <div style={{ height: '100%', minHeight: 200 }}>
+          <Skeleton height="100%" radius="sm" />
+        </div>
+      )}
     </Box>
   );
 }

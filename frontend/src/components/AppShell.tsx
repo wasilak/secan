@@ -735,6 +735,10 @@ function NavigationContent({ onNavigate }: { onNavigate?: () => void }) {
   // Handle cluster expand/collapse toggle
   const handleClusterToggle = useCallback((clickedClusterId: string) => {
     setExpandedClusterId((prev) => (prev === clickedClusterId ? null : clickedClusterId));
+    if (typeof window !== 'undefined') {
+      // layout changed in the sidebar: trigger a measurement pass
+      window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }
   }, []);
 
   // Handle section navigation within a cluster
@@ -860,6 +864,11 @@ export function AppShell() {
 
   const togglePin = () => {
     setIsPinned(!isPinned);
+    // Trigger a window resize event so layout-measurements (charts) re-run.
+    // We use requestAnimationFrame to schedule after React/DOM updates.
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    }
   };
 
   return (
@@ -891,7 +900,13 @@ export function AppShell() {
               {!isPinned && (
                 <Burger
                   opened={drawerOpened}
-                  onClick={toggleDrawer}
+                  onClick={() => {
+                    toggleDrawer();
+                    // ensure charts re-measure after drawer open/close
+                    if (typeof window !== 'undefined') {
+                      window.requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+                    }
+                  }}
                   size="sm"
                   aria-label={drawerOpened ? 'Close navigation menu' : 'Open navigation menu'}
                 />

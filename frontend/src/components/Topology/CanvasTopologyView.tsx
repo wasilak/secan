@@ -28,6 +28,7 @@ import { getIndexHealthColor as makeGetIndexHealthColor } from '../../utils/getI
 import { applyDagreLayout } from '../../utils/dagreLayout';
 import { resolveCollisions } from '../../utils/resolveCollisions';
 import type { GroupingConfig } from '../../utils/topologyGrouping';
+import { useMeasuredSize } from '../../hooks/useMeasuredSize';
 
 // Defensive: if ClusterGroupNode failed to import for any reason, provide a
 // fallback component so React doesn't throw an "Invalid element type" error
@@ -95,9 +96,11 @@ interface FlowProps {
    * resolution are skipped to avoid corrupting parent-relative child positions.
    */
   usePrecomputedLayout?: boolean;
+  /** Measured container height in pixels for viewport culling/layout */
+  containerHeight?: number;
 }
 
-function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout }: FlowProps) {
+function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout, containerHeight }: FlowProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const { fitView, getNodes } = useReactFlow();
@@ -133,7 +136,9 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   //   for the common case).
   // - We only cull when we have a settledViewport (onEnd fired) so that
   //   in-flight gestures don't cause thrashing.
-  const CONTAINER_HEIGHT = 600; // matches parent Box h={600}
+  // Use the measured container height passed from the parent. Fall back to
+  // the previous hard-coded 600px for safety in tests or older callers.
+  const containerHeightLocal = containerHeight ?? 600;
   const culledFlowNodes = useMemo(() => {
     if (!settledViewport || !containerWidth || usePrecomputedLayout) return flowNodes;
     const tx = settledViewport.x;
@@ -158,14 +163,14 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
       const screenBottom = screenTop + h * zoom;
 
       const fullyVisible =
-        screenLeft >= 0 && screenRight <= containerWidth && screenTop >= 0 && screenBottom <= CONTAINER_HEIGHT;
+        screenLeft >= 0 && screenRight <= containerWidth && screenTop >= 0 && screenBottom <= containerHeightLocal;
 
       if (!fullyVisible) {
         return { ...node, data: { ...data, dots: [] } };
       }
       return node;
     });
-  }, [flowNodes, settledViewport, containerWidth, usePrecomputedLayout]);
+  }, [flowNodes, settledViewport, containerWidth, usePrecomputedLayout, containerHeightLocal]);
 
   // Defensive: ensure nodeTypes contains only valid React component types.
   // If some renderer is invalid (e.g. undefined due to import failure), replace
@@ -594,6 +599,11 @@ export function CanvasTopologyView({
 }: CanvasTopologyViewProps) {
   const showLoadingSkeleton = isLoading && nodes.length === 0;
 
+  // Measure available container size so the ReactFlow canvas can be given an
+  // explicit height. This avoids ResizeObserver/layout feedback loops caused
+  // by responsive chart components measuring their own container.
+  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 400, debounceMs: 120 });
+
   // Track whether the canvas is at L2 zoom (> 0.7) for shard dot rendering.
   // State is updated via handleZoomChange which is called by Flow on every zoom tick.
   // Only triggers a re-render when the threshold is actually crossed.
@@ -746,13 +756,21 @@ export function CanvasTopologyView({
     setUserPositions(merged);
   }, [layoutNodes]);
 
+  const resolvedHeight = size.height > 0 ? size.height : 600;
+
   return (
     <Box
-      h={600}
+      ref={containerRef}
       style={{
+        height: resolvedHeight,
         border: '1px solid var(--secan-surface-border-weak)',
         borderRadius: 'var(--mantine-radius-sm)',
       }}
+      // ensure we re-measure after potential layout changes that don't emit
+      // window.resize (e.g. sidebar toggles) by exposing the measure function
+      // on the DOM node as a data attribute for test hooks. Real UI toggles
+      // should call measure() explicitly where appropriate.
+      data-secan-measure-available={true}
     >
       {showLoadingSkeleton ? (
         <Box p="md">
@@ -770,6 +788,7 @@ export function CanvasTopologyView({
             onNodesPositionChange={handleNodesPositionChange}
             onZoomChange={handleZoomChange}
             usePrecomputedLayout={groupingConfig.attribute !== 'none'}
+            containerHeight={resolvedHeight}
           />
         </ReactFlowProvider>
       )}

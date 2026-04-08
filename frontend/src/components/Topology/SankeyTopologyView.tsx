@@ -1,9 +1,10 @@
 import type { ReactElement, FunctionComponent } from 'react';
-import { Alert, Badge, Group, Paper, Skeleton, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Group, Paper, Skeleton, Stack, Text, Box } from '@mantine/core';
 import { IconAlertTriangle, IconInfoCircle, IconRefresh } from '@tabler/icons-react';
-import { ResponsiveSankey } from '@nivo/sankey';
+import { Sankey } from '@nivo/sankey';
 import type { DefaultNode, DefaultLink, SankeyNodeDatum, SankeyLinkDatum } from '@nivo/sankey';
 import { useSankeyData } from '../../hooks/useSankeyData';
+import { useMeasuredSize } from '../../hooks/useMeasuredSize';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,6 +132,10 @@ const LinkTooltip: FunctionComponent<{
 export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement {
   const { clusterId, selectedShardStates, topIndices, sortBy, openNodeModal, openIndexModal, showSpecialIndices = true } = props;
 
+  // Measure container early so hooks rules are satisfied even if we return
+  // early for loading / error states.
+  const { containerRef, size } = useMeasuredSize({ bottomMargin: 48, minHeight: 320, debounceMs: 120 });
+
   const { data, loading, error, refetch } = useSankeyData({
     clusterId,
     topIndices,
@@ -139,6 +144,8 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     excludeSpecial: !showSpecialIndices,
     sortBy,
   });
+
+  
 
   // Note: limitValue state was removed because it's unused; keep hooks at
   // the top-level to satisfy rules-of-hooks when adding new hooks later.
@@ -225,7 +232,10 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
     primaryShards: l.primaryShards,
     replicaShards: l.replicaShards,
   }));
-
+  
+  // Resolve a concrete pixel height for the container. Keep a sensible
+  // fallback so the UI remains stable while the hook measures.
+  const resolvedHeight = size.height > 0 ? size.height : 320;
 
   return (
     <Stack gap="sm">
@@ -249,34 +259,44 @@ export function SankeyTopologyView(props: SankeyTopologyViewProps): ReactElement
           `topIndices` prop passed from the parent. */}
 
       {/* Sankey diagram */}
-      <div style={{ height: 500, cursor: 'pointer' }}>
-        <ResponsiveSankey<SankeyNodeExtra, SankeyLinkExtra>
-          data={{ nodes: nivoNodes, links: nivoLinks }}
-          margin={{ top: 16, right: 160, bottom: 16, left: 200 }}
-          align="justify"
-          colors={(node) => nodeColor(node.kind)}
-          nodeOpacity={0.9}
-          nodeHoverOpacity={1}
-          nodeHoverOthersOpacity={0.15}
-          nodeThickness={18}
-          nodeSpacing={12}
-          nodeBorderWidth={0}
-          nodeBorderRadius={2}
-          nodeBorderColor={{ from: 'color', modifiers: [['darker', 0.8]] }}
-          linkOpacity={0.3}
-          linkHoverOpacity={0.6}
-          linkHoverOthersOpacity={0.15}
-          linkBlendMode="normal"
-          enableLinkGradient
-          labelPosition="outside"
-          labelPadding={8}
-          labelOrientation="horizontal"
-          labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
-          nodeTooltip={NodeTooltip}
-          linkTooltip={LinkTooltip}
-          onClick={handleNodeClick}
-        />
-      </div>
+      {
+        // Measure container and render non-responsive Sankey with explicit size
+      }
+
+      <Box ref={containerRef} style={{ height: resolvedHeight, width: '100%', overflow: 'hidden', cursor: 'pointer' }}>
+        {size.width > 0 && size.height > 0 ? (
+          <Sankey<SankeyNodeExtra, SankeyLinkExtra>
+            width={size.width}
+            height={size.height}
+            data={{ nodes: nivoNodes, links: nivoLinks }}
+            margin={{ top: 16, right: 160, bottom: 16, left: 200 }}
+            align="justify"
+            colors={(node) => nodeColor(node.kind)}
+            nodeOpacity={0.9}
+            nodeHoverOpacity={1}
+            nodeHoverOthersOpacity={0.15}
+            nodeThickness={18}
+            nodeSpacing={12}
+            nodeBorderWidth={0}
+            nodeBorderRadius={2}
+            nodeBorderColor={{ from: 'color', modifiers: [['darker', 0.8]] }}
+            linkOpacity={0.3}
+            linkHoverOpacity={0.6}
+            linkHoverOthersOpacity={0.15}
+            linkBlendMode="normal"
+            enableLinkGradient
+            labelPosition="outside"
+            labelPadding={8}
+            labelOrientation="horizontal"
+            labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
+            nodeTooltip={NodeTooltip}
+            linkTooltip={LinkTooltip}
+            onClick={handleNodeClick}
+          />
+        ) : (
+          <Skeleton height={320} radius="sm" />
+        )}
+      </Box>
     </Stack>
   );
 }

@@ -84,10 +84,10 @@ function renderWithGrouping(groupingConfig: GroupingConfig = { attribute: 'none'
   
   const result = render(
     <MantineProvider>
-      <MemoryRouter initialEntries={['/cluster/test/topology/dot']}>
+      <MemoryRouter initialEntries={['/cluster/test/topology?topologyView=node']}>
         <Routes>
           <Route
-            path="/cluster/:clusterId/topology/dot"
+            path="/cluster/:clusterId/topology"
             element={
               <DotBasedTopologyView
                 nodes={mockNodes}
@@ -188,10 +188,10 @@ describe('DotBasedTopologyView - Grouping Configuration', () => {
       
       render(
         <MantineProvider>
-          <MemoryRouter initialEntries={['/cluster/test/topology/dot']}>
+          <MemoryRouter initialEntries={['/cluster/test/topology?topologyView=node']}>
             <Routes>
               <Route
-                path="/cluster/:clusterId/topology/dot"
+                path="/cluster/:clusterId/topology"
                 element={
                   <DotBasedTopologyView
                     nodes={mockNodes}

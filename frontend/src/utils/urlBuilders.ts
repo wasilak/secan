@@ -21,7 +21,7 @@ export function buildClusterSectionUrl(clusterId: string, section?: ClusterSecti
 /**
  * Extract the cluster section from a path.
  *
- * For topology sub-paths (/topology/dot, /topology/index, /topology/canvas)
+ * For topology sub-paths - prefer query-param style (/topology?topologyView=...)
  * this returns 'topology'.
  */
 export function extractSectionFromPath(pathname: string, search?: string): ClusterSection | undefined {
@@ -63,4 +63,3 @@ export function parseClusterPath(pathname: string): {
   const section = extractSectionFromPath(pathname);
   return section ? { clusterId, section } : { clusterId };
 }
-

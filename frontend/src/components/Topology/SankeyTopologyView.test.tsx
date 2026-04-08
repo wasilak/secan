@@ -12,7 +12,12 @@ import type { SankeyResponse } from '../../types/api';
 // Mock nivo/sankey — captures the onClick prop so we can simulate node/link clicks
 let capturedOnClick: ((datum: unknown, event: unknown) => void) | undefined;
 vi.mock('@nivo/sankey', () => ({
+  // Export both ResponsiveSankey and Sankey to match usages in the codebase.
   ResponsiveSankey: (props: { onClick?: (datum: unknown, event: unknown) => void }) => {
+    capturedOnClick = props.onClick;
+    return <div data-testid="sankey-chart" />;
+  },
+  Sankey: (props: { onClick?: (datum: unknown, event: unknown) => void }) => {
     capturedOnClick = props.onClick;
     return <div data-testid="sankey-chart" />;
   },
@@ -20,6 +25,11 @@ vi.mock('@nivo/sankey', () => ({
 
 // Mock the useSankeyData hook — all tests control its return value
 vi.mock('../../hooks/useSankeyData');
+
+// Mock the useMeasuredSize hook so the non-responsive Sankey is rendered
+vi.mock('../../hooks/useMeasuredSize', () => ({
+  useMeasuredSize: () => ({ containerRef: { current: null }, size: { width: 800, height: 400 }, measure: () => {} }),
+}));
 
 import { useSankeyData } from '../../hooks/useSankeyData';
 const mockUseSankeyData = vi.mocked(useSankeyData);

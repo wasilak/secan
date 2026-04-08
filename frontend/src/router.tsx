@@ -160,47 +160,42 @@ export const router = createBrowserRouter([
       {
         path: 'cluster/:id/topology',
         element: (
-          <Navigate to="dot" replace />
-        ),
-      },
-      {
-        path: 'cluster/:id/topology/dot',
-        element: (
           <LazyRoute>
             <ClusterView />
           </LazyRoute>
+        ),
+      },
+      // Legacy path-based topology routes are redirected to the query-param
+      // canonical route. This preserves backwards compatibility for existing
+      // external links while centralizing tab state in ?topologyView.
+      {
+        path: 'cluster/:id/topology/dot',
+        element: (
+          <Navigate to="/cluster/:id/topology?topologyView=node" replace />
         ),
       },
       {
         path: 'cluster/:id/topology/canvas',
         element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
+          <Navigate to="/cluster/:id/topology?topologyView=canvas" replace />
         ),
       },
       {
         path: 'cluster/:id/topology/sankey',
         element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
+          <Navigate to="/cluster/:id/topology?topologyView=sankey" replace />
         ),
       },
       {
         path: 'cluster/:id/topology/disk',
         element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
+          <Navigate to="/cluster/:id/topology?topologyView=disk" replace />
         ),
       },
       {
         path: 'cluster/:id/topology/index',
         element: (
-          <LazyRoute>
-            <ClusterView />
-          </LazyRoute>
+          <Navigate to="/cluster/:id/topology?topologyView=index" replace />
         ),
       },
       {
