@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Button, NumberInput, Stack, Text } from '@mantine/core';
+import { Box, Button, NumberInput, Text } from '@mantine/core';
 import { ShardWaffleChart } from '../components/Topology/ShardWaffleChart';
 
 // Lightweight dev-only page to render many shard dots for visual testing.
@@ -26,15 +26,19 @@ export function DevWaffle() {
 
   return (
     <Box p="md">
-      <Stack spacing="md">
-        <Text size="lg">Dev Waffle Test</Text>
+      <Text size="lg" mb="md">
+        Dev Waffle Test
+      </Text>
+      <Box mb="sm">
         <NumberInput
           label="Shard count"
           value={count}
           min={1}
           step={10}
-          onChange={(v) => setCount(v ?? 0)}
+          onChange={(v: string | number) => setCount(Number(v) || 0)}
         />
+      </Box>
+      <Box mb="md">
         <Button
           onClick={() => {
             setSearchParams({ count: String(count) });
@@ -42,11 +46,11 @@ export function DevWaffle() {
         >
           Update URL
         </Button>
+      </Box>
 
-        <Box>
-          <ShardWaffleChart dots={dots} />
-        </Box>
-      </Stack>
+      <Box>
+        <ShardWaffleChart dots={dots} />
+      </Box>
     </Box>
   );
 }

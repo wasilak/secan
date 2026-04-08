@@ -101,6 +101,20 @@ const IndexStatistics = lazy(() =>
  * Authentication redirects will be implemented when auth is integrated.
  */
 export const router = createBrowserRouter([
+  // Dev-only route available at /dev/waffle for quick visual testing.
+  // Exposed only in development builds to avoid accidental exposure in prod.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: '/dev/waffle',
+          element: (
+            <LazyRoute>
+              <DevWaffle />
+            </LazyRoute>
+          ),
+        },
+      ]
+    : []),
   {
     path: '/login',
     element: (
