@@ -93,6 +93,17 @@ export function DiskTreemapView({
     })),
   };
 
+  // Truncate index names with a middle ellipsis so we retain both the
+  // meaningful prefix and suffix (dates, suffixes) which are often the
+  // distinguishing parts of index names like "service-live-2026...".
+  const truncateIndexLabel = (name: string, maxLen = 24) => {
+    if (name.length <= maxLen) return name;
+    // Reserve one char for the ellipsis
+    const keepPrefix = Math.ceil((maxLen - 1) / 2);
+    const keepSuffix = (maxLen - 1) - keepPrefix;
+    return `${name.slice(0, keepPrefix)}…${name.slice(name.length - keepSuffix)}`;
+  };
+
   return (
     <Box style={{ height: 400 }}>
       <ResponsiveTreeMap<DiskTreemapDatum>
@@ -110,8 +121,8 @@ export function DiskTreemapView({
         borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
         labelSkipSize={24}
         label={(node) =>
-          // Truncate long index names for label display while tooltip shows full name
-          node.id.length > 24 ? `${node.id.slice(0, 21)}...` : node.id
+          // Use middle-ellipsis truncation to keep both prefix and suffix
+          truncateIndexLabel(node.id, 24)
         }
         enableParentLabel={false}
         tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
