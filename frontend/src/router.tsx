@@ -45,7 +45,7 @@ const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default:
 const ShardManagement = lazy(() =>
   import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
 );
-const DevWaffle = lazy(() => import('./pages/DevWaffle').then((m) => ({ default: m.DevWaffle })));
+// DevWaffle removed: development-only test page was deleted
 const TextAnalysisPage = lazy(() =>
   import('./pages/TextAnalysis').then((m) => ({ default: m.TextAnalysisPage }))
 );
@@ -101,20 +101,7 @@ const IndexStatistics = lazy(() =>
  * Authentication redirects will be implemented when auth is integrated.
  */
 export const router = createBrowserRouter([
-  // Dev-only route available at /dev/waffle for quick visual testing.
-  // Exposed only in development builds to avoid accidental exposure in prod.
-  ...(import.meta.env.DEV
-    ? [
-        {
-          path: '/dev/waffle',
-          element: (
-            <LazyRoute>
-              <DevWaffle />
-            </LazyRoute>
-          ),
-        },
-      ]
-    : []),
+  // Development-only routes have been removed
   {
     path: '/login',
     element: (
@@ -333,15 +320,7 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      // Dev-only waffle test route
-      {
-        path: 'dev/waffle',
-        element: (
-          <LazyRoute>
-            <DevWaffle />
-          </LazyRoute>
-        ),
-      },
+      // Dev-only waffle test route removed
     ],
   },
   {
