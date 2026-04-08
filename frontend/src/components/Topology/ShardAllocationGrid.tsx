@@ -87,7 +87,10 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
   const getIndexBackgroundColor = useCallback(
     (_indexName: string): string => {
       // Use a subtle background that works in both light and dark themes
-      return isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)';
+      // Prefer the Mantine body token for light mode so the surface matches
+      // the surrounding cards/layout. Use a slightly dimmer dark token for
+      // dark mode to keep contrast with colored shard tiles.
+      return isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-body)';
     },
     [isDark]
   );
@@ -381,7 +384,9 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                     style={{
                       position: 'sticky',
                       left: 0,
-                      backgroundColor: isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-0)',
+                      // Use the app body background so this header follows Mantine
+                      // color scheme automatically instead of forcing a light token.
+                      backgroundColor: 'var(--mantine-color-body)',
                       zIndex: 2,
                     }}
                   >
@@ -407,14 +412,16 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                 {unassignedShards.length > 0 && (
                   <Table.Tr
                     style={{
-                      backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)',
+                      // Keep the surface consistent with the surrounding card/body
+                      backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-body)',
                     }}
                   >
                     <Table.Td
                       style={{
                         position: 'sticky',
                         left: 0,
-                        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-gray-1)',
+                        // Use the Mantine body token so dark/light themes map correctly
+                        backgroundColor: isDark ? 'var(--mantine-color-dark-7)' : 'var(--mantine-color-body)',
                         zIndex: 1,
                       }}
                     >
@@ -484,7 +491,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                           backgroundColor:
                             sharedRelocationMode && isValidDestination
                               ? 'var(--mantine-color-violet-9)'
-                              : isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-gray-0)',
+                              : isDark ? 'var(--mantine-color-dark-8)' : 'var(--mantine-color-body)',
                           cursor:
                             sharedRelocationMode && isValidDestination
                               ? 'pointer'

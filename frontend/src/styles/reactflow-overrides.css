@@ -37,11 +37,32 @@ html[data-secan-color-scheme="light"] .secan-reactflow .react-flow__node.group-p
 html[data-secan-color-scheme="light"] {
   --secan-surface-border: var(--mantine-color-default-border);
   --secan-surface-border-weak: var(--mantine-color-gray-3);
+  /* Code block theme tokens (light) */
+  --secan-code-bg: var(--mantine-color-gray-1);
+  --secan-code-fg: var(--mantine-color-dark-7);
 }
 
 html[data-secan-color-scheme="dark"] {
   --secan-surface-border: var(--mantine-color-dark-5, rgba(255,255,255,0.04));
   --secan-surface-border-weak: rgba(255,255,255,0.03);
+  /* Code block theme tokens (dark) */
+  --secan-code-bg: var(--mantine-color-dark-6);
+  --secan-code-fg: var(--mantine-color-gray-0);
+}
+
+/* Shared code-block class that consumes the --secan-code-* variables.
+   Place here so it's loaded early alongside the color-scheme variables. */
+.secan-code-block {
+  background: var(--secan-code-bg);
+  color: var(--secan-code-fg);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
 }
 
 /* Scope to the app-specific container to avoid global side-effects */

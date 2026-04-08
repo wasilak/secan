@@ -48,7 +48,12 @@ export function JsonViewer({
   isLoading,
 }: JsonViewerProps): ReactElement {
   const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Prefer computed color scheme stored on the root element to handle 'auto'
+  let isDark = colorScheme === 'dark';
+  if (typeof document !== 'undefined') {
+    const computed = document.documentElement.getAttribute('data-mantine-color-scheme');
+    if (computed) isDark = computed === 'dark';
+  }
   
   const jsonString = React.useMemo(() => {
     try {

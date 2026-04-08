@@ -90,7 +90,14 @@ export function CodeEditor({
   options = {},
 }: CodeEditorProps): ReactElement {
   const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Mantine can return 'auto' for colorScheme; the effective scheme is stored
+  // as an attribute on document.documentElement by the provider. Prefer that
+  // computed value when available so Monaco receives the correct theme.
+  let isDark = colorScheme === 'dark';
+  if (typeof document !== 'undefined') {
+    const computed = document.documentElement.getAttribute('data-mantine-color-scheme');
+    if (computed) isDark = computed === 'dark';
+  }
 
   // Merge common options with custom options
   const editorOptions = {

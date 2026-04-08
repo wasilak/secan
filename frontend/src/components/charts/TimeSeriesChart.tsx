@@ -3,12 +3,11 @@ import {
   Card,
   Stack,
   Text,
-  Code,
   Group,
   Loader,
-  useMantineColorScheme,
   type MantineColor,
 } from '@mantine/core';
+import ThemedPre from '../common/ThemedPre';
 import { ResponsiveLine, type Serie, type SliceTooltipProps } from '@nivo/line';
 import { useNivoTheme } from '../../hooks/useNivoTheme';
 import { formatChartTime } from '../../utils/formatters';
@@ -54,13 +53,10 @@ export function TimeSeriesChart({
   showDots = false,
   isLoading = false,
 }: TimeSeriesChartProps) {
-  const { colorScheme } = useMantineColorScheme();
   const nivoTheme = useNivoTheme();
 
-  // Theme-aware code block colors
-  const isDark = colorScheme === 'dark';
-  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
-  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
+  // Rely on CSS variables for code block colors so they update with the root
+  // data-mantine-color-scheme attribute without requiring JS re-render.
 
   const hasData = series.length > 0 && series[0].data.length > 0;
 
@@ -160,7 +156,7 @@ export function TimeSeriesChart({
         </Group>
 
         {hasData ? (
-          <div style={{ height }}>
+          <div style={{ height, overflow: 'hidden' }}>
             <ResponsiveLine
               data={nivoData}
               theme={nivoTheme}
@@ -216,41 +212,10 @@ export function TimeSeriesChart({
           <Stack gap="xs">
             {Array.isArray(query) ? (
               query.map((q, i) => (
-                <Code
-                  key={`${i}-${q.slice(0, 20)}`}
-                  block
-                  style={{
-                    backgroundColor: codeBg,
-                    color: codeColor,
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {q}
-                </Code>
+                <ThemedPre key={`${i}-${q.slice(0, 20)}`}>{q}</ThemedPre>
               ))
             ) : (
-              <Code
-                block
-                style={{
-                  backgroundColor: codeBg,
-                  color: codeColor,
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {query}
-              </Code>
+              <ThemedPre>{query}</ThemedPre>
             )}
           </Stack>
         )}

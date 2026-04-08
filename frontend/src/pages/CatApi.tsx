@@ -13,9 +13,9 @@ import {
   Badge,
   TextInput,
   Accordion,
-  Code,
   ScrollArea,
 } from '@mantine/core';
+import ThemedPre from '../components/common/ThemedPre';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
@@ -127,6 +127,7 @@ export function CatApiPage() {
   const handleToggleHelp = () => {
     setShowHelp(!showHelp);
   };
+  // Rely on CSS variables --secan-code-bg / --secan-code-fg for code block colors
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -267,9 +268,9 @@ export function CatApiPage() {
                   </Accordion.Control>
                   <Accordion.Panel>
                     {helpText ? (
-                      <ScrollArea w="100%" h={200}>
-                        <Code block>{helpText}</Code>
-                      </ScrollArea>
+                        <ScrollArea w="100%" h={200}>
+                          <ThemedPre>{helpText}</ThemedPre>
+                        </ScrollArea>
                     ) : (
                       <Group justify="center">
                         <Loader size="sm" />

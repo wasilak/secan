@@ -172,8 +172,9 @@ describe('SankeyTopologyView', () => {
     expect(screen.getByText(/120/)).toBeInTheDocument();
   });
 
-  it('limit control is always visible (not gated on truncation)', () => {
-    // Use non-truncated response — the NumberInput should still be visible.
+  it('limit control is not present in the Sankey view (moved to filter sidebar)', () => {
+    // The Sankey view no longer renders the top-indices control; it lives in
+    // the left filter sidebar. Ensure the control is absent here.
     mockUseSankeyData.mockReturnValue({
       data: populatedResponse,
       loading: false,
@@ -187,11 +188,11 @@ describe('SankeyTopologyView', () => {
       </TestWrapper>
     );
 
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /apply/i })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /apply/i })).not.toBeInTheDocument();
   });
 
-  it('calls onTopIndicesChange only when Apply button is clicked, not on input change', () => {
+  it('does not render a top-indices input or Apply button and does not call onTopIndicesChange', () => {
     const mockOnTopIndicesChange = vi.fn();
 
     const truncatedResponse: SankeyResponse = {
@@ -220,15 +221,11 @@ describe('SankeyTopologyView', () => {
       </TestWrapper>
     );
 
-    const input = screen.getByRole('textbox') as HTMLInputElement;
-    // Changing the input should NOT immediately call onTopIndicesChange
-    fireEvent.change(input, { target: { value: '75' } });
+    // There is no input or Apply button in the Sankey view anymore; ensure the
+    // prop wasn't invoked by the component at render time.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /apply/i })).not.toBeInTheDocument();
     expect(mockOnTopIndicesChange).not.toHaveBeenCalled();
-
-    // Clicking Apply should call onTopIndicesChange with the new value
-    const applyButton = screen.getByRole('button', { name: /apply/i });
-    fireEvent.click(applyButton);
-    expect(mockOnTopIndicesChange).toHaveBeenCalledWith(75);
   });
 
   // ---------------------------------------------------------------------------

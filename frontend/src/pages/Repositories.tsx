@@ -15,8 +15,8 @@ import {
   ActionIcon,
   Badge,
   ScrollArea,
-  Code,
 } from '@mantine/core';
+import ThemedPre from '../components/common/ThemedPre';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -45,6 +45,8 @@ export function Repositories() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  // Rely on CSS variables --secan-code-bg / --secan-code-fg for code block colors
 
   // Fetch repositories
   const {
@@ -140,7 +142,7 @@ export function Repositories() {
                       </Badge>
                     </Table.Td>
                     <Table.Td>
-                      <Code block>{JSON.stringify(repo.settings, null, 2)}</Code>
+                      <ThemedPre>{JSON.stringify(repo.settings, null, 2)}</ThemedPre>
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs">

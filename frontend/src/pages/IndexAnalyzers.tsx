@@ -13,7 +13,9 @@ import {
   Select,
   Accordion,
   Alert,
+  
 } from '@mantine/core';
+import ThemedPre from '../components/common/ThemedPre';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -42,6 +44,10 @@ export function IndexAnalyzersPage() {
   const { id, indexName } = useParams<{ id: string; indexName: string }>();
   const [fieldFilter, setFieldFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // Use CSS custom properties for code block colors so they follow the
+  // computed color-scheme at the root without relying on JS timing.
+  // --secan-code-bg / --secan-code-fg are defined in reactflow-overrides.css
 
   // Fetch index analyzers
   const {
@@ -75,6 +81,8 @@ export function IndexAnalyzersPage() {
 
   const isLoading = analyzersLoading || fieldsLoading;
   const error = analyzersError || fieldsError;
+
+  
 
   const loadError = error
     ? new Error(`Failed to load index analyzers: ${getErrorMessage(error)}`)
@@ -339,7 +347,7 @@ export function IndexAnalyzersPage() {
                       <Code>{name}</Code>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Code block>{JSON.stringify(config, null, 2)}</Code>
+                      <ThemedPre>{JSON.stringify(config, null, 2)}</ThemedPre>
                     </Accordion.Panel>
                   </Accordion.Item>
                 ))}
@@ -363,7 +371,7 @@ export function IndexAnalyzersPage() {
                       <Code>{name}</Code>
                     </Accordion.Control>
                     <Accordion.Panel>
-                      <Code block>{JSON.stringify(config, null, 2)}</Code>
+                      <ThemedPre>{JSON.stringify(config, null, 2)}</ThemedPre>
                     </Accordion.Panel>
                   </Accordion.Item>
                 ))}

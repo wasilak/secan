@@ -1,4 +1,5 @@
-import { Card, Stack, Text, Code, useMantineColorScheme } from '@mantine/core';
+import { Card, Stack, Text } from '@mantine/core';
+import ThemedPre from '../common/ThemedPre';
 import { ResponsivePie, type PieTooltipProps } from '@nivo/pie';
 import { useNivoTheme } from '../../hooks/useNivoTheme';
 import type { MantineColorScheme } from '@mantine/core';
@@ -52,11 +53,9 @@ export function DistributionChart({
   query,
   valueFormatter = String,
 }: DistributionChartProps) {
-  const { colorScheme: mantineColorScheme } = useMantineColorScheme();
   const nivoTheme = useNivoTheme();
-  const isDark = mantineColorScheme === 'dark';
-  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
-  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
+  // Rely on CSS variables for code block colors to follow the computed root
+  // color-scheme attribute instead of choosing tokens in JS.
 
   const filteredData: PieDatum[] = data
     .filter((item) => item.value > 0)
@@ -111,41 +110,10 @@ export function DistributionChart({
           <Stack gap="xs">
             {Array.isArray(query) ? (
               query.map((q, i) => (
-                <Code
-                  key={`${i}-${q.slice(0, 20)}`}
-                  block
-                  style={{
-                    backgroundColor: codeBg,
-                    color: codeColor,
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {q}
-                </Code>
+                <ThemedPre key={`${i}-${q.slice(0, 20)}`}>{q}</ThemedPre>
               ))
             ) : (
-              <Code
-                block
-                style={{
-                  backgroundColor: codeBg,
-                  color: codeColor,
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {query}
-              </Code>
+              <ThemedPre>{query}</ThemedPre>
             )}
           </Stack>
         )}

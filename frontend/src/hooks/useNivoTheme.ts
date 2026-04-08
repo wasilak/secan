@@ -5,8 +5,9 @@ export function useNivoTheme(): Theme {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // Use a brighter tick color in dark mode for sufficient contrast
   const axisTickFill = isDark
-    ? 'var(--mantine-color-gray-5)'
+    ? 'var(--mantine-color-gray-3)'
     : 'var(--mantine-color-dark-5)';
 
   const gridLineStroke = isDark
@@ -32,6 +33,11 @@ export function useNivoTheme(): Theme {
           fill: axisTickFill,
         },
       },
+      legend: {
+        text: {
+          fill: axisTickFill,
+        },
+      },
     },
     grid: {
       line: {
@@ -40,6 +46,11 @@ export function useNivoTheme(): Theme {
       },
     },
     legends: {
+      text: {
+        fill: axisTickFill,
+      },
+    },
+    labels: {
       text: {
         fill: axisTickFill,
       },

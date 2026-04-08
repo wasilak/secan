@@ -1,4 +1,5 @@
-import { Card, Stack, Text, Code, useMantineColorScheme } from '@mantine/core';
+import { Card, Stack, Text } from '@mantine/core';
+import ThemedPre from '../common/ThemedPre';
 import { ResponsiveRadar } from '@nivo/radar';
 import { useNivoTheme } from '../../hooks/useNivoTheme';
 import { ROLE_COLORS } from '../RoleIcons';
@@ -19,11 +20,9 @@ export function NodeRolesChart({
   height = 200,
   query,
 }: NodeRolesChartProps) {
-  const { colorScheme } = useMantineColorScheme();
   const nivoTheme = useNivoTheme();
-  const isDark = colorScheme === 'dark';
-  const codeBg = isDark ? 'var(--mantine-color-dark-6)' : 'var(--mantine-color-gray-1)';
-  const codeColor = isDark ? 'var(--mantine-color-gray-0)' : 'var(--mantine-color-dark-7)';
+  // Use CSS variables for code block colors to avoid JS timing issues
+  // See: frontend/src/styles/reactflow-overrides.css for definitions
 
   const hasData = data && data.length > 0;
 
@@ -62,41 +61,10 @@ export function NodeRolesChart({
           <Stack gap="xs">
             {Array.isArray(query) ? (
               query.map((q, i) => (
-                <Code
-                  key={`${i}-${q.slice(0, 20)}`}
-                  block
-                  style={{
-                    backgroundColor: codeBg,
-                    color: codeColor,
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    fontFamily: 'monospace',
-                    overflow: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {q}
-                </Code>
+                <ThemedPre key={`${i}-${q.slice(0, 20)}`}>{q}</ThemedPre>
               ))
             ) : (
-              <Code
-                block
-                style={{
-                  backgroundColor: codeBg,
-                  color: codeColor,
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  fontSize: '11px',
-                  fontFamily: 'monospace',
-                  overflow: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {query}
-              </Code>
+              <ThemedPre>{query}</ThemedPre>
             )}
           </Stack>
         )}
