@@ -1133,7 +1133,7 @@ export function ClusterView() {
   }
 
   return (
-    <Stack gap="md" p="md">
+    <Stack gap="md" p="md" style={{ flex: 1, minHeight: 0 }}>
       {/* Cluster change notifications - Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 */}
       <ClusterChangeNotifier clusterId={id} nodes={allNodesArray} indices={allIndicesArray} />
       

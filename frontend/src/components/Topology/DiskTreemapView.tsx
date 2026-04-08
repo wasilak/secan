@@ -68,7 +68,11 @@ export function DiskTreemapView({
   separateSystemIndices = true,
 }: DiskTreemapViewProps) {
   if (isLoading) {
-    return <Skeleton style={{ flex: 1, minHeight: 400, overflow: 'hidden' }} radius="sm" />;
+    return (
+      <div style={{ flex: 1, minHeight: 400, overflow: 'hidden' }}>
+        <Skeleton height="100%" radius="sm" />
+      </div>
+    );
   }
 
   const filtered = indices
