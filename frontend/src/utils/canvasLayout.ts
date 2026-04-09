@@ -499,15 +499,7 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
       n.position.y = Number((n.position.y as number) || 0);
     }
 
-    // Dev-only logging for small clusters to aid visual verification
-    try {
-      if (N <= 8) {
-        // eslint-disable-next-line no-console
-        console.debug('[canvasLayout] positions:', result.map((r) => ({ id: r.id, x: r.position?.x, y: r.position?.y })));
-      }
-    } catch (e) {
-      // ignore
-    }
+    // Dev logging removed
 
     return { nodes: result, dagreEdges, dagreExtraNodes };
   } else {
