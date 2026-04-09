@@ -52,6 +52,29 @@ import type { ClusterInfo, ClusterStats } from '../types/api';
 // CLUSTER_NAV is imported from routes and provides navigation metadata
 
 /**
+ * Determine whether a child nav entry (which may include a query string)
+ * matches the current location. childPath is taken from CLUSTER_NAV and can
+ * be something like "/topology?topologyView=shard-grid". We compare the
+ * constructed pathname (/cluster/{clusterId}{pathPart}) to the current
+ * pathname and ensure any query params present in the childPath are also
+ * present with equal values in the current search string.
+ */
+function matchClusterChildPath(childPath: string, clusterId: string, pathname: string, search: string): boolean {
+  const [pathPart, maybeQuery] = childPath.split('?');
+  const expectedPath = `/cluster/${clusterId}${pathPart}`;
+  if (pathname !== expectedPath) return false;
+  if (!maybeQuery) return true;
+
+  const expectedParams = new URLSearchParams(maybeQuery);
+  const currentParams = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+
+  for (const [key, value] of expectedParams.entries()) {
+    if (currentParams.get(key) !== value) return false;
+  }
+  return true;
+}
+
+/**
  * Individual cluster health display component used in dropdown menu
  */
 function ClusterDropdownItemInner({
@@ -388,7 +411,7 @@ function HeaderTitle() {
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 220 }}>
                           {section.children.map((child) => {
-                            const isChildActive = location.pathname === `/cluster/${clusterId}${child.path}`;
+                            const isChildActive = matchClusterChildPath(child.path, clusterId!, location.pathname, location.search);
                             return (
                               <Menu.Item
                                 key={child.path}
@@ -664,7 +687,7 @@ function ClusterNavItemInner({
                   {(isSectionActive || openChildSections[section.value]) && section.children && section.children.length > 0 && (
                     <div style={{ paddingLeft: 16, marginTop: 6 }}>
                       {section.children.map((child) => {
-                        const isChildActive = location.pathname === `/cluster/${clusterId}${child.path}`;
+                        const isChildActive = matchClusterChildPath(child.path, clusterId!, location.pathname, location.search);
                         return (
                           <NavLink
                             key={child.path}
