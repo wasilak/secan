@@ -109,7 +109,7 @@ export const VERTICAL_GAP = 40;
 // Key used to collect shards that are not assigned to any node
 export const UNASSIGNED_KEY = '__unassigned__';
 
-const COLUMN_WIDTH = GROUP_WIDTH + HORIZONTAL_GAP;
+// COLUMN_WIDTH removed — unused in current layout implementation.
 
 // ─── Group container constants ───────────────────────────────────────────────
 // Padding inside the RF parent (groupContainer) node. Children are inset by
@@ -349,9 +349,8 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
   // placing the synthetic Unassigned node below all real content.
   let contentBottomY = 0;
   // X position for the Unassigned node (after all groups in grouped mode).
-  // Initialize to 0 and compute concrete value per layout branch to avoid
-  // assignments that are immediately overwritten (triggers no-useless-assignment).
-  let unassignedX = 0;
+  // Declared without initial value; concrete value is computed per layout branch.
+  let unassignedX: number;
 
   if (groupingConfig.attribute === 'none') {
     // ── No-grouping: deterministic grid layout
@@ -469,7 +468,6 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
     }
 
     contentBottomY = Math.max(...colYCursor);
-    unassignedX = colX[cols - 1] + colWidths[cols - 1] + HORIZONTAL_GAP;
 
     // Build virtual (ghost) dagre edges and anchor nodes so existing callers
     // that expect dagreEdges/dagreExtraNodes still receive a valid value.

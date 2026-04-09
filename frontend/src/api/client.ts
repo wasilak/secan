@@ -647,17 +647,14 @@ export class ApiClient {
           return Math.round(num * (multipliers[unit] ?? 1));
         };
 
-        let storeSize = 0;
-        if (typeof rawStore === 'number' && Number.isFinite(rawStore)) {
-          storeSize = Number(rawStore);
-        } else if (typeof rawStore === 'string') {
-          // Try numeric coercion first (handles strings like "1234"),
-          // otherwise parse human-friendly suffixes.
-          const n = Number(rawStore as string);
-          storeSize = Number.isFinite(n) ? n : parseHumanSize(rawStore as string);
-        } else {
-          storeSize = 0;
-        }
+        const storeSize = typeof rawStore === 'number' && Number.isFinite(rawStore)
+          ? Number(rawStore)
+          : typeof rawStore === 'string'
+            ? (() => {
+                const n = Number(rawStore as string);
+                return Number.isFinite(n) ? n : parseHumanSize(rawStore as string);
+              })()
+            : 0;
         const primaryShards = Number(rec.primaryShards ?? rec.primary_shards ?? rec.primaryShards ?? 0);
         const replicaShards = Number(rec.replicaShards ?? rec.replica_shards ?? rec.replicaShards ?? 0);
         return {

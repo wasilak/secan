@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
 import { TreeMap } from '@nivo/treemap';
 import React from 'react';
 import type { ComputedNodeWithoutStyles } from '@nivo/treemap';
