@@ -374,12 +374,9 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     let columns = Math.max(1, Math.round(Math.sqrt(N * aspect)));
     columns = Math.min(columns, N);
 
-    // Also cap columns to a maximum based on container width and a sensible min column width
-    const MIN_COL_WIDTH = Math.max(GROUP_WIDTH, 220); // pixels
-    if (W > 0) {
-      const maxColsByWidth = Math.max(1, Math.floor((W + HORIZONTAL_GAP) / (MIN_COL_WIDTH + HORIZONTAL_GAP)));
-      columns = Math.min(columns, maxColsByWidth);
-    }
+    // (Don't aggressively cap columns by a fixed minimum width here.)
+    // We'll allow the computed column count and later scale column widths to
+    // fit the container when a container width is available.
 
     // Prepare per-column cursors and widths (widths computed from node min widths)
     const colHeights = new Array<number>(columns).fill(0);
@@ -408,21 +405,44 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
       if (minW > colWidths[minCol]) colWidths[minCol] = minW;
     }
 
+    // If container width known, scale column widths to fit if necessary.
+    if (W > 0) {
+      const totalGaps = Math.max(0, (columns - 1) * HORIZONTAL_GAP);
+      let totalColsWidth = colWidths.reduce((a, b) => a + b, 0);
+      if (totalColsWidth + totalGaps > W) {
+        const available = Math.max(50, W - totalGaps);
+        const scale = available / totalColsWidth;
+        for (let c = 0; c < columns; c++) {
+          // Ensure a sensible minimum so nodes don't become unusably narrow
+          colWidths[c] = Math.max(120, Math.floor(colWidths[c] * scale));
+        }
+      }
+    }
+
     // Compute X offsets for each column
     const colX: number[] = new Array(columns).fill(0);
     for (let c = 1; c < columns; c++) colX[c] = colX[c - 1] + colWidths[c - 1] + HORIZONTAL_GAP;
 
-    // Emit nodes placed in assigned columns, stacking vertically per column
+    // Emit nodes placed in assigned columns, stacking vertically per column.
+    // The assignments array is in input order; to maintain a left-to-right
+    // top-to-bottom visual flow we sort by column then by assigned order.
+    const groupedByCol: Record<number, NodeInfo[]> = {};
+    for (const [idx, asg] of assignments.entries()) {
+      if (!groupedByCol[asg.col]) groupedByCol[asg.col] = [];
+      groupedByCol[asg.col].push(asg.node);
+    }
+
     const colYCursor = new Array<number>(columns).fill(0);
-    for (const asg of assignments) {
-      const node = asg.node;
-      const col = asg.col;
-      const x = colX[col];
-      const y = colYCursor[col];
-      const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-      emitGroupNode(result, node, { x, y }, shards, input);
-      const h = estimatedGroupHeight(shards.length);
-      colYCursor[col] += h + VERTICAL_GAP;
+    for (let c = 0; c < columns; c++) {
+      const nodesInCol = groupedByCol[c] ?? [];
+      for (const node of nodesInCol) {
+        const x = colX[c];
+        const y = colYCursor[c];
+        const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+        emitGroupNode(result, node, { x, y }, shards, input);
+        const h = estimatedGroupHeight(shards.length);
+        colYCursor[c] += h + VERTICAL_GAP;
+      }
     }
 
     contentBottomY = Math.max(...colYCursor);
