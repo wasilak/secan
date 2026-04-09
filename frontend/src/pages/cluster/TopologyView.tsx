@@ -176,31 +176,39 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
         <Group gap="md" wrap="nowrap" align="stretch" style={{ height: '100%' }}>
           {/* Filter Sidebar */}
           <FilterSidebar
-            textFilters={[
-              { value: indexNameFilter, onChange: setIndexNameFilter, placeholder: 'Filter indices...' },
-              { value: nodeNameFilter, onChange: setNodeNameFilter, placeholder: 'Filter nodes...' },
-            ]}
-            categories={[
-              {
-                title: 'State',
-                options: [
-                  { label: 'Started', value: 'STARTED', color: SHARD_STATE_COLORS.STARTED },
-                  { label: 'Unassigned', value: 'UNASSIGNED', color: SHARD_STATE_COLORS.UNASSIGNED },
-                  { label: 'Initializing', value: 'INITIALIZING', color: SHARD_STATE_COLORS.INITIALIZING },
-                  { label: 'Relocating', value: 'RELOCATING', color: SHARD_STATE_COLORS.RELOCATING },
-                ],
-                selected: selectedShardStates,
-                onChange: (newStates) => {
-                  const params = new URLSearchParams(searchParams);
-                  if (newStates.length === 4) {
-                    params.delete('shardStates');
-                  } else if (newStates.length > 0) {
-                    params.set('shardStates', newStates.join(','));
-                  }
-                  setSearchParams(params, { replace: true });
-                },
-              },
-            ]}
+            textFilters={
+              topologyViewType === 'disk-usage'
+                ? [{ value: indexNameFilter, onChange: setIndexNameFilter, placeholder: 'Filter indices...' }]
+                : [
+                    { value: indexNameFilter, onChange: setIndexNameFilter, placeholder: 'Filter indices...' },
+                    { value: nodeNameFilter, onChange: setNodeNameFilter, placeholder: 'Filter nodes...' },
+                  ]
+            }
+            categories={
+              topologyViewType === 'disk-usage'
+                ? []
+                : [
+                    {
+                      title: 'State',
+                      options: [
+                        { label: 'Started', value: 'STARTED', color: SHARD_STATE_COLORS.STARTED },
+                        { label: 'Unassigned', value: 'UNASSIGNED', color: SHARD_STATE_COLORS.UNASSIGNED },
+                        { label: 'Initializing', value: 'INITIALIZING', color: SHARD_STATE_COLORS.INITIALIZING },
+                        { label: 'Relocating', value: 'RELOCATING', color: SHARD_STATE_COLORS.RELOCATING },
+                      ],
+                      selected: selectedShardStates,
+                      onChange: (newStates) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (newStates.length === 4) {
+                          params.delete('shardStates');
+                        } else if (newStates.length > 0) {
+                          params.set('shardStates', newStates.join(','));
+                        }
+                        setSearchParams(params, { replace: true });
+                      },
+                    },
+                  ]
+            }
             conditionalSections={[
                {
                 visible: topologyViewType === 'shard-flow',
@@ -406,11 +414,14 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 showSpecialIndices={showSpecialIndices}
               />
             ) : topologyViewType === 'disk-usage' ? (
-              <DiskTreemapView
-                indices={allIndicesArray || []}
-                isLoading={allIndicesLoading}
-                showSpecialIndices={showSpecialIndices}
-              />
+               <DiskTreemapView
+                 indices={allIndicesArray || []}
+                 isLoading={allIndicesLoading}
+                 showSpecialIndices={showSpecialIndices}
+                 indexNameFilter={indexNameFilter}
+                 matchesWildcard={matchesWildcard}
+                 openIndexModal={(name: string) => openIndexModal(name)}
+               />
             ) : (
               <ShardAllocationGrid
                 nodes={allNodesArray}

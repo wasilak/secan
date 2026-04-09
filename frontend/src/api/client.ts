@@ -619,10 +619,45 @@ export class ApiClient {
       const data = response.data;
       const normalizedItems = (data.items || []).map((idx: unknown) => {
         const rec = idx as Record<string, unknown>;
-        const docsCount = Number(rec.docsCount ?? rec.docs_count ?? ((rec.docs as Record<string, unknown>)?.count as number | undefined) ?? 0);
-        const storeSize = Number(
-          rec.storeSize ?? rec.store_size ?? ((rec.store as Record<string, unknown>)?.size_in_bytes) ?? rec.storeSize ?? 0
+        const docsCount = Number(
+          rec.docsCount ?? rec.docs_count ?? ((rec.docs as Record<string, unknown>)?.count as number | undefined) ?? 0
         );
+        // Normalize store size. The backend may return either a numeric
+        // byte count (number) or a human-readable string like "86.7kb" or
+        // "624b" (as observed from _cat/indices output). Attempt to
+        // coerce to a number of bytes robustly.
+        const rawStore: unknown = rec.storeSize ?? rec.store_size ?? ((rec.store as Record<string, unknown>)?.size_in_bytes) ?? rec.storeSize ?? 0;
+
+        const parseHumanSize = (v: string): number => {
+          if (!v) return 0;
+          const s = String(v).trim().toLowerCase();
+          // Accept formats like "123", "123b", "86.7kb", "1.2mb", with optional spaces
+          const m = s.match(/^([0-9.,]+)\s*(b|kb|mb|gb|tb)?$/);
+          if (!m) return 0;
+          const num = parseFloat(m[1].replace(/,/g, ''));
+          if (!isFinite(num)) return 0;
+          const unit = m[2] || 'b';
+          const multipliers: Record<string, number> = {
+            b: 1,
+            kb: 1024,
+            mb: 1024 * 1024,
+            gb: 1024 * 1024 * 1024,
+            tb: 1024 * 1024 * 1024 * 1024,
+          };
+          return Math.round(num * (multipliers[unit] ?? 1));
+        };
+
+        let storeSize = 0;
+        if (typeof rawStore === 'number' && Number.isFinite(rawStore)) {
+          storeSize = Number(rawStore);
+        } else if (typeof rawStore === 'string') {
+          // Try numeric coercion first (handles strings like "1234"),
+          // otherwise parse human-friendly suffixes.
+          const n = Number(rawStore as string);
+          storeSize = Number.isFinite(n) ? n : parseHumanSize(rawStore as string);
+        } else {
+          storeSize = 0;
+        }
         const primaryShards = Number(rec.primaryShards ?? rec.primary_shards ?? rec.primaryShards ?? 0);
         const replicaShards = Number(rec.replicaShards ?? rec.replica_shards ?? rec.replicaShards ?? 0);
         return {

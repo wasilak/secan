@@ -205,18 +205,18 @@ export function getColorForIndex(indexName: string, separateSystemIndexColors: b
     hash = (hash * 33) ^ key.charCodeAt(i);
   }
 
-  const colors = [
-    'var(--mantine-color-blue-6)',
-    'var(--mantine-color-cyan-6)',
-    'var(--mantine-color-violet-6)',
-    'var(--mantine-color-pink-6)',
-    'var(--mantine-color-green-6)',
-    'var(--mantine-color-yellow-6)',
-    'var(--mantine-color-orange-6)',
-    'var(--mantine-color-red-6)',
-  ];
-  const idx = Math.abs(hash) % colors.length;
-  return colors[idx];
+  // Pastel palette: pick from a set of pleasing base hues and produce
+  // a soft pastel fill using HSL. This yields nicer treemap visuals (soft
+  // backgrounds and readable labels) while remaining deterministic.
+  const baseHues = [12, 8, 340, 200, 170, 30, 260, 210]; // degrees
+  const hue = baseHues[Math.abs(hash) % baseHues.length];
+
+  // Pastel fill: lightness high, saturation moderate. Border/text shade
+  // will be computed by the visualization library (Nivo) by darkening the
+  // provided color; returning an HSL color string keeps that behaviour.
+  const saturation = 50; // percent
+  const lightness = 88; // percent
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
 /**
