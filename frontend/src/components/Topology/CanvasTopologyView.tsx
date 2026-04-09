@@ -472,7 +472,7 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
     } else {
       pendingLayoutRef.current = layoutNodes;
     }
-  }, [layoutNodes, setFlowNodes, usePrecomputedLayout]);
+  }, [layoutNodes, setFlowNodes, usePrecomputedLayout, dagreEdges, dagreExtraNodes]);
 
   // Collision resolving: wait for RF to measure node sizes, then nudge nodes
   // apart if they overlap. Mirrors IndexVisualizationFlow behavior.
@@ -798,7 +798,7 @@ export function CanvasTopologyView({
     });
 
     return baseLayout;
-  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, unassignedCountHint, isLoading, size.width, size.height]);
+  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, unassignedCountHint, isLoading, size.width, size.height, dagreEdgesRef, dagreExtraNodesRef]);
 
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
