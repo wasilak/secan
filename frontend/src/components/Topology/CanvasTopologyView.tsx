@@ -393,7 +393,15 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
 
     if (changed) {
       setFlowNodes(updated as unknown as Node[]);
-      setTimeout(() => fitView({ padding: 0.2 }), 150);
+      // Avoid repeatedly calling fitView in rapid succession which can cause
+      // viewport changes -> measurement -> relayout cycles when grouping is
+      // enabled. Throttle fitView calls to at most one per 500ms.
+      const now = Date.now();
+      const last = (fitContainersToChildren as any)._lastFitViewTime as number | undefined;
+      if (!last || now - last > 500) {
+        (fitContainersToChildren as any)._lastFitViewTime = now;
+        setTimeout(() => fitView({ padding: 0.2 }), 150);
+      }
     }
   }, [getNodes, setFlowNodes, fitView]);
 

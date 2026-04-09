@@ -148,11 +148,19 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     )
   );
 
-  const availableLabels = labelTags
-    .map((tag) => {
-      const { name } = extractLabelFromTag(tag);
-      return { name, tag };
-    })
+  // Deduplicate labels by their display name while keeping a representative
+  // full tag for grouping. This prevents duplicate entries in the GroupingControl
+  // when multiple tag values share the same display name (e.g. "zone-a" and
+  // "zone-b" both displaying as "zone"). We keep the first encountered tag
+  // for each name to preserve deterministic behavior.
+  const byName = new Map<string, string>(); // name -> tag
+  for (const tag of labelTags) {
+    const { name } = extractLabelFromTag(tag);
+    if (!byName.has(name)) byName.set(name, tag);
+  }
+
+  const availableLabels = Array.from(byName.entries())
+    .map(([name, tag]) => ({ name, tag }))
     .sort((a, b) => {
       const nameCompare = a.name.localeCompare(b.name);
       return nameCompare !== 0 ? nameCompare : a.tag.localeCompare(b.tag);
@@ -284,16 +292,16 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                 ),
               },
             ]}
-            rightSection={
-               topologyViewType === 'node-overview' || topologyViewType === 'cluster-map' ? (
-                <GroupingControl
-                  currentGrouping={topologyGroupingConfig.attribute}
-                  currentGroupingValue={topologyGroupingConfig.value}
-                  availableLabels={availableLabels}
-                  onGroupingChange={props.handleTopologyGroupingChange}
-                />
-              ) : null
-            }
+             rightSection={
+               topologyViewType === 'node-overview' ? (
+                 <GroupingControl
+                   currentGrouping={topologyGroupingConfig.attribute}
+                   currentGroupingValue={topologyGroupingConfig.value}
+                   availableLabels={availableLabels}
+                   onGroupingChange={props.handleTopologyGroupingChange}
+                 />
+               ) : null
+             }
             toggles={[
               {
                 label: 'Show special indices',
