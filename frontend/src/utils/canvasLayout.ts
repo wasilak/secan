@@ -378,62 +378,85 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     // We'll allow the computed column count and later scale column widths to
     // fit the container when a container width is available.
 
-    // Prepare per-column cursors and widths (widths computed from node min widths)
-    const colHeights = new Array<number>(columns).fill(0);
-    const colWidths = new Array<number>(columns).fill(GROUP_WIDTH);
-    const assignments: Array<{ node: NodeInfo; col: number } > = [];
+    // Helper to compute assignments and per-column widths for a given column count
+    const computeAssignments = (colCount: number) => {
+      const ch = new Array<number>(colCount).fill(0);
+      const cw = new Array<number>(colCount).fill(GROUP_WIDTH);
+      const asgs: Array<{ node: NodeInfo; col: number } > = [];
+      for (const node of sorted) {
+        const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+        const estH = estimatedGroupHeight(shards.length);
+        // pick column with minimal height
+        let minCol = 0;
+        let minVal = ch[0];
+        for (let c = 1; c < colCount; c++) {
+          if (ch[c] < minVal) {
+            minVal = ch[c];
+            minCol = c;
+          }
+        }
+        asgs.push({ node, col: minCol });
+        ch[minCol] += estH + VERTICAL_GAP;
+        const minW = estimateGroupMinWidth(node);
+        if (minW > cw[minCol]) cw[minCol] = minW;
+      }
+      return { assignments: asgs, colHeights: ch, colWidths: cw };
+    };
 
-    // First pass: assign each node to the column with smallest current height
-    for (const node of sorted) {
-      const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-      const estH = estimatedGroupHeight(shards.length);
-      // pick column with minimal height
-      let minCol = 0;
-      let minVal = colHeights[0];
-      for (let c = 1; c < columns; c++) {
-        if (colHeights[c] < minVal) {
-          minVal = colHeights[c];
-          minCol = c;
+    // If we know container width, try to find the largest column count that
+    // still fits by greedily decreasing columns until the layout fits.
+    let finalAssignments: Array<{ node: NodeInfo; col: number }> = [];
+    let finalColWidths: number[] = [];
+    let finalColX: number[] = [];
+    let finalColCount = columns;
+
+    if (W > 0) {
+      // Try reducing columns until fits (columns -> 1)
+      for (let c = columns; c >= 1; c--) {
+        const { assignments: asg, colWidths: cw } = computeAssignments(c);
+        const totalGaps = Math.max(0, (c - 1) * HORIZONTAL_GAP);
+        const totalColsWidth = cw.reduce((a, b) => a + b, 0);
+        if (totalColsWidth + totalGaps <= W) {
+          finalAssignments = asg;
+          finalColWidths = cw;
+          finalColCount = c;
+          break;
+        }
+        // If none fit, fall back to scaling below
+        if (c === 1) {
+          finalAssignments = asg;
+          finalColWidths = cw;
+          finalColCount = 1;
         }
       }
-
-      assignments.push({ node, col: minCol });
-      colHeights[minCol] += estH + VERTICAL_GAP;
-
-      // update column width to accommodate node's min width
-      const minW = estimateGroupMinWidth(node);
-      if (minW > colWidths[minCol]) colWidths[minCol] = minW;
-    }
-
-    // If container width known, scale column widths to fit if necessary.
-    if (W > 0) {
-      const totalGaps = Math.max(0, (columns - 1) * HORIZONTAL_GAP);
-      let totalColsWidth = colWidths.reduce((a, b) => a + b, 0);
+      // If the computed widths don't fit due to min-widths, scale them down
+      const totalGaps = Math.max(0, (finalColCount - 1) * HORIZONTAL_GAP);
+      let totalColsWidth = finalColWidths.reduce((a, b) => a + b, 0);
       if (totalColsWidth + totalGaps > W) {
         const available = Math.max(50, W - totalGaps);
         const scale = available / totalColsWidth;
-        for (let c = 0; c < columns; c++) {
-          // Ensure a sensible minimum so nodes don't become unusably narrow
-          colWidths[c] = Math.max(120, Math.floor(colWidths[c] * scale));
-        }
+        for (let i = 0; i < finalColWidths.length; i++) finalColWidths[i] = Math.max(80, Math.floor(finalColWidths[i] * scale));
       }
+    } else {
+      // No container width known — fall back to the initial assignment
+      const { assignments: asg, colWidths: cw } = computeAssignments(columns);
+      finalAssignments = asg;
+      finalColWidths = cw;
+      finalColCount = columns;
     }
 
     // Compute X offsets for each column
-    const colX: number[] = new Array(columns).fill(0);
-    for (let c = 1; c < columns; c++) colX[c] = colX[c - 1] + colWidths[c - 1] + HORIZONTAL_GAP;
+    const colX: number[] = new Array(finalColCount).fill(0);
+    for (let c = 1; c < finalColCount; c++) colX[c] = colX[c - 1] + finalColWidths[c - 1] + HORIZONTAL_GAP;
 
-    // Emit nodes placed in assigned columns, stacking vertically per column.
-    // The assignments array is in input order; to maintain a left-to-right
-    // top-to-bottom visual flow we sort by column then by assigned order.
+    // Emit nodes column by column
     const groupedByCol: Record<number, NodeInfo[]> = {};
-    for (const [idx, asg] of assignments.entries()) {
+    for (const asg of finalAssignments) {
       if (!groupedByCol[asg.col]) groupedByCol[asg.col] = [];
       groupedByCol[asg.col].push(asg.node);
     }
-
-    const colYCursor = new Array<number>(columns).fill(0);
-    for (let c = 0; c < columns; c++) {
+    const colYCursor = new Array<number>(finalColCount).fill(0);
+    for (let c = 0; c < finalColCount; c++) {
       const nodesInCol = groupedByCol[c] ?? [];
       for (const node of nodesInCol) {
         const x = colX[c];
@@ -446,8 +469,7 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     }
 
     contentBottomY = Math.max(...colYCursor);
-    // Set unassignedX to the next column after all grid columns.
-    unassignedX = colX[columns - 1] + colWidths[columns - 1] + HORIZONTAL_GAP;
+    unassignedX = colX[finalColCount - 1] + finalColWidths[finalColCount - 1] + HORIZONTAL_GAP;
   } else {
     // ── Grouped: RF parent-node containers, one per group ────────────────
     // Each group becomes a 'groupContainer' RF parent node. Child cluster
