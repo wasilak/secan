@@ -112,6 +112,8 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   const hasFitViewRun = useRef(false);
   const isDraggingRef = useRef(false);
   const pendingLayoutRef = useRef<Node[] | null>(null);
+  // Track last time fitView was called to throttle repeated calls
+  const lastFitViewTimeRef = useRef<number | undefined>(undefined);
 
   // Track settled viewport for LOD threshold crossings and viewport culling.
   // We use useOnViewportChange.onEnd so the parent is only notified when the
@@ -397,9 +399,9 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
       // viewport changes -> measurement -> relayout cycles when grouping is
       // enabled. Throttle fitView calls to at most one per 500ms.
       const now = Date.now();
-      const last = (fitContainersToChildren as any)._lastFitViewTime as number | undefined;
+      const last = lastFitViewTimeRef.current;
       if (!last || now - last > 500) {
-        (fitContainersToChildren as any)._lastFitViewTime = now;
+        lastFitViewTimeRef.current = now;
         setTimeout(() => fitView({ padding: 0.2 }), 150);
       }
     }

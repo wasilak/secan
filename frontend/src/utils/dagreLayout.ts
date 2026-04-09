@@ -32,8 +32,8 @@ export function applyDagreLayout(
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, {
-      width: (node.width as number) || (node.data as any)?.width || nodeWidth,
-      height: (node.height as number) || (node.data as any)?.height || nodeHeight,
+    width: (node.width as number) || ((node.data as unknown) as { width?: number })?.width || nodeWidth,
+    height: (node.height as number) || ((node.data as unknown) as { height?: number })?.height || nodeHeight,
     });
   });
 
@@ -43,7 +43,7 @@ export function applyDagreLayout(
     } catch (e) {
       // Ignore malformed/duplicate edges — Dagre will still layout nodes.
       // Keep this defensive to avoid runtime exceptions from external data.
-      // eslint-disable-next-line no-console
+       
       console.debug('applyDagreLayout: skipped edge', edge, e);
     }
   });

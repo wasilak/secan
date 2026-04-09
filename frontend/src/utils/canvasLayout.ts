@@ -181,12 +181,8 @@ function sortClusterNodes(nodes: NodeInfo[]): NodeInfo[] {
   });
 }
 
-/** Determine layout column index for a node (no-grouping mode). */
-function columnFor(node: NodeInfo): number {
-  if (node.roles?.includes('master')) return 0;
-  if (node.roles?.includes('ingest') || node.roles?.includes('ml')) return 2;
-  return 1;
-}
+// columnFor removed — previously used in older layout strategies. Kept out to
+// satisfy lint rules (avoid unused declarations).
 
 /** Emit a single group node (shards embedded in data, rendered by ClusterGroupNode). */
 import { formatBytes, getLoadColor } from '../utils/formatters';
@@ -353,7 +349,9 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
   // placing the synthetic Unassigned node below all real content.
   let contentBottomY = 0;
   // X position for the Unassigned node (after all groups in grouped mode).
-  let unassignedX = COLUMN_WIDTH;
+  // Initialize to 0 and compute concrete value per layout branch to avoid
+  // assignments that are immediately overwritten (triggers no-useless-assignment).
+  let unassignedX = 0;
 
   if (groupingConfig.attribute === 'none') {
     // ── No-grouping: deterministic grid layout
@@ -399,10 +397,9 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
       }
     } else {
       // Greedy-by-height for larger clusters
-      const { assignments, colWidths: cw } = ((): { assignments: Array<{ node: NodeInfo; col: number }>; colWidths: number[] } => {
+      const { colWidths: cw } = ((): { colWidths: number[] } => {
         const ch = new Array<number>(cols).fill(0);
         const cw2 = new Array<number>(cols).fill(GROUP_WIDTH);
-        const asgs: Array<{ node: NodeInfo; col: number }> = [];
         for (const node of nodesToLayout) {
           const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
           const estH = estimatedGroupHeight(shards.length);
@@ -414,12 +411,11 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]
               minCol = c;
             }
           }
-          asgs.push({ node, col: minCol });
           ch[minCol] += estH + VERTICAL_GAP;
           const minW = estimateGroupMinWidth(node);
           if (minW > cw2[minCol]) cw2[minCol] = minW;
         }
-        return { assignments: asgs, colWidths: cw2 };
+        return { colWidths: cw2 };
       })();
       for (let c = 0; c < cw.length; c++) colWidths[c] = cw[c];
     }
