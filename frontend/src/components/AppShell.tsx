@@ -387,24 +387,41 @@ function HeaderTitle() {
                         onMouseLeave={() => setOpenSectionPopover(null)}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 220 }}>
-                          {section.children.map((child) => (
-                            <Menu.Item
-                              key={child.path}
-                              component="a"
-                              href={`/cluster/${clusterId}${child.path}`}
-                              onClick={(e) => {
-                                if (e.metaKey || e.ctrlKey) return;
-                                e.preventDefault();
-                                navigate(`/cluster/${clusterId}${child.path}`);
-                                setSectionMenuOpen(false);
-                                setOpenSectionPopover(null);
-                              }}
-                              leftSection={<child.icon size={14} />}
-                              style={{ paddingLeft: 8 }}
-                            >
-                              <Text size="sm">{child.label}</Text>
-                            </Menu.Item>
-                          ))}
+                          {section.children.map((child) => {
+                            const isChildActive = location.pathname === `/cluster/${clusterId}${child.path}`;
+                            return (
+                              <Menu.Item
+                                key={child.path}
+                                component="a"
+                                href={`/cluster/${clusterId}${child.path}`}
+                                onClick={(e) => {
+                                  if (e.metaKey || e.ctrlKey) return;
+                                  e.preventDefault();
+                                  navigate(`/cluster/${clusterId}${child.path}`);
+                                  setSectionMenuOpen(false);
+                                  setOpenSectionPopover(null);
+                                }}
+                                leftSection={
+                                  isChildActive ? (
+                                    <div
+                                      style={{
+                                        width: '4px',
+                                        height: '16px',
+                                        backgroundColor: 'var(--mantine-color-orange-6)',
+                                        borderRadius: '2px',
+                                        marginRight: 4,
+                                      }}
+                                    />
+                                  ) : (
+                                    <child.icon size={14} />
+                                  )
+                                }
+                                style={{ paddingLeft: 8 }}
+                              >
+                                <Text size="sm">{child.label}</Text>
+                              </Menu.Item>
+                            );
+                          })}
                         </div>
                       </Popover.Dropdown>
                     </Popover>
@@ -646,25 +663,41 @@ function ClusterNavItemInner({
                       or when the user toggles the parent in the sidebar. */}
                   {(isSectionActive || openChildSections[section.value]) && section.children && section.children.length > 0 && (
                     <div style={{ paddingLeft: 16, marginTop: 6 }}>
-                      {section.children.map((child) => (
-                        <NavLink
-                          key={child.path}
-                          href={`/cluster/${clusterId}${child.path}`}
-                          label={child.label}
-                          leftSection={<child.icon size={14} />}
-                          active={location.pathname === `/cluster/${clusterId}${child.path}`}
-                          onClick={(e) => {
-                            if (e.metaKey || e.ctrlKey) return;
-                            e.preventDefault();
-                            const url = `/cluster/${clusterId}${child.path}`;
-                            navigate(url);
-                          }}
-                          styles={(theme) => ({
-                            root: { backgroundColor: 'transparent' },
-                            label: { color: theme.colors.gray[6], fontSize: '13px' },
-                          })}
-                        />
-                      ))}
+                      {section.children.map((child) => {
+                        const isChildActive = location.pathname === `/cluster/${clusterId}${child.path}`;
+                        return (
+                          <NavLink
+                            key={child.path}
+                            href={`/cluster/${clusterId}${child.path}`}
+                            label={child.label}
+                            leftSection={<child.icon size={14} />}
+                            active={isChildActive}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey) return;
+                              e.preventDefault();
+                              const url = `/cluster/${clusterId}${child.path}`;
+                              navigate(url);
+                            }}
+                            styles={(theme) => ({
+                              root: { backgroundColor: 'transparent' },
+                              label: { color: theme.colors.gray[6], fontSize: '13px' },
+                            })}
+                            rightSection={
+                              isChildActive ? (
+                                <div
+                                  style={{
+                                    width: '4px',
+                                    height: '16px',
+                                    backgroundColor: 'var(--mantine-color-orange-6)',
+                                    borderRadius: '2px',
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              ) : null
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>
