@@ -713,6 +713,8 @@ export function CanvasTopologyView({
 
     const baseLayout = calculateCanvasLayout({
       clusterNodes: filteredNodes,
+      containerWidth: size.width,
+      containerHeight: size.height,
       shardsByNode,
       groupingConfig,
       onNodeClick,

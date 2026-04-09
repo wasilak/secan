@@ -131,6 +131,10 @@ export interface CanvasLayoutInput {
   clusterNodes: NodeInfo[];
   shardsByNode: Record<string, ShardInfo[]>;
   groupingConfig: GroupingConfig;
+  /** Optional measured container width (pixels) used to calculate adaptive grid */
+  containerWidth?: number;
+  /** Optional measured container height (pixels) used to calculate adaptive grid */
+  containerHeight?: number;
   onNodeClick?: (nodeId: string) => void;
   onShardClick?: (shard: ShardInfo, event?: React.MouseEvent) => void;
   relocationMode?: boolean;
@@ -352,22 +356,78 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
   let unassignedX = COLUMN_WIDTH;
 
   if (groupingConfig.attribute === 'none') {
-    // ── No-grouping: 3-column layout ─────────────────────────────────────
+    // ── No-grouping: adaptive grid layout (greedy column-fill)
+    // Aim: choose columns based on container aspect ratio and N so the
+    // distribution matches the available rectangle (wide -> more columns,
+    // square -> columns ~= rows). Use a greedy column-height balance to
+    // avoid extremely tall columns when node heights vary.
     const sorted = sortClusterNodes(clusterNodes);
-    const colY = [0, 0, 0]; // y-cursor for each column
 
-    sorted.forEach((node) => {
-      const col = columnFor(node);
-      const y = colY[col];
+    const N = sorted.length;
+    const W = input.containerWidth ?? 0;
+    const H = input.containerHeight ?? 0;
+
+    // Aspect ratio fallback and defensives
+    const aspect = W > 0 && H > 0 ? Math.max(0.1, W / H) : 1;
+
+    // Compute ideal column count using sqrt(N * aspect). Clamp to [1, N].
+    let columns = Math.max(1, Math.round(Math.sqrt(N * aspect)));
+    columns = Math.min(columns, N);
+
+    // Also cap columns to a maximum based on container width and a sensible min column width
+    const MIN_COL_WIDTH = Math.max(GROUP_WIDTH, 220); // pixels
+    if (W > 0) {
+      const maxColsByWidth = Math.max(1, Math.floor((W + HORIZONTAL_GAP) / (MIN_COL_WIDTH + HORIZONTAL_GAP)));
+      columns = Math.min(columns, maxColsByWidth);
+    }
+
+    // Prepare per-column cursors and widths (widths computed from node min widths)
+    const colHeights = new Array<number>(columns).fill(0);
+    const colWidths = new Array<number>(columns).fill(GROUP_WIDTH);
+    const assignments: Array<{ node: NodeInfo; col: number } > = [];
+
+    // First pass: assign each node to the column with smallest current height
+    for (const node of sorted) {
       const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+      const estH = estimatedGroupHeight(shards.length);
+      // pick column with minimal height
+      let minCol = 0;
+      let minVal = colHeights[0];
+      for (let c = 1; c < columns; c++) {
+        if (colHeights[c] < minVal) {
+          minVal = colHeights[c];
+          minCol = c;
+        }
+      }
 
-      emitGroupNode(result, node, { x: col * COLUMN_WIDTH, y }, shards, input);
+      assignments.push({ node, col: minCol });
+      colHeights[minCol] += estH + VERTICAL_GAP;
 
-      colY[col] = y + estimatedGroupHeight(shards.length) + VERTICAL_GAP;
-    });
+      // update column width to accommodate node's min width
+      const minW = estimateGroupMinWidth(node);
+      if (minW > colWidths[minCol]) colWidths[minCol] = minW;
+    }
 
-    contentBottomY = Math.max(...colY);
-    // unassignedX stays at the default COLUMN_WIDTH (middle column)
+    // Compute X offsets for each column
+    const colX: number[] = new Array(columns).fill(0);
+    for (let c = 1; c < columns; c++) colX[c] = colX[c - 1] + colWidths[c - 1] + HORIZONTAL_GAP;
+
+    // Emit nodes placed in assigned columns, stacking vertically per column
+    const colYCursor = new Array<number>(columns).fill(0);
+    for (const asg of assignments) {
+      const node = asg.node;
+      const col = asg.col;
+      const x = colX[col];
+      const y = colYCursor[col];
+      const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+      emitGroupNode(result, node, { x, y }, shards, input);
+      const h = estimatedGroupHeight(shards.length);
+      colYCursor[col] += h + VERTICAL_GAP;
+    }
+
+    contentBottomY = Math.max(...colYCursor);
+    // Set unassignedX to the next column after all grid columns.
+    unassignedX = colX[columns - 1] + colWidths[columns - 1] + HORIZONTAL_GAP;
   } else {
     // ── Grouped: RF parent-node containers, one per group ────────────────
     // Each group becomes a 'groupContainer' RF parent node. Child cluster
