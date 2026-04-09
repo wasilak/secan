@@ -1353,7 +1353,7 @@ mod manager_tests {
         // This test verifies that no audit entry is emitted for local access denied
         // by checking that the audit function is not called (we can't easily capture
         // stdout in async tests, but we verify the code path returns early)
-        use crate::config::{ClusterAuth, ClusterConfig, RoleCredential, TlsConfig};
+        use crate::config::{ClusterAuth, ClusterConfig, RoleCredential};
 
         let cfg = ClusterConfig {
             id: "deny-cluster".to_string(),
