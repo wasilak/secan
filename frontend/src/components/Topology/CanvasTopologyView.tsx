@@ -631,8 +631,12 @@ export function CanvasTopologyView({
     if (size.width === 0 || size.height === 0) {
       retry = window.setTimeout(() => measure(), 160) as unknown as number;
     }
+    // Ensure we re-measure on window resize (debounced via measure's internal debounce)
+    const onResize = () => measure();
+    window.addEventListener('resize', onResize);
     return () => {
       if (retry) window.clearTimeout(retry);
+      window.removeEventListener('resize', onResize);
     };
   }, [nodes, allShards, indices, groupingConfig, measure, size, containerRef]);
 

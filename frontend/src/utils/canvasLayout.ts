@@ -367,6 +367,15 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     const W = input.containerWidth ?? 0;
     const H = input.containerHeight ?? 0;
 
+    // Debug: log layout inputs to help diagnose mis-sized grids in the wild.
+    // Kept at debug level to avoid noisy logs in production; remove if resolved.
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[canvasLayout] N=%d W=%d H=%d', N, W, H);
+    } catch (e) {
+      // ignore
+    }
+
     // Aspect ratio fallback and defensives
     const aspect = W > 0 && H > 0 ? Math.max(0.1, W / H) : 1;
 
