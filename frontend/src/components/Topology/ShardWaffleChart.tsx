@@ -77,8 +77,6 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
   const [hoveredDatum, setHoveredDatum] = useState<ShardDatum | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
 
-  if (dots.length === 0) return null;
-
   // Each cell ~14px; 2px padding between cells gives 16px per cell
   const cellSize = 14;
   const padding = 2;
@@ -90,6 +88,8 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
   const { containerRef, size } = useMeasuredSize({ debounceMs: 80 });
   const availableWidth = size?.width ?? 0;
 
+  if (dots.length === 0) return null;
+
   const cellTotal = cellSize + padding;
   // Subtract side paddings (padding*2) and compute how many cells fit.
   const maxColumns = availableWidth > 0
@@ -98,7 +98,6 @@ export function ShardWaffleChart({ dots, onShardClick }: ShardWaffleChartProps) 
   const columns = Math.min(dots.length, maxColumns);
   const rows = Math.ceil(dots.length / Math.max(1, columns));
 
-  const totalWidth = columns * cellSize + (columns - 1) * padding + padding * 2;
   const totalHeight = rows * cellSize + (rows - 1) * padding + padding * 2;
 
   const data: ShardDatum[] = dots.map((dot, idx) => ({

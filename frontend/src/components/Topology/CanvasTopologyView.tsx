@@ -634,7 +634,7 @@ export function CanvasTopologyView({
     return () => {
       if (retry) window.clearTimeout(retry);
     };
-  }, [nodes, allShards, indices, groupingConfig, measure, size]);
+  }, [nodes, allShards, indices, groupingConfig, measure, size, containerRef]);
 
   const handleZoomChange = useCallback((zoom: number) => {
     const newIsL2 = zoom > L2_ZOOM_THRESHOLD;
