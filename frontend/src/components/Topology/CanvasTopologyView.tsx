@@ -750,7 +750,7 @@ export function CanvasTopologyView({
     });
 
     return baseLayout;
-  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, unassignedCountHint, isLoading]);
+  }, [filteredNodes, summaryByNode, isL2, allShards, selectedShardStates, showSpecialIndices, indexNameFilter, matchesWildcard, groupingConfig, onNodeClick, onShardClick, relocationMode, validDestinationNodes, onDestinationClick, getIndexHealthColor, unassignedCountHint, isLoading, size.width, size.height]);
 
   // Maintain a serializable snapshot of user positions (stateful so reading is safe during render)
   const [userPositions, setUserPositions] = useState<{ [id: string]: { x: number; y: number } }>({});
