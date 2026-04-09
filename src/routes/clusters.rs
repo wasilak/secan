@@ -6,7 +6,7 @@ use crate::middleware::logging::RequestId;
 // after migrating handlers to Manager::proxy_request_with_audit it's no
 // longer directly referenced in this file. Keep import commented for now.
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
     http::{Method, StatusCode},
     response::{IntoResponse, Response},
     Json,
@@ -238,6 +238,85 @@ pub async fn list_clusters(
     );
 
     Ok(Json(response))
+}
+
+/// Permission entry for a single cluster
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ClusterPermission {
+    /// Cluster ID
+    #[schema(example = "prod-cluster")]
+    pub id: String,
+    /// Cluster name (if set in config)
+    #[schema(example = "Production Cluster")]
+    pub name: Option<String>,
+    /// Whether the user has a matching credential for this cluster
+    #[schema(example = true)]
+    pub accessible: bool,
+    /// The matched role label if accessible, null otherwise
+    #[schema(example = "admin", nullable = true)]
+    pub matched_role: Option<String>,
+}
+
+/// Response for user permissions endpoint
+#[derive(Debug, Serialize, ToSchema)]
+pub struct UserPermissionsResponse {
+    /// List of clusters with permission info
+    pub permissions: Vec<ClusterPermission>,
+}
+
+/// Get current user's cluster permissions
+///
+/// Returns for each cluster: { id, name, accessible, matched_role }.
+/// This allows the frontend to show which credential will be used for each cluster.
+///
+/// # Requirements
+///
+/// Validates: Requirements R5.1, R5.2
+#[utoipa::path(
+    get,
+    path = "/api/users/me/permissions",
+    responses(
+        (status = 200, body = UserPermissionsResponse, description = "User's cluster permissions"),
+        (status = 401, description = "Not authenticated")
+    ),
+    tag = "Authentication"
+)]
+#[instrument(skip(state, user), fields(username = %user.0.username))]
+pub async fn get_user_permissions(
+    State(state): State<ClusterState>,
+    Extension(user): Extension<AuthenticatedUser>,
+) -> Json<UserPermissionsResponse> {
+    // Get all clusters
+    let all_clusters = state.cluster_manager.list_clusters().await;
+
+    // Build permissions for each cluster based on role credential matching
+    let mut permissions: Vec<ClusterPermission> = Vec::new();
+
+    for cluster in all_clusters {
+        // Try to match a role credential for this user
+        let result = state
+            .cluster_manager
+            .get_client_for_user(&cluster.id, &user.0.roles)
+            .await;
+
+        let permission = match result {
+            Ok((_, matched_role)) => ClusterPermission {
+                id: cluster.id,
+                name: cluster.name,
+                accessible: true,
+                matched_role: Some(matched_role),
+            },
+            Err(_) => ClusterPermission {
+                id: cluster.id,
+                name: cluster.name,
+                accessible: false,
+                matched_role: None,
+            },
+        };
+        permissions.push(permission);
+    }
+
+    Json(UserPermissionsResponse { permissions })
 }
 
 /// Apply filters to clusters list

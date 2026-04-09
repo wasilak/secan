@@ -213,3 +213,52 @@ clusters:
 #
 # Note: At least one of `job_name` or `labels` must be provided when using
 # Prometheus to identify your cluster's metrics.
+
+
+# ============================================================================
+# ROLE-BASED CREDENTIAL MAPPING
+# ============================================================================
+# Secan supports mapping multiple credential sets to roles for fine-grained
+# access control. The auth field can be an array of role-credential entries.
+
+# Example cluster with role-based credentials:
+# clusters:
+#   - id: "production"
+#     name: "Production Cluster"
+#     nodes:
+#       - "http://es-prod.example.com:9200"
+#     es_version: 8
+#
+#     # Multiple auth entries - first match wins
+#     auth:
+#       # Admin users get admin credentials
+#       - roles:
+#           - "admin"
+#           - "operator"
+#         basic:
+#           username: "elastic-admin"
+#           password: "${ADMIN_PASSWORD}"
+#
+#       # Developer users get readonly credentials
+#       - roles:
+#           - "developer"
+#           - "viewer"
+#         basic:
+#           username: "elastic-readonly"
+#           password: "${READONLY_PASSWORD}"
+#
+#       # Catch-all for any other role
+#       - roles:
+#           - "*"
+#         basic:
+#           username: "elastic-guest"
+#           password: "${GUEST_PASSWORD}"
+
+
+# ============================================================================
+# AUDIT LOGGING
+# ============================================================================
+# Enable structured audit logging for all proxied Elasticsearch requests.
+# When enabled, each request emits a JSON audit entry via the tracing system.
+
+audit_log: false  # Set to true to enable

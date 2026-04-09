@@ -1,6 +1,6 @@
 use chrono::Utc;
 use serde::Serialize;
-use tracing::error;
+use tracing::{error, info};
 
 /// Structured audit entry for proxied Elasticsearch calls
 #[derive(Debug, Serialize)]
@@ -19,8 +19,10 @@ pub struct AuditEntry {
     pub duration_ms: f64,
 }
 
-/// Emit an audit entry to stdout if enabled. Serialization errors are logged
+/// Emit an audit entry via tracing::info if enabled. Serialization errors are logged
 /// to tracing but do not interrupt normal request handling.
+///
+/// Uses tracing::info! so audit lines integrate with the structured logging pipeline.
 pub fn emit_if_enabled(enabled: bool, entry: &AuditEntry) {
     if !enabled {
         return;
@@ -28,8 +30,8 @@ pub fn emit_if_enabled(enabled: bool, entry: &AuditEntry) {
 
     match serde_json::to_string(entry) {
         Ok(s) => {
-            // One-line JSON to stdout
-            println!("{}", s);
+            // Emit via tracing::info for structured log integration
+            info!(audit = %s, "audit entry");
         }
         Err(e) => {
             error!(error = %e, "Failed to serialize audit entry");

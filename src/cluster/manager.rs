@@ -984,16 +984,25 @@ impl Manager {
 
         // Iterate role_clients in order and pick first that matches user roles
         for rc in &conn.role_clients {
-            // wildcard match
-            if rc.roles.iter().any(|r| r == "*") {
-                return Ok((rc.client.clone(), rc.label.clone()));
-            }
-
-            // exact role match
+            // Exact role match first within this RoleClient entry
             for ur in user_roles {
                 if rc.roles.iter().any(|r| r == ur) {
-                    return Ok((rc.client.clone(), rc.label.clone()));
+                    // Prefer returning the specific matching role if possible
+                    // Label currently contains the joined roles; extract the
+                    // first matching role for clarity as the matched_role value.
+                    let matched_role = rc
+                        .roles
+                        .iter()
+                        .find(|r| *r == ur)
+                        .cloned()
+                        .unwrap_or_else(|| rc.label.clone());
+                    return Ok((rc.client.clone(), matched_role));
                 }
+            }
+
+            // wildcard match
+            if rc.roles.iter().any(|r| r == "*") {
+                return Ok((rc.client.clone(), "*".to_string()));
             }
         }
 
@@ -1251,6 +1260,130 @@ mod manager_tests {
                 &Vec::<String>::new(),
                 "req-2",
                 false,
+            )
+            .await
+            .expect_err("should be access denied");
+
+        match err {
+            ProxyRequestError::AccessDenied => {}
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_client_for_user_ordering_and_wildcard() {
+        use crate::config::{ClusterAuth, ClusterConfig, RoleCredential, TlsConfig};
+
+        // Create a cluster config with two RoleCredential entries in order
+        let cfg = ClusterConfig {
+            id: "order-cluster".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: vec![
+                RoleCredential {
+                    roles: vec!["admin".to_string(), "ops".to_string()],
+                    auth: ClusterAuth::Basic {
+                        username: "a".to_string(),
+                        password: "p".to_string(),
+                    },
+                },
+                RoleCredential {
+                    roles: vec!["*".to_string()],
+                    auth: ClusterAuth::Basic {
+                        username: "fallback".to_string(),
+                        password: "p".to_string(),
+                    },
+                },
+            ],
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        let manager = Manager::new(vec![cfg], Duration::from_secs(30))
+            .await
+            .expect("create manager");
+
+        // Exact role match should pick first entry
+        let (_client, matched) = manager
+            .get_client_for_user("order-cluster", &["admin".to_string()])
+            .await
+            .expect("should find client for admin");
+        assert_eq!(matched, "admin");
+
+        // Non-matching role should fall back to wildcard
+        let (_client2, matched2) = manager
+            .get_client_for_user("order-cluster", &["user".to_string()])
+            .await
+            .expect("should fall back to wildcard");
+        assert_eq!(matched2, "*");
+    }
+
+    #[tokio::test]
+    async fn test_get_client_for_user_multiple_role_match() {
+        use crate::config::{ClusterAuth, ClusterConfig, RoleCredential, TlsConfig};
+
+        // Test that when user has multiple roles, first matching role is returned
+        let cfg = ClusterConfig {
+            id: "multi-role-cluster".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: vec![RoleCredential {
+                roles: vec!["admin".to_string(), "operator".to_string()],
+                auth: ClusterAuth::Basic {
+                    username: "admin".to_string(),
+                    password: "p".to_string(),
+                },
+            }],
+            tls: TlsConfig::default(),
+            ..Default::default()
+        };
+
+        let manager = Manager::new(vec![cfg], Duration::from_secs(30))
+            .await
+            .expect("create manager");
+
+        // When user has "operator" role, it should match and return "operator"
+        let (_client, matched) = manager
+            .get_client_for_user("multi-role-cluster", &["operator".to_string()])
+            .await
+            .expect("should find client for operator");
+        assert_eq!(matched, "operator");
+    }
+
+    #[tokio::test]
+    async fn test_proxy_request_with_audit_no_emit_on_access_denied() {
+        // This test verifies that no audit entry is emitted for local access denied
+        // by checking that the audit function is not called (we can't easily capture
+        // stdout in async tests, but we verify the code path returns early)
+        use crate::config::{ClusterAuth, ClusterConfig, RoleCredential, TlsConfig};
+
+        let cfg = ClusterConfig {
+            id: "deny-cluster".to_string(),
+            nodes: vec!["http://localhost:9200".to_string()],
+            auth: vec![RoleCredential {
+                roles: vec!["admin".to_string()],
+                auth: ClusterAuth::Basic {
+                    username: "u".to_string(),
+                    password: "p".to_string(),
+                },
+            }],
+            ..Default::default()
+        };
+
+        let manager = Manager::new(vec![cfg], Duration::from_secs(30))
+            .await
+            .expect("create manager");
+
+        // Call with user that has no matching role - should return AccessDenied
+        // without making any ES request, and without emitting audit
+        let err = manager
+            .proxy_request_with_audit(
+                "deny-cluster",
+                Method::GET,
+                "/_tasks",
+                None::<serde_json::Value>,
+                Some("user-1".to_string()),
+                &["guest".to_string()], // No matching role
+                "req-denied",
+                true, // audit_enabled = true
             )
             .await
             .expect_err("should be access denied");

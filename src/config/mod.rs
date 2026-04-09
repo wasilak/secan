@@ -810,6 +810,24 @@ impl ClusterConfig {
 
         // Validate authentication configuration (optional; absence means no-auth cluster)
         for rc in &self.auth {
+            // Roles must be non-empty per spec: each RoleCredential requires at least one role
+            if rc.roles.is_empty() {
+                anyhow::bail!(
+                    "Cluster '{}': RoleCredential.roles must contain at least one role",
+                    self.id
+                );
+            }
+
+            // Roles must not contain empty strings
+            for role in &rc.roles {
+                if role.is_empty() {
+                    anyhow::bail!(
+                        "Cluster '{}': RoleCredential contains an empty role string",
+                        self.id
+                    );
+                }
+            }
+
             rc.auth.validate(&self.id)?;
         }
 
@@ -1212,6 +1230,25 @@ mod tests {
         };
 
         assert!(cluster.validate().is_ok());
+
+        // RoleCredential roles non-empty validation
+        cluster.auth = vec![crate::config::RoleCredential {
+            roles: vec![],
+            auth: ClusterAuth::Basic {
+                username: "user".to_string(),
+                password: "pass".to_string(),
+            },
+        }];
+
+        let result = cluster.validate();
+        assert!(result.is_err());
+        let err = result.expect_err("RoleCredential with empty roles should be rejected");
+        assert!(err
+            .to_string()
+            .contains("RoleCredential.roles must contain at least one role"));
+
+        // Reset auth to valid state for remaining checks
+        cluster.auth = Vec::new();
 
         // Test empty ID
         cluster.id = String::new();

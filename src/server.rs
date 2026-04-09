@@ -278,6 +278,10 @@ impl Server {
             .with_state(auth_routes_state)
             // Cluster routes
             .route("/api/clusters", get(crate::routes::clusters::list_clusters))
+            .route(
+                "/api/users/me/permissions",
+                get(crate::routes::clusters::get_user_permissions),
+            )
             // Typed SDK routes for cluster data
             .route(
                 "/api/clusters/{id}/stats",

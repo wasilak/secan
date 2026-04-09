@@ -334,3 +334,161 @@ services:
 4. **Use meaningful IDs** - Choose cluster IDs that indicate their environment (production, staging, dev)
 5. **Monitor authentication** - Log and audit cluster access
 6. **Use API keys over passwords** - API keys are more secure and auditable
+
+## Role-Based Credential Mapping
+
+Secan supports mapping multiple credential sets to roles for fine-grained access control. When a user makes a request, Secan selects the first matching credential based on the user's roles.
+
+### Configuration Format
+
+```yaml
+clusters:
+  - id: "production"
+    name: "Production Cluster"
+    nodes:
+      - "http://es.example.com:9200"
+    es_version: 8
+    auth:
+      - roles: ["admin", "operator"]
+        basic:
+          username: "admin-user"
+          password: "admin-pass"
+      - roles: ["viewer"]
+        basic:
+          username: "readonly-user"
+          password: "readonly-pass"
+      - roles: ["*"]
+        basic:
+          username: "fallback-user"
+          password: "fallback-pass"
+```
+
+**How it works:**
+- Each entry in `auth` has `roles` (array) and an authentication method
+- When a request arrives, Secan iterates through the auth entries in order
+- First entry where the user's role matches wins
+- Use `"*"` as a wildcard to match any role (catch-all)
+- If no entry matches, the user cannot access the cluster
+
+### Authentication Methods
+
+**Basic Authentication:**
+
+```yaml
+auth:
+  - roles: ["admin"]
+    basic:
+      username: "elastic"
+      password: "password"
+```
+
+**API Key:**
+
+```yaml
+auth:
+  - roles: ["admin"]
+    api_key: "VuaCfGcBxxx=="
+```
+
+**Bearer Token:**
+
+```yaml
+auth:
+  - roles: ["admin"]
+    bearer: "token-value"
+```
+
+### Example: Multiple Role Groups
+
+```yaml
+clusters:
+  - id: "prod-cluster"
+    name: "Production"
+    nodes:
+      - "http://es-prod:9200"
+    es_version: 8
+    auth:
+      # Admin users get full access
+      - roles: ["admin", "ops"]
+        basic:
+          username: "secan-admin"
+          password: "${ADMIN_PASSWORD}"
+      # Developers get read-only
+      - roles: ["developer", "viewer"]
+        basic:
+          username: "secan-readonly"
+          password: "${READONLY_PASSWORD}"
+      # Fallback for any other role
+      - roles: ["*"]
+        basic:
+          username: "secan-guest"
+          password: "${GUEST_PASSWORD}"
+```
+
+### Permissions API
+
+To see which credential will be used for your account, call:
+
+```bash
+GET /api/users/me/permissions
+```
+
+Response:
+
+```json
+{
+  "permissions": [
+    {
+      "id": "prod-cluster",
+      "name": "Production",
+      "accessible": true,
+      "matched_role": "admin"
+    },
+    {
+      "id": "staging",
+      "name": "Staging",
+      "accessible": true,
+      "matched_role": "*"
+    },
+    {
+      "id": "dev-cluster",
+      "name": "Development",
+      "accessible": false,
+      "matched_role": null
+    }
+  ]
+}
+```
+
+This helps debug role-to-credential mapping issues.
+
+## Audit Logging
+
+Enable structured audit logging to track all Elasticsearch requests:
+
+```yaml
+audit_log: true
+```
+
+When enabled, each proxied Elasticsearch request emits a JSON audit entry via the tracing system:
+
+```json
+{
+  "kind": "audit",
+  "timestamp": "2026-04-09T12:00:00Z",
+  "request_id": "abc123",
+  "user_id": "user@example.com",
+  "user_roles": ["admin", "operator"],
+  "cluster_id": "production",
+  "matched_role": "admin",
+  "es_method": "GET",
+  "es_path": "/_cluster/health",
+  "status_code": 200,
+  "duration_ms": 45.2
+}
+```
+
+**Key points:**
+- Audit entries only emit when the request actually reaches Elasticsearch
+- Local access denied (no matching role) does NOT generate audit entries
+- Integrate with your logging pipeline by configuring tracing with JSON output
