@@ -6,19 +6,21 @@ import { Position } from '@xyflow/react';
 import { GROUP_WIDTH, ESTIMATED_GROUP_HEIGHT, HORIZONTAL_GAP, VERTICAL_GAP } from './canvasLayout';
 
 // Direction: "TB" = top-bottom (vertical)
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
+export type DagreDirection = 'TB' | 'LR';
 
 const nodeWidth = GROUP_WIDTH;     // align with canvas GROUP_WIDTH
 const nodeHeight = ESTIMATED_GROUP_HEIGHT;    // fallback estimated group height
-
-export type DagreDirection = 'TB' | 'LR';
 
 export function applyDagreLayout(
   nodes: Node[],
   edges: Edge[],
   direction: DagreDirection = 'TB',
 ): { nodes: Node[]; edges: Edge[] } {
+  // Create a fresh dagre graph for every layout call to avoid stale state
+  // when applyDagreLayout is called multiple times during the app lifecycle.
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
   // Prepare dagre nodes and edges. Use canvas layout gaps so dagre spacing
   // matches the rest of the UI. nodesep controls horizontal separation between
   // nodes in the same rank; ranksep controls vertical separation between ranks.
@@ -30,13 +32,20 @@ export function applyDagreLayout(
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, {
-      width: (node.width as number) || nodeWidth,
-      height: (node.height as number) || nodeHeight,
+      width: (node.width as number) || (node.data as any)?.width || nodeWidth,
+      height: (node.height as number) || (node.data as any)?.height || nodeHeight,
     });
   });
 
   edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
+    try {
+      dagreGraph.setEdge(edge.source, edge.target);
+    } catch (e) {
+      // Ignore malformed/duplicate edges — Dagre will still layout nodes.
+      // Keep this defensive to avoid runtime exceptions from external data.
+      // eslint-disable-next-line no-console
+      console.debug('applyDagreLayout: skipped edge', edge, e);
+    }
   });
 
   dagre.layout(dagreGraph);
@@ -54,6 +63,7 @@ export function applyDagreLayout(
         targetPosition: direction === 'TB' ? Position.Top : Position.Left,
       };
     }
+    // If Dagre didn't produce coordinates for this node, preserve existing position
     return { ...node, position: node.position };
   });
 

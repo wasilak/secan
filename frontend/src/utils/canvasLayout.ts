@@ -10,7 +10,7 @@
  * Requirements: 1.2, 1.3, 1.4, 1.6, 1.9, 2.1
  */
 
-import type { Node } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react';
 import type { NodeInfo, ShardInfo } from '../types/api';
 import React, { type ReactNode } from 'react';
 import type { GroupingConfig } from './topologyGrouping';
@@ -342,10 +342,10 @@ function emitGroupNode(
  * ClusterGroupNode renders shards as inline JSX so the group height is
  * driven by content, not a static constant.
  */
-export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
+export function calculateCanvasLayout(input: CanvasLayoutInput): { nodes: Node[]; dagreEdges?: Edge[]; dagreExtraNodes?: Node[] } {
   const { clusterNodes, shardsByNode, groupingConfig } = input;
 
-  if (clusterNodes.length === 0) return [];
+  if (clusterNodes.length === 0) return { nodes: [] };
 
   const result: Node[] = [];
 
@@ -356,129 +356,160 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
   let unassignedX = COLUMN_WIDTH;
 
   if (groupingConfig.attribute === 'none') {
-    // ── No-grouping: adaptive grid layout (greedy column-fill)
-    // Aim: choose columns based on container aspect ratio and N so the
-    // distribution matches the available rectangle (wide -> more columns,
-    // square -> columns ~= rows). Use a greedy column-height balance to
-    // avoid extremely tall columns when node heights vary.
+    // ── No-grouping: deterministic grid layout
+    // Use a simple, predictable grid instead of Dagre. For small clusters
+    // (N <= 16) use round-robin to produce near-square layouts (e.g. 4 -> 2x2).
     const sorted = sortClusterNodes(clusterNodes);
 
-    const N = sorted.length;
     const W = input.containerWidth ?? 0;
     const H = input.containerHeight ?? 0;
-
-    // Debug: log layout inputs to help diagnose mis-sized grids in the wild.
-    // Kept at debug level to avoid noisy logs in production; remove if resolved.
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[canvasLayout] N=%d W=%d H=%d', N, W, H);
-    } catch (e) {
-      // ignore
-    }
-
-    // Aspect ratio fallback and defensives
     const aspect = W > 0 && H > 0 ? Math.max(0.1, W / H) : 1;
 
-    // Compute ideal column count using sqrt(N * aspect). Clamp to [1, N].
-    let columns = Math.max(1, Math.round(Math.sqrt(N * aspect)));
-    columns = Math.min(columns, N);
+    // Build the node list to layout. Include Unassigned pseudo-node if present
+    // so it participates in the deterministic placement.
+    const nodesToLayout: NodeInfo[] = [...sorted];
+    const unassignedShards = shardsByNode[UNASSIGNED_KEY];
+    if ((unassignedShards?.length ?? 0) > 0 || (input.unassignedShardsHint ?? 0) > 0) {
+      const uNode: Partial<NodeInfo> = {
+        id: UNASSIGNED_KEY,
+        name: 'Unassigned',
+        roles: [],
+        heapUsed: 0,
+        heapMax: 0,
+        diskUsed: 0,
+      };
+      nodesToLayout.push(uNode as NodeInfo);
+    }
 
-    // (Don't aggressively cap columns by a fixed minimum width here.)
-    // We'll allow the computed column count and later scale column widths to
-    // fit the container when a container width is available.
+    const N = nodesToLayout.length;
+    // Determine target columns using sqrt heuristic and clamp
+    let cols = Math.max(1, Math.round(Math.sqrt(N * aspect)));
+    cols = Math.min(cols, Math.max(1, N));
 
-    // Helper to compute assignments and per-column widths for a given column count
-    const computeAssignments = (colCount: number) => {
-      const ch = new Array<number>(colCount).fill(0);
-      const cw = new Array<number>(colCount).fill(GROUP_WIDTH);
-      const asgs: Array<{ node: NodeInfo; col: number } > = [];
-      for (const node of sorted) {
+    const useRoundRobin = N <= 16;
+
+    // Prepare per-column width estimates
+    const colWidths: number[] = new Array(cols).fill(GROUP_WIDTH);
+    if (useRoundRobin) {
+      for (let i = 0; i < nodesToLayout.length; i++) {
+        const node = nodesToLayout[i];
+        const c = i % cols;
+        const minW = estimateGroupMinWidth(node);
+        if (minW > colWidths[c]) colWidths[c] = minW;
+      }
+    } else {
+      // Greedy-by-height for larger clusters
+      const { assignments, colWidths: cw } = ((): { assignments: Array<{ node: NodeInfo; col: number }>; colWidths: number[] } => {
+        const ch = new Array<number>(cols).fill(0);
+        const cw2 = new Array<number>(cols).fill(GROUP_WIDTH);
+        const asgs: Array<{ node: NodeInfo; col: number }> = [];
+        for (const node of nodesToLayout) {
+          const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+          const estH = estimatedGroupHeight(shards.length);
+          let minCol = 0;
+          let minVal = ch[0];
+          for (let c = 1; c < cols; c++) {
+            if (ch[c] < minVal) {
+              minVal = ch[c];
+              minCol = c;
+            }
+          }
+          asgs.push({ node, col: minCol });
+          ch[minCol] += estH + VERTICAL_GAP;
+          const minW = estimateGroupMinWidth(node);
+          if (minW > cw2[minCol]) cw2[minCol] = minW;
+        }
+        return { assignments: asgs, colWidths: cw2 };
+      })();
+      for (let c = 0; c < cw.length; c++) colWidths[c] = cw[c];
+    }
+
+    // Compute X offsets for each column and center the grid horizontally
+    const totalGaps = Math.max(0, (cols - 1) * HORIZONTAL_GAP);
+    const totalColsWidth = colWidths.reduce((a, b) => a + b, 0);
+    const gridWidth = totalColsWidth + totalGaps;
+    const leftOffset = W > 0 ? Math.max(0, Math.floor((W - gridWidth) / 2)) : 0;
+    const colX: number[] = new Array(cols).fill(0);
+    colX[0] = leftOffset;
+    for (let c = 1; c < cols; c++) colX[c] = colX[c - 1] + colWidths[c - 1] + HORIZONTAL_GAP;
+
+    // Emit nodes using either round-robin or greedy assignments
+    const groupedByCol: Record<number, NodeInfo[]> = {};
+    const colYCursor = new Array<number>(cols).fill(0);
+    if (useRoundRobin) {
+      for (let i = 0; i < nodesToLayout.length; i++) {
+        const node = nodesToLayout[i];
+        const c = i % cols;
+        if (!groupedByCol[c]) groupedByCol[c] = [];
+        groupedByCol[c].push(node);
+        const x = colX[c];
+        const y = colYCursor[c];
+        const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
+        emitGroupNode(result, node, { x, y }, shards, input, node.id === UNASSIGNED_KEY ? 'Unassigned' : undefined);
+        colYCursor[c] += estimatedGroupHeight(shards.length) + VERTICAL_GAP;
+      }
+    } else {
+      // We computed assignments in the greedy branch above; re-run to get them
+      const ch = new Array<number>(cols).fill(0);
+      for (const node of nodesToLayout) {
         const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
         const estH = estimatedGroupHeight(shards.length);
-        // pick column with minimal height
         let minCol = 0;
         let minVal = ch[0];
-        for (let c = 1; c < colCount; c++) {
+        for (let c = 1; c < cols; c++) {
           if (ch[c] < minVal) {
             minVal = ch[c];
             minCol = c;
           }
         }
-        asgs.push({ node, col: minCol });
+        if (!groupedByCol[minCol]) groupedByCol[minCol] = [];
+        groupedByCol[minCol].push(node);
+        const x = colX[minCol];
+        const y = colYCursor[minCol];
+        emitGroupNode(result, node, { x, y }, shards, input, node.id === UNASSIGNED_KEY ? 'Unassigned' : undefined);
+        colYCursor[minCol] += estH + VERTICAL_GAP;
         ch[minCol] += estH + VERTICAL_GAP;
-        const minW = estimateGroupMinWidth(node);
-        if (minW > cw[minCol]) cw[minCol] = minW;
-      }
-      return { assignments: asgs, colHeights: ch, colWidths: cw };
-    };
-
-    // If we know container width, try to find the largest column count that
-    // still fits by greedily decreasing columns until the layout fits.
-    let finalAssignments: Array<{ node: NodeInfo; col: number }> = [];
-    let finalColWidths: number[] = [];
-    let finalColX: number[] = [];
-    let finalColCount = columns;
-
-    if (W > 0) {
-      // Try reducing columns until fits (columns -> 1)
-      for (let c = columns; c >= 1; c--) {
-        const { assignments: asg, colWidths: cw } = computeAssignments(c);
-        const totalGaps = Math.max(0, (c - 1) * HORIZONTAL_GAP);
-        const totalColsWidth = cw.reduce((a, b) => a + b, 0);
-        if (totalColsWidth + totalGaps <= W) {
-          finalAssignments = asg;
-          finalColWidths = cw;
-          finalColCount = c;
-          break;
-        }
-        // If none fit, fall back to scaling below
-        if (c === 1) {
-          finalAssignments = asg;
-          finalColWidths = cw;
-          finalColCount = 1;
-        }
-      }
-      // If the computed widths don't fit due to min-widths, scale them down
-      const totalGaps = Math.max(0, (finalColCount - 1) * HORIZONTAL_GAP);
-      let totalColsWidth = finalColWidths.reduce((a, b) => a + b, 0);
-      if (totalColsWidth + totalGaps > W) {
-        const available = Math.max(50, W - totalGaps);
-        const scale = available / totalColsWidth;
-        for (let i = 0; i < finalColWidths.length; i++) finalColWidths[i] = Math.max(80, Math.floor(finalColWidths[i] * scale));
-      }
-    } else {
-      // No container width known — fall back to the initial assignment
-      const { assignments: asg, colWidths: cw } = computeAssignments(columns);
-      finalAssignments = asg;
-      finalColWidths = cw;
-      finalColCount = columns;
-    }
-
-    // Compute X offsets for each column
-    const colX: number[] = new Array(finalColCount).fill(0);
-    for (let c = 1; c < finalColCount; c++) colX[c] = colX[c - 1] + finalColWidths[c - 1] + HORIZONTAL_GAP;
-
-    // Emit nodes column by column
-    const groupedByCol: Record<number, NodeInfo[]> = {};
-    for (const asg of finalAssignments) {
-      if (!groupedByCol[asg.col]) groupedByCol[asg.col] = [];
-      groupedByCol[asg.col].push(asg.node);
-    }
-    const colYCursor = new Array<number>(finalColCount).fill(0);
-    for (let c = 0; c < finalColCount; c++) {
-      const nodesInCol = groupedByCol[c] ?? [];
-      for (const node of nodesInCol) {
-        const x = colX[c];
-        const y = colYCursor[c];
-        const shards = shardsByNode[node.name] ?? shardsByNode[node.id] ?? [];
-        emitGroupNode(result, node, { x, y }, shards, input);
-        const h = estimatedGroupHeight(shards.length);
-        colYCursor[c] += h + VERTICAL_GAP;
       }
     }
 
     contentBottomY = Math.max(...colYCursor);
-    unassignedX = colX[finalColCount - 1] + finalColWidths[finalColCount - 1] + HORIZONTAL_GAP;
+    unassignedX = colX[cols - 1] + colWidths[cols - 1] + HORIZONTAL_GAP;
+
+    // Build virtual (ghost) dagre edges and anchor nodes so existing callers
+    // that expect dagreEdges/dagreExtraNodes still receive a valid value.
+    const dagreEdges: Edge[] = [];
+    const dagreExtraNodes: Node[] = [];
+    for (let c = 0; c < cols; c++) {
+      const anchorId = `__col_anchor_${c}`;
+      dagreExtraNodes.push({ id: anchorId, width: 8, height: 8 } as unknown as Node);
+      const nodesInCol = groupedByCol[c] ?? [];
+      for (const n of nodesInCol) {
+        dagreEdges.push({ id: `anchor_${c}_${n.id}`, source: anchorId, target: n.id } as Edge);
+      }
+      if (c > 0) {
+        const prevAnchor = `__col_anchor_${c - 1}`;
+        dagreEdges.push({ id: `anchor_chain_${c - 1}_${c}`, source: prevAnchor, target: anchorId } as Edge);
+      }
+    }
+
+    // Defensive: ensure every emitted node has numeric position
+    for (const n of result) {
+      if (!n.position) n.position = { x: 0, y: 0 };
+      n.position.x = Number((n.position.x as number) || 0);
+      n.position.y = Number((n.position.y as number) || 0);
+    }
+
+    // Dev-only logging for small clusters to aid visual verification
+    try {
+      if (N <= 8) {
+        // eslint-disable-next-line no-console
+        console.debug('[canvasLayout] positions:', result.map((r) => ({ id: r.id, x: r.position?.x, y: r.position?.y })));
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return { nodes: result, dagreEdges, dagreExtraNodes };
   } else {
     // ── Grouped: RF parent-node containers, one per group ────────────────
     // Each group becomes a 'groupContainer' RF parent node. Child cluster
@@ -574,5 +605,5 @@ export function calculateCanvasLayout(input: CanvasLayoutInput): Node[] {
     emitGroupNode(result, uNode as NodeInfo, { x: ux, y: maxY }, unassigned ?? [], safeInput, 'Unassigned');
   }
 
-  return result;
+  return { nodes: result };
 }

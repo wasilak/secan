@@ -98,9 +98,13 @@ interface FlowProps {
   usePrecomputedLayout?: boolean;
   /** Measured container height in pixels for viewport culling/layout */
   containerHeight?: number;
+  /** Optional dagre ghost/virtual edges to guide Dagre layout for flat mode */
+  dagreEdges?: import('@xyflow/react').Edge[];
+  /** Optional extra virtual nodes created for Dagre (anchors) */
+  dagreExtraNodes?: import('@xyflow/react').Node[];
 }
 
-function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout, containerHeight }: FlowProps) {
+function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNodesPositionChange, onZoomChange, usePrecomputedLayout, containerHeight, dagreEdges, dagreExtraNodes }: FlowProps) {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const { fitView, getNodes } = useReactFlow();
@@ -124,6 +128,11 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
   });
 
   const [flowNodes, setFlowNodes] = useNodesState(layoutNodes);
+  // Note: dagreExtraNodes are used only during the Dagre layout computation.
+  // We do not merge them into the visible RF node set here because they
+  // should never be rendered or interactive. The layout effect below will
+  // temporarily include them when calling applyDagreLayout and then filter
+  // them out before setting the visible flow nodes.
 
   // Culling: produce a view-level node list where shard dots are removed for
   // nodes that are not fully within the current viewport. We intentionally
@@ -430,14 +439,24 @@ function Flow({ layoutNodes, onPaneClick, onNodeDragStart, onNodeDragStop, onNod
         // Skip dagre to avoid corrupting parent-relative child positions.
         setFlowNodes(layoutNodes);
       } else {
-        // No-grouping: apply dagre for consistent node distribution
-        try {
-          const dagreLayout = applyDagreLayout(layoutNodes, [], 'TB');
-          setFlowNodes(dagreLayout.nodes);
-        } catch (err) {
-          // Fallback to raw layout if dagre fails
-          console.warn('Dagre layout failed', err);
+        // No-grouping: prefer deterministic precomputed positions from
+        // calculateCanvasLayout. If every node already has numeric x/y,
+        // use them directly and skip Dagre entirely.
+        const allHavePositions = layoutNodes.every((n) => typeof (n.position?.x) === 'number' && typeof (n.position?.y) === 'number');
+        if (allHavePositions) {
           setFlowNodes(layoutNodes);
+        } else {
+          try {
+            const extra = dagreExtraNodes ?? [];
+            const nodesForDagre = [...extra, ...layoutNodes];
+            const dagreLayout = applyDagreLayout(nodesForDagre, dagreEdges ?? [], 'TB');
+            const filtered = dagreLayout.nodes.filter((n) => !n.id.startsWith('__col_anchor_'));
+            setFlowNodes(filtered);
+          } catch (err) {
+            // Fallback to raw layout if dagre fails
+            console.warn('Dagre layout failed', err);
+            setFlowNodes(layoutNodes);
+          }
         }
       }
     } else {
@@ -625,18 +644,19 @@ export function CanvasTopologyView({
   // up-to-date containerHeight. Retry once after a short delay if the initial
   // measurement yields zero (layout not yet settled).
   useEffect(() => {
+    // Measure once when relevant layout data changes. We intentionally DO NOT
+    // attach a global window.resize listener here to avoid automatic
+    // re-layout on viewport resize. The product decision is to require a
+    // full page refresh when the user resizes the window rather than
+    // attempting to rerun expensive layout logic on every resize.
     if (!containerRef || !containerRef.current) return;
     measure();
     let retry: number | null = null;
     if (size.width === 0 || size.height === 0) {
       retry = window.setTimeout(() => measure(), 160) as unknown as number;
     }
-    // Ensure we re-measure on window resize (debounced via measure's internal debounce)
-    const onResize = () => measure();
-    window.addEventListener('resize', onResize);
     return () => {
       if (retry) window.clearTimeout(retry);
-      window.removeEventListener('resize', onResize);
     };
   }, [nodes, allShards, indices, groupingConfig, measure, size, containerRef]);
 
@@ -695,6 +715,11 @@ export function CanvasTopologyView({
   }, [shardSummary, unassignedCountHint]);
 
   // ── Layout ────────────────────────────────────────────────────────────────
+  // Dagre ghost edges (computed by calculateCanvasLayout) are stored in a ref
+  // so they survive array mapping and can be passed to Flow unchanged.
+  const dagreEdgesRef = (useRef as any)(null) as React.MutableRefObject<import('@xyflow/react').Edge[] | null>;
+  const dagreExtraNodesRef = (useRef as any)(null) as React.MutableRefObject<import('@xyflow/react').Node[] | null>;
+
   const layoutNodes = useMemo(() => {
     // At L2 zoom with full shard data available, build shardsByNode for dot rendering.
     // Apply index name filter and shard state filter so only matching shards are shown.
@@ -715,7 +740,7 @@ export function CanvasTopologyView({
       }
     }
 
-    const baseLayout = calculateCanvasLayout({
+    const baseLayoutResult = calculateCanvasLayout({
       clusterNodes: filteredNodes,
       containerWidth: size.width,
       containerHeight: size.height,
@@ -732,6 +757,15 @@ export function CanvasTopologyView({
       unassignedShardsHint: unassignedCountHint,
       loading: isLoading,
     });
+    const baseLayout = baseLayoutResult.nodes;
+    const dagreEdges = baseLayoutResult.dagreEdges ?? [];
+    const dagreExtraNodes = baseLayoutResult.dagreExtraNodes ?? [];
+    // Persist dagreEdges in a ref for downstream consumers (Flow).
+    dagreEdgesRef.current = dagreEdges;
+    // pass dagre extra nodes directly into the Flow via props rather than a ref
+    // to avoid cross-component refs and lifecycle complexity
+    // store in the ref for potential future use
+    dagreExtraNodesRef.current = dagreExtraNodes;
 
     // Apply summary badge counts from the lightweight endpoint.
     // At L0/L1: shardsByNode is empty so calculateCanvasLayout produces zero counts —
@@ -809,11 +843,14 @@ export function CanvasTopologyView({
             onNodeDragStop={onNodeDragStop}
             onNodesPositionChange={handleNodesPositionChange}
             onZoomChange={handleZoomChange}
-            // LayoutNodes produced by calculateCanvasLayout are now precomputed
-            // (adaptive grid for no-grouping and container-aware grouped layout).
-            // Tell Flow to treat them as final so it skips Dagre re-layout.
-            usePrecomputedLayout={true}
+            // Use precomputed layout for grouped mode so parent-relative
+            // child positions are preserved. For the no-grouping canvas
+            // (groupingConfig.attribute === 'none') allow Dagre to compute
+            // a nicer distribution based on node size hints.
+            usePrecomputedLayout={groupingConfig.attribute !== 'none'}
             containerHeight={resolvedHeight}
+            dagreEdges={dagreEdgesRef.current ?? undefined}
+            dagreExtraNodes={dagreExtraNodesRef.current ?? undefined}
           />
         </ReactFlowProvider>
       )}
