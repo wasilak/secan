@@ -74,9 +74,24 @@ pub async fn serve_static(uri: Uri) -> Response {
             } else {
                 mime_guess::from_path(path).first_or_octet_stream()
             };
-            return Response::builder()
+            let mut builder = Response::builder()
                 .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, mime_type.as_ref())
+                .header(header::CONTENT_TYPE, mime_type.as_ref());
+            // If serving index.html from disk, ensure browsers don't cache it.
+            if path.is_empty() {
+                builder = builder
+                    .header(
+                        header::CACHE_CONTROL,
+                        "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0",
+                    )
+                    .header(header::PRAGMA, "no-cache")
+                    .header(header::EXPIRES, "0");
+            } else if path.starts_with("assets/") {
+                // Fingerprinted assets under /assets/* are safe to cache long-term
+                builder =
+                    builder.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable");
+            }
+            return builder
                 .body(Body::from(bytes))
                 .map_err(|_| StaticAssetError::ResponseBuildError)
                 .unwrap_or_else(|_| {
@@ -92,9 +107,23 @@ pub async fn serve_static(uri: Uri) -> Response {
     if let Some(content) = Assets::get(path) {
         let mime_type = mime_guess::from_path(path).first_or_octet_stream();
 
-        return Response::builder()
+        let mut builder = Response::builder()
             .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, mime_type.as_ref())
+            .header(header::CONTENT_TYPE, mime_type.as_ref());
+        // If the requested path is the SPA index, prevent caching
+        if path == "index.html" || path.is_empty() {
+            builder = builder
+                .header(
+                    header::CACHE_CONTROL,
+                    "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0",
+                )
+                .header(header::PRAGMA, "no-cache")
+                .header(header::EXPIRES, "0");
+        } else if path.starts_with("assets/") {
+            builder = builder.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable");
+        }
+
+        return builder
             .body(Body::from(content.data))
             .map_err(|_| StaticAssetError::ResponseBuildError)
             .unwrap_or_else(|_| {
@@ -116,6 +145,12 @@ pub async fn serve_static(uri: Uri) -> Response {
         return Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "text/html")
+            .header(
+                header::CACHE_CONTROL,
+                "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0",
+            )
+            .header(header::PRAGMA, "no-cache")
+            .header(header::EXPIRES, "0")
             .body(Body::from(html_with_otel))
             .map_err(|_| StaticAssetError::ResponseBuildError)
             .unwrap_or_else(|_| {

@@ -112,14 +112,39 @@ export function DiskTreemapView({
     );
   }
 
-  const data: DiskTreemapRoot = {
-    id: 'disk-usage',
-    children: filtered.map((idx) => ({
+  // Group indices by a logical prefix so related time-series indices
+  // (e.g. top_queries-2026.04.05-55107) are visually grouped together.
+  // Grouping key logic mirrors the color-bucketing rules: strip
+  // trailing numeric/date/timestamp-like suffixes and optionally
+  // preserve the leading dot for system indices.
+  const groups = new Map<string, DiskTreemapDatum[]>();
+  // Use the same grouping key as the color util so grouping and colors match
+  const { getIndexGroupingKey } = require('../../utils/colors');
+  for (const idx of filtered) {
+    const groupKey = getIndexGroupingKey(idx.name, separateSystemIndices);
+
+    const leaf: DiskTreemapDatum = {
       id: idx.name,
       value: idx.storeSize,
       health: idx.health,
       shards: idx.primaryShards + idx.replicaShards,
-    })),
+    };
+
+    const arr = groups.get(groupKey) ?? [];
+    arr.push(leaf);
+    groups.set(groupKey, arr);
+  }
+
+  // Always create an explicit parent node for each group so grouping is
+  // visually explicit and parent labels can be rendered consistently.
+  const children = Array.from(groups.entries()).map(([groupId, leaves]) => ({
+    id: groupId,
+    children: leaves,
+  } as DiskTreemapDatum));
+
+  const data: DiskTreemapRoot = {
+    id: 'disk-usage',
+    children,
   };
 
   return (
@@ -142,7 +167,11 @@ export function DiskTreemapView({
           data={data as unknown as DiskTreemapDatum}
           identity="id"
           value="value"
-          leavesOnly
+          // Render parent nodes so groups are visible and labeled.
+          // Previously we only rendered leaves which hid grouping.
+          leavesOnly={false}
+          // Use squarify tiling for more balanced parent layouts (matches Nivo example)
+          tile="squarify"
           colors={(node: ComputedNodeWithoutStyles<DiskTreemapDatum>) =>
             // Use deterministic color per index (based on prefix/hash) for better visual grouping
             // Allow caller to choose whether system indices (leading dot) are treated separately.
@@ -153,13 +182,20 @@ export function DiskTreemapView({
           borderColor={{ from: 'color', modifiers: [['darker', 0.3]] }}
           // Use built-in labels and skip rendering for small tiles
           label="id"
+          labelTextColor={{ from: 'color', modifiers: [['darker', 1.2]] }}
           // Nivo renders labels as SVG <text> elements which do not support
           // CSS text-overflow. However, setting labelSkipSize avoids rendering
           // labels on tiny tiles where text would overflow. For larger tiles the
           // SVG text will be clipped by the tile boundary so long overflowing
           // text does not visually exceed the tile. This keeps the view tidy.
           labelSkipSize={24}
-          enableParentLabel={false}
+          // Show parent labels and position them on the left to match the
+          // expected visual grouping. Parent labels use the group's id.
+          enableParentLabel={true}
+          parentLabelPosition="left"
+          parentLabelPadding={8}
+          parentLabelSize={12}
+          parentLabelTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
           tooltip={({ node }) => <DiskTreemapTooltip node={node} />}
           animate={true}
           margin={{ top: 4, right: 4, bottom: 4, left: 4 }}

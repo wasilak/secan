@@ -1,8 +1,31 @@
 {
-  "devDependencies": {
-    "typescript": "^6.0.2"
+  "name": "secan",
+  "version": "1.0.0",
+  "description": "[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0) [![GitHub](https://img.shields.io/badge/GitHub-wasilak/secan-blue?logo=github)](https://github.com/wasilak/secan)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0"
-  }
+    "typescript": "^6.0.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.46.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wasilak/secan.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/wasilak/secan/issues"
+  },
+  "homepage": "https://github.com/wasilak/secan#readme"
 }

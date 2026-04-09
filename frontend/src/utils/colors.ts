@@ -220,6 +220,20 @@ export function getColorForIndex(indexName: string, separateSystemIndexColors: b
 }
 
 /**
+ * Compute the canonical grouping key for an index name.
+ * This mirrors the key derivation used by getColorForIndex so
+ * grouping and coloring remain consistent.
+ */
+export function getIndexGroupingKey(indexName: string, separateSystemIndexColors: boolean = true): string {
+  if (!indexName) return '';
+  const isSystem = indexName.startsWith('.');
+  let working = isSystem ? indexName.slice(1) : indexName;
+  working = working.replace(/(?:-\d+(?:[.-]\d+)*)+$/, '');
+  if (!working) working = isSystem ? indexName.slice(1) : indexName;
+  return separateSystemIndexColors && isSystem ? `.${working}` : working;
+}
+
+/**
  * Get badge color for shard type (primary/replica)
  *
  * @param isPrimary - Whether the shard is a primary shard
