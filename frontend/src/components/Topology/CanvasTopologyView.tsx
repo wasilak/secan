@@ -805,7 +805,10 @@ export function CanvasTopologyView({
             onNodeDragStop={onNodeDragStop}
             onNodesPositionChange={handleNodesPositionChange}
             onZoomChange={handleZoomChange}
-            usePrecomputedLayout={groupingConfig.attribute !== 'none'}
+            // LayoutNodes produced by calculateCanvasLayout are now precomputed
+            // (adaptive grid for no-grouping and container-aware grouped layout).
+            // Tell Flow to treat them as final so it skips Dagre re-layout.
+            usePrecomputedLayout={true}
             containerHeight={resolvedHeight}
           />
         </ReactFlowProvider>
