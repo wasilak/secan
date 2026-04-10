@@ -357,6 +357,43 @@ impl Server {
                 "/api/clusters/{id}/tasks/{task_id}/_cancel",
                 post(crate::routes::clusters::tasks::cancel_cluster_task),
             )
+            // Index templates endpoints
+            .route(
+                "/api/clusters/{id}/index-templates",
+                get(crate::routes::templates::list_templates),
+            )
+            .route(
+                "/api/clusters/{id}/index-templates/{name}",
+                get(crate::routes::templates::get_template)
+                    .put(crate::routes::templates::put_template)
+                    .delete(crate::routes::templates::delete_template),
+            )
+            .route(
+                "/api/clusters/{id}/index-templates/_simulate",
+                post(crate::routes::templates::simulate_template),
+            )
+            // Component templates endpoints
+            .route(
+                "/api/clusters/{id}/component-templates",
+                get(crate::routes::component_templates::list_component_templates),
+            )
+            .route(
+                "/api/clusters/{id}/component-templates/{name}",
+                get(crate::routes::component_templates::get_component_template)
+                    .put(crate::routes::component_templates::put_component_template)
+                    .delete(crate::routes::component_templates::delete_component_template),
+            )
+            // Aliases endpoints - TODO: implement
+            // .route(
+            //     "/api/clusters/{id}/aliases",
+            //     get(crate::routes::aliases::list_aliases),
+            // )
+            // .route(
+            //     "/api/clusters/{id}/aliases/{name}",
+            //     get(crate::routes::aliases::get_alias)
+            //         .put(crate::routes::aliases::put_alias)
+            //         .delete(crate::routes::aliases::delete_alias),
+            // )
             // Metrics endpoints (must be before catch-all proxy route)
             .nest(
                 "/api/clusters/{id}/metrics",

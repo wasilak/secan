@@ -85,6 +85,51 @@ pub trait ElasticsearchClient: Send + Sync {
     /// Get cluster state with routing_nodes metric
     /// Used for efficient shard listing with pagination
     async fn cluster_state_routing_nodes(&self, indices: Option<&[String]>) -> Result<Value>;
+
+    // ===== Index Templates =====
+
+    /// Get all index templates
+    async fn get_index_templates(&self) -> Result<Value>;
+
+    /// Get a specific index template by name
+    async fn get_index_template(&self, name: &str) -> Result<Value>;
+
+    /// Create or update an index template
+    async fn put_index_template(&self, name: &str, body: Value) -> Result<Value>;
+
+    /// Delete an index template
+    async fn delete_index_template(&self, name: &str) -> Result<Value>;
+
+    /// Simulate index template to see merged config
+    async fn simulate_index_template(&self, body: Value) -> Result<Value>;
+
+    // ===== Component Templates =====
+
+    /// Get all component templates
+    async fn get_component_templates(&self) -> Result<Value>;
+
+    /// Get a specific component template by name
+    async fn get_component_template(&self, name: &str) -> Result<Value>;
+
+    /// Create or update a component template
+    async fn put_component_template(&self, name: &str, body: Value) -> Result<Value>;
+
+    /// Delete a component template
+    async fn delete_component_template(&self, name: &str) -> Result<Value>;
+
+    // ===== Aliases =====
+
+    /// Get all aliases
+    async fn get_aliases(&self) -> Result<Value>;
+
+    /// Get a specific alias by name
+    async fn get_alias(&self, name: &str) -> Result<Value>;
+
+    /// Create or update an alias (via indices aliases API)
+    async fn put_alias(&self, name: &str, body: Value) -> Result<Value>;
+
+    /// Delete an alias
+    async fn delete_alias(&self, name: &str) -> Result<Value>;
 }
 
 impl Client {
@@ -860,6 +905,309 @@ impl ElasticsearchClient for Client {
             .json()
             .await
             .context("Failed to parse cluster state routing_nodes response")
+    }
+
+    // ===== Index Templates =====
+
+    async fn get_index_templates(&self) -> Result<Value> {
+        let response = self
+            .request(reqwest::Method::GET, "/_index_template", None)
+            .await
+            .context("Get index templates request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Get index templates failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse index templates response")
+    }
+
+    async fn get_index_template(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!("/_index_template/{}", encoded_name),
+                None,
+            )
+            .await
+            .context("Get index template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Get index template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse index template response")
+    }
+
+    async fn put_index_template(&self, name: &str, body: Value) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::PUT,
+                &format!("/_index_template/{}", encoded_name),
+                Some(body),
+            )
+            .await
+            .context("Put index template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Put index template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse put index template response")
+    }
+
+    async fn delete_index_template(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::DELETE,
+                &format!("/_index_template/{}", encoded_name),
+                None,
+            )
+            .await
+            .context("Delete index template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Delete index template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse delete index template response")
+    }
+
+    async fn simulate_index_template(&self, body: Value) -> Result<Value> {
+        let response = self
+            .request(
+                reqwest::Method::POST,
+                "/_index_template/_simulate",
+                Some(body),
+            )
+            .await
+            .context("Simulate index template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Simulate index template failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse simulate index template response")
+    }
+
+    // ===== Component Templates =====
+
+    async fn get_component_templates(&self) -> Result<Value> {
+        let response = self
+            .request(reqwest::Method::GET, "/_component_template", None)
+            .await
+            .context("Get component templates request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Get component templates failed with status: {}",
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse component templates response")
+    }
+
+    async fn get_component_template(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!("/_component_template/{}", encoded_name),
+                None,
+            )
+            .await
+            .context("Get component template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Get component template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse component template response")
+    }
+
+    async fn put_component_template(&self, name: &str, body: Value) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::PUT,
+                &format!("/_component_template/{}", encoded_name),
+                Some(body),
+            )
+            .await
+            .context("Put component template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Put component template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse put component template response")
+    }
+
+    async fn delete_component_template(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::DELETE,
+                &format!("/_component_template/{}", encoded_name),
+                None,
+            )
+            .await
+            .context("Delete component template request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Delete component template '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse delete component template response")
+    }
+
+    // ===== Aliases =====
+
+    async fn get_aliases(&self) -> Result<Value> {
+        let response = self
+            .request(reqwest::Method::GET, "/_alias", None)
+            .await
+            .context("Get aliases request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Get aliases failed with status: {}", response.status());
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse aliases response")
+    }
+
+    async fn get_alias(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::GET,
+                &format!("/{}/_alias", encoded_name),
+                None,
+            )
+            .await
+            .context("Get alias request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Get alias '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse alias response")
+    }
+
+    async fn put_alias(&self, name: &str, body: Value) -> Result<Value> {
+        let response = self
+            .request(reqwest::Method::POST, "/_aliases", Some(body))
+            .await
+            .context("Put alias request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Put alias '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse put alias response")
+    }
+
+    async fn delete_alias(&self, name: &str) -> Result<Value> {
+        let encoded_name = urlencoding::encode(name);
+        let response = self
+            .request(
+                reqwest::Method::DELETE,
+                &format!("/_alias/{}", encoded_name),
+                None,
+            )
+            .await
+            .context("Delete alias request failed")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!(
+                "Delete alias '{}' failed with status: {}",
+                name,
+                response.status()
+            );
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse delete alias response")
     }
 }
 
