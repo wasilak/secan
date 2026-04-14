@@ -2271,25 +2271,42 @@ pub async fn get_shard_stats(
                         tracing::info!(array_len = arr.len(), "Shard array length");
                         // Return the first shard (primary or replica)
                         if let Some(shard_stats) = arr.first() {
-                            tracing::debug!(
+                            tracing::info!(
                                 cluster_id = %cluster_id,
                                 index = %index_name,
                                 shard = %shard_num,
-                                "Successfully found shard stats"
+                                "Successfully found shard stats, extracting state"
+                            );
+
+                            // Log the raw shard stats structure
+                            tracing::info!(
+                                has_routing = shard_stats.get("routing").is_some(),
+                                shard_keys = ?shard_stats.as_object().map(|o| o.keys().collect::<Vec<_>>()),
+                                "Shard stats structure"
                             );
 
                             // Check if shard is unassigned and fetch allocation explain
-                            let shard_state = shard_stats
-                                .get("routing")
+                            let routing = shard_stats.get("routing");
+                            tracing::info!(
+                                has_routing = routing.is_some(),
+                                "Routing field present"
+                            );
+
+                            let shard_state = routing
                                 .and_then(|r| r.get("state"))
                                 .and_then(|s| s.as_str());
-                            let is_primary = shard_stats
-                                .get("routing")
+                            tracing::info!(shard_state = ?shard_state, "Extracted shard state");
+
+                            let is_primary = routing
                                 .and_then(|r| r.get("primary"))
                                 .and_then(|p| p.as_bool())
                                 .unwrap_or(false);
+                            tracing::info!(is_primary = is_primary, "Extracted is_primary");
 
                             if shard_state == Some("UNASSIGNED") {
+                                tracing::info!("Shard is UNASSIGNED, fetching allocation explain");
+                            } else {
+                                tracing::info!(shard_state = ?shard_state, "Shard is NOT unassigned, skipping allocation explain");
                                 // Fetch allocation explain for unassigned shards
                                 let user_id = user_ext.as_ref().map(|ext| ext.0 .0.id.clone());
                                 let user_roles: Vec<String> = user_ext
@@ -2334,12 +2351,25 @@ pub async fn get_shard_stats(
                                 }
                             }
 
+                            tracing::info!("Returning shard stats without allocation explain");
                             return Ok(Json(shard_stats.clone()));
+                        } else {
+                            tracing::warn!("Shard array was empty despite array_len > 0");
                         }
+                    } else {
+                        tracing::warn!("Shard array was not an array");
                     }
+                } else {
+                    tracing::warn!("Could not find shard array for shard {}", shard_num);
                 }
+            } else {
+                tracing::warn!("Index object has no 'shards' field");
             }
+        } else {
+            tracing::warn!("Could not find index '{}' in indices", index_name);
         }
+    } else {
+        tracing::warn!("Response has no 'indices' field");
     }
 
     // If not found, log detailed info about where we failed
