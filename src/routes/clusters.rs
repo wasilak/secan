@@ -2220,7 +2220,7 @@ pub async fn get_shard_stats(
 
     // Navigate to the specific shard in the response
     // Structure: indices -> {index_name} -> shards -> {shard_num} -> [array of shard copies]
-    tracing::info!(
+    tracing::debug!(
         response_structure = ?indices_stats.as_object().map(|o| o.keys().collect::<Vec<_>>()),
         "Indices stats response structure"
     );
@@ -2230,83 +2230,41 @@ pub async fn get_shard_stats(
             .as_object()
             .map(|o| o.keys().cloned().collect())
             .unwrap_or_default();
-        tracing::info!(
+        tracing::debug!(
             index_count = available_indices.len(),
             index_names = ?available_indices,
             looking_for = %index_name,
-            "Available indices"
+            "Available indices from stats"
         );
 
         if let Some(index_obj) = indices.get(&index_name) {
-            tracing::info!("Found index object for {}", index_name);
-            let index_keys: Vec<_> = index_obj
-                .as_object()
-                .map(|o| o.keys().cloned().collect())
-                .unwrap_or_default();
-            tracing::info!(index_keys = ?index_keys, "Index object keys");
+            tracing::debug!("Found index object for {}", index_name);
 
             if let Some(shards_obj) = index_obj.get("shards") {
-                tracing::info!("Found shards object");
-                let shard_keys: Vec<_> = shards_obj
-                    .as_object()
-                    .map(|o| o.keys().cloned().collect())
-                    .unwrap_or_default();
-                tracing::info!(
-                    shard_count = shard_keys.len(),
-                    shard_keys = ?shard_keys,
-                    looking_for = %shard_num,
-                    "Available shards"
-                );
-
                 // Try string key first, then integer-as-string key
                 let shard_array = shards_obj.get(&shard_num).or_else(|| {
-                    let parsed = shard_num.parse::<i32>().ok().map(|n| n.to_string());
-                    tracing::info!(parsed_key = ?parsed, "Trying parsed integer key");
-                    parsed.and_then(|n_str| shards_obj.get(&n_str))
+                    shard_num
+                        .parse::<i32>()
+                        .ok()
+                        .map(|n| n.to_string())
+                        .and_then(|n_str| shards_obj.get(&n_str))
                 });
 
                 if let Some(shard_array) = shard_array {
-                    tracing::info!("Found shard array for shard {}", shard_num);
                     if let Some(arr) = shard_array.as_array() {
-                        tracing::info!(array_len = arr.len(), "Shard array length");
                         // Return the first shard (primary or replica)
                         if let Some(shard_stats) = arr.first() {
-                            tracing::info!(
-                                cluster_id = %cluster_id,
-                                index = %index_name,
-                                shard = %shard_num,
-                                "Successfully found shard stats, extracting state"
-                            );
-
-                            // Log the raw shard stats structure
-                            tracing::info!(
-                                has_routing = shard_stats.get("routing").is_some(),
-                                shard_keys = ?shard_stats.as_object().map(|o| o.keys().collect::<Vec<_>>()),
-                                "Shard stats structure"
-                            );
-
                             // Check if shard is unassigned and fetch allocation explain
                             let routing = shard_stats.get("routing");
-                            tracing::info!(
-                                has_routing = routing.is_some(),
-                                "Routing field present"
-                            );
-
                             let shard_state = routing
                                 .and_then(|r| r.get("state"))
                                 .and_then(|s| s.as_str());
-                            tracing::info!(shard_state = ?shard_state, "Extracted shard state");
-
                             let is_primary = routing
                                 .and_then(|r| r.get("primary"))
                                 .and_then(|p| p.as_bool())
                                 .unwrap_or(false);
-                            tracing::info!(is_primary = is_primary, "Extracted is_primary");
 
                             if shard_state == Some("UNASSIGNED") {
-                                tracing::info!("Shard is UNASSIGNED, fetching allocation explain");
-                            } else {
-                                tracing::info!(shard_state = ?shard_state, "Shard is NOT unassigned, skipping allocation explain");
                                 // Fetch allocation explain for unassigned shards
                                 let user_id = user_ext.as_ref().map(|ext| ext.0 .0.id.clone());
                                 let user_roles: Vec<String> = user_ext
@@ -2372,15 +2330,184 @@ pub async fn get_shard_stats(
         tracing::warn!("Response has no 'indices' field");
     }
 
-    // If not found, log detailed info about where we failed
+    // If not found in stats, try to get basic routing info from cluster state
+    // This handles unassigned shards that don't have stats
+    tracing::debug!(
+        cluster_id = %cluster_id,
+        index = %index_name,
+        shard = %shard_num,
+        "Shard not found in stats, trying cluster state"
+    );
+
+    match fetch_shard_from_cluster_state(
+        &state.cluster_manager,
+        &cluster_id,
+        &index_name,
+        &shard_num,
+        user_ext.as_ref().map(|ext| ext.0 .0.id.clone()),
+        user_ext
+            .as_ref()
+            .map(|ext| ext.0 .0.roles.clone())
+            .unwrap_or_default(),
+        &RequestId(uuid::Uuid::new_v4().to_string()),
+        state.audit_log,
+    )
+    .await
+    {
+        Ok(Some(shard_info)) => {
+            return Ok(Json(shard_info));
+        }
+        Ok(None) => {
+            tracing::debug!("Shard not found in cluster state either");
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to fetch from cluster state");
+        }
+    }
+
+    // If not found anywhere, return empty object
     tracing::warn!(
         cluster_id = %cluster_id,
         index = %index_name,
         shard = %shard_num,
-        has_indices = indices_stats.get("indices").is_some(),
-        "Shard stats not found - check debug logs for navigation details"
+        "Shard stats not found in stats or cluster state"
     );
     Ok(Json(serde_json::json!({})))
+}
+
+/// Fetch shard routing information from cluster state for unassigned shards
+async fn fetch_shard_from_cluster_state(
+    cluster_manager: &crate::cluster::Manager,
+    cluster_id: &str,
+    index_name: &str,
+    shard_num: &str,
+    user_id: Option<String>,
+    user_roles: Vec<String>,
+    request_id: &crate::middleware::logging::RequestId,
+    audit_enabled: bool,
+) -> Result<Option<Value>, anyhow::Error> {
+    use crate::cluster::ProxyRequestError;
+
+    let path = "_cluster/state/routing_nodes";
+
+    let (status, _headers, body_bytes, _matched_role) = cluster_manager
+        .proxy_request_with_audit(
+            cluster_id,
+            reqwest::Method::GET,
+            path,
+            None::<Value>,
+            user_id.clone(),
+            &user_roles,
+            &request_id.0,
+            audit_enabled,
+        )
+        .await
+        .map_err(|e| match e {
+            ProxyRequestError::AccessDenied => anyhow::anyhow!("Access denied"),
+            ProxyRequestError::ProxyTimeout => anyhow::anyhow!("Request timeout"),
+            ProxyRequestError::RequestFailed(s) => anyhow::anyhow!("Request failed: {}", s),
+            ProxyRequestError::ResponseReadTimeout => anyhow::anyhow!("Response read timeout"),
+            ProxyRequestError::ResponseReadFailed(s) => {
+                anyhow::anyhow!("Response read failed: {}", s)
+            }
+            ProxyRequestError::Other(s) => anyhow::anyhow!("Other error: {}", s),
+        })?;
+
+    if !status.is_success() {
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        anyhow::bail!(
+            "Cluster state request failed with status {}: {}",
+            status,
+            body_str
+        );
+    }
+
+    let cluster_state: Value =
+        serde_json::from_slice(&body_bytes).context("Failed to parse cluster state response")?;
+
+    // Navigate to routing_nodes -> unassigned to find the shard
+    if let Some(routing_nodes) = cluster_state.get("routing_nodes") {
+        // Check unassigned shards
+        if let Some(unassigned) = routing_nodes.get("unassigned") {
+            if let Some(shards) = unassigned.as_array() {
+                for shard in shards {
+                    if let (Some(idx), Some(shd), Some(primary)) = (
+                        shard.get("index").and_then(|v| v.as_str()),
+                        shard.get("shard").and_then(|v| v.as_i64()),
+                        shard.get("primary").and_then(|v| v.as_bool()),
+                    ) {
+                        if idx == index_name && shd.to_string() == *shard_num {
+                            tracing::info!(
+                                index = %index_name,
+                                shard = %shard_num,
+                                "Found unassigned shard in cluster state"
+                            );
+
+                            // Fetch allocation explain for this unassigned shard
+                            match fetch_allocation_explain(
+                                cluster_manager,
+                                cluster_id,
+                                index_name,
+                                shard_num,
+                                primary,
+                                user_id.clone(),
+                                user_roles.clone(),
+                                request_id,
+                                audit_enabled,
+                            )
+                            .await
+                            {
+                                Ok(allocation_explain) => {
+                                    let mut response = shard.clone();
+                                    if let Some(obj) = response.as_object_mut() {
+                                        obj.insert(
+                                            "allocation_explain".to_string(),
+                                            allocation_explain,
+                                        );
+                                    }
+                                    return Ok(Some(response));
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        error = %e,
+                                        "Failed to fetch allocation explain for unassigned shard"
+                                    );
+                                    return Ok(Some(shard.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check node assignments
+        if let Some(nodes) = routing_nodes.get("nodes") {
+            if let Some(nodes_obj) = nodes.as_object() {
+                for (_node_id, node_shards) in nodes_obj {
+                    if let Some(shards) = node_shards.as_array() {
+                        for shard in shards {
+                            if let (Some(idx), Some(shd)) = (
+                                shard.get("index").and_then(|v| v.as_str()),
+                                shard.get("shard").and_then(|v| v.as_i64()),
+                            ) {
+                                if idx == index_name && shd.to_string() == *shard_num {
+                                    tracing::debug!(
+                                        index = %index_name,
+                                        shard = %shard_num,
+                                        "Found assigned shard in cluster state"
+                                    );
+                                    return Ok(Some(shard.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Fetch allocation explain for an unassigned shard
