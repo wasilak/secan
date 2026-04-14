@@ -157,11 +157,17 @@ export function TaskDetailsModal({
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Node:</td>
-                          <td>
-                            <Button variant="subtle" size="xs" onClick={() => openNodeModal?.(task.node)}>
-                              {task.node}
-                            </Button>
-                          </td>
+                        <td>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            className="clickable-name"
+                            onClick={() => openNodeModal?.(task.node)}
+                            style={{ textTransform: 'none', padding: 0, margin: 0 }}
+                          >
+                            {task.node}
+                          </Text>
+                        </td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Type:</td>
