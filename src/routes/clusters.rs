@@ -2309,7 +2309,7 @@ pub async fn get_shard_stats(
                                 }
                             }
 
-                            tracing::info!("Returning shard stats without allocation explain");
+                            tracing::debug!("Returning shard stats without allocation explain");
                             return Ok(Json(shard_stats.clone()));
                         } else {
                             tracing::warn!("Shard array was empty despite array_len > 0");
@@ -2437,7 +2437,7 @@ async fn fetch_shard_from_cluster_state(
                         shard.get("primary").and_then(|v| v.as_bool()),
                     ) {
                         if idx == index_name && shd.to_string() == *shard_num {
-                            tracing::info!(
+                            tracing::debug!(
                                 index = %index_name,
                                 shard = %shard_num,
                                 "Found unassigned shard in cluster state"
