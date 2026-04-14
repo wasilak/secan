@@ -369,7 +369,7 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
                   sortBy={sortBy}
                   sortOrder={sortOrder}
                   onSort={handleSort}
-                  onRowClick={handleTaskClick}
+                  onTaskIdClick={handleTaskClick}
                   selectedTasks={selectedIndices}
                   onToggleSelect={toggleSelection}
                   onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}

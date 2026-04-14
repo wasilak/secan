@@ -45,7 +45,8 @@ interface TasksTableProps {
   sortBy: string | null;
   sortOrder: 'asc' | 'desc' | 'none';
   onSort: (column: string) => void;
-  onRowClick: (task: TaskInfo) => void;
+  // Only the Task ID cell should open details. Provide a dedicated handler.
+  onTaskIdClick?: (task: TaskInfo) => void;
   selectedTasks?: Set<string>;
   onToggleSelect?: (taskId: string) => void;
   onSelectAll?: (tasks: TaskInfo[]) => void;
@@ -61,7 +62,7 @@ export const TasksTable = React.memo(function TasksTable({
   sortBy,
   sortOrder,
   onSort,
-  onRowClick,
+  onTaskIdClick,
   selectedTasks = new Set(),
   onToggleSelect,
   onSelectAll,
@@ -127,8 +128,9 @@ export const TasksTable = React.memo(function TasksTable({
               }}
             />
           </Table.Th>
-          <SortableHeader label="Node ID" column="node" />
+          {/* Make Task ID the left-most data column after selection */}
           <SortableHeader label="Task ID" column="id" />
+          <SortableHeader label="Node ID" column="node" />
           <SortableHeader label="Type" column="type" />
           <SortableHeader label="Action" column="action" />
           <SortableHeader label="Start Time" column="start_time_in_millis" />
@@ -142,8 +144,7 @@ export const TasksTable = React.memo(function TasksTable({
           return (
           <Table.Tr
             key={taskId}
-            onClick={() => onRowClick(task)}
-            className="clickable-row"
+            // row-level clicks should NOT open the details modal anymore
           >
             <Table.Td onClick={(e) => e.stopPropagation()}>
               <Checkbox
@@ -151,6 +152,21 @@ export const TasksTable = React.memo(function TasksTable({
                 disabled={!task.cancellable}
                 onChange={() => onToggleSelect?.(taskId)}
               />
+            </Table.Td>
+            {/* Task ID cell: the only cell that opens details */}
+            <Table.Td>
+              <UnstyledButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTaskIdClick?.(task);
+                }}
+                aria-label={`Open task ${task.id} details`}
+                style={{ padding: 0, margin: 0, display: 'inline-block', textAlign: 'left' }}
+              >
+                <Text size="sm" truncate style={{ textDecoration: onTaskIdClick ? 'underline' : undefined }}>
+                  {task.id}
+                </Text>
+              </UnstyledButton>
             </Table.Td>
             <Table.Td>
               {nodeNameMap && nodeNameMap[task.node] ? (
@@ -175,9 +191,6 @@ export const TasksTable = React.memo(function TasksTable({
                   </Text>
                 </Tooltip>
               )}
-            </Table.Td>
-            <Table.Td>
-              <Text size="sm">{task.id}</Text>
             </Table.Td>
             <Table.Td>
               <Badge size="sm">{task.type}</Badge>

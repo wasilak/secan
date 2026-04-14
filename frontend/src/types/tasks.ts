@@ -104,7 +104,8 @@ export interface TasksTableProps {
   sortBy: string | null;
   sortOrder: 'asc' | 'desc' | 'none';
   onSort: (column: string) => void;
-  onRowClick: (task: TaskInfo) => void;
+  // Only the Task ID cell should open details. Provide a dedicated handler.
+  onTaskIdClick?: (task: TaskInfo) => void;
 }
 
 /**

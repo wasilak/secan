@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ManagedModal } from './ManagedModal';
+import { ManagedModalRoot } from './ManagedModalRoot';
+import { Modal } from '@mantine/core';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
@@ -101,126 +102,139 @@ export function TaskDetailsModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <ManagedModal
-          opened={isOpen}
-          onClose={onClose}
-          title={`Task Details: ${task.id}`}
-          size="xl"
-          centered
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{
-              duration: DURATIONS.slow,
-              ease: EASINGS.default,
+        <ManagedModalRoot opened={isOpen} onClose={onClose} size="90%">
+          <Modal.Overlay />
+          <Modal.Content
+            style={{
+              maxWidth: '100%',
             }}
           >
-            <Stack gap="md">
-        {/* Error Alert */}
-        {error && (
-          <Alert icon={<IconAlertCircle size={16} />} color="red">
-            {error}
-          </Alert>
-        )}
+            <Modal.Header>
+              <Modal.Title>Task Details: {task.id}</Modal.Title>
+              <Modal.CloseButton />
+            </Modal.Header>
 
-        {/* Basic Info */}
-        <div>
-          <Text fw={500} mb="sm">
-            Basic Information
-          </Text>
-          <Stack gap="xs">
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Task ID:
-              </Text>
-              <Text size="sm" fw={500}>
-                {task.id}
-              </Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Node:
-              </Text>
-              <Text size="sm" fw={500}>
-                {task.node}
-              </Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Type:
-              </Text>
-              <Badge>{task.type}</Badge>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Action:
-              </Text>
-              <Text size="sm" fw={500}>
-                {task.action}
-              </Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Start Time:
-              </Text>
-              <Text size="sm" fw={500}>
-                {formatTimestamp(task.start_time_in_millis)}
-              </Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Running Time:
-              </Text>
-              <Text size="sm" fw={500}>
-                {formatUptime(runningTime)}
-              </Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Cancellable:
-              </Text>
-              <Badge color={task.cancellable ? 'green' : 'gray'}>
-                {task.cancellable ? 'Yes' : 'No'}
-              </Badge>
-            </Group>
-            {task.parent_task_id && (
-              <Group justify="space-between">
-                <Text size="sm" c="dimmed">
-                  Parent Task:
-                </Text>
-                <Text size="sm" fw={500}>
-                  {task.parent_task_id}
-                </Text>
-              </Group>
-            )}
-          </Stack>
-        </div>
+            <Modal.Body
+              style={{
+                maxHeight: 'calc(100vh - 120px)',
+                overflow: 'auto',
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{
+                  duration: DURATIONS.slow,
+                  ease: EASINGS.default,
+                }}
+              >
+                <Stack gap="md">
+                  {/* Error Alert */}
+                  {error && (
+                    <Alert icon={<IconAlertCircle size={16} />} color="red">
+                      {error}
+                    </Alert>
+                  )}
 
-        {/* Details Tab */}
-        {isLoading ? (
-          <Group justify="center" py="xl">
-            <Loader />
-          </Group>
-        ) : taskDetails ? (
-          <Tabs defaultValue="json">
-            <Tabs.List>
-              <Tabs.Tab value="json">JSON</Tabs.Tab>
-            </Tabs.List>
-            <Tabs.Panel value="json">
-              <JsonViewer
-                data={taskDetails.raw || taskDetails}
-                title="Task JSON"
-                height={500}
-                showCopyButton={true}
-              />
-            </Tabs.Panel>
-          </Tabs>
-        ) : null}
-            </Stack>
-            </motion.div>
-        </ManagedModal>
+                  {/* Basic Info */}
+                  <div>
+                    <Text fw={500} mb="sm">
+                      Basic Information
+                    </Text>
+                    <Stack gap="xs">
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Task ID:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {task.id}
+                        </Text>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Node:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {task.node}
+                        </Text>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Type:
+                        </Text>
+                        <Badge>{task.type}</Badge>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Action:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {task.action}
+                        </Text>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Start Time:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {formatTimestamp(task.start_time_in_millis)}
+                        </Text>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Running Time:
+                        </Text>
+                        <Text size="sm" fw={500}>
+                          {formatUptime(runningTime)}
+                        </Text>
+                      </Group>
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Cancellable:
+                        </Text>
+                        <Badge color={task.cancellable ? 'green' : 'gray'}>
+                          {task.cancellable ? 'Yes' : 'No'}
+                        </Badge>
+                      </Group>
+                      {task.parent_task_id && (
+                        <Group justify="space-between">
+                          <Text size="sm" c="dimmed">
+                            Parent Task:
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {task.parent_task_id}
+                          </Text>
+                        </Group>
+                      )}
+                    </Stack>
+                  </div>
+
+                  {/* Details Tab */}
+                  {isLoading ? (
+                    <Group justify="center" py="xl">
+                      <Loader />
+                    </Group>
+                  ) : taskDetails ? (
+                    <Tabs defaultValue="json">
+                      <Tabs.List>
+                        <Tabs.Tab value="json">JSON</Tabs.Tab>
+                      </Tabs.List>
+                      <Tabs.Panel value="json">
+                        <JsonViewer
+                          data={taskDetails.raw || taskDetails}
+                          title="Task JSON"
+                          height={500}
+                          showCopyButton={true}
+                        />
+                      </Tabs.Panel>
+                    </Tabs>
+                  ) : null}
+                </Stack>
+              </motion.div>
+            </Modal.Body>
+          </Modal.Content>
+        </ManagedModalRoot>
       )}
     </AnimatePresence>
   );
