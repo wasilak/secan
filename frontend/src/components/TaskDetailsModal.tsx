@@ -60,6 +60,9 @@ export function TaskDetailsModal({
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // support stacking another TaskDetailsModal on top for parent tasks
+  const [stackedTask, setStackedTask] = useState<TaskInfo | null>(null);
+  const [isStackedOpen, setIsStackedOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // allow null return when no task is provided (handled after hooks)
@@ -192,7 +195,46 @@ export function TaskDetailsModal({
                         {task.parent_task_id && (
                           <tr>
                             <td style={{ color: 'var(--mantine-color-dimmed)' }}>Parent Task:</td>
-                            <td><Text size="sm" fw={500}>{task.parent_task_id}</Text></td>
+                            <td>
+                              {/* Render parent task as two clickable parts: node and task id */}
+                              {(() => {
+                                const p = task.parent_task_id || '';
+                                const idx = p.lastIndexOf(':');
+                                const nodePart = idx === -1 ? p : p.substring(0, idx);
+                                const idPart = idx === -1 ? '' : p.substring(idx + 1);
+
+                                return (
+                                  <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                    <Text
+                                      size="sm"
+                                      fw={500}
+                                      className="clickable-name"
+                                      onClick={(e) => { e.stopPropagation(); openNodeModal?.(nodePart); }}
+                                      style={{ textTransform: 'none', padding: 0, margin: 0 }}
+                                    >
+                                      {nodePart}
+                                    </Text>
+                                    <Text size="sm">:</Text>
+                                    <Text
+                                      size="sm"
+                                      fw={500}
+                                      className="clickable-name"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!idPart) return;
+                                        // Open a stacked TaskDetailsModal for the parent task
+                                        const minimal: TaskInfo = ({ node: nodePart, id: idPart, start_time_in_millis: Date.now(), action: '', type: '', cancellable: false, cancelled: false } as unknown) as TaskInfo;
+                                        setStackedTask(minimal);
+                                        setIsStackedOpen(true);
+                                      }}
+                                      style={{ textTransform: 'none', padding: 0, margin: 0 }}
+                                    >
+                                      {idPart}
+                                    </Text>
+                                  </div>
+                                );
+                              })()}
+                            </td>
                           </tr>
                         )}
                       </tbody>
@@ -248,6 +290,16 @@ export function TaskDetailsModal({
             </Modal.Body>
           </Modal.Content>
         </ManagedModalRoot>
+      )}
+      {/* Stacked parent task modal */}
+      {isStackedOpen && stackedTask && (
+        <TaskDetailsModal
+          task={stackedTask}
+          isOpen={isStackedOpen}
+          onClose={() => { setIsStackedOpen(false); setStackedTask(null); }}
+          clusterId={clusterId}
+          openNodeModal={openNodeModal}
+        />
       )}
     </AnimatePresence>
   );
