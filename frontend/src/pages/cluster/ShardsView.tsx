@@ -13,6 +13,7 @@ import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
 import type { ShardInfo, PaginatedResponse } from '../../types/api';
 import { useRefreshInterval } from '../../contexts/RefreshContext';
+import { useTablePagination } from '../../hooks/useTablePagination';
 
 interface ShardsViewProps {
   clusterId: string;
@@ -95,7 +96,7 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
     setSearchParams(newParams, { replace: true });
   };
 
-  const [shardsPage, setShardsPage] = useState(1);
+  const { page: shardsPage, pageSize: shardsPageSize, setPage: setShardsPage, setPageSize: setShardsPageSize, getPaginationProps: getShardsPaginationProps } = useTablePagination(1, 20);
 
   const shardsFilters = useMemo(
     () => ({
@@ -113,8 +114,8 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
     isLoading: shardsLoading,
     error: shardsError,
   } = useQuery<PaginatedResponse<ShardInfo>>({
-    queryKey: queryKeys.cluster(clusterId).shards(shardsPage, shardsFilters),
-    queryFn: () => apiClient.getShards(clusterId, shardsPage, 50, shardsFilters),
+    queryKey: queryKeys.cluster(clusterId).shards(shardsPage, { ...shardsFilters, pageSize: shardsPageSize }),
+    queryFn: () => apiClient.getShards(clusterId, shardsPage, shardsPageSize, shardsFilters),
     refetchInterval: refreshInterval,
     enabled: !!clusterId,
     placeholderData: (previousData) => previousData,
@@ -132,7 +133,7 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
   };
 
   return (
-    <Grid gutter="md" overflow="hidden">
+    <Grid gutter="md">
       <Grid.Col span={12}>
         <ShardStatsCards stats={stats} />
       </Grid.Col>
@@ -181,23 +182,16 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
               },
             ]}
           />
-          <Stack gap="md" style={{ flex: 1 }}>
+           <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
             <ShardsList
               shards={shards}
               loading={shardsLoading}
               error={shardsError as Error | null}
               hideStats
+              serverSidePagination={true}
             />
-            {shardsPaginated && shardsPaginated.total_pages > 1 && (
-              <TablePagination
-                simple
-                currentPage={shardsPage}
-                totalPages={shardsPaginated.total_pages}
-                pageSize={50}
-                totalItems={shardsPaginated.total}
-                onPageChange={setShardsPage}
-                onPageSizeChange={() => {}}
-              />
+            {shardsPaginated && shardsPaginated.total > 0 && (
+              <TablePagination {...getShardsPaginationProps(shardsPaginated.total, shardsPaginated.total_pages)} />
             )}
           </Stack>
         </Group>

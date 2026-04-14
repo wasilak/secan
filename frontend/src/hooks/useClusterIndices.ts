@@ -29,7 +29,8 @@ export function useClusterIndices(
   } = options;
 
   return useQuery({
-    queryKey: queryKeys.cluster(clusterId ?? '').indices(page, filters),
+    // include pageSize in key so changes trigger refetch
+    queryKey: queryKeys.cluster(clusterId ?? '').indices(page, { ...filters, pageSize }),
     queryFn: async () => {
       if (!clusterId) throw new Error('Cluster ID is required');
       return apiClient.getIndices(clusterId, page, pageSize, filters);

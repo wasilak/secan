@@ -59,11 +59,19 @@ pub struct TaskDetails {
     pub raw: Option<Value>,
 }
 
-/// Response from list tasks endpoint
+/// Paginated response from list tasks endpoint
 #[derive(Debug, Serialize, ToSchema)]
-pub struct TasksListResponse {
+pub struct TasksPaginatedResponse {
     #[schema(value_type = Vec<TaskInfo>)]
-    pub tasks: Vec<TaskInfo>,
+    pub items: Vec<TaskInfo>,
+    #[schema(example = 123)]
+    pub total: usize,
+    #[schema(example = 1)]
+    pub page: usize,
+    #[schema(example = 50)]
+    pub page_size: usize,
+    #[schema(example = 3)]
+    pub total_pages: usize,
     #[schema(value_type = Vec<String>)]
     pub unique_types: Vec<String>,
     #[schema(value_type = Vec<String>)]
@@ -101,6 +109,14 @@ pub struct TasksQueryParams {
     #[param(example = "cluster:monitor/tasks/lists")]
     #[serde(default)]
     pub action_filter: Option<String>,
+    /// Page number (1-indexed)
+    #[param(example = 1)]
+    #[serde(default)]
+    pub page: Option<u32>,
+    /// Items per page
+    #[param(example = 50)]
+    #[serde(default)]
+    pub page_size: Option<u32>,
 }
 
 /// Transform raw Elasticsearch tasks response to TaskInfo
@@ -204,7 +220,7 @@ fn apply_filters(
         TasksQueryParams
     ),
     responses(
-        (status = 200, body = TasksListResponse),
+        (status = 200, body = TasksPaginatedResponse),
         (status = 400, body = crate::routes::clusters::ClusterErrorResponse),
         (status = 401, body = crate::routes::clusters::ClusterErrorResponse),
         (status = 404, body = crate::routes::clusters::ClusterErrorResponse)
@@ -217,7 +233,7 @@ pub async fn fetch_cluster_tasks(
     Query(params): Query<TasksQueryParams>,
     user_ext: Option<axum::Extension<AuthenticatedUser>>,
     request_id_ext: Option<axum::Extension<RequestId>>,
-) -> Result<Json<TasksListResponse>, crate::routes::clusters::ClusterErrorResponse> {
+) -> Result<Json<TasksPaginatedResponse>, crate::routes::clusters::ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         type_filter = ?params.type_filter,
@@ -354,13 +370,25 @@ pub async fn fetch_cluster_tasks(
         params.action_filter.as_deref(),
     );
 
+    // Pagination params - provide sensible defaults when not supplied
+    let page = params.page.unwrap_or(1).max(1) as usize;
+    let page_size = params.page_size.unwrap_or(50).clamp(1, 1000) as usize;
+
+    // Use shared paginate_vec helper
+    let paginated =
+        crate::routes::clusters::pagination::paginate_vec(filtered_tasks, page, page_size);
+
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as i64;
 
-    Ok(Json(TasksListResponse {
-        tasks: filtered_tasks,
+    Ok(Json(TasksPaginatedResponse {
+        items: paginated.items,
+        total: paginated.total,
+        page: paginated.page,
+        page_size: paginated.page_size,
+        total_pages: paginated.total_pages,
         unique_types,
         unique_actions,
         timestamp,

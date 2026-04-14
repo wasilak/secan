@@ -9,26 +9,34 @@ import {
   Table,
   Modal,
   TextInput,
-  Textarea,
   NumberInput,
   Switch,
   ActionIcon,
   Badge,
-  ScrollArea,
   Tabs,
+  Box,
+  Alert,
+  Divider,
+  Paper,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconFlask } from '@tabler/icons-react';
 import { apiClient } from '../api/client';
 import { getErrorMessage } from '../lib/errorHandling';
 import { queryKeys } from '../utils/queryKeys';
-import type { CreateTemplateRequest } from '../types/api';
+import type { CreateTemplateRequest, SimulateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageSkeleton } from '../components/PageSkeleton';
+import { SortableTransferList, ComponentTemplate } from '../components/SortableTransferList';
+import { CodeEditor } from '../components/CodeEditor';
+import { useClusterIndices } from '../hooks/useClusterIndices';
+import { getPaginatedItems } from '../types/api';
+import { TagsInput } from '@mantine/core';
+import { useEffect } from 'react';
 
 /**
  * Templates component displays and manages index templates
@@ -45,6 +53,7 @@ export function Templates() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [simulateModalOpen, setSimulateModalOpen] = useState(false);
 
   // Fetch templates
   const {
@@ -100,9 +109,18 @@ export function Templates() {
               Manage index templates for consistent settings across indices
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
-            Create Template
-          </Button>
+          <Group>
+            <Button
+              variant="light"
+              leftSection={<IconFlask size={16} />}
+              onClick={() => setSimulateModalOpen(true)}
+            >
+              Simulate
+            </Button>
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateModalOpen(true)}>
+              Create Template
+            </Button>
+          </Group>
         </Group>
 
         <Card shadow="sm" padding="lg">
@@ -114,7 +132,7 @@ export function Templates() {
               </Button>
             </Stack>
           ) : (
-            <ScrollArea>
+            <Box className="table-overflow">
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -185,7 +203,7 @@ export function Templates() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea>
+            </Box>
           )}
         </Card>
 
@@ -193,6 +211,12 @@ export function Templates() {
           opened={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           clusterId={id}
+        />
+
+        <SimulateModal
+          opened={simulateModalOpen}
+          onClose={() => setSimulateModalOpen(false)}
+          clusterId={id!}
         />
       </PageSkeleton>
     </FullWidthContainer>
@@ -215,26 +239,28 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
 
   const form = useForm<
     CreateTemplateRequest & {
-      indexPatternsText: string;
+      indexPatterns: string[];
       settingsText: string;
       mappingsText: string;
       aliasesText: string;
+      composedOf: string[];
     }
   >({
     initialValues: {
       name: '',
       indexPatterns: [],
-      indexPatternsText: '',
+      // indexPatterns is a TagsInput (array)
       priority: undefined,
       order: undefined,
       version: undefined,
       settings: undefined,
-      settingsText: '',
+      settingsText: '{}',
       mappings: undefined,
-      mappingsText: '',
+      mappingsText: '{}',
       aliases: undefined,
-      aliasesText: '',
+      aliasesText: '{}',
       composable: true,
+      composedOf: [],
     },
     validate: {
       name: (value: string) => {
@@ -244,10 +270,17 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
         }
         return null;
       },
-      indexPatternsText: (value: string) =>
-        !value ? 'At least one index pattern is required' : null,
+      indexPatterns: (value: string[]) => (value.length === 0 ? 'At least one index pattern is required' : null),
     },
   });
+  // fetch indices for suggestions in the tags input
+  const { data: indicesPaginated } = useClusterIndices(clusterId, { enabled: !!clusterId });
+  const indices = getPaginatedItems(indicesPaginated) ?? [];
+  const [indexOptions, setIndexOptions] = useState<string[]>(indices.map((i) => i.name));
+
+  useEffect(() => {
+    setIndexOptions(indices.map((i) => i.name));
+  }, [indices]);
 
   const createMutation = useMutation({
     mutationFn: (request: CreateTemplateRequest) => apiClient.createTemplate(clusterId, request),
@@ -272,11 +305,8 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
 
   const handleSubmit = form.onSubmit((values) => {
     try {
-      // Parse index patterns
-      const indexPatterns = values.indexPatternsText
-        .split(',')
-        .map((p: string) => p.trim())
-        .filter((p: string) => p.length > 0);
+      // indexPatterns comes from TagsInput as an array
+      const indexPatterns = values.indexPatterns || [];
 
       if (indexPatterns.length === 0) {
         notifications.show({
@@ -303,6 +333,9 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
       if (values.version !== undefined) {
         request.version = values.version;
       }
+      if (values.composable && values.composedOf.length > 0) {
+        request.composedOf = values.composedOf;
+      }
 
       if (values.settingsText) {
         request.settings = JSON.parse(values.settingsText);
@@ -325,7 +358,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
   });
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Create Template" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Create Template" size={1100} styles={{ body: { overflowX: 'hidden' } }}>
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
           <TextInput
@@ -341,13 +374,19 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
             {...form.getInputProps('composable', { type: 'checkbox' })}
           />
 
-          <TextInput
-            label="Index Patterns"
-            placeholder="logs-*, metrics-*"
-            description="Comma-separated list of index patterns"
-            required
-            {...form.getInputProps('indexPatternsText')}
-          />
+          <div>
+            <TagsInput
+              label="Index Patterns"
+              placeholder="Type or select index patterns (e.g. logs-*)"
+              data={indexOptions}
+              value={form.values.indexPatterns}
+              onChange={(val: string[]) => form.setFieldValue('indexPatterns', val)}
+              maxTags={50}
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              Provide one or more index patterns. Wildcards are supported (e.g. my-index-*).
+            </Text>
+          </div>
 
           {form.values.composable ? (
             <NumberInput
@@ -380,34 +419,86 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
               <Tabs.Tab value="settings">Settings</Tabs.Tab>
               <Tabs.Tab value="mappings">Mappings</Tabs.Tab>
               <Tabs.Tab value="aliases">Aliases</Tabs.Tab>
+              {form.values.composable && <Tabs.Tab value="composed">Composed</Tabs.Tab>}
             </Tabs.List>
 
             <Tabs.Panel value="settings" pt="md">
-              <Textarea
-                label="Settings (JSON)"
-                placeholder='{"number_of_shards": 1, "number_of_replicas": 1}'
-                minRows={6}
-                {...form.getInputProps('settingsText')}
+              <CodeEditor
+                title="Settings (JSON)"
+                value={form.values.settingsText}
+                onChange={(v) => form.setFieldValue('settingsText', v ?? '')}
+                onBlur={() => {
+                  try {
+                    if (form.values.settingsText && form.values.settingsText.trim() !== '') {
+                      JSON.parse(form.values.settingsText);
+                      form.setFieldError('settingsText', undefined);
+                    } else {
+                      form.setFieldError('settingsText', undefined);
+                    }
+                  } catch (err: any) {
+                    form.setFieldError('settingsText', (err && err.message) || 'Invalid JSON');
+                  }
+                }}
+                language="json"
+                height="260px"
+                showCopyButton
+                onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
               />
             </Tabs.Panel>
 
             <Tabs.Panel value="mappings" pt="md">
-              <Textarea
-                label="Mappings (JSON)"
-                placeholder='{"properties": {"field1": {"type": "text"}}}'
-                minRows={6}
-                {...form.getInputProps('mappingsText')}
+              <CodeEditor
+                title="Mappings (JSON)"
+                value={form.values.mappingsText}
+                onChange={(v) => form.setFieldValue('mappingsText', v ?? '')}
+                onBlur={() => {
+                  try {
+                    if (form.values.mappingsText && form.values.mappingsText.trim() !== '') {
+                      JSON.parse(form.values.mappingsText);
+                      form.setFieldError('mappingsText', undefined);
+                    } else {
+                      form.setFieldError('mappingsText', undefined);
+                    }
+                  } catch (err: any) {
+                    form.setFieldError('mappingsText', (err && err.message) || 'Invalid JSON');
+                  }
+                }}
+                language="json"
+                height="260px"
+                showCopyButton
+                onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
               />
             </Tabs.Panel>
 
             <Tabs.Panel value="aliases" pt="md">
-              <Textarea
-                label="Aliases (JSON)"
-                placeholder='{"my-alias": {}}'
-                minRows={6}
-                {...form.getInputProps('aliasesText')}
+              <CodeEditor
+                title="Aliases (JSON)"
+                value={form.values.aliasesText}
+                onChange={(v) => form.setFieldValue('aliasesText', v ?? '')}
+                onBlur={() => {
+                  try {
+                    if (form.values.aliasesText && form.values.aliasesText.trim() !== '') {
+                      JSON.parse(form.values.aliasesText);
+                      form.setFieldError('aliasesText', undefined);
+                    } else {
+                      form.setFieldError('aliasesText', undefined);
+                    }
+                  } catch (err: any) {
+                    form.setFieldError('aliasesText', (err && err.message) || 'Invalid JSON');
+                  }
+                }}
+                language="json"
+                height="200px"
+                showCopyButton
+                onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
               />
             </Tabs.Panel>
+
+            {form.values.composable && (
+              <Tabs.Panel value="composed" pt="md">
+                <ComposedTab clusterId={clusterId} value={form.values.composedOf} onChange={(val) => form.setFieldValue('composedOf', val)} />
+              </Tabs.Panel>
+            )}
           </Tabs>
 
           <Group justify="flex-end" mt="md">
@@ -420,6 +511,261 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
           </Group>
         </Stack>
       </form>
+    </Modal>
+  );
+}
+
+interface ComposedTabProps {
+  clusterId: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+}
+
+function ComposedTab({ clusterId, value, onChange }: ComposedTabProps) {
+  const { data: componentTemplates, isLoading } = useQuery({
+    queryKey: queryKeys.cluster(clusterId).componentTemplates(),
+    queryFn: () => apiClient.getComponentTemplates(clusterId),
+    enabled: !!clusterId,
+  });
+
+  const availableItems: ComponentTemplate[] = (componentTemplates || []).map((ct) => ({
+    name: ct.name,
+    hasSettings: !!ct.settings,
+    hasMappings: !!ct.mappings,
+    hasAliases: !!ct.aliases,
+    fullJson: {
+      version: ct.version,
+      settings: ct.settings,
+      mappings: ct.mappings,
+      aliases: ct.aliases,
+    },
+  }));
+
+  return (
+    <Box>
+      {isLoading ? (
+        <Text c="dimmed">Loading component templates...</Text>
+      ) : (
+        <SortableTransferList
+          availableItems={availableItems}
+          selectedIds={value}
+          onSelectedChange={onChange}
+        />
+      )}
+    </Box>
+  );
+}
+
+interface SimulateModalProps {
+  opened: boolean;
+  onClose: () => void;
+  clusterId: string;
+}
+
+function SimulateModal({ opened, onClose, clusterId }: SimulateModalProps) {
+  const form = useForm<{
+    indexPatterns: string[];
+    settingsText: string;
+    mappingsText: string;
+    aliasesText: string;
+  }>({
+    initialValues: {
+      indexPatterns: [],
+      settingsText: '{}',
+      mappingsText: '{}',
+      aliasesText: '{}',
+    },
+  });
+  const { data: indicesPaginated } = useClusterIndices(clusterId, { enabled: !!clusterId });
+  const indices = getPaginatedItems(indicesPaginated) ?? [];
+  const [indexOptions, setIndexOptions] = useState<string[]>(indices.map((i) => i.name));
+
+  useEffect(() => {
+    setIndexOptions(indices.map((i) => i.name));
+  }, [indices]);
+
+  const [result, setResult] = useState<{
+    template: { settings?: object; mappings?: object; aliases?: object };
+    overlapping?: Array<{ name: string; index_patterns: string[] }>;
+  } | null>(null);
+
+  const simulateMutation = useMutation({
+    mutationFn: async (data: typeof form.values) => {
+      const request = {
+        index_patterns: data.indexPatterns || [],
+      };
+
+      const template: Record<string, unknown> = {};
+      if (data.settingsText) template.settings = JSON.parse(data.settingsText);
+      if (data.mappingsText) template.mappings = JSON.parse(data.mappingsText);
+      if (data.aliasesText) template.aliases = JSON.parse(data.aliasesText);
+
+      if (Object.keys(template).length > 0) {
+        (request as Record<string, unknown>).template = template;
+      }
+
+      return apiClient.simulateTemplate(clusterId, request as SimulateTemplateRequest);
+    },
+    onSuccess: (data) => {
+      setResult(data);
+    },
+    onError: (error) => {
+      notifications.show({
+        title: 'Error',
+        message: `Simulation failed: ${error.message}`,
+        color: 'red',
+      });
+    },
+  });
+
+  const handleSubmit = form.onSubmit(() => {
+    setResult(null);
+    simulateMutation.mutate(form.values);
+  });
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Simulate Index Template" size={1100} styles={{ body: { overflowX: 'hidden' } }}>
+      <form onSubmit={handleSubmit}>
+        <Stack gap="md">
+          <div>
+            <TagsInput
+              label="Index Patterns"
+              placeholder="Type or select index patterns (e.g. logs-*)"
+              data={indexOptions}
+              value={form.values.indexPatterns}
+              onChange={(val: string[]) => form.setFieldValue('indexPatterns', val)}
+              maxTags={50}
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              Provide one or more index patterns. Wildcards are supported (e.g. my-index-*).
+            </Text>
+          </div>
+
+          <CodeEditor
+            title="Settings (JSON)"
+            value={form.values.settingsText}
+            onChange={(v) => form.setFieldValue('settingsText', v ?? '')}
+            onBlur={() => {
+              try {
+                if (form.values.settingsText && form.values.settingsText.trim() !== '') {
+                  JSON.parse(form.values.settingsText);
+                  form.setFieldError('settingsText', undefined);
+                } else {
+                  form.setFieldError('settingsText', undefined);
+                }
+              } catch (err: any) {
+                form.setFieldError('settingsText', (err && err.message) || 'Invalid JSON');
+              }
+            }}
+            language="json"
+            height="180px"
+            showCopyButton
+            onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
+          />
+
+          <CodeEditor
+            title="Mappings (JSON)"
+            value={form.values.mappingsText}
+            onChange={(v) => form.setFieldValue('mappingsText', v ?? '')}
+            onBlur={() => {
+              try {
+                if (form.values.mappingsText && form.values.mappingsText.trim() !== '') {
+                  JSON.parse(form.values.mappingsText);
+                  form.setFieldError('mappingsText', undefined);
+                } else {
+                  form.setFieldError('mappingsText', undefined);
+                }
+              } catch (err: any) {
+                form.setFieldError('mappingsText', (err && err.message) || 'Invalid JSON');
+              }
+            }}
+            language="json"
+            height="180px"
+            showCopyButton
+            onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
+          />
+
+          <CodeEditor
+            title="Aliases (JSON)"
+            value={form.values.aliasesText}
+            onChange={(v) => form.setFieldValue('aliasesText', v ?? '')}
+            onBlur={() => {
+              try {
+                if (form.values.aliasesText && form.values.aliasesText.trim() !== '') {
+                  JSON.parse(form.values.aliasesText);
+                  form.setFieldError('aliasesText', undefined);
+                } else {
+                  form.setFieldError('aliasesText', undefined);
+                }
+              } catch (err: any) {
+                form.setFieldError('aliasesText', (err && err.message) || 'Invalid JSON');
+              }
+            }}
+            language="json"
+            height="140px"
+            showCopyButton
+            onMount={(editor: any) => setTimeout(() => editor?.layout?.(), 0)}
+          />
+
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={onClose}>
+              Close
+            </Button>
+            <Button type="submit" loading={simulateMutation.isPending}>
+              Simulate
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+
+      {result && (
+        <Box mt="lg">
+          <Divider label="Simulation Result" mb="md" />
+          
+          {result.overlapping && result.overlapping.length > 0 && (
+            <Alert color="yellow" mb="md">
+              <Text fw={500}>Overlapping Templates</Text>
+              {result.overlapping.map((t) => (
+                <Text key={t.name} size="sm">
+                  {t.name} ({t.index_patterns.join(', ')})
+                </Text>
+              ))}
+            </Alert>
+          )}
+
+          <Tabs defaultValue="settings">
+            <Tabs.List>
+              <Tabs.Tab value="settings">Settings</Tabs.Tab>
+              <Tabs.Tab value="mappings">Mappings</Tabs.Tab>
+              <Tabs.Tab value="aliases">Aliases</Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="settings" pt="md">
+              <Paper withBorder p="sm" style={{ background: 'var(--mantine-color-gray-0)' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {JSON.stringify(result.template.settings || {}, null, 2)}
+                </pre>
+              </Paper>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="mappings" pt="md">
+              <Paper withBorder p="sm" style={{ background: 'var(--mantine-color-gray-0)' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {JSON.stringify(result.template.mappings || {}, null, 2)}
+                </pre>
+              </Paper>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="aliases" pt="md">
+              <Paper withBorder p="sm" style={{ background: 'var(--mantine-color-gray-0)' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  {JSON.stringify(result.template.aliases || {}, null, 2)}
+                </pre>
+              </Paper>
+            </Tabs.Panel>
+          </Tabs>
+        </Box>
+      )}
     </Modal>
   );
 }

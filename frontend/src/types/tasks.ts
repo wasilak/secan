@@ -58,6 +58,20 @@ export interface TasksListResponse {
 }
 
 /**
+ * Paginated tasks response (backend new shape)
+ */
+export interface TasksPaginatedResponse {
+  items: TaskInfo[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  unique_types: string[];
+  unique_actions: string[];
+  timestamp: number;
+}
+
+/**
  * Response from get task details endpoint
  */
 export interface TaskDetailsResponse {

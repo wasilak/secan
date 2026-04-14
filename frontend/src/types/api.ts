@@ -145,6 +145,7 @@ export interface TemplateInfo {
   aliases?: Record<string, unknown>;
   composable?: boolean;
   order?: number;
+  composedOf?: string[];
 }
 
 export interface CreateTemplateRequest {
@@ -157,6 +158,46 @@ export interface CreateTemplateRequest {
   mappings?: Record<string, unknown>;
   aliases?: Record<string, unknown>;
   order?: number;
+  composedOf?: string[];
+}
+
+export interface ComponentTemplateInfo {
+  name: string;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+}
+
+export interface CreateComponentTemplateRequest {
+  name: string;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+  aliases?: Record<string, unknown>;
+}
+
+export interface SimulateTemplateRequest {
+  index_patterns: string[];
+  template?: {
+    settings?: Record<string, unknown>;
+    mappings?: Record<string, unknown>;
+    aliases?: Record<string, unknown>;
+  };
+}
+
+export interface OverlappingTemplate {
+  name: string;
+  index_patterns: string[];
+}
+
+export interface SimulateTemplateResponse {
+  template: {
+    settings?: Record<string, unknown>;
+    mappings?: Record<string, unknown>;
+    aliases?: Record<string, unknown>;
+  };
+  overlapping?: OverlappingTemplate[];
 }
 
 export interface AnalyzeTextRequest {

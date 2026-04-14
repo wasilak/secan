@@ -12,11 +12,10 @@
  * Requirements: 33.1, 33.2, 33.3, 33.4, 33.5, 33.6
  */
 
-/* Ensure minimum touch target size on all interactive elements */
-button,
-a,
+/* Ensure minimum touch target size on primary interactive elements (avoid forcing small icon buttons) */
+.mantine-Button-root,
+a[role='button'],
 [role='button'],
-input[type='button'],
 input[type='submit'],
 input[type='reset'] {
   min-height: 44px;
@@ -299,6 +298,21 @@ img {
 .table-responsive {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.table-overflow {
+  /* Allow both horizontal and vertical scrolling inside the Card wrapper.
+     We previously only enabled horizontal scrolling which in some layouts
+     produced a clipped bottom when an ancestor had overflow:hidden.
+     Enabling both axes keeps behavior local to the Card and avoids visual
+     truncation while still using native scrolling (no Mantine chrome). */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-overflow > table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
 @media (max-width: 767px) {

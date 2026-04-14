@@ -20,6 +20,8 @@ import {
   Anchor,
   UnstyledButton,
   Box,
+  Tabs,
+  Container,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { CodeEditor } from '../components/CodeEditor';
@@ -95,6 +97,9 @@ import { NodesView } from './cluster/NodesView';
 import { ShardsView } from './cluster/ShardsView';
 import { TopologyView } from './cluster/TopologyView';
 import { StatisticsView } from './cluster/StatisticsView';
+import { Templates } from './Templates';
+import { ComponentTemplates } from './ComponentTemplates';
+import { Aliases } from './Aliases';
 
 // Helper: merge per-node shards with cluster-level unassigned shards.
 // Deduplicate by index:shard:primary:node for node-backed shards, but
@@ -207,6 +212,29 @@ export function ClusterView() {
     // and users can use Back/Forward to navigate between tabs.
     setSearchParams(newParams, { replace: false });
   };
+
+  // Sync topologyViewType state when the URL query param changes externally
+  // (e.g. clicking a topology submenu link in the sidebar or breadcrumbs).
+  // Without this, changing only the query param would not update the in-memory
+  // state and the UI would not reflect the selected sub-tab.
+  useEffect(() => {
+    const urlParam = searchParams.get('topologyView') as
+      | 'node-overview'
+      | 'shard-grid'
+      | 'cluster-map'
+      | 'shard-flow'
+      | 'disk-usage'
+      | null;
+    if (
+      urlParam === 'node-overview' ||
+      urlParam === 'shard-grid' ||
+      urlParam === 'cluster-map' ||
+      urlParam === 'shard-flow' ||
+      urlParam === 'disk-usage'
+    ) {
+      if (urlParam !== topologyViewType) setTopologyViewTypeState(urlParam);
+    }
+  }, [searchParams, topologyViewType]);
 
   // Topology grouping state
   const [topologyGroupingConfig, setTopologyGroupingConfig] = useState<GroupingConfig>({
@@ -1303,10 +1331,52 @@ export function ClusterView() {
         </AppErrorBoundary>
       )}
 
-      {/* Indices Section */}
+      {/* Indices + Templates + Component Templates + Aliases Section as Tabs */}
       {activeView === 'indices' && (
-        <AppErrorBoundary key="indices" fallbackTitle="Indices view failed to load">
-          <IndicesView clusterId={id!} />
+      <AppErrorBoundary key="indices" fallbackTitle="Indices view failed to load">
+        <Tabs
+            value={searchParams.get('sub') || 'indices'}
+            onChange={(val: string | null) => {
+              // Use path-based navigation for top-level section change when switching subtabs
+              const tab = val || 'indices';
+              // encode subtab into search params so deep links are possible
+              const params = new URLSearchParams(searchParams);
+              if (tab === 'indices') {
+                params.delete('sub');
+              } else {
+                params.set('sub', tab);
+              }
+              // Update URL without changing the main path
+              setSearchParams(params, { replace: false });
+              // For 'templates' and other pages, navigate to their dedicated route so they can be bookmarked
+              if (tab === 'templates') handleTabChange('templates');
+              if (tab === 'component-templates') handleTabChange('component-templates');
+              if (tab === 'aliases') handleTabChange('aliases');
+            }}
+          >
+            <Tabs.List>
+              <Tabs.Tab value="indices">Indices</Tabs.Tab>
+              <Tabs.Tab value="templates">Templates</Tabs.Tab>
+              <Tabs.Tab value="component-templates">Component Templates</Tabs.Tab>
+              <Tabs.Tab value="aliases">Aliases</Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="indices" pt="md">
+              <IndicesView clusterId={id!} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="templates" pt="md">
+              <Templates />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="component-templates" pt="md">
+              <ComponentTemplates />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="aliases" pt="md">
+              <Aliases />
+            </Tabs.Panel>
+            </Tabs>
         </AppErrorBoundary>
       )}
 
@@ -1726,9 +1796,9 @@ export const NodesList = memo(function NodesList({
       <Stack gap="md">
         {!hideStats && <NodeStatsCards nodes={[]} />}
 
-        <Card shadow="sm" padding="lg">
-          <ScrollArea w="100%">
-            <Table striped highlightOnHover>
+          <Card shadow="sm" padding="lg">
+            <Box className="table-overflow" style={{ width: '100%' }}>
+              <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>
@@ -1793,8 +1863,8 @@ export const NodesList = memo(function NodesList({
                 </Table.Tr>
               </Table.Thead>
               <TableSkeleton columnCount={expandedView ? 12 : 9} rowCount={6} />
-            </Table>
-          </ScrollArea>
+           </Table>
+         </Box>
         </Card>
       </Stack>
     );
@@ -1826,7 +1896,7 @@ export const NodesList = memo(function NodesList({
             No nodes match your filters
           </Text>
         ) : (
-          <ScrollArea w="100%">
+          <Box className="table-overflow" style={{ width: '100%' }}>
             <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
@@ -2058,7 +2128,7 @@ export const NodesList = memo(function NodesList({
               ))}
             </Table.Tbody>
           </Table>
-        </ScrollArea>
+        </Box>
         )}
       </Card>
     </Stack>
@@ -2598,9 +2668,9 @@ export const IndicesList = memo(function IndicesList({
           </Group>
         )}
 
-        <Card shadow="sm" padding="lg">
-          <ScrollArea w="100%">
-            <Table striped highlightOnHover>
+          <Card shadow="sm" padding="lg">
+            <Box className="table-overflow" style={{ width: '100%' }}>
+              <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>
@@ -2617,8 +2687,8 @@ export const IndicesList = memo(function IndicesList({
                 </Table.Tr>
               </Table.Thead>
               <TableSkeleton columnCount={9} rowCount={6} />
-            </Table>
-          </ScrollArea>
+              </Table>
+            </Box>
         </Card>
       </Stack>
     );
@@ -2651,7 +2721,7 @@ export const IndicesList = memo(function IndicesList({
 
       {/* Always show table with filters - even if no indices match */}
         <Card shadow="sm" padding="lg">
-          <ScrollArea w="100%">
+          <Box className="table-overflow" style={{ width: '100%' }}>
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -2914,20 +2984,11 @@ export const IndicesList = memo(function IndicesList({
             </Table.Tbody>
           )}
           </Table>
-        </ScrollArea>
+          </Box>
       </Card>
 
-      {/* Pagination */}
-      {indices && indices.length > 0 && indicesPaginated && indicesPaginated.total_pages > 1 && (
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={indicesPaginated.total_pages}
-          pageSize={pageSize}
-          totalItems={indicesPaginated.total}
-          onPageChange={handleIndicesPageChange}
-          onPageSizeChange={handleIndicesPageSizeChange}
-        />
-      )}
+      {/* Pagination is rendered by the parent view (IndicesView) to keep controls
+          consistently positioned below the table. */}
 
       {/* Confirmation Modal for Close/Delete Operations */}
       <Modal
@@ -3171,12 +3232,14 @@ export const ShardsList = memo(function ShardsList({
   error,
   openNodeModal,
   hideStats = false,
+  serverSidePagination = false,
 }: {
   shards?: ShardInfo[];
   loading: boolean;
   error: Error | null;
   openNodeModal?: (nodeId: string) => void;
   hideStats?: boolean;
+  serverSidePagination?: boolean;
 }) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -3344,7 +3407,7 @@ export const ShardsList = memo(function ShardsList({
         )}
 
         <Card shadow="sm" padding="lg">
-          <ScrollArea w="100%">
+          <Box className="table-overflow" style={{ width: '100%' }}>
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -3359,7 +3422,7 @@ export const ShardsList = memo(function ShardsList({
               </Table.Thead>
               <TableSkeleton columnCount={7} rowCount={8} />
             </Table>
-          </ScrollArea>
+          </Box>
         </Card>
       </Stack>
     );
@@ -3400,7 +3463,7 @@ export const ShardsList = memo(function ShardsList({
 
   // Pagination
   const totalPages = Math.ceil((sortedShards?.length || 0) / pageSize);
-  const paginatedShards = sortedShards?.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedShards = serverSidePagination ? sortedShards : sortedShards?.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <Stack gap="md">
@@ -3423,7 +3486,7 @@ export const ShardsList = memo(function ShardsList({
             No shards match your filters
           </Text>
         ) : (
-          <ScrollArea w="100%">
+          <Box className="table-overflow" style={{ width: '100%' }}>
             <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
@@ -3574,12 +3637,12 @@ export const ShardsList = memo(function ShardsList({
               })}
             </Table.Tbody>
           </Table>
-        </ScrollArea>
+        </Box>
         )}
       </Card>
 
-      {/* Pagination */}
-      {sortedShards && sortedShards.length > pageSize && (
+      {/* Pagination (only when not using server-side pagination) */}
+      {!serverSidePagination && sortedShards && sortedShards.length > pageSize && (
         <TablePagination
           currentPage={currentPage}
           totalPages={totalPages}

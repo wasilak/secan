@@ -95,7 +95,7 @@ export function NodesView({ clusterId }: NodesViewProps) {
   };
 
   return (
-    <Grid gutter="md" overflow="hidden">
+    <Grid gutter="md">
       <Grid.Col span={12}>
         <NodeStatsCards nodes={nodesArray || []} />
       </Grid.Col>
@@ -126,7 +126,7 @@ export function NodesView({ clusterId }: NodesViewProps) {
               },
             ]}
           />
-          <Stack gap="md" style={{ flex: 1 }}>
+           <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
             <NodesList
               nodes={nodesArray}
               loading={nodesLoading}

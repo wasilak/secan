@@ -18,6 +18,10 @@ import {
   CreateAliasRequest,
   TemplateInfo,
   CreateTemplateRequest,
+  ComponentTemplateInfo,
+  CreateComponentTemplateRequest,
+  SimulateTemplateRequest,
+  SimulateTemplateResponse,
   AnalyzeTextRequest,
   AnalyzeTextResponse,
   IndexAnalyzersResponse,
@@ -35,6 +39,7 @@ import {
   ClusterMetricsHistoryResponse,
   NodeMetricsHistoryResponse,
   TasksListResponse,
+  TaskInfo,
   TaskDetailsResponse,
   CancelTaskResponse,
   SankeyResponse,
@@ -1137,6 +1142,7 @@ export class ApiClient {
               indexPatterns: template.index_patterns as string[],
               priority: template.priority as number | undefined,
               version: template.version as number | undefined,
+              composedOf: template.composed_of as string[] | undefined,
               settings: template.template
                 ? ((template.template as Record<string, unknown>).settings as Record<
                     string,
@@ -1206,6 +1212,9 @@ export class ApiClient {
         if (request.version !== undefined) {
           body.version = request.version;
         }
+        if (request.composedOf && request.composedOf.length > 0) {
+          body.composed_of = request.composedOf;
+        }
 
         const template: Record<string, unknown> = {};
         if (request.settings) {
@@ -1262,6 +1271,105 @@ export class ApiClient {
       } else {
         await this.client.delete(`/clusters/${clusterId}/_template/${name}`);
       }
+    });
+  }
+
+  /**
+   * Get all component templates in a cluster
+   */
+  async getComponentTemplates(clusterId: string): Promise<ComponentTemplateInfo[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get(`/clusters/${clusterId}/_component_template`);
+      const data = response as unknown as { component_templates?: Array<{
+        name: string;
+        component_template: unknown;
+      }> };
+      const component_templates = data.component_templates;
+      const templates: ComponentTemplateInfo[] = [];
+      if (component_templates) {
+        for (const item of component_templates) {
+          const ct = item.component_template as Record<string, unknown>;
+          templates.push({
+            name: item.name,
+            version: ct.version as number | undefined,
+            settings: ct.settings as Record<string, unknown> | undefined,
+            mappings: ct.mappings as Record<string, unknown> | undefined,
+            aliases: ct.aliases as Record<string, unknown> | undefined,
+          });
+        }
+      }
+      return templates;
+    });
+  }
+
+  /**
+   * Get a specific component template
+   */
+  async getComponentTemplate(clusterId: string, name: string): Promise<ComponentTemplateInfo> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get(`/clusters/${clusterId}/_component_template/${name}`);
+      const data = response as unknown as {
+        name: string;
+        component_templates?: Array<{
+          component_template: Record<string, unknown>;
+        }>;
+      };
+      const ct = data.component_templates?.[0]?.component_template;
+      return {
+        name: data.name,
+        version: ct?.version as number | undefined,
+        settings: ct?.settings as Record<string, unknown> | undefined,
+        mappings: ct?.mappings as Record<string, unknown> | undefined,
+        aliases: ct?.aliases as Record<string, unknown> | undefined,
+      };
+    });
+  }
+
+  /**
+   * Create or update a component template
+   */
+  async createComponentTemplate(clusterId: string, request: CreateComponentTemplateRequest): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {};
+      if (request.version !== undefined) {
+        body.version = request.version;
+      }
+      const template: Record<string, unknown> = {};
+      if (request.settings) {
+        template.settings = request.settings;
+      }
+      if (request.mappings) {
+        template.mappings = request.mappings;
+      }
+      if (request.aliases) {
+        template.aliases = request.aliases;
+      }
+      if (Object.keys(template).length > 0) {
+        body.template = template;
+      }
+      await this.client.put(`/clusters/${clusterId}/_component_template/${request.name}`, body);
+    });
+  }
+
+  /**
+   * Delete a component template
+   */
+  async deleteComponentTemplate(clusterId: string, name: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/_component_template/${name}`);
+    });
+  }
+
+  /**
+   * Simulate an index template to see merged config
+   */
+  async simulateTemplate(clusterId: string, request: SimulateTemplateRequest): Promise<SimulateTemplateResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.post(
+        `/clusters/${clusterId}/_index_template/_simulate`,
+        request
+      );
+      return response as unknown as SimulateTemplateResponse;
     });
   }
 
@@ -2035,27 +2143,54 @@ export class ApiClient {
   * Requirements: 1, 2, 3 (Task display with filtering)
   */
   async getTasks(
-   clusterId: string,
-   filters?: {
-     types?: string[];
-     actions?: string[];
-   }
-  ): Promise<TasksListResponse> {
-   return this.executeWithRetry(async () => {
-     const params: Record<string, string> = {};
-     if (filters?.types && filters.types.length > 0) {
-       params.type_filter = filters.types.join(',');
-     }
-     if (filters?.actions && filters.actions.length > 0) {
-       params.action_filter = filters.actions.join(',');
-     }
+    clusterId: string,
+    page: number = 1,
+    pageSize: number = 50,
+    filters?: {
+      types?: string[];
+      actions?: string[];
+    }
+  ): Promise<
+    | (PaginatedResponse<TaskInfo> & { unique_types?: string[]; unique_actions?: string[]; timestamp?: number })
+    | TasksListResponse
+  > {
+    return this.executeWithRetry(async () => {
+      const params: Record<string, string | number> = {
+        page,
+        page_size: pageSize,
+      };
+      if (filters?.types && filters.types.length > 0) {
+        params.type_filter = filters.types.join(',');
+      }
+      if (filters?.actions && filters.actions.length > 0) {
+        params.action_filter = filters.actions.join(',');
+      }
 
-     const response = await this.client.get<TasksListResponse>(
-       `/clusters/${clusterId}/tasks`,
-       { params }
-     );
-     return response.data;
-   });
+      const response = await this.client.get(`/clusters/${clusterId}/tasks`, {
+        params,
+      });
+
+      // Normalize response: backend may return either the old TasksListResponse
+      // or the new paginated shape. Detect and normalize to a paginated envelope
+      const data = response.data as any;
+      if (Array.isArray(data.tasks) || data.tasks) {
+        // Legacy shape
+        const tasksResp = data as TasksListResponse;
+        return {
+          items: tasksResp.tasks || [],
+          total: (tasksResp.tasks || []).length,
+          page: 1,
+          page_size: (tasksResp.tasks || []).length,
+          total_pages: 1,
+          unique_types: tasksResp.unique_types,
+          unique_actions: tasksResp.unique_actions,
+          timestamp: tasksResp.timestamp,
+        } as any;
+      }
+
+      // Assume paginated shape
+      return data as PaginatedResponse<TaskInfo> & { unique_types?: string[]; unique_actions?: string[]; timestamp?: number };
+    });
   }
 
   /**

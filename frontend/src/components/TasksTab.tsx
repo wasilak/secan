@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Stack, Alert, Button, Group, Modal, Text, Grid, Table } from '@mantine/core';
+import { Stack, Alert, Button, Group, Modal, Text, Grid, Table, Card, Box } from '@mantine/core';
 import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { TaskInfo } from '../types/api';
+import { TablePagination } from './TablePagination';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useRefreshInterval } from '../contexts/RefreshContext';
 import { FilterSidebar } from './FacetedFilter';
@@ -13,6 +14,7 @@ import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import { TaskStatsCards } from './TaskStatsCards';
 import { apiClient } from '../api/client';
+import { useTablePagination } from '../hooks/useTablePagination';
 import { queryKeys } from '../utils/queryKeys';
 import TableSkeleton from './TableSkeleton';
 
@@ -73,29 +75,43 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
 
   // Fetch tasks with auto-refresh and server-side filtering
   const refreshInterval = useRefreshInterval();
+  // Pagination state for server-side paging
+  const { page: tasksPage, pageSize: tasksPerPage, setPage: setTasksPage, setPageSize: setTasksPerPage, getPaginationProps } = useTablePagination(1, 20);
+
   const {
     data: tasksResponse,
     isLoading,
     error,
   } = useQuery({
-    queryKey: queryKeys.cluster(clusterId!).tasks(filters ? JSON.stringify(filters) : undefined),
-    queryFn: () => apiClient.getTasks(clusterId, filters),
+    queryKey: queryKeys.cluster(clusterId!).tasks(
+      `${JSON.stringify(filters || {})}|p=${tasksPage}|ps=${tasksPerPage}`
+    ),
+    queryFn: () => apiClient.getTasks(clusterId, tasksPage, tasksPerPage, filters),
     enabled: isActive,
     refetchInterval: refreshInterval,
     placeholderData: (previousData) => previousData,
   });
 
-  // Memoize tasks to prevent dependency issues in other useMemo hooks
-  const tasks = useMemo(() => tasksResponse?.tasks || [], [tasksResponse?.tasks]);
-  const uniqueTypes = tasksResponse?.unique_types || [];
-  const uniqueActions = tasksResponse?.unique_actions || [];
+  // Normalize response
+  // Normalize response: support both legacy { tasks: [] } and paginated { items: [], total } shapes
+  const tasks = useMemo(() => {
+    const resp = tasksResponse as any;
+    if (!resp) return [] as TaskInfo[];
+    if (Array.isArray(resp.items)) return resp.items as TaskInfo[];
+    if (Array.isArray(resp.tasks)) return resp.tasks as TaskInfo[];
+    return [] as TaskInfo[];
+  }, [tasksResponse]);
+  const uniqueTypes = (tasksResponse as any)?.unique_types || (tasksResponse as any)?.uniqueTypes || [];
+  const uniqueActions = (tasksResponse as any)?.unique_actions || (tasksResponse as any)?.uniqueActions || [];
+  const totalTasks = (tasksResponse as any)?.total ?? (Array.isArray((tasksResponse as any)?.tasks) ? (tasksResponse as any).tasks.length : tasks.length);
+  const totalPages = (tasksResponse as any)?.total_pages ?? Math.max(1, Math.ceil(totalTasks / tasksPerPage));
 
   // Calculate stats from server data (memoized)
   const stats = useMemo(() => ({
     totalTasks: tasks.length,
-    runningTasks: tasks.filter(t => !t.cancelled).length,
-    cancellableTasks: tasks.filter(t => t.cancellable && !t.cancelled).length,
-    cancelledTasks: tasks.filter(t => t.cancelled).length,
+    runningTasks: tasks.filter((t: TaskInfo) => !t.cancelled).length,
+    cancellableTasks: tasks.filter((t: TaskInfo) => t.cancellable && !t.cancelled).length,
+    cancelledTasks: tasks.filter((t: TaskInfo) => t.cancelled).length,
   }), [tasks]);
 
   // Client-side sorting only (server handles filtering)
@@ -228,22 +244,22 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
       </Grid.Col>
       <Grid.Col span={12}>
         <Group gap="md" wrap="nowrap" align="flex-start">
-          <FilterSidebar
-            categories={[
-              {
-                title: 'Task Type',
-                options: uniqueTypes.map((type) => ({ label: type, value: type })),
-                selected: selectedTypes,
-                onChange: handleTypesChange,
-              },
-              {
-                title: 'Task Action',
-                options: uniqueActions.map((action) => ({ label: action, value: action })),
-                selected: selectedActions,
-                onChange: handleActionsChange,
-              },
-            ]}
-          />
+              <FilterSidebar
+                categories={[
+                  {
+                    title: 'Task Type',
+                options: uniqueTypes.map((type: string) => ({ label: type, value: type })),
+                    selected: selectedTypes,
+                    onChange: handleTypesChange,
+                  },
+                  {
+                    title: 'Task Action',
+                options: uniqueActions.map((action: string) => ({ label: action, value: action })),
+                    selected: selectedActions,
+                    onChange: handleActionsChange,
+                  },
+                ]}
+              />
           <Stack gap="lg" style={{ flex: 1 }}>
             {/* Error Alert */}
             {error && (
@@ -271,44 +287,49 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
               </Group>
             )}
 
-            {/* Table or skeleton while loading */}
-            <div style={{ position: 'relative' }}>
-              {isLoading ? (
-                <Table striped highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th style={{ width: '2.5rem' }} />
-                      <Table.Th>Node ID</Table.Th>
-                      <Table.Th>Task ID</Table.Th>
-                      <Table.Th>Type</Table.Th>
-                      <Table.Th>Action</Table.Th>
-                      <Table.Th>Start Time</Table.Th>
-                      <Table.Th>Running Time</Table.Th>
-                      <Table.Th>Cancellable</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <TableSkeleton columnCount={8} rowCount={6} />
-                </Table>
-              ) : sortedTasks.length === 0 ? (
-                <Text c="dimmed" ta="center" py="xl">
-                  No tasks match your filters
-                </Text>
-              ) : (
-                <TasksTable
-                  tasks={sortedTasks}
-                  sortBy={sortBy}
-                  sortOrder={sortOrder}
-                  onSort={handleSort}
-                  onRowClick={handleTaskClick}
-                  selectedTasks={selectedIndices}
-                  onToggleSelect={toggleSelection}
-                  onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
-                  onClearSelection={clearSelection}
-                  nodeNameMap={nodeNameMapComputed}
-                  openNodeModal={openNodeModal}
-                />
-              )}
-            </div>
+            {/* Table or skeleton while loading - wrapped in Card + native overflow Box
+                to match ShardsList pattern and avoid Mantine ScrollArea chrome. */}
+            <Card shadow="sm" padding="lg">
+              <Box className="table-overflow" style={{ width: '100%' }}>
+                {isLoading ? (
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th style={{ width: '2.5rem' }} />
+                        <Table.Th>Node ID</Table.Th>
+                        <Table.Th>Task ID</Table.Th>
+                        <Table.Th>Type</Table.Th>
+                        <Table.Th>Action</Table.Th>
+                        <Table.Th>Start Time</Table.Th>
+                        <Table.Th>Running Time</Table.Th>
+                        <Table.Th>Cancellable</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <TableSkeleton columnCount={8} rowCount={6} />
+                  </Table>
+                ) : sortedTasks.length === 0 ? (
+                  <Text c="dimmed" ta="center" py="xl">
+                    No tasks match your filters
+                  </Text>
+                ) : (
+                  <TasksTable
+                    tasks={sortedTasks}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    onSort={handleSort}
+                    onRowClick={handleTaskClick}
+                    selectedTasks={selectedIndices}
+                    onToggleSelect={toggleSelection}
+                    onSelectAll={(tasks) => selectAll(tasks.map(t => `${t.node}:${t.id}`))}
+                    onClearSelection={clearSelection}
+                    nodeNameMap={nodeNameMapComputed}
+                    openNodeModal={openNodeModal}
+                  />
+                )}
+              </Box>
+            </Card>
+            {/* Pagination controls - use full variant */}
+            <TablePagination {...getPaginationProps(totalTasks, totalPages)} />
 
             {/* Task Details Modal */}
             <TaskDetailsModal

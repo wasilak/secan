@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Title,
   Text,
@@ -9,12 +9,12 @@ import {
   Table,
   Modal,
   TextInput,
-  MultiSelect,
+  TagsInput,
   Textarea,
   Switch,
   ActionIcon,
   Badge,
-  ScrollArea,
+  Box,
 } from '@mantine/core';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -134,7 +134,7 @@ export function Aliases() {
               </Button>
             </Stack>
           ) : (
-            <ScrollArea>
+            <Box className="table-overflow">
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -207,7 +207,7 @@ export function Aliases() {
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea>
+            </Box>
           )}
         </Card>
 
@@ -241,11 +241,6 @@ function CreateAliasModal({ opened, onClose, clusterId, availableIndices }: Crea
     initialValues: {
       alias: '',
       indices: [],
-      filter: undefined,
-      routing: undefined,
-      indexRouting: undefined,
-      searchRouting: undefined,
-      isWriteIndex: false,
     },
     validate: {
       alias: (value: string) => {
@@ -262,6 +257,13 @@ function CreateAliasModal({ opened, onClose, clusterId, availableIndices }: Crea
       indices: (value: string[]) => (value.length === 0 ? 'At least one index is required' : null),
     },
   });
+
+  // Local state for index options so users can create custom patterns (e.g. my-index-*)
+  const [indexOptions, setIndexOptions] = useState<string[]>(availableIndices || []);
+
+  useEffect(() => {
+    setIndexOptions(availableIndices || []);
+  }, [availableIndices]);
 
   const createMutation = useMutation({
     mutationFn: (request: CreateAliasRequest) => {
@@ -310,49 +312,19 @@ function CreateAliasModal({ opened, onClose, clusterId, availableIndices }: Crea
             {...form.getInputProps('alias')}
           />
 
-          <MultiSelect
-            label="Indices"
-            placeholder="Select indices"
-            data={availableIndices}
-            searchable
-            required
-            {...form.getInputProps('indices')}
-          />
-
-          <Textarea
-            label="Filter (JSON)"
-            placeholder='{"term": {"user": "kimchy"}}'
-            description="Optional filter to apply to the alias"
-            minRows={3}
-            {...form.getInputProps('filter')}
-          />
-
-          <TextInput
-            label="Routing"
-            placeholder="1"
-            description="Optional routing value for both index and search operations"
-            {...form.getInputProps('routing')}
-          />
-
-          <TextInput
-            label="Index Routing"
-            placeholder="1"
-            description="Optional routing value for index operations only"
-            {...form.getInputProps('indexRouting')}
-          />
-
-          <TextInput
-            label="Search Routing"
-            placeholder="1,2"
-            description="Optional routing value for search operations only"
-            {...form.getInputProps('searchRouting')}
-          />
-
-          <Switch
-            label="Is Write Index"
-            description="Mark this as the write index for the alias"
-            {...form.getInputProps('isWriteIndex', { type: 'checkbox' })}
-          />
+          <div>
+            <TagsInput
+              label="Indices"
+              placeholder="Type or select indices (e.g. my-index-*)"
+              data={indexOptions}
+              value={form.values.indices}
+              onChange={(val: string[]) => form.setFieldValue('indices', val)}
+              maxTags={50}
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              Wildcards are supported (e.g. <Text component="span" c="blue">my-index-*</Text>). You can type custom patterns and press Enter to add them.
+            </Text>
+          </div>
 
           <Group justify="flex-end" mt="md">
             <Button variant="subtle" onClick={onClose}>

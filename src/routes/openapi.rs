@@ -81,7 +81,7 @@ use utoipa::OpenApi;
             crate::routes::topology::sankey::SankeyMetaResponse,
             // Task types
             crate::routes::clusters::tasks::TaskInfo,
-            crate::routes::clusters::tasks::TasksListResponse,
+            crate::routes::clusters::tasks::TasksPaginatedResponse,
             crate::routes::clusters::tasks::TaskDetailsResponse,
             crate::routes::clusters::tasks::CancelTaskResponse,
             crate::routes::clusters::tasks::TasksQueryParams,

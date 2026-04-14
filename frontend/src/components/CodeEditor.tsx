@@ -40,6 +40,10 @@ interface CodeEditorProps {
   className?: string;
   /** Additional Monaco editor options to override defaults */
   options?: Record<string, unknown>;
+  /** Optional onMount callback from monaco editor */
+  onMount?: (editor: unknown, monaco: unknown) => void;
+  /** Called when the editor loses focus */
+  onBlur?: () => void;
 }
 
 /**
@@ -80,6 +84,8 @@ interface CodeEditorProps {
 export function CodeEditor({
   value,
   onChange,
+  onMount,
+  onBlur,
   language = 'json',
   height = '400px',
   readOnly = false,
@@ -104,6 +110,27 @@ export function CodeEditor({
     ...MONACO_COMMON_OPTIONS,
     readOnly,
     ...options,
+  };
+
+  const [parseError, setParseError] = React.useState<string | null>(null);
+
+  // wrapped change handler performs lightweight JSON validation when appropriate
+  const handleChange = (v: string | undefined) => {
+    const text = v ?? '';
+    if (language === 'json') {
+      // try to parse only if non-empty (tolerate empty string as valid for editing)
+      if (!text || text.trim() === '') {
+        setParseError(null);
+      } else {
+        try {
+          JSON.parse(text);
+          setParseError(null);
+        } catch (err: any) {
+          setParseError(err?.message ?? 'Invalid JSON');
+        }
+      }
+    }
+    onChange?.(v);
   };
 
   return (
@@ -135,22 +162,39 @@ export function CodeEditor({
         </Group>
       )}
 
-      <Box
-        style={{
-          border: showBorder ? '1px solid var(--mantine-color-gray-4)' : 'none',
-          borderRadius: showBorder ? 'var(--mantine-radius-sm)' : 0,
-          overflow: 'hidden',
-        }}
-      >
-        <Editor
-          height={height}
-          language={language}
-          value={value}
-          onChange={onChange}
-          theme={isDark ? 'vs-dark' : 'light'}
-          options={editorOptions}
-        />
-      </Box>
+        <Box
+          style={{
+            border: showBorder ? '1px solid var(--mantine-color-gray-4)' : 'none',
+            borderRadius: showBorder ? 'var(--mantine-radius-sm)' : 0,
+            overflow: 'hidden',
+            width: '100%',
+            boxSizing: 'border-box',
+          }}
+        >
+          {/* wrapper ensures the monaco editor doesn't cause horizontal overflow */}
+          <Box style={{ width: '100%', overflowX: 'hidden' }}>
+            <Editor
+              height={height}
+              language={language}
+              value={value}
+              onChange={handleChange}
+              onMount={(editor: any, monaco: any) => {
+                // ensure layout after mount in modal contexts
+                try {
+                  onMount?.(editor, monaco);
+                } catch (_) {
+                  // ignore
+                }
+                // attach blur handler via editor API since @monaco-editor/react doesn't expose onBlur prop
+                if (onBlur && editor && typeof editor.onDidBlurEditorWidget === 'function') {
+                  editor.onDidBlurEditorWidget(() => onBlur());
+                }
+              }}
+              theme={isDark ? 'vs-dark' : 'light'}
+              options={editorOptions}
+            />
+          </Box>
+        </Box>
     </Stack>
   );
 }

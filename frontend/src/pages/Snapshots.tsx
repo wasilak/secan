@@ -13,7 +13,7 @@ import {
   Switch,
   ActionIcon,
   Badge,
-  ScrollArea,
+  Box,
   Progress,
   MultiSelect,
 } from '@mantine/core';
@@ -202,7 +202,7 @@ export function Snapshots() {
             </Button>
           </Stack>
         ) : (
-          <ScrollArea w="100%">
+          <Box className="table-overflow" style={{ width: '100%' }}>
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -303,7 +303,7 @@ export function Snapshots() {
                 ))}
               </Table.Tbody>
             </Table>
-          </ScrollArea>
+          </Box>
         )}
       </Card>
 

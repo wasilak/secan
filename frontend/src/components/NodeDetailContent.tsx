@@ -7,6 +7,7 @@ import {
   Grid,
   Table,
   Progress,
+  Box,
   ScrollArea,
   ThemeIcon,
   Anchor,
@@ -718,7 +719,7 @@ export function NodeDetailContent({
           </Text>
 
           {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
-            <ScrollArea w="100%">
+            <Box className="table-overflow" style={{ width: '100%' }}>
               <Table striped highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -737,7 +738,7 @@ export function NodeDetailContent({
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea>
+            </Box>
           ) : (
             <Text c="dimmed" ta="center" py="xl">
               No thread pool statistics available

@@ -13,6 +13,7 @@ import {
   Badge,
   TextInput,
   Accordion,
+  Box,
   ScrollArea,
 } from '@mantine/core';
 import ThemedPre from '../components/common/ThemedPre';
@@ -306,7 +307,7 @@ export function CatApiPage() {
               </Group>
 
               {/* Results Table */}
-              <ScrollArea w="100%">
+              <Box className="table-overflow" style={{ width: '100%' }}>
                 <Table striped highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>
@@ -347,7 +348,7 @@ export function CatApiPage() {
                     ))}
                   </Table.Tbody>
                 </Table>
-              </ScrollArea>
+              </Box>
 
               {filteredAndSortedData.length === 0 && filterText && (
                 <Alert icon={<IconAlertCircle size={16} />} color="blue" variant="light">

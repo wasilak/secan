@@ -167,7 +167,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     });
 
   return (
-    <Grid gutter="md" overflow="hidden" style={{ flex: 1, minHeight: 0, height: '100%' }}>
+    <Grid gutter="md" style={{ flex: 1, minHeight: 0, height: '100%' }}>
       {/* Stats Row */}
       <Grid.Col span={12}>
         <TopologyStatsCards
@@ -321,7 +321,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
           />
 
             {/* View Content */}
-          <Stack gap="md" style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+          <Stack gap="md" style={{ flex: 1, minHeight: 0, height: '100%' }}>
             {/* View type tabs (right column header row) */}
             <Group justify="space-between" align="flex-end">
               <Tabs

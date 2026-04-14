@@ -376,7 +376,7 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
         shadow="sm"
         p="xs"
       >
-        <ScrollArea style={{ width: '100%' }}>
+        <Box className="table-overflow" style={{ width: '100%' }}>
           <Table style={{ minWidth: 'max-content' }}>
               <Table.Thead>
                 <Table.Tr>
@@ -584,8 +584,8 @@ export function ShardAllocationGrid(props: ShardAllocationGridProps): ReactEleme
                   );
                 })}
               </Table.Tbody>
-            </Table>
-          </ScrollArea>
+          </Table>
+          </Box>
       </Card>
     </Stack>
   );

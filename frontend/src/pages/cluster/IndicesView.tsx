@@ -13,6 +13,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { FilterSidebar } from '../../components/FacetedFilter';
 import { IndicesList } from '../ClusterView';
 import { useClusterNavigation } from '../../hooks/useClusterNavigation';
+import { useTablePagination } from '../../hooks/useTablePagination';
 
 interface IndicesViewProps {
   clusterId: string;
@@ -94,7 +95,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
     setSearchParams(newParams, { replace: true });
   };
 
-  const [indicesPage, setIndicesPage] = useState(1);
+  const { page: indicesPage, pageSize: indicesPerPage, setPage: setIndicesPage, setPageSize: setIndicesPerPage, getPaginationProps: getIndicesPaginationProps } = useTablePagination(1, 20);
 
   const {
     data: indicesPaginated,
@@ -102,7 +103,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
     error: indicesError,
   } = useClusterIndices(clusterId, {
     page: indicesPage,
-    pageSize: 50,
+    pageSize: indicesPerPage,
     filters: {
       search: localIndicesSearch,
       health: selectedHealth,
@@ -160,7 +161,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
   };
 
   return (
-    <Grid gutter="md" overflow="hidden">
+    <Grid gutter="md">
       <Grid.Col span={12}>
         <IndexStatsCards
           stats={indexStats}
@@ -220,7 +221,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
             },
             ]}
           />
-          <Stack gap="md" style={{ flex: 1 }}>
+          <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
             <IndicesList
               indices={indices}
               indicesPaginated={indicesPaginated}
@@ -229,16 +230,8 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
               openIndexModal={openIndexModal}
               unassignedByIndexProp={unassignedByIndexForPage}
             />
-            {indicesPaginated && indicesPaginated.total_pages > 1 && (
-              <TablePagination
-                simple
-                currentPage={indicesPage}
-                totalPages={indicesPaginated.total_pages}
-                pageSize={50}
-                totalItems={indicesPaginated.total}
-                onPageChange={setIndicesPage}
-                onPageSizeChange={() => {}}
-              />
+            {indicesPaginated && indicesPaginated.total > 0 && (
+              <TablePagination {...getIndicesPaginationProps(indicesPaginated.total, Math.max(1, indicesPaginated.total_pages ?? 1))} />
             )}
           </Stack>
         </Group>

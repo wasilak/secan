@@ -87,14 +87,14 @@ export const FullWidthContainer = memo(function FullWidthContainer({
     if (constrainToParent) {
       return '100%';
     }
-    if (!isPinned && !consolePinned) {
-      return '100%';
-    }
-
-    // Subtract pinned drawer and/or pinned console widths from viewport
-    const leftDrawer = isPinned ? drawerWidth.base : 0;
-    const rightConsole = consolePinned ? consoleWidthPx : 0;
-    return `calc(100vw - ${leftDrawer}px - ${rightConsole}px)`;
+    // Use relative 100% width inside AppShell/Main so the shell's offsets
+    // (navbar/asides) control available space. Previously we used
+    // viewport-based calculations (eg. `calc(100vw - Xpx)`) which duplicated
+    // AppShell offsets and caused oversized content and absolute-positioned
+    // children to be positioned relative to the viewport. Keeping width as
+    // 100% makes the container behave like a normal block and is compatible
+    // with Mantine AppShell layout.
+    return '100%';
   }, [constrainToParent, isPinned, drawerWidth.base, consolePinned, consoleWidthPx]);
 
   // Memoize max width calculation
@@ -102,10 +102,8 @@ export const FullWidthContainer = memo(function FullWidthContainer({
     if (constrainToParent) {
       return '100%';
     }
-    if (!isPinned && !consolePinned) return '100%';
-    const leftDrawer = isPinned ? drawerWidth.base : 0;
-    const rightConsole = consolePinned ? consoleWidthPx : 0;
-    return `calc(100vw - ${leftDrawer}px - ${rightConsole}px)`;
+    // Mirror calculatedWidth semantics for maxWidth.
+    return '100%';
   }, [constrainToParent, isPinned, drawerWidth.base, consolePinned, consoleWidthPx]);
 
   // Memoize padding style
@@ -147,10 +145,12 @@ export const FullWidthContainer = memo(function FullWidthContainer({
       {...boxProps}
       className="fullwidth-container"
       data-console-pinned={consolePinned}
-      style={{ width: combinedStyle.width, maxWidth: combinedStyle.maxWidth, transition: combinedStyle.transition }}
+      // Use border-box so padding is included in width calculations and
+      // we don't cause horizontal overflow when parent adds padding.
+      style={{ width: combinedStyle.width, maxWidth: combinedStyle.maxWidth, transition: combinedStyle.transition, boxSizing: 'border-box' }}
       p={typeof resolvedPadding === 'object' ? resolvedPadding : undefined}
     >
-      <div className="fullwidth-container-inner" style={{ width: '100%', ...style, ...(typeof resolvedPadding === 'string' ? { padding: resolvedPadding } : {}) }}>
+      <div className="fullwidth-container-inner" style={{ width: '100%', boxSizing: 'border-box', ...style, ...(typeof resolvedPadding === 'string' ? { padding: resolvedPadding } : {}) }}>
         {children}
       </div>
     </Box>

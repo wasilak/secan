@@ -34,20 +34,14 @@ export function TablePagination({
 
   if (simple) {
     return (
-      <Group justify="space-between" mt="md" wrap="nowrap">
-        <div style={{ flex: 1 }} />
-
+      <Group justify="center" mt="md" wrap="nowrap">
         <Pagination total={totalPages} value={currentPage} onChange={onPageChange} size="sm" />
-
-        <Text size="sm" c="dimmed" style={{ minWidth: '120px', textAlign: 'right' }}>
-          {startItem}-{endItem} of {totalItems}
-        </Text>
       </Group>
     );
   }
 
   return (
-    <Group justify="space-between" mt="md" wrap="nowrap">
+    <Group justify="center" mt="md" wrap="nowrap" style={{ width: '100%' }}>
       <Group gap="xs">
         <Text size="sm" c="dimmed">
           Per page:

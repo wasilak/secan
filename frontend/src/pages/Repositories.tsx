@@ -14,7 +14,7 @@ import {
   Textarea,
   ActionIcon,
   Badge,
-  ScrollArea,
+  Box,
 } from '@mantine/core';
 import ThemedPre from '../components/common/ThemedPre';
 import { FullWidthContainer } from '../components/FullWidthContainer';
@@ -115,7 +115,7 @@ export function Repositories() {
             </Button>
           </Stack>
         ) : (
-          <ScrollArea>
+          <Box className="table-overflow">
             <Table striped highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
@@ -176,7 +176,7 @@ export function Repositories() {
                 ))}
               </Table.Tbody>
             </Table>
-          </ScrollArea>
+          </Box>
         )}
       </Card>
 
