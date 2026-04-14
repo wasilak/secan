@@ -401,39 +401,8 @@ export function NodeDetailContent({
         </Grid.Col>
       </Grid>
 
-      {/* Performance Metrics - Time Series Charts */}
-      <Card shadow="sm" padding="lg">
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Title order={3}>Performance Metrics</Title>
-              <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
-                {isPrometheus ? 'Prometheus' : 'Internal'}
-              </Badge>
-            </Group>
-            {isPrometheus && (
-              <TimeRangePicker
-                selectedTimeRange={selectedTimeRange}
-                onChange={setSelectedTimeRange}
-                opened={timeRangeDropdownOpened}
-                onOpenedChange={setTimeRangeDropdownOpened}
-              />
-            )}
-          </Group>
-          <NodeCharts
-            heapHistory={heapHistory}
-            diskHistory={diskHistory}
-            cpuHistory={cpuHistory}
-            loadHistory={loadHistory}
-            load5History={load5History}
-            load15History={load15History}
-            prometheusQueries={prometheusQueries}
-          />
-        </Stack>
-      </Card>
-
       {/* Data Node Section - Only show for data nodes */}
-      {nodeStats.roles?.includes('data') && (
+      {nodeStats.roles?.includes('data') && nodeStats.shards && (
         <Card shadow="sm" padding="lg">
           <Stack gap="md">
             <Group justify="space-between" align="center">
@@ -444,74 +413,67 @@ export function NodeDetailContent({
             </Group>
 
             {/* Shard Statistics Summary */}
-            {nodeStats.shards && (
-              <>
-                <Grid>
-                  <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Total Shards
-                        </Text>
-                        <Text size="xl" fw={700}>
-                          {nodeStats.shards.total}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Primary Shards
-                        </Text>
-                        <Text size="xl" fw={700} c="blue">
-                          {nodeStats.shards.primary}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Replica Shards
-                        </Text>
-                        <Text size="xl" fw={700} c="gray">
-                          {nodeStats.shards.replica}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                </Grid>
-
-                {/* Link to Shards Tab */}
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
                 <Card withBorder>
-                  <Group justify="space-between" align="center">
-                    <div>
-                      <Text size="sm" fw={500} mb={4}>
-                        View Allocated Shards
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        See all {nodeStats.shards.total} shards allocated to this node in the
-                        cluster shards view
-                      </Text>
-                    </div>
-                    <Anchor
-                      href={`/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        navigate(
-                          `/cluster/${clusterId}?tab=shards&nodeFilter=${encodeURIComponent(nodeStats.name)}`
-                        );
-                      }}
-                    >
-                      <IconExternalLink size={16} />
-                    </Anchor>
-                  </Group>
+                  <Stack gap="xs">
+                    <Text size="sm" c="dimmed">
+                      Total Shards
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      {nodeStats.shards.total}
+                    </Text>
+                  </Stack>
                 </Card>
-              </>
-            )}
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <Card withBorder>
+                  <Stack gap="xs">
+                    <Text size="sm" c="dimmed">
+                      Primary Shards
+                    </Text>
+                    <Text size="xl" fw={700} c="blue">
+                      {nodeStats.shards.primary}
+                    </Text>
+                  </Stack>
+                </Card>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <Card withBorder>
+                  <Stack gap="xs">
+                    <Text size="sm" c="dimmed">
+                      Replica Shards
+                    </Text>
+                    <Text size="xl" fw={700} c="gray">
+                      {nodeStats.shards.replica}
+                    </Text>
+                  </Stack>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            {/* Clickable Card linking to Shards Tab (uses node id as filter) */}
+            <Card
+              withBorder
+              style={{ cursor: 'pointer' }}
+              role="link"
+              tabIndex={0}
+              onClick={() => navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`); } }}
+            >
+              <Group justify="space-between" align="center">
+                <div>
+                  <Text size="sm" fw={500} mb={4}>
+                    View Allocated Shards
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    See all {nodeStats.shards.total} shards allocated to this node in the
+                    cluster shards view
+                  </Text>
+                </div>
+                <IconExternalLink size={16} />
+              </Group>
+            </Card>
 
             {/* Indexing Metrics */}
             {nodeStats.indexing && (
@@ -707,6 +669,37 @@ export function NodeDetailContent({
           </Stack>
         </Card>
       )}
+
+      {/* Performance Metrics - Time Series Charts */}
+      <Card shadow="sm" padding="lg">
+        <Stack gap="md">
+          <Group justify="space-between">
+            <Group gap="xs">
+              <Title order={3}>Performance Metrics</Title>
+              <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
+                {isPrometheus ? 'Prometheus' : 'Internal'}
+              </Badge>
+            </Group>
+            {isPrometheus && (
+              <TimeRangePicker
+                selectedTimeRange={selectedTimeRange}
+                onChange={setSelectedTimeRange}
+                opened={timeRangeDropdownOpened}
+                onOpenedChange={setTimeRangeDropdownOpened}
+              />
+            )}
+          </Group>
+          <NodeCharts
+            heapHistory={heapHistory}
+            diskHistory={diskHistory}
+            cpuHistory={cpuHistory}
+            loadHistory={loadHistory}
+            load5History={load5History}
+            load15History={load15History}
+            prometheusQueries={prometheusQueries}
+          />
+        </Stack>
+      </Card>
 
       {/* Thread Pool Statistics */}
       <Card shadow="sm" padding="lg">
