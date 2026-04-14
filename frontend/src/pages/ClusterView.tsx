@@ -20,6 +20,7 @@ import {
   Anchor,
   UnstyledButton,
   Box,
+  Tabs,
 } from '@mantine/core';
 import { CopyButton } from '../components/CopyButton';
 import { CodeEditor } from '../components/CodeEditor';
@@ -2998,7 +2999,13 @@ export const IndicesList = memo(function IndicesList({
 });
 
 /**
- * ShardDetailsModal component displays detailed shard information as JSON
+ * ShardDetailsModal component displays detailed shard information with tabs
+ *
+ * Features:
+ * - Tab 1: "Details" - Shard stats JSON with copy button
+ * - Tab 2: "Allocation Explain" - Only shown for unassigned shards, shows allocation explanation
+ *
+ * Requirements: 4.8
  */
 function ShardDetailsModal({
   shard,
@@ -3015,12 +3022,14 @@ function ShardDetailsModal({
 }) {
   const [detailedStats, setDetailedStats] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch detailed stats when modal opens
   useEffect(() => {
     if (opened && shard) {
       setLoading(true);
-      setDetailedStats(null); // Reset previous data
+      setDetailedStats(null);
+      setError(null);
 
       apiClient
         .getShardStats(clusterId, shard.index, shard.shard)
@@ -3029,6 +3038,7 @@ function ShardDetailsModal({
         })
         .catch((error) => {
           console.error('Failed to fetch shard stats:', error);
+          setError('Failed to fetch shard details');
           setDetailedStats(shard); // Fallback to basic shard info
         })
         .finally(() => {
@@ -3038,10 +3048,18 @@ function ShardDetailsModal({
       // Reset when modal closes
       setDetailedStats(null);
       setLoading(false);
+      setError(null);
     }
   }, [opened, shard, clusterId]);
 
   if (!shard) return null;
+
+  // Check if shard is unassigned and has allocation explain data
+  const isUnassigned = shard.state === 'UNASSIGNED';
+  const hasAllocationExplain =
+    detailedStats &&
+    typeof detailedStats === 'object' &&
+    'allocation_explain' in detailedStats;
 
   return (
     <Modal.Root opened={opened} onClose={onClose} size="90%" zIndex={zIndex}>
@@ -3096,16 +3114,49 @@ function ShardDetailsModal({
               <Skeleton height={20} radius="xs" />
               <Skeleton height={20} width="80%" radius="xs" />
             </Stack>
+          ) : error ? (
+            <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red">
+              {error}
+            </Alert>
           ) : (
-            <Box>
-              <CodeEditor
-                value={JSON.stringify(detailedStats || shard, null, 2)}
-                language="json"
-                height="600px"
-                readOnly
-                showCopyButton
-              />
-            </Box>
+            <Tabs defaultValue="details">
+              <Tabs.List>
+                <Tabs.Tab value="details">Details</Tabs.Tab>
+                {isUnassigned && hasAllocationExplain ? (
+                  <Tabs.Tab value="allocation">Allocation Explain</Tabs.Tab>
+                ) : null}
+              </Tabs.List>
+
+              <Tabs.Panel value="details" pt="md">
+                <Box>
+                  <CodeEditor
+                    value={JSON.stringify(detailedStats || shard, null, 2)}
+                    language="json"
+                    height="600px"
+                    readOnly
+                    showCopyButton
+                  />
+                </Box>
+              </Tabs.Panel>
+
+              {isUnassigned && hasAllocationExplain ? (
+                <Tabs.Panel value="allocation" pt="md">
+                  <Box>
+                    <CodeEditor
+                      value={JSON.stringify(
+                        (detailedStats as Record<string, unknown>)?.allocation_explain,
+                        null,
+                        2
+                      )}
+                      language="json"
+                      height="600px"
+                      readOnly
+                      showCopyButton
+                    />
+                  </Box>
+                </Tabs.Panel>
+              ) : null}
+            </Tabs>
           )}
         </Modal.Body>
       </Modal.Content>
