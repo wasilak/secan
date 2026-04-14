@@ -270,8 +270,7 @@ export function RestConsole() {
     setResponse('');
     setStatusCode(null);
     setExecutionTime(null);
-
-  }, []);
+  }, [setRequest, setResponse]);
 
   /**
    * Execute the REST request against the cluster
@@ -566,7 +565,13 @@ export function RestConsole() {
                     )}
                   </CopyButton>
 
-                  <Menu shadow="md" width={250}>
+                  <Menu
+                    shadow="md"
+                    width={250}
+                    position="bottom-end"
+                    zIndex={20000}
+                    withinPortal
+                  >
                     <Menu.Target>
                       <Button leftSection={<IconBook size={16} />} variant="light" size="sm">
                         Examples
@@ -576,7 +581,14 @@ export function RestConsole() {
                     <Menu.Dropdown>
                       <Menu.Label>Common Operations</Menu.Label>
                       {EXAMPLE_REQUESTS.map((example) => (
-                        <Menu.Item key={example.label} onClick={(e) => { e.stopPropagation(); loadExample(example.request); }}>
+                        <Menu.Item
+                          key={example.label}
+                          onClick={(e: React.MouseEvent) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            loadExample(example.request);
+                          }}
+                        >
                           {example.label}
                         </Menu.Item>
                       ))}

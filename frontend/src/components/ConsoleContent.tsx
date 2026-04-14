@@ -291,7 +291,7 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
         setStatusCode(null);
         setExecutionTime(null);
       },
-      [setRequest, setResponse]
+      [setRequest, setResponse, setStatusCode, setExecutionTime]
     );
 
     /**
@@ -609,7 +609,13 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
                       )}
                     </CopyButton>
 
-                    <Menu shadow="md" width={250} position="bottom-end">
+                    <Menu
+                      shadow="md"
+                      width={250}
+                      position="bottom-end"
+                      zIndex={20000}
+                      withinPortal
+                    >
                       <Menu.Target>
                         <Button leftSection={<IconBook size={14} />} variant="light" size="xs">
                           Examples
@@ -619,7 +625,14 @@ export const ConsoleContent = forwardRef<ConsoleContentHandle, ConsoleContentPro
                       <Menu.Dropdown>
                         <Menu.Label>Common Operations</Menu.Label>
                         {EXAMPLE_REQUESTS.map((example) => (
-                          <Menu.Item key={example.label} onClick={(e) => { e.stopPropagation(); loadExample(example.request); }}>
+                          <Menu.Item
+                            key={example.label}
+                            onClick={(e: React.MouseEvent) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              loadExample(example.request);
+                            }}
+                          >
                             {example.label}
                           </Menu.Item>
                         ))}
