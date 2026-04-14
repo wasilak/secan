@@ -1,14 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
-import { Stack, Alert, Button, Group, Modal, Text, Grid, Table } from '@mantine/core';
-import { IconAlertCircle, IconTrash } from '@tabler/icons-react';
+import { Stack, Alert, Button, Group, Modal, Text, Grid, Table, MultiSelect, TextInput, Card, Title } from '@mantine/core';
+import { IconAlertCircle, IconTrash, IconSearch } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useClusterNodes } from '../hooks/useClusterNodes';
 import { TaskInfo } from '../types/api';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { useRefreshInterval } from '../contexts/RefreshContext';
-import { FilterSidebar } from './FacetedFilter';
 import { TasksTable } from './TasksTable';
 import { TaskDetailsModal } from './TaskDetailsModal';
 import { TaskStatsCards } from './TaskStatsCards';
@@ -20,7 +19,7 @@ import TableSkeleton from './TableSkeleton';
  * Tasks tab container component
  *
  * Orchestrates all task management UI components:
- * - Filters for type and action
+ * - Filters for type, action, task ID, and cancellable
  * - Sortable table display
  * - Task details modal
  * - Task cancellation
@@ -62,6 +61,11 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
     searchParams.get('taskActions')?.split(',').filter(Boolean) || [], 
     [searchParams]
   );
+  const taskIdFilter = searchParams.get('taskId') || '';
+  const selectedCancellable = useMemo(() => 
+    searchParams.get('cancellable')?.split(',').filter(Boolean) || [], 
+    [searchParams]
+  );
   const sortBy = searchParams.get('taskSortBy') || null;
   const sortOrder = (searchParams.get('taskSortOrder') || 'none') as 'asc' | 'desc' | 'none';
 
@@ -69,7 +73,9 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
   const filters = useMemo(() => ({
     types: selectedTypes.length > 0 ? selectedTypes : undefined,
     actions: selectedActions.length > 0 ? selectedActions : undefined,
-  }), [selectedTypes, selectedActions]);
+    idFilter: taskIdFilter || undefined,
+    cancellable: selectedCancellable.length > 0 ? selectedCancellable : undefined,
+  }), [selectedTypes, selectedActions, taskIdFilter, selectedCancellable]);
 
   // Fetch tasks with auto-refresh and server-side filtering
   const refreshInterval = useRefreshInterval();
@@ -185,6 +191,26 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
     setSearchParams(params);
   }, [searchParams, setSearchParams]);
 
+  const handleTaskIdChange = useCallback((value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      params.set('taskId', value.trim());
+    } else {
+      params.delete('taskId');
+    }
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  const handleCancellableChange = useCallback((values: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    if (values.length > 0) {
+      params.set('cancellable', values.join(','));
+    } else {
+      params.delete('cancellable');
+    }
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
   // Handle task row click to open details
   const handleTaskClick = useCallback((task: TaskInfo) => {
     setSelectedTask(task);
@@ -208,7 +234,10 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
   }, [selectedIndices, clusterId, clearSelection]);
 
   // Detect if any filters are active
-  const hasActiveFilters = selectedTypes.length > 0 || selectedActions.length > 0;
+  const hasActiveFilters = selectedTypes.length > 0 || 
+    selectedActions.length > 0 || 
+    taskIdFilter.length > 0 || 
+    selectedCancellable.length > 0;
 
   // Only show "No tasks found" if there are truly no tasks AND no filters active
   if (!isLoading && !error && tasks.length === 0 && !hasActiveFilters) {
@@ -221,6 +250,12 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
     );
   }
 
+  // Options for cancellable filter
+  const cancellableOptions = [
+    { value: 'yes', label: 'Yes' },
+    { value: 'no', label: 'No' },
+  ];
+
   return (
     <Grid gutter="md" p="md" overflow="hidden">
       <Grid.Col span={12}>
@@ -228,22 +263,57 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
       </Grid.Col>
       <Grid.Col span={12}>
         <Group gap="md" wrap="nowrap" align="flex-start">
-          <FilterSidebar
-            categories={[
-              {
-                title: 'Task Type',
-                options: uniqueTypes.map((type) => ({ label: type, value: type })),
-                selected: selectedTypes,
-                onChange: handleTypesChange,
-              },
-              {
-                title: 'Task Action',
-                options: uniqueActions.map((action) => ({ label: action, value: action })),
-                selected: selectedActions,
-                onChange: handleActionsChange,
-              },
-            ]}
-          />
+          {/* Filter Sidebar */}
+          <Card withBorder shadow="sm" p="md" style={{ width: '280px', flexShrink: 0 }}>
+            <Stack gap="md">
+              <Title order={5}>Filters</Title>
+              
+              {/* Task ID Filter */}
+              <TextInput
+                label="Task ID"
+                placeholder="Search task ID..."
+                value={taskIdFilter}
+                onChange={(e) => handleTaskIdChange(e.currentTarget.value)}
+                leftSection={<IconSearch size={16} />}
+              />
+
+              {/* Task Type Filter */}
+              <MultiSelect
+                label="Task Type"
+                placeholder="Select types..."
+                data={uniqueTypes.map((type) => ({ value: type, label: type }))}
+                value={selectedTypes}
+                onChange={handleTypesChange}
+                clearable
+                searchable
+                nothingFoundMessage="No types found"
+              />
+
+              {/* Task Action Filter */}
+              <MultiSelect
+                label="Task Action"
+                placeholder="Select actions..."
+                data={uniqueActions.map((action) => ({ value: action, label: action }))}
+                value={selectedActions}
+                onChange={handleActionsChange}
+                clearable
+                searchable
+                nothingFoundMessage="No actions found"
+              />
+
+              {/* Cancellable Filter */}
+              <MultiSelect
+                label="Cancellable"
+                placeholder="Select..."
+                data={cancellableOptions}
+                value={selectedCancellable}
+                onChange={handleCancellableChange}
+                clearable
+                nothingFoundMessage="No options found"
+              />
+            </Stack>
+          </Card>
+
           <Stack gap="lg" style={{ flex: 1 }}>
             {/* Error Alert */}
             {error && (

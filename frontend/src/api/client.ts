@@ -2039,6 +2039,8 @@ export class ApiClient {
    filters?: {
      types?: string[];
      actions?: string[];
+     idFilter?: string;
+     cancellable?: string[];
    }
   ): Promise<TasksListResponse> {
    return this.executeWithRetry(async () => {
@@ -2048,6 +2050,12 @@ export class ApiClient {
      }
      if (filters?.actions && filters.actions.length > 0) {
        params.action_filter = filters.actions.join(',');
+     }
+     if (filters?.idFilter) {
+       params.id_filter = filters.idFilter;
+     }
+     if (filters?.cancellable && filters.cancellable.length > 0) {
+       params.cancellable_filter = filters.cancellable.join(',');
      }
 
      const response = await this.client.get<TasksListResponse>(

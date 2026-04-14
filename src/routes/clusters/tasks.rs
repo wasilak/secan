@@ -101,6 +101,14 @@ pub struct TasksQueryParams {
     #[param(example = "cluster:monitor/tasks/lists")]
     #[serde(default)]
     pub action_filter: Option<String>,
+    /// Task ID filter (partial match)
+    #[param(example = "12345")]
+    #[serde(default)]
+    pub id_filter: Option<String>,
+    /// Comma-separated list of cancellable options ("yes" or "no")
+    #[param(example = "yes,no")]
+    #[serde(default)]
+    pub cancellable_filter: Option<String>,
 }
 
 /// Transform raw Elasticsearch tasks response to TaskInfo
@@ -169,24 +177,50 @@ fn apply_filters(
     tasks: Vec<TaskInfo>,
     type_filter: Option<&str>,
     action_filter: Option<&str>,
+    id_filter: Option<&str>,
+    cancellable_filter: Option<&str>,
 ) -> Vec<TaskInfo> {
     let allowed_types: Option<HashSet<&str>> = type_filter.map(|f| f.split(',').collect());
     let allowed_actions: Option<HashSet<&str>> = action_filter.map(|f| f.split(',').collect());
+    let id_filter_str = id_filter.map(|f| f.to_lowercase());
+    let allowed_cancellable: Option<HashSet<&str>> =
+        cancellable_filter.map(|f| f.split(',').collect());
 
     tasks
         .into_iter()
         .filter(|task| {
+            // Type filter
             let type_matches = allowed_types
                 .as_ref()
                 .map(|types| types.contains(task.task_type.as_str()))
                 .unwrap_or(true);
 
+            // Action filter
             let action_matches = allowed_actions
                 .as_ref()
                 .map(|actions| actions.contains(task.action.as_str()))
                 .unwrap_or(true);
 
-            type_matches && action_matches
+            // ID filter (partial match on task ID as string)
+            let id_matches = id_filter_str
+                .as_ref()
+                .map(|id| task.id.to_string().to_lowercase().contains(id))
+                .unwrap_or(true);
+
+            // Cancellable filter
+            let cancellable_matches = allowed_cancellable
+                .as_ref()
+                .map(|opts| {
+                    let is_cancellable = task.cancellable;
+                    opts.iter().any(|opt| match *opt {
+                        "yes" => is_cancellable,
+                        "no" => !is_cancellable,
+                        _ => true,
+                    })
+                })
+                .unwrap_or(true);
+
+            type_matches && action_matches && id_matches && cancellable_matches
         })
         .collect()
 }
@@ -352,6 +386,8 @@ pub async fn fetch_cluster_tasks(
         tasks,
         params.type_filter.as_deref(),
         params.action_filter.as_deref(),
+        params.id_filter.as_deref(),
+        params.cancellable_filter.as_deref(),
     );
 
     let timestamp = std::time::SystemTime::now()
@@ -996,12 +1032,18 @@ mod tests {
         ];
 
         // Test type filter only
-        let filtered = apply_filters(tasks.clone(), Some("transport"), None);
+        let filtered = apply_filters(tasks.clone(), Some("transport"), None, None, None);
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, 1);
 
         // Test action filter only
-        let filtered = apply_filters(tasks.clone(), None, Some("indices:data/read/search"));
+        let filtered = apply_filters(
+            tasks.clone(),
+            None,
+            Some("indices:data/read/search"),
+            None,
+            None,
+        );
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, 2);
 
@@ -1010,12 +1052,14 @@ mod tests {
             tasks.clone(),
             Some("transport"),
             Some("cluster:monitor/tasks/lists"),
+            None,
+            None,
         );
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].id, 1);
 
         // Test no match
-        let filtered = apply_filters(tasks, Some("nonexistent"), None);
+        let filtered = apply_filters(tasks, Some("nonexistent"), None, None, None);
         assert_eq!(filtered.len(), 0);
     }
 }
