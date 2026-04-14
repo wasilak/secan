@@ -390,6 +390,7 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
                 setCancelError(null);
               }}
               clusterId={clusterId}
+              openNodeModal={openNodeModal}
             />
 
             {/* Bulk Cancel Confirmation Modal */}

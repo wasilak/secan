@@ -193,7 +193,7 @@ export const TasksTable = React.memo(function TasksTable({
               )}
             </Table.Td>
             <Table.Td>
-              <Badge size="sm">{task.type}</Badge>
+              <Badge size="sm" style={{ textTransform: 'none' }}>{task.type}</Badge>
             </Table.Td>
             <Table.Td>
               <Tooltip label={task.action}>
@@ -206,7 +206,8 @@ export const TasksTable = React.memo(function TasksTable({
               <Text size="sm">{formatTimestamp(task.start_time_in_millis)}</Text>
             </Table.Td>
             <Table.Td>
-              <Text size="sm">{formatUptime(task.running_time_millis || 0)}</Text>
+              {/* Compute running time: prefer server-provided running_time_millis, otherwise compute from start_time */}
+              <Text size="sm">{formatUptime(task.running_time_millis ?? (Date.now() - task.start_time_in_millis))}</Text>
             </Table.Td>
             <Table.Td>
               <Badge

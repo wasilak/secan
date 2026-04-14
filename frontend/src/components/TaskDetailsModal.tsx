@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Stack, Text, Group, Badge, Loader, Alert, Tabs } from '@mantine/core';
+import { Stack, Text, Group, Badge, Loader, Alert, Table, Button } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ManagedModalRoot } from './ManagedModalRoot';
 import { Modal } from '@mantine/core';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../utils/queryKeys';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
@@ -24,6 +26,7 @@ interface TaskDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   clusterId: string;
+  openNodeModal?: (nodeId: string) => void;
 }
 
 function formatUptime(millis: number): string {
@@ -49,11 +52,15 @@ export function TaskDetailsModal({
   isOpen,
   onClose,
   clusterId,
+  openNodeModal,
 }: TaskDetailsModalProps): React.ReactElement | null {
   // Hooks must be called unconditionally
   const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // allow null return when no task is provided (handled after hooks)
 
@@ -137,98 +144,98 @@ export function TaskDetailsModal({
                     </Alert>
                   )}
 
-                  {/* Basic Info */}
+                  {/* Basic Info as table for clarity */}
                   <div>
                     <Text fw={500} mb="sm">
                       Basic Information
                     </Text>
-                    <Stack gap="xs">
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Task ID:
-                        </Text>
-                        <Text size="sm" fw={500}>
-                          {task.id}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Node:
-                        </Text>
-                        <Text size="sm" fw={500}>
-                          {task.node}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Type:
-                        </Text>
-                        <Badge>{task.type}</Badge>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Action:
-                        </Text>
-                        <Text size="sm" fw={500}>
-                          {task.action}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Start Time:
-                        </Text>
-                        <Text size="sm" fw={500}>
-                          {formatTimestamp(task.start_time_in_millis)}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Running Time:
-                        </Text>
-                        <Text size="sm" fw={500}>
-                          {formatUptime(runningTime)}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Cancellable:
-                        </Text>
-                        <Badge color={task.cancellable ? 'green' : 'gray'}>
-                          {task.cancellable ? 'Yes' : 'No'}
-                        </Badge>
-                      </Group>
-                      {task.parent_task_id && (
-                        <Group justify="space-between">
-                          <Text size="sm" c="dimmed">
-                            Parent Task:
-                          </Text>
-                          <Text size="sm" fw={500}>
-                            {task.parent_task_id}
-                          </Text>
-                        </Group>
-                      )}
-                    </Stack>
+                    <Table verticalSpacing="xs">
+                      <tbody>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Task ID:</td>
+                          <td><Text size="sm" fw={500}>{task.id}</Text></td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Node:</td>
+                          <td>
+                            <Button variant="subtle" size="xs" onClick={() => openNodeModal?.(task.node)}>
+                              {task.node}
+                            </Button>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Type:</td>
+                          <td><Badge style={{ textTransform: 'none' }}>{task.type}</Badge></td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Action:</td>
+                          <td><Text size="sm" fw={500}>{task.action}</Text></td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Start Time:</td>
+                          <td><Text size="sm" fw={500}>{formatTimestamp(task.start_time_in_millis)}</Text></td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Running Time:</td>
+                          <td><Text size="sm" fw={500}>{formatUptime(runningTime)}</Text></td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: 'var(--mantine-color-dimmed)' }}>Cancellable:</td>
+                          <td><Badge color={task.cancellable ? 'green' : 'gray'}>{task.cancellable ? 'Yes' : 'No'}</Badge></td>
+                        </tr>
+                        {task.parent_task_id && (
+                          <tr>
+                            <td style={{ color: 'var(--mantine-color-dimmed)' }}>Parent Task:</td>
+                            <td><Text size="sm" fw={500}>{task.parent_task_id}</Text></td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </Table>
+                    {/* Cancel action */}
+                    {task.cancellable && !task.cancelled && (
+                      <div style={{ marginTop: '0.5rem' }}>
+                        {cancelError && <Alert icon={<IconAlertCircle size={16} />} color="red">{cancelError}</Alert>}
+                        <Button color="red" size="sm" onClick={async () => {
+                          // simple confirm
+                          if (!confirm('Cancel this task?')) return;
+                          try {
+                            setIsCancelling(true);
+                            setCancelError(null);
+                            const taskId = `${task.node}:${task.id}`;
+                            await apiClient.cancelTask(clusterId, taskId);
+                            // refresh task details and tasks list
+                            const resp = await apiClient.getTaskDetails(clusterId, taskId);
+                            setTaskDetails(resp.task);
+                            // invalidate tasks list queries for this cluster
+                            queryClient.invalidateQueries({ predicate: (query) => {
+                              const k = query.queryKey;
+                              return Array.isArray(k) && k[0] === 'cluster' && k[1] === clusterId && k[2] === 'tasks';
+                            }});
+                          } catch (err) {
+                            const message = err instanceof Error ? err.message : 'Failed to cancel task';
+                            setCancelError(message);
+                          } finally {
+                            setIsCancelling(false);
+                          }
+                        }} loading={isCancelling}>
+                          Cancel Task
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Details Tab */}
+                  {/* JSON details (single view) */}
                   {isLoading ? (
                     <Group justify="center" py="xl">
                       <Loader />
                     </Group>
                   ) : taskDetails ? (
-                    <Tabs defaultValue="json">
-                      <Tabs.List>
-                        <Tabs.Tab value="json">JSON</Tabs.Tab>
-                      </Tabs.List>
-                      <Tabs.Panel value="json">
-                        <JsonViewer
-                          data={taskDetails.raw || taskDetails}
-                          title="Task JSON"
-                          height={500}
-                          showCopyButton={true}
-                        />
-                      </Tabs.Panel>
-                    </Tabs>
+                    <JsonViewer
+                      data={taskDetails.raw || taskDetails}
+                      title="Task JSON"
+                      height={500}
+                      showCopyButton={true}
+                    />
                   ) : null}
                 </Stack>
               </motion.div>
