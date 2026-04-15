@@ -9,10 +9,10 @@ import {
   Progress,
   ScrollArea,
   ThemeIcon,
-  Anchor,
   Title,
 } from '@mantine/core';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useClusterNavigation } from '../hooks/useClusterNavigation';
 import { useState, useMemo } from 'react';
 import {
   IconBrandElastic,
@@ -87,6 +87,8 @@ export function NodeDetailContent({
 }: NodeDetailContentProps): React.JSX.Element {
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { navigateToSection, closeModal } = useClusterNavigation();
   
   // Use external state if provided (when used inside NodeModal), otherwise use internal state
   const [internalDropdownOpened, setInternalDropdownOpened] = useState(false);
@@ -453,14 +455,36 @@ export function NodeDetailContent({
             </Grid>
 
             {/* Clickable Card linking to Shards Tab (uses node id as filter) */}
-            <Card
-              withBorder
-              style={{ cursor: 'pointer' }}
-              role="link"
-              tabIndex={0}
-              onClick={() => navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`); } }}
-            >
+              <Card
+               withBorder
+               style={{ cursor: 'pointer' }}
+               role="link"
+               tabIndex={0}
+               onClick={() => {
+                 // Set nodeFilter search param and navigate to Shards section.
+                 const params = new URLSearchParams(searchParams);
+                 params.set('nodeFilter', nodeStats.id);
+                 // Remove modal params so modal closes when navigating to shards
+                 params.delete('nodeModal');
+                 params.delete('indexModal');
+                 params.delete('indexTab');
+                 params.delete('shardModal');
+                 setSearchParams(params, { replace: false });
+                 navigateToSection('shards');
+               }}
+               onKeyDown={(e) => {
+                 if (e.key === 'Enter' || e.key === ' ') {
+                   const params = new URLSearchParams(searchParams);
+                   params.set('nodeFilter', nodeStats.id);
+                   params.delete('nodeModal');
+                   params.delete('indexModal');
+                   params.delete('indexTab');
+                   params.delete('shardModal');
+                   setSearchParams(params, { replace: false });
+                   navigateToSection('shards');
+                 }
+               }}
+             >
               <Group justify="space-between" align="center">
                 <div>
                   <Text size="sm" fw={500} mb={4}>
