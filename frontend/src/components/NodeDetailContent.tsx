@@ -488,7 +488,20 @@ export function NodeDetailContent({
                   }
                 }}
               >
-                <Group justify="space-between" align="center" onClick={(e) => { e.stopPropagation(); const params = new URLSearchParams(searchParams); params.set('nodeFilter', nodeStats.id); params.delete('nodeModal'); params.delete('indexModal'); params.delete('indexTab'); params.delete('shardModal'); setSearchParams(params, { replace: false }); navigateToSection('shards'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); const params = new URLSearchParams(searchParams); params.set('nodeFilter', nodeStats.id); params.delete('nodeModal'); params.delete('indexModal'); params.delete('indexTab'); params.delete('shardModal'); setSearchParams(params, { replace: false }); navigateToSection('shards'); } }}>
+                <Group
+                  justify="space-between"
+                  align="center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
+                    }
+                  }}
+                >
                   <div>
                     <Text size="sm" fw={500} mb={4}>
                       View Allocated Shards
