@@ -45,6 +45,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { showSuccessNotification, showErrorNotification, showSpecialNotification } from '../utils/notifications';
+import { getErrorMessage } from '../lib/errorHandling';
 import { queryKeys } from '../utils/queryKeys';
 import { apiClient } from '../api/client';
 // useDebounce is no longer used directly in ClusterView after view extraction
@@ -65,6 +66,7 @@ import { IndexEdit } from './IndexEdit';
 import { IndexCreate } from './IndexCreate';
 import { RestConsole } from './RestConsole';
 import { NodeModal } from '../components/NodeModal';
+import ModalRefreshButton from '../components/ModalRefreshButton';
 import { TasksView } from './cluster/TasksView';
 import { ShardTypeBadge } from '../components/ShardTypeBadge';
 // ShardsTable is used in IndexEdit modal; ClusterView does not need direct import
@@ -320,6 +322,7 @@ export function ClusterView() {
   // Index modal state
   const [indexModalOpen, setIndexModalOpen] = useState(false);
   const [selectedIndexName, setSelectedIndexName] = useState<string | null>(null);
+  const [isIndexRefreshing, setIsIndexRefreshing] = useState(false);
 
   // Modal stack for layered modals
   const { modalStack, pushModal, popModal } = useModalStack();
@@ -346,6 +349,24 @@ export function ClusterView() {
       popModal();
     } else {
       closeModal();
+    }
+  };
+
+  const handleRefreshIndex = async () => {
+    if (!id || !selectedIndexName) return;
+    if (isIndexRefreshing) return;
+    setIsIndexRefreshing(true);
+    try {
+      // Refetch index-specific queries (settings, mappings, stats)
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.cluster(id).index(selectedIndexName).settings(), exact: true }),
+        queryClient.refetchQueries({ queryKey: queryKeys.cluster(id).index(selectedIndexName).mappings(), exact: true }),
+        queryClient.refetchQueries({ queryKey: queryKeys.cluster(id).index(selectedIndexName).stats(), exact: true }),
+      ]);
+    } catch (err) {
+      showErrorNotification({ title: 'Refresh failed', message: getErrorMessage(err) });
+    } finally {
+      setIsIndexRefreshing(false);
     }
   };
 
@@ -1342,19 +1363,22 @@ export function ClusterView() {
               maxWidth: '100%',
             }}
           >
-            <Modal.Header>
-              <Modal.Title>
-                <Group gap="xs">
-                  <Text size="lg" fw={600}>
-                    Index Details:
-                  </Text>
-                  <Badge size="lg" variant="light" color="blue" style={{ textTransform: 'none' }}>
-                    {selectedIndexName}
-                  </Badge>
-                </Group>
-              </Modal.Title>
-              <Modal.CloseButton />
-            </Modal.Header>
+              <Modal.Header>
+                <Modal.Title>
+                  <Group gap="xs">
+                    <Text size="lg" fw={600}>
+                      Index Details:
+                    </Text>
+                    <Badge size="lg" variant="light" color="blue" style={{ textTransform: 'none' }}>
+                      {selectedIndexName}
+                    </Badge>
+                  </Group>
+                </Modal.Title>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <ModalRefreshButton onRefresh={handleRefreshIndex} loading={isIndexRefreshing} tooltip="Refresh index details" />
+                  <Modal.CloseButton />
+                </div>
+              </Modal.Header>
             <Modal.Body
               style={{
                 maxHeight: 'calc(100vh - 120px)',
@@ -3023,6 +3047,7 @@ function ShardDetailsModal({
   const [detailedStats, setDetailedStats] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch detailed stats when modal opens
   useEffect(() => {
@@ -3052,6 +3077,20 @@ function ShardDetailsModal({
     }
   }, [opened, shard, clusterId]);
 
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      if (!clusterId || !shard) return;
+      const stats = await apiClient.getShardStats(clusterId, shard.index, shard.shard);
+      setDetailedStats(stats);
+    } catch (err) {
+      showErrorNotification({ title: 'Refresh failed', message: getErrorMessage(err) });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!shard) return null;
 
   // Check if shard is unassigned and has allocation explain data
@@ -3069,7 +3108,7 @@ function ShardDetailsModal({
           maxWidth: '100%',
         }}
       >
-        <Modal.Header>
+          <Modal.Header>
           <Modal.Title>
             <Group gap="xs">
               <Text size="lg" fw={600}>
@@ -3092,9 +3131,12 @@ function ShardDetailsModal({
                 {shard.primary ? 'Primary' : 'Replica'}
               </Badge>
             </Group>
-          </Modal.Title>
-          <Modal.CloseButton />
-        </Modal.Header>
+            </Modal.Title>
+           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+             <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh shard details" />
+             <Modal.CloseButton />
+           </div>
+         </Modal.Header>
         <Modal.Body
           style={{
             maxHeight: 'calc(100vh - 120px)',
@@ -3257,7 +3299,6 @@ export const ShardsList = memo(function ShardsList({
 
   // Get filters from URL
   const searchQuery = searchParams.get('shardsSearch') || '';
-  const nodeFilter = searchParams.get('nodeFilter') || '';
   const selectedStates = searchParams.get('shardStates')?.split(',').filter(Boolean) || [
     'STARTED',
     'INITIALIZING',
