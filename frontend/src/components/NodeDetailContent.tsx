@@ -455,49 +455,52 @@ export function NodeDetailContent({
             </Grid>
 
             {/* Clickable Card linking to Shards Tab (uses node id as filter) */}
+              {
+                // Move navigation logic into a single function so we can attach it
+                // to multiple clickable elements and ensure the handler is present
+                // even if some wrapper intercepts events.
+              }
               <Card
-               withBorder
-               style={{ cursor: 'pointer' }}
-               role="link"
-               tabIndex={0}
-               onClick={() => {
-                 // Set nodeFilter search param and navigate to Shards section.
-                 const params = new URLSearchParams(searchParams);
-                 params.set('nodeFilter', nodeStats.id);
-                 // Remove modal params so modal closes when navigating to shards
-                 params.delete('nodeModal');
-                 params.delete('indexModal');
-                 params.delete('indexTab');
-                 params.delete('shardModal');
-                 setSearchParams(params, { replace: false });
-                 navigateToSection('shards');
-               }}
-               onKeyDown={(e) => {
-                 if (e.key === 'Enter' || e.key === ' ') {
-                   const params = new URLSearchParams(searchParams);
-                   params.set('nodeFilter', nodeStats.id);
-                   params.delete('nodeModal');
-                   params.delete('indexModal');
-                   params.delete('indexTab');
-                   params.delete('shardModal');
-                   setSearchParams(params, { replace: false });
-                   navigateToSection('shards');
-                 }
-               }}
-             >
-              <Group justify="space-between" align="center">
-                <div>
-                  <Text size="sm" fw={500} mb={4}>
-                    View Allocated Shards
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    See all {nodeStats.shards.total} shards allocated to this node in the
-                    cluster shards view
-                  </Text>
-                </div>
-                <IconExternalLink size={16} />
-              </Group>
-            </Card>
+                withBorder
+                style={{ cursor: 'pointer' }}
+                role="link"
+                tabIndex={0}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('nodeFilter', nodeStats.id);
+                  params.delete('nodeModal');
+                  params.delete('indexModal');
+                  params.delete('indexTab');
+                  params.delete('shardModal');
+                  setSearchParams(params, { replace: false });
+                  navigateToSection('shards');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    const params = new URLSearchParams(searchParams);
+                    params.set('nodeFilter', nodeStats.id);
+                    params.delete('nodeModal');
+                    params.delete('indexModal');
+                    params.delete('indexTab');
+                    params.delete('shardModal');
+                    setSearchParams(params, { replace: false });
+                    navigateToSection('shards');
+                  }
+                }}
+              >
+                <Group justify="space-between" align="center" onClick={(e) => { e.stopPropagation(); const params = new URLSearchParams(searchParams); params.set('nodeFilter', nodeStats.id); params.delete('nodeModal'); params.delete('indexModal'); params.delete('indexTab'); params.delete('shardModal'); setSearchParams(params, { replace: false }); navigateToSection('shards'); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); const params = new URLSearchParams(searchParams); params.set('nodeFilter', nodeStats.id); params.delete('nodeModal'); params.delete('indexModal'); params.delete('indexTab'); params.delete('shardModal'); setSearchParams(params, { replace: false }); navigateToSection('shards'); } }}>
+                  <div>
+                    <Text size="sm" fw={500} mb={4}>
+                      View Allocated Shards
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      See all {nodeStats.shards.total} shards allocated to this node in the
+                      cluster shards view
+                    </Text>
+                  </div>
+                  <IconExternalLink size={16} />
+                </Group>
+              </Card>
 
             {/* Indexing Metrics */}
             {nodeStats.indexing && (
