@@ -327,6 +327,22 @@ export function ClusterView() {
   // Modal stack for layered modals
   const { modalStack, pushModal, popModal } = useModalStack();
 
+  // Keep modal stack in sync with URL-driven modal params. If the top modal
+  // is a node modal but the URL no longer contains the corresponding nodeModal
+  // param (for example when clicking a link that removes the param), pop the
+  // stacked modal so the UI closes correctly.
+  useEffect(() => {
+    const top = modalStack.length > 0 ? modalStack[modalStack.length - 1] : null;
+    const nodeParam = searchParams.get('nodeModal');
+    if (top && top.type === 'node') {
+      // If URL nodeModal doesn't match the top modal's nodeId, close the top modal
+      if (!nodeParam || nodeParam !== top.nodeId) {
+        popModal();
+      }
+    }
+    // Only react when modalStack or nodeModal param changes
+  }, [modalStack, searchParams, popModal]);
+
   // Open index modal when URL path changes
   useEffect(() => {
     if (indexNameFromPath) {
