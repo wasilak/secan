@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ManagedModalRoot } from './ManagedModalRoot';
 import { Modal } from '@mantine/core';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../utils/queryKeys';
 import { TaskInfo, TaskDetails } from '../types/api';
 import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
 import { formatTimestamp } from '../utils/formatters';
 import { DURATIONS, EASINGS } from '../lib/transitions';
 import ModalRefreshButton from './ModalRefreshButton';
+import { showErrorNotification } from '../utils/notifications';
+import { getErrorMessage } from '../lib/errorHandling';
 
 /**
  * Task details modal component
@@ -142,8 +143,10 @@ export function TaskDetailsModal({
           >
             <Modal.Header>
               <Modal.Title>Task Details: {task.id}</Modal.Title>
-              <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh task details" />
-              <Modal.CloseButton />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh task details" />
+                <Modal.CloseButton />
+              </div>
             </Modal.Header>
 
             <Modal.Body

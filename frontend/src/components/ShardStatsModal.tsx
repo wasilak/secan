@@ -4,6 +4,8 @@ import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ManagedModalRoot } from './ManagedModalRoot';
 import ModalRefreshButton from './ModalRefreshButton';
+import { showErrorNotification } from '../utils/notifications';
+import { getErrorMessage } from '../lib/errorHandling';
 import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
 import { DURATIONS, EASINGS } from '../lib/transitions';
@@ -18,11 +20,7 @@ interface ShardStatsModalProps {
   opened: boolean;
   onClose: () => void;
   clusterId?: string;
-  /**
-   * If true, this modal is layered above another modal
-   * When layered, uses higher z-index (300) vs normal (200)
-   */
-  isLayered?: boolean;
+  isLayered?: boolean; // kept for compatibility, not used
 }
 
 /**
@@ -38,8 +36,10 @@ export function ShardStatsModal({
   opened,
   onClose,
   clusterId,
-  isLayered = false,
 }: ShardStatsModalProps): React.JSX.Element {
+  // isLayered prop intentionally unused; kept in props for backward compatibility
+  // Local refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [detailedStats, setDetailedStats] = useState<DetailedShardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,8 +209,6 @@ export function ShardStatsModal({
     return <></>;
   }
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
   const handleRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
@@ -249,8 +247,10 @@ export function ShardStatsModal({
                   </Badge>
                 </Group>
               </Modal.Title>
-              <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh shard details" />
-              <Modal.CloseButton />
+               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                 <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh shard details" />
+                 <Modal.CloseButton />
+               </div>
             </Modal.Header>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -464,7 +464,8 @@ export function ShardStatsModal({
         )}
             </Stack>
             </motion.div>
-        </ManagedModal>
+            </Modal.Content>
+        </ManagedModalRoot>
       )}
     </AnimatePresence>
   );

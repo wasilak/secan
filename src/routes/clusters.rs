@@ -2376,6 +2376,7 @@ pub async fn get_shard_stats(
 }
 
 /// Fetch shard routing information from cluster state for unassigned shards
+#[allow(clippy::too_many_arguments)]
 async fn fetch_shard_from_cluster_state(
     cluster_manager: &crate::cluster::Manager,
     cluster_id: &str,
@@ -2511,6 +2512,7 @@ async fn fetch_shard_from_cluster_state(
 }
 
 /// Fetch allocation explain for an unassigned shard
+#[allow(clippy::too_many_arguments)]
 async fn fetch_allocation_explain(
     cluster_manager: &crate::cluster::Manager,
     cluster_id: &str,

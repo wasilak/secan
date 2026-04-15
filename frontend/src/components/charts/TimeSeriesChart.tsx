@@ -145,6 +145,12 @@ export function TimeSeriesChart({
     );
   };
 
+  // Estimate left margin based on formatted Y tick width so labels don't get clipped.
+  // We use a simple character-width heuristic because we can't measure DOM here.
+  const sampleTick = tickFormatter ? tickFormatter(yMax) : String(yMax);
+  const estimatedLabelWidth = Math.min(160, Math.max(28, sampleTick.length * 8 + 12));
+  const leftMargin = yLabel ? Math.max(estimatedLabelWidth + 16, 60) : Math.max(estimatedLabelWidth, 35);
+
   return (
     <Card shadow="sm" padding="lg">
       <Stack gap="xs">
@@ -160,7 +166,7 @@ export function TimeSeriesChart({
             <ResponsiveLine
               data={nivoData}
               theme={nivoTheme}
-              margin={{ top: 10, right: 10, left: yLabel ? 50 : 35, bottom: 50 }}
+              margin={{ top: 10, right: 10, left: leftMargin, bottom: 50 }}
               xScale={{ type: 'time', format: 'native', useUTC: false, precision: 'minute' }}
               yScale={{ type: 'linear', min: yMin, max: yMax }}
               axisBottom={{

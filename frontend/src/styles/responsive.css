@@ -461,6 +461,24 @@ html[data-secan-color-scheme="dark"] .clickable-row:hover td {
   }
 }
 
+/* Themed code block used to render Prometheus queries in charts.
+   Allow long query strings to wrap so they don't overflow or get clipped
+   inside modal headers or narrow containers. Keep monospace font and
+   a subtle background similar to code blocks. */
+.secan-code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Helvetica Neue', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 6px 8px;
+  background: var(--secan-code-bg, rgba(0,0,0,0.04));
+  color: var(--secan-code-fg, inherit);
+  border-radius: 4px;
+  white-space: pre-wrap; /* allow wrapping */
+  overflow-wrap: anywhere; /* break long tokens if needed */
+  word-break: break-word;
+  margin: 0; /* reset pre default margin */
+}
+
 /* Make horizontal scrollbars more visible and provide a persistent visual hint
    so users notice there is overflow to the right. This uses vendor scrollbar
    styling where available and a subtle gradient overlay as an extra hint.

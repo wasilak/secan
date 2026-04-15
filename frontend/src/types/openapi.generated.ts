@@ -1102,7 +1102,10 @@ export interface components {
             heap_max_bytes?: number | null;
             /** Format: int64 */
             heap_used_bytes?: number | null;
-            /** Format: double - Heap usage as a percentage (0-100), calculated as (heap_used_bytes / heap_max_bytes) * 100 */
+            /**
+             * Format: double
+             * @description Heap usage as a percentage (0-100), calculated as (heap_used_bytes / heap_max_bytes) * 100
+             */
             heap_used_percent?: number | null;
             /** Format: double */
             load_average_15m?: number | null;
@@ -1533,6 +1536,10 @@ export interface components {
         TasksQueryParams: {
             /** @description Comma-separated list of task actions to filter */
             action_filter?: string | null;
+            /** @description Comma-separated list of cancellable options ("yes" or "no") */
+            cancellable_filter?: string | null;
+            /** @description Task ID filter (partial match) */
+            id_filter?: string | null;
             /** @description Comma-separated list of task types to filter */
             type_filter?: string | null;
         };
@@ -1938,7 +1945,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Shard stats */
+            /** @description Shard stats with optional allocation explain */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2429,6 +2436,16 @@ export interface operations {
                  * @example cluster:monitor/tasks/lists
                  */
                 action_filter: string | null;
+                /**
+                 * @description Task ID filter (partial match)
+                 * @example 12345
+                 */
+                id_filter: string | null;
+                /**
+                 * @description Comma-separated list of cancellable options ("yes" or "no")
+                 * @example yes,no
+                 */
+                cancellable_filter: string | null;
             };
             cookie?: never;
         };

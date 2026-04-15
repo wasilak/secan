@@ -25,7 +25,7 @@ function NodeMultiSelect({
   clusterId: string;
   searchParams: URLSearchParams;
   // keep loose type to match useSearchParams setter signature
-  setSearchParams: (p: URLSearchParams, opts?: any) => void;
+  setSearchParams: ReturnType<typeof useSearchParams>[1];
 }) {
   const { data: nodesPaginated } = useClusterNodes(clusterId, {
     page: 1,
@@ -169,7 +169,7 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
     queryKey: queryKeys.cluster(clusterId).shards(shardsPage, shardsFilters),
     queryFn: async () => {
       // If multiple nodes selected, fetch per-node and merge results client-side
-      const nodeParam = (shardsFilters as any).node as string | undefined;
+      const nodeParam = shardsFilters.node || undefined;
       const nodes = nodeParam ? nodeParam.split(',').map((s) => s.trim()).filter(Boolean) : [];
 
       if (nodes.length <= 1) {
@@ -188,9 +188,9 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
         const collected: ShardInfo[] = [];
         let page = 1;
         try {
-          while (collected.length < perNodeMaxItems) {
+            while (collected.length < perNodeMaxItems) {
             const resp = await apiClient.getShards(clusterId, page, perNodePageSize, { ...shardsFilters, node: nodeId });
-            const items: ShardInfo[] = (resp as any).items ?? [];
+            const items: ShardInfo[] = (resp as PaginatedResponse<ShardInfo>).items ?? [];
             if (items.length > 0) collected.push(...items);
             // Stop when fewer than page size returned (last page) or no items
             if (items.length < perNodePageSize) break;
@@ -199,7 +199,6 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
         } catch (e) {
           // Swallow errors per-node so a single failing node doesn't break the whole view
           // The error will surface via the overall query error state if needed.
-          // eslint-disable-next-line no-console
           console.warn(`Failed fetching shards for node ${nodeId}:`, e);
         }
         return collected;
