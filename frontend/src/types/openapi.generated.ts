@@ -1102,6 +1102,8 @@ export interface components {
             heap_max_bytes?: number | null;
             /** Format: int64 */
             heap_used_bytes?: number | null;
+            /** Format: double - Heap usage as a percentage (0-100), calculated as (heap_used_bytes / heap_max_bytes) * 100 */
+            heap_used_percent?: number | null;
             /** Format: double */
             load_average_15m?: number | null;
             /** Format: double */

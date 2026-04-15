@@ -531,6 +531,9 @@ pub struct NodeMetricsPoint {
     pub load_average_5m: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub load_average_15m: Option<f64>,
+    /// Heap usage as a percentage (0-100), calculated as (heap_used_bytes / heap_max_bytes) * 100
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub heap_used_percent: Option<f64>,
 }
 
 /// Node metrics history response
@@ -681,6 +684,16 @@ pub async fn get_node_metrics(
             )
         })?;
 
+    /// Normalizes a percent value that may be expressed as a fraction (0-1) or percentage (0-100).
+    /// Returns a value in the 0-100 range.
+    fn normalize_percent(value: f64) -> f64 {
+        if value > 0.0 && value <= 1.0 {
+            value * 100.0
+        } else {
+            value.clamp(0.0, 100.0)
+        }
+    }
+
     // Build query strings with node name filter AND cluster labels from config
     // Use OS-level metrics which are more accurate
     // Combine node name with cluster labels for precise filtering
@@ -711,6 +724,7 @@ pub async fn get_node_metrics(
         all_labels
     );
     let disk_size_query = format!("elasticsearch_filesystem_data_size_bytes{{{}}}", all_labels);
+    let heap_max_query = format!("elasticsearch_jvm_memory_max_bytes{{{}}}", all_labels);
 
     // Calculate optimal step size based on time range to avoid too many data points
     let step = time_range.recommended_step();
@@ -726,15 +740,18 @@ pub async fn get_node_metrics(
         prom_client.query_range(&disk_avail_query, time_range.start, time_range.end, step);
     let disk_size_fut =
         prom_client.query_range(&disk_size_query, time_range.start, time_range.end, step);
+    let heap_max_fut =
+        prom_client.query_range(&heap_max_query, time_range.start, time_range.end, step);
 
-    let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size) = tokio::join!(
+    let (heap_used, cpu, load1, load5, load15, disk_avail, disk_size, heap_max) = tokio::join!(
         heap_used_fut,
         cpu_fut,
         load1_fut,
         load5_fut,
         load15_fut,
         disk_avail_fut,
-        disk_size_fut
+        disk_size_fut,
+        heap_max_fut
     );
 
     // Helper to extract values from time series
@@ -754,6 +771,7 @@ pub async fn get_node_metrics(
     };
 
     let heap_values = extract_values(heap_used, 0);
+    let heap_max_values = extract_values(heap_max, 0);
     let cpu_values = extract_values(cpu, 0);
     let load1_values = extract_values(load1, 0);
     let load5_values = extract_values(load5, 0);
@@ -776,7 +794,23 @@ pub async fn get_node_metrics(
             .iter()
             .find(|(t, _)| *t == ts)
             .map(|(_, v)| *v as u64);
-        let cpu = cpu_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
+        let heap_max = heap_max_values
+            .iter()
+            .find(|(t, _)| *t == ts)
+            .map(|(_, v)| *v as u64);
+        // Calculate heap_used_percent from actual heap_max (not approximation)
+        let heap_used_percent = match (heap_used, heap_max) {
+            (Some(used), Some(max)) if max > 0 => {
+                let pct = (used as f64 / max as f64) * 100.0;
+                Some(pct.clamp(0.0, 100.0))
+            }
+            _ => None,
+        };
+        // Normalize cpu_percent - handles both fraction (0-1) and percent (0-100) inputs
+        let cpu = cpu_values
+            .iter()
+            .find(|(t, _)| *t == ts)
+            .map(|(_, v)| normalize_percent(*v));
         let load1 = load1_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
         let load5 = load5_values.iter().find(|(t, _)| *t == ts).map(|(_, v)| *v);
         let load15 = load15_values
@@ -802,7 +836,8 @@ pub async fn get_node_metrics(
                 .unwrap_or_else(chrono::Utc::now)
                 .to_rfc3339(),
             heap_used_bytes: heap_used,
-            heap_max_bytes: heap_used, // Approximate - could be enhanced with separate max query
+            heap_max_bytes: heap_max, // Now actual value from Prometheus
+            heap_used_percent,
             cpu_percent: cpu,
             disk_used_percent,
             load_average_1m: load1,
@@ -813,6 +848,7 @@ pub async fn get_node_metrics(
 
     let prometheus_queries = serde_json::json!({
         "heap": heap_query,
+        "heap_max": heap_max_query,
         "disk": disk_avail_query,
         "cpu": cpu_query,
         "load1": load1_query,
@@ -1126,4 +1162,37 @@ mod tests {
     // MetricsErrorResponse tests removed; ClusterErrorResponse is used for
     // metrics validation errors. See routes::clusters tests for ClusterErrorResponse
     // serialization/deserialization checks.
+
+    #[test]
+    fn test_normalize_percent_fraction() {
+        // Fractions should be converted to percent
+        assert_eq!(normalize_percent(0.5), 50.0);
+        assert_eq!(normalize_percent(0.0032), 0.32);
+        assert_eq!(normalize_percent(1.0), 100.0);
+    }
+
+    #[test]
+    fn test_normalize_percent_already_percent() {
+        // Percent values should remain unchanged
+        assert_eq!(normalize_percent(50.0), 50.0);
+        assert_eq!(normalize_percent(100.0), 100.0);
+        assert_eq!(normalize_percent(0.0), 0.0);
+    }
+
+    #[test]
+    fn test_normalize_percent_clamping() {
+        // Values outside 0-100 should be clamped
+        assert_eq!(normalize_percent(150.0), 100.0);
+        assert_eq!(normalize_percent(-10.0), 0.0);
+    }
+
+    /// Normalizes a percent value that may be expressed as a fraction (0-1) or percentage (0-100).
+    /// Returns a value in the 0-100 range.
+    fn normalize_percent(value: f64) -> f64 {
+        if value > 0.0 && value <= 1.0 {
+            value * 100.0
+        } else {
+            value.clamp(0.0, 100.0)
+        }
+    }
 }

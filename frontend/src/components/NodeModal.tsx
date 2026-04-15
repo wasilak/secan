@@ -117,17 +117,18 @@ export function NodeModal({
   const prometheusMetricsData = React.useMemo(() => {
     if (!isPrometheus || !nodeMetrics) return undefined;
     return {
+      // Backend now normalizes all percent values to 0-100 range
       heapHistory: nodeMetrics.data.map(d => ({
         timestamp: d.timestamp * 1000,
-        value: d.heap_used_bytes || 0,
+        value: d.heap_used_percent ?? 0,
       })),
       cpuHistory: nodeMetrics.data.map(d => ({
         timestamp: d.timestamp * 1000,
-        value: d.cpu_percent || 0,
+        value: d.cpu_percent ?? 0,
       })),
       diskHistory: nodeMetrics.data.map(d => ({
         timestamp: d.timestamp * 1000,
-        value: d.disk_used_percent || 0,
+        value: d.disk_used_percent ?? 0,
       })),
       loadHistory: nodeMetrics.data.map(d => ({
         timestamp: d.timestamp * 1000,
@@ -180,8 +181,10 @@ export function NodeModal({
                     </Text>
                   </Group>
                 </Modal.Title>
-                <ModalRefreshButton onRefresh={refetchNodeStats} loading={isFetching} tooltip="Refresh node data" />
-                <Modal.CloseButton />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <ModalRefreshButton onRefresh={refetchNodeStats} loading={isFetching} tooltip="Refresh node data" />
+                  <Modal.CloseButton />
+                </div>
               </Modal.Header>
               <Modal.Body>
                 {isLoading && <NodeDetailSkeleton />}
