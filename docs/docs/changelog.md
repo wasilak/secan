@@ -174,7 +174,7 @@ No breaking changes. Simply pull the latest code and restart:
 
 ```bash
 git pull origin main
-just dev
+task dev
 ```
 
 New preference fields will be automatically initialized with default values.

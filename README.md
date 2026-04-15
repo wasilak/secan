@@ -48,18 +48,18 @@ Complete documentation including installation, configuration, deployment, and de
 
 - Rust 1.70+ (for backend)
 - Node.js 18+ (for frontend and documentation)
-- Just command runner (optional, but recommended)
+- Task command runner (optional, but recommended)
 
 ### Quick Start
 
 ```bash
 # View available build tasks
-just --list
+task --list
 
 # Common development tasks
-just dev              # Run development servers (backend + frontend)
-just test             # Run all tests
-just lint             # Run all linters
+task dev              # Run development servers (backend + frontend)
+task test             # Run all tests
+task lint             # Run all linters
 ```
 
 ### Documentation
@@ -68,16 +68,16 @@ The documentation is built with [Docusaurus](https://docusaurus.io/):
 
 ```bash
 # Development server (serves at http://localhost:3000/secan/)
-just docs-dev
+task docs-dev
 
 # Build documentation
-just docs-build
+task docs-build
 
 # Build complete documentation (Docusaurus + Rust API docs)
-just docs-build-complete
+task docs-build-complete
 
 # Preview production build
-just docs-preview
+task docs-preview
 ```
 
 ### Contributing
@@ -87,14 +87,14 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
-4. Run tests and linters (`just test && just lint`)
+4. Run tests and linters (`task test && task lint`)
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
 
 For documentation changes:
 - Documentation source files are in `docs/docs/`
-- Run `just docs-dev` to preview changes locally
+- Run `task docs-dev` to preview changes locally
 - Ensure all links work and images display correctly
 
 ## License

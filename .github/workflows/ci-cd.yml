@@ -44,22 +44,17 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Install Task
+      - name: Setup Task
         uses: go-task/setup-task@v1
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci --include=dev
-
       - name: Build frontend (required for rust-embed)
-        working-directory: frontend
-        run: npm run build
+        run: task frontend:build
 
       - name: Run backend tests
         run: task backend:test
 
       - name: Generate OpenAPI spec
-        run: cargo test --lib -- --nocapture 2>&1 | grep -E "OpenAPI spec written" || true
+        run: task openapi:generate
 
       - name: Validate OpenAPI spec
         run: |
@@ -176,7 +171,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-cargo-build-
 
-      - name: Setup Just
+      - name: Setup Task
         uses: go-task/setup-task@v1
 
       - name: Setup Node.js
@@ -187,8 +182,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend (required for rust-embed)
-        working-directory: frontend
-        run: npm ci && npm run build
+        run: task frontend:build
 
       - name: Install cross (for cross-compilation)
         if: matrix.use_cross
