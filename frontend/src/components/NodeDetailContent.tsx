@@ -88,7 +88,7 @@ export function NodeDetailContent({
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { navigateToSection, closeModal, currentSection } = useClusterNavigation();
+  const { navigateToSection, currentSection } = useClusterNavigation();
   
   // Use external state if provided (when used inside NodeModal), otherwise use internal state
   const [internalDropdownOpened, setInternalDropdownOpened] = useState(false);
@@ -507,7 +507,7 @@ export function NodeDetailContent({
                         setSearchParams(params, { replace: false });
                         return;
                       }
-                    } catch (err) {
+                    } catch {
                       // Fallback to absolute navigation below
                     }
 
@@ -528,7 +528,7 @@ export function NodeDetailContent({
                           setSearchParams(params, { replace: false });
                           return;
                         }
-                      } catch (err) {
+                      } catch {
                         // Fallback
                       }
 
