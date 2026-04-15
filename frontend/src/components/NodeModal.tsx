@@ -16,6 +16,7 @@ import type { NodeDetailStats, NodeMetricsHistoryResponse } from '../types/api';
 import type { ClusterInfo } from '../types/api';
 import { useState } from 'react';
 import React from 'react';
+import ModalRefreshButton from './ModalRefreshButton';
 
 /**
  * Color utilities for shard display consistency (Requirements 7.1, 7.2, 7.3, 7.4, 7.5, 9.4)
@@ -87,6 +88,8 @@ export function NodeModal({
     data: nodeStats,
     isLoading,
     error,
+    isFetching,
+    refetch: refetchNodeStats,
   } = useQuery<NodeDetailStats>({
     queryKey: queryKeys.cluster(clusterId!).node(nodeId!).stats(),
     queryFn: () => apiClient.getNodeStats(clusterId, nodeId!),
@@ -177,6 +180,7 @@ export function NodeModal({
                     </Text>
                   </Group>
                 </Modal.Title>
+                <ModalRefreshButton onRefresh={refetchNodeStats} loading={isFetching} tooltip="Refresh node data" />
                 <Modal.CloseButton />
               </Modal.Header>
               <Modal.Body>

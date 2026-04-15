@@ -11,6 +11,7 @@ import { apiClient } from '../api/client';
 import { JsonViewer } from './JsonViewer';
 import { formatTimestamp } from '../utils/formatters';
 import { DURATIONS, EASINGS } from '../lib/transitions';
+import ModalRefreshButton from './ModalRefreshButton';
 
 /**
  * Task details modal component
@@ -57,6 +58,7 @@ export function TaskDetailsModal({
   // Hooks must be called unconditionally
   const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -109,6 +111,25 @@ export function TaskDetailsModal({
 
   const runningTime = Date.now() - task.start_time_in_millis;
 
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await (async () => {
+        // Reuse fetchDetails logic by calling API directly
+        const currentTask = task;
+        const taskId = `${currentTask.node}:${currentTask.id}`;
+        const response = await apiClient.getTaskDetails(clusterId, taskId);
+        setTaskDetails(response.task);
+      })();
+      // Per requirement: do not show success notification
+    } catch (err) {
+      showErrorNotification({ title: 'Refresh failed', message: getErrorMessage(err) });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -121,6 +142,7 @@ export function TaskDetailsModal({
           >
             <Modal.Header>
               <Modal.Title>Task Details: {task.id}</Modal.Title>
+              <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh task details" />
               <Modal.CloseButton />
             </Modal.Header>
 

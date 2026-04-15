@@ -695,21 +695,29 @@ export class ApiClient {
     }
   ): Promise<PaginatedShardsWithNodes | PaginatedResponse<ShardInfo>> {
     return this.executeWithRetry(async () => {
+      // Build query string manually so we can append multiple `node` params
+      // when a comma-separated list is provided. This ensures the backend
+      // receives repeated node parameters (node=id1&node=id2) which are
+      // interpreted as OR across nodes.
+      const params = new URLSearchParams();
+      params.append('page', String(page));
+      params.append('page_size', String(pageSize));
+      params.append('hide_special', String(filters?.hide_special ?? false));
+      params.append('show_primaries', String(filters?.show_primaries ?? true));
+      params.append('show_replicas', String(filters?.show_replicas ?? true));
+      if (filters?.state) params.append('state', filters.state);
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.index) params.append('index', filters.index);
+      if (filters?.node) {
+        // Accept comma-separated node ids and send them as a single comma-separated
+        // 'node' parameter (node=id1,id2). The backend expects a single param
+        // containing comma-separated ids.
+        const nodes = String(filters.node).split(',').map((s) => s.trim()).filter(Boolean);
+        if (nodes.length > 0) params.append('node', nodes.join(','));
+      }
+
       const response = await this.client.get<PaginatedResponse<ShardInfo>>(
-        `/clusters/${clusterId}/shards`,
-        {
-          params: {
-            page,
-            page_size: pageSize,
-            hide_special: filters?.hide_special ?? false,
-            show_primaries: filters?.show_primaries ?? true,
-            show_replicas: filters?.show_replicas ?? true,
-            state: filters?.state || '',
-            search: filters?.search || '',
-            index: filters?.index || '',
-            node: filters?.node || '',
-          },
-        }
+        `/clusters/${clusterId}/shards?${params.toString()}`
       );
       // The backend may return the combined PaginatedShardsWithNodes shape for
       // the Index Visualization flow. If so, preserve and return it; otherwise

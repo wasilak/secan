@@ -3279,15 +3279,8 @@ export const ShardsList = memo(function ShardsList({
     | 'size';
   const shardsSortDirection = (searchParams.get('shardsSortDir') || 'asc') as 'asc' | 'desc';
 
-  // Initialize search with nodeFilter if present
-  useEffect(() => {
-    if (nodeFilter && !searchQuery) {
-      const params = new URLSearchParams(searchParams);
-      params.set('shardsSearch', nodeFilter);
-      params.delete('nodeFilter'); // Remove nodeFilter after applying it
-      setSearchParams(params, { replace: true });
-    }
-  }, [nodeFilter, searchQuery, searchParams, setSearchParams]);
+  // Previously we consumed nodeFilter into shardsSearch here. Keep nodeFilter
+  // available so dedicated shards view can read it and show a node filter control.
 
   // Responsive default page size
   const defaultPageSize = useResponsivePageSize();

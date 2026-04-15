@@ -1,8 +1,9 @@
-import { Stack, Group, Text, Badge, Table, Box, Loader, Alert } from '@mantine/core';
+import { Stack, Group, Text, Badge, Table, Box, Loader, Alert, Modal } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ManagedModal } from './ManagedModal';
+import { ManagedModalRoot } from './ManagedModalRoot';
+import ModalRefreshButton from './ModalRefreshButton';
 import type { ShardInfo, DetailedShardStats } from '../types/api';
 import { apiClient } from '../api/client';
 import { DURATIONS, EASINGS } from '../lib/transitions';
@@ -208,36 +209,59 @@ export function ShardStatsModal({
     return <></>;
   }
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      if (!clusterId || !shard) return;
+      const stats = await apiClient.getShardStats(clusterId, shard.index, shard.shard);
+      const parsedStats: DetailedShardStats = {
+        ...shard,
+        segments: extractSegmentCount(stats),
+        merges: extractMergeCount(stats),
+        refreshes: extractRefreshCount(stats),
+        flushes: extractFlushCount(stats),
+      };
+      setDetailedStats(parsedStats);
+    } catch (err) {
+      showErrorNotification({ title: 'Refresh failed', message: getErrorMessage(err) });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <AnimatePresence>
       {opened && (
-        <ManagedModal
-          opened={opened}
-          onClose={onClose}
-          zIndex={isLayered ? 300 : 200}
-          title={
-            <Group gap="sm">
-              <Text fw={600} size="lg">
-                Shard Details
-              </Text>
-              <Badge color={getShardTypeColor(shard.primary)} variant="light">
-                {getShardTypeLabel(shard.primary)}
-              </Badge>
-            </Group>
-          }
-          size="lg"
-          centered
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{
-              duration: DURATIONS.slow,
-              ease: EASINGS.default,
-            }}
-          >
-            <Stack gap="md">
+        <ManagedModalRoot opened={opened} onClose={onClose}>
+          <Modal.Overlay />
+          <Modal.Content style={{ maxWidth: '100%' }}>
+            <Modal.Header>
+              <Modal.Title>
+                <Group gap="sm">
+                  <Text fw={600} size="lg">
+                    Shard Details
+                  </Text>
+                  <Badge color={getShardTypeColor(shard.primary)} variant="light">
+                    {getShardTypeLabel(shard.primary)}
+                  </Badge>
+                </Group>
+              </Modal.Title>
+              <ModalRefreshButton onRefresh={handleRefresh} loading={isRefreshing} tooltip="Refresh shard details" />
+              <Modal.CloseButton />
+            </Modal.Header>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{
+                duration: DURATIONS.slow,
+                ease: EASINGS.default,
+              }}
+            >
+              <Stack gap="md">
         {/* Basic shard information - Requirements: 4.6 */}
         <Box>
           <Text size="sm" fw={600} mb="xs">
