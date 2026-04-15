@@ -88,7 +88,7 @@ export function NodeDetailContent({
   const { id: clusterId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { navigateToSection, closeModal } = useClusterNavigation();
+  const { navigateToSection, closeModal, currentSection } = useClusterNavigation();
   
   // Use external state if provided (when used inside NodeModal), otherwise use internal state
   const [internalDropdownOpened, setInternalDropdownOpened] = useState(false);
@@ -493,11 +493,45 @@ export function NodeDetailContent({
                   align="center"
                   onClick={(e) => {
                     e.stopPropagation();
+                    // If we're already on the shards section, update search params to
+                    // set nodeFilter and remove modal params so the modal closes.
+                    try {
+                      const section = currentSection ? currentSection() : undefined;
+                      if (section === 'shards') {
+                        const params = new URLSearchParams(searchParams);
+                        params.set('nodeFilter', nodeStats.id);
+                        params.delete('nodeModal');
+                        params.delete('indexModal');
+                        params.delete('indexTab');
+                        params.delete('shardModal');
+                        setSearchParams(params, { replace: false });
+                        return;
+                      }
+                    } catch (err) {
+                      // Fallback to absolute navigation below
+                    }
+
                     navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.stopPropagation();
+                      try {
+                        const section = currentSection ? currentSection() : undefined;
+                        if (section === 'shards') {
+                          const params = new URLSearchParams(searchParams);
+                          params.set('nodeFilter', nodeStats.id);
+                          params.delete('nodeModal');
+                          params.delete('indexModal');
+                          params.delete('indexTab');
+                          params.delete('shardModal');
+                          setSearchParams(params, { replace: false });
+                          return;
+                        }
+                      } catch (err) {
+                        // Fallback
+                      }
+
                       navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
                     }
                   }}
