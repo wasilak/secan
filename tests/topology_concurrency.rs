@@ -25,9 +25,11 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
 
     // Prepare caches and semaphores as in server wiring
     let cache_ttl = Duration::from_secs(30);
-    let details_cache = Arc::new(secan::cache::MetadataCache::<serde_json::Value>::new(
-        cache_ttl,
-    ));
+    let details_cache = Arc::new(
+        moka::future::Cache::<String, serde_json::Value>::builder()
+            .time_to_live(cache_ttl)
+            .build(),
+    );
     let details_semaphore = Arc::new(tokio::sync::Semaphore::new(6));
 
     let tile_cache = Arc::new(

@@ -655,7 +655,9 @@ impl Manager {
         Ok(Self {
             clusters: Arc::new(RwLock::new(clusters)),
             rbac: None,
-            health_cache: MetadataCache::new(cache_duration),
+            health_cache: moka::future::Cache::builder()
+                .time_to_live(cache_duration)
+                .build(),
         })
     }
 

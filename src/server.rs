@@ -1,5 +1,4 @@
 use crate::auth::SessionManager;
-use crate::cache::MetadataCache;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use crate::telemetry::axum_middleware::OtelTraceLayer;
@@ -198,7 +197,11 @@ impl Server {
         // Create cluster state for cluster routes
         // Initialize details cache and concurrency semaphore used by per-cluster details endpoint
         let cache_ttl = Duration::from_secs(self.config.cache.get_duration_secs());
-        let details_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
+        let details_cache = Arc::new(
+            moka::future::Cache::builder()
+                .time_to_live(cache_ttl)
+                .build(),
+        );
 
         // Create a moka-based cache for tiles with TTL and max capacity.
         let tile_max = self.config.cache.tile_max_entries.unwrap_or(10_000);
