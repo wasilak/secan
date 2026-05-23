@@ -304,12 +304,14 @@ pub async fn login(
     use crate::auth::AuthUser;
     use crate::auth::PermissionResolver;
 
-    // Only support local users mode for now
+    // OIDC mode: password credentials are not accepted — redirect to the OIDC flow.
+    // The frontend uses GET /auth/oidc/login to initiate the provider redirect;
+    // reaching POST /auth/login in OIDC mode means the UI sent the wrong request.
     if state.oidc_provider.is_some() {
-        return Err(ErrorResponse {
-            error: "not_supported".to_string(),
-            message: "OIDC login not implemented yet".to_string(),
-        });
+        tracing::debug!(
+            "Password login attempted while OIDC is active — redirecting to OIDC flow"
+        );
+        return Ok(Redirect::to("/auth/oidc/login").into_response());
     }
 
     // If a local auth provider is configured (covers local users with rate limiting and proper bcrypt handling)
