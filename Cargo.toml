@@ -134,7 +134,7 @@ strip = true
 
 [lints.rust]
 # Safety-critical: Deny unsafe code unless explicitly allowed
-# unsafe_code = "forbid"
+unsafe_code = "forbid"
 
 [lints.clippy]
 # Deny unwrap() usage in production code
