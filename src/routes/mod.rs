@@ -10,7 +10,7 @@ pub mod static_assets;
 pub mod telemetry;
 pub mod templates;
 pub mod topology;
-// pub mod aliases; // TODO: implement aliases routes
+pub mod aliases;
 
 pub use auth::{AuthState, ErrorResponse, LoginRequest, LoginResponse, OidcCallbackQuery};
 pub use clusters::{ClusterErrorResponse, ClusterState};
