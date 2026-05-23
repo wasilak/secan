@@ -2912,8 +2912,9 @@ pub async fn proxy_request(
         "PROXY: Starting Elasticsearch request"
     );
 
-    // TODO: Extract authenticated user from request
-    // TODO: Check RBAC authorization
+    // Enforce RBAC: verify the authenticated user has access to this cluster.
+    // In Open mode (no user extension) all access is allowed.
+    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Use centralized proxy helper which performs client selection, timeouts,
     // response body read timeout, and emits an audit entry when the request
@@ -3112,9 +3113,7 @@ pub async fn relocate_shard(
         "User authenticated for shard relocation"
     );
 
-    // TODO: Check RBAC - verify user has access to this cluster
-    // For now, we log the user info and proceed
-    // Full RBAC implementation will be added when RbacManager is integrated into ClusterState
+    // RBAC cluster access was already enforced by check_cluster_access above.
 
     // Validate request parameters
     validate_relocation_request(&req)?;
