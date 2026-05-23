@@ -9,6 +9,7 @@ use utoipa::{IntoParams, ToSchema};
 
 use super::ClusterState;
 use crate::auth::middleware::AuthenticatedUser;
+use crate::cluster::manager::ProxyAuditRequest;
 use crate::middleware::logging::RequestId;
 use axum::http::Method;
 
@@ -264,16 +265,16 @@ pub async fn fetch_cluster_tasks(
     // timeouts and audit emission.
     let (_status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::GET,
-            "/_tasks?pretty",
-            None::<Value>,
-            user_opt.as_ref().map(|u| u.id.clone()),
-            &roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::GET,
+            path: "/_tasks?pretty".to_string(),
+            body: None,
+            user_id: user_opt.as_ref().map(|u| u.id.clone()),
+            user_roles: roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(result) => result,
@@ -432,16 +433,16 @@ pub async fn get_task_details(
 
     let (_status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::GET,
-            &format!("/_tasks/{}?pretty", task_id),
-            None::<Value>,
-            user_opt.as_ref().map(|u| u.id.clone()),
-            &roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::GET,
+            path: format!("/_tasks/{}?pretty", task_id),
+            body: None,
+            user_id: user_opt.as_ref().map(|u| u.id.clone()),
+            user_roles: roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,
@@ -650,16 +651,16 @@ pub async fn cancel_cluster_task(
 
     let (status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::POST,
-            &format!("/_tasks/{}/_cancel", task_id),
-            None::<Value>,
-            user_opt.as_ref().map(|u| u.id.clone()),
-            &roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::POST,
+            path: format!("/_tasks/{}/_cancel", task_id),
+            body: None,
+            user_id: user_opt.as_ref().map(|u| u.id.clone()),
+            user_roles: roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,

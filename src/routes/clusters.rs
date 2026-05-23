@@ -1,6 +1,6 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cache::MetadataCache;
-use crate::cluster::{ClusterInfo, Manager as ClusterManager};
+use crate::cluster::{manager::ProxyAuditRequest, ClusterInfo, Manager as ClusterManager};
 use crate::middleware::logging::RequestId;
 // InstrumentedElasticsearchClient is used by ClusterConnection/Client but
 // after migrating handlers to Manager::proxy_request_with_audit it's no
@@ -1224,16 +1224,16 @@ pub async fn update_cluster_settings(
     // actually forwarded to Elasticsearch.
     let (_status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::PUT,
-            "/_cluster/settings",
-            Some(body_value.clone()),
-            Some(user.id.clone()),
-            &user.roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::PUT,
+            path: "/_cluster/settings".to_string(),
+            body: Some(body_value.clone()),
+            user_id: Some(user.id.clone()),
+            user_roles: user.roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,
@@ -2931,16 +2931,16 @@ pub async fn proxy_request(
 
     let (status, headers, body_bytes, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            method.clone(),
-            &full_path,
-            body.map(|j| j.0),
-            user_ext.as_ref().map(|u| u.0 .0.id.clone()),
-            &user_roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: method.clone(),
+            path: full_path.clone(),
+            body: body.map(|j| j.0),
+            user_id: user_ext.as_ref().map(|u| u.0 .0.id.clone()),
+            user_roles: user_roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,
@@ -3168,16 +3168,16 @@ pub async fn relocate_shard(
     // actually reaches Elasticsearch.
     let (status, _headers, body_vec, _matched_role) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::POST,
-            "/_cluster/reroute",
-            Some(reroute_command.clone()),
-            Some(user.id.clone()),
-            &user.roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::POST,
+            path: "/_cluster/reroute".to_string(),
+            body: Some(reroute_command.clone()),
+            user_id: Some(user.id.clone()),
+            user_roles: user.roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,

@@ -454,6 +454,18 @@ mod tests {
     }
 }
 
+/// Parameters for [`Manager::proxy_request_with_audit`].
+pub struct ProxyAuditRequest {
+    pub cluster_id: String,
+    pub method: Method,
+    pub path: String,
+    pub body: Option<Value>,
+    pub user_id: Option<String>,
+    pub user_roles: Vec<String>,
+    pub request_id: String,
+    pub audit_enabled: bool,
+}
+
 /// Cluster manager for managing multiple Elasticsearch/OpenSearch clusters
 ///
 /// The ClusterManager maintains connections to multiple clusters and provides
@@ -1017,24 +1029,16 @@ impl Manager {
     /// audit entry when the request reaches Elasticsearch and a response is
     /// received. This centralises client selection, timeouts, and audit
     /// emission so handlers can remain thin.
-    #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(self), fields(cluster_id = %cluster_id, http_method = %method, path = %path))]
+    #[instrument(skip(self, req), fields(cluster_id = %req.cluster_id, http_method = %req.method, path = %req.path))]
     pub async fn proxy_request_with_audit(
         &self,
-        cluster_id: &str,
-        method: Method,
-        path: &str,
-        body: Option<Value>,
-        user_id: Option<String>,
-        user_roles: &[String],
-        request_id: &str,
-        audit_enabled: bool,
+        req: ProxyAuditRequest,
     ) -> std::result::Result<(StatusCode, HeaderMap, Vec<u8>, String), ProxyRequestError> {
         // Select client for this user/cluster. If no match, return an error
         // that callers should map to a local access_denied response. Do NOT
         // emit audit for local access_denied.
         let (client, matched_role_label) =
-            match self.get_client_for_user(cluster_id, user_roles).await {
+            match self.get_client_for_user(&req.cluster_id, &req.user_roles).await {
                 Ok(pair) => pair,
                 Err(_) => return Err(ProxyRequestError::AccessDenied),
             };
@@ -1050,7 +1054,7 @@ impl Manager {
             std::time::Duration::from_secs(30),
             client
                 .as_ref()
-                .instrumented_request(method.clone(), path, body, cluster_id),
+                .instrumented_request(req.method.clone(), &req.path, req.body, &req.cluster_id),
         )
         .await
         .map_err(Into::<ProxyRequestError>::into)?; // Elapsed -> ProxyTimeout
@@ -1072,17 +1076,17 @@ impl Manager {
 
         // Emit audit entry for forwarded requests (only if request reached ES)
         let entry = crate::audit::AuditEntry::now(
-            request_id.to_string(),
-            user_id.unwrap_or_default(),
-            user_roles.to_vec(),
-            cluster_id.to_string(),
+            req.request_id,
+            req.user_id.unwrap_or_default(),
+            req.user_roles,
+            req.cluster_id,
             matched_role_label.clone(),
-            method.to_string(),
-            path.to_string(),
+            req.method.to_string(),
+            req.path,
             status.as_u16(),
             duration_ms,
         );
-        crate::audit::emit_if_enabled(audit_enabled, &entry);
+        crate::audit::emit_if_enabled(req.audit_enabled, &entry);
 
         Ok((status, headers, bytes.to_vec(), matched_role_label))
     }
@@ -1208,16 +1212,16 @@ mod manager_tests {
 
         // Call proxy_request_with_audit and assert success
         let res = manager
-            .proxy_request_with_audit(
-                "mock-cluster",
-                Method::GET,
-                "/_tasks?pretty",
-                None::<serde_json::Value>,
-                Some("user-1".to_string()),
-                &Vec::<String>::new(),
-                "req-1",
-                true,
-            )
+            .proxy_request_with_audit(ProxyAuditRequest {
+                cluster_id: "mock-cluster".to_string(),
+                method: Method::GET,
+                path: "/_tasks?pretty".to_string(),
+                body: None,
+                user_id: Some("user-1".to_string()),
+                user_roles: vec![],
+                request_id: "req-1".to_string(),
+                audit_enabled: true,
+            })
             .await
             .expect("proxy should succeed");
 
@@ -1251,16 +1255,16 @@ mod manager_tests {
 
         // No matching user roles -> AccessDenied
         let err = manager
-            .proxy_request_with_audit(
-                "role-cluster",
-                Method::GET,
-                "/_tasks?pretty",
-                None::<serde_json::Value>,
-                Some("user-1".to_string()),
-                &Vec::<String>::new(),
-                "req-2",
-                false,
-            )
+            .proxy_request_with_audit(ProxyAuditRequest {
+                cluster_id: "role-cluster".to_string(),
+                method: Method::GET,
+                path: "/_tasks?pretty".to_string(),
+                body: None,
+                user_id: Some("user-1".to_string()),
+                user_roles: vec![],
+                request_id: "req-2".to_string(),
+                audit_enabled: false,
+            })
             .await
             .expect_err("should be access denied");
 
@@ -1375,16 +1379,16 @@ mod manager_tests {
         // Call with user that has no matching role - should return AccessDenied
         // without making any ES request, and without emitting audit
         let err = manager
-            .proxy_request_with_audit(
-                "deny-cluster",
-                Method::GET,
-                "/_tasks",
-                None::<serde_json::Value>,
-                Some("user-1".to_string()),
-                &["guest".to_string()], // No matching role
-                "req-denied",
-                true, // audit_enabled = true
-            )
+            .proxy_request_with_audit(ProxyAuditRequest {
+                cluster_id: "deny-cluster".to_string(),
+                method: Method::GET,
+                path: "/_tasks".to_string(),
+                body: None,
+                user_id: Some("user-1".to_string()),
+                user_roles: vec!["guest".to_string()], // No matching role
+                request_id: "req-denied".to_string(),
+                audit_enabled: true,
+            })
             .await
             .expect_err("should be access denied");
 
