@@ -28,10 +28,9 @@ pub async fn security_headers_middleware(
     let headers = response.headers_mut();
 
     // Content-Security-Policy: Restrict resource loading
-    // Allow self for scripts, styles, images, fonts
-    // Allow inline styles for Mantine UI
-    // Allow data: URIs for images (used by some components)
-    // Allow blob: for Monaco Editor web workers
+    // 'unsafe-inline' in style-src is required because Mantine injects styles at runtime.
+    // TODO: migrate to nonce-based CSP (requires server-generated nonces threaded through
+    // HTML responses) to eliminate 'unsafe-inline' without breaking Mantine.
     // SAFETY: Static CSP header string is always valid
     headers.insert(
         header::CONTENT_SECURITY_POLICY,

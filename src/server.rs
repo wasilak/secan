@@ -384,16 +384,16 @@ impl Server {
                     .delete(crate::routes::component_templates::delete_component_template),
             )
             // Aliases endpoints - TODO: implement
-            // .route(
-            //     "/api/clusters/{id}/aliases",
-            //     get(crate::routes::aliases::list_aliases),
-            // )
-            // .route(
-            //     "/api/clusters/{id}/aliases/{name}",
-            //     get(crate::routes::aliases::get_alias)
-            //         .put(crate::routes::aliases::put_alias)
-            //         .delete(crate::routes::aliases::delete_alias),
-            // )
+            .route(
+                "/api/clusters/{id}/aliases",
+                get(crate::routes::aliases::list_aliases),
+            )
+            .route(
+                "/api/clusters/{id}/aliases/{name}",
+                get(crate::routes::aliases::get_alias)
+                    .put(crate::routes::aliases::put_alias)
+                    .delete(crate::routes::aliases::delete_alias),
+            )
             // Metrics endpoints (must be before catch-all proxy route)
             .nest(
                 "/api/clusters/{id}/metrics",
@@ -451,14 +451,15 @@ impl Server {
                     ]);
 
                 if self.config.server.allowed_origins.is_empty() {
-                    tracing::debug!(
-                        "No allowed_origins configured - CORS allows any origin (development mode)"
+                    tracing::warn!(
+                        "CORS: no allowed_origins configured — accepting any origin. \
+                        Set server.allowed_origins in config for production deployments."
                     );
                     cors = cors.allow_origin(tower_http::cors::Any);
                 } else {
-                    tracing::debug!(
+                    tracing::info!(
                         origins = ?self.config.server.allowed_origins,
-                        "CORS restricted to configured origins (production mode)"
+                        "CORS restricted to configured origins"
                     );
                     // Convert string origins to HeaderValue
                     let origins: Vec<axum::http::HeaderValue> = self
