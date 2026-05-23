@@ -182,8 +182,14 @@ async fn main() -> anyhow::Result<()> {
     // Run server (this will block until shutdown)
     let server_result = server.run().await;
 
-    // Cleanup
-    cleanup_handle.abort();
+    // Stop the cleanup background task on shutdown.
+    // If it died before the server did, log a warning — it would mean the revocation
+    // list stopped being cleaned and may have grown unbounded.
+    if cleanup_handle.is_finished() {
+        tracing::warn!("Session cleanup task ended before server shutdown — revocation list may not have been maintained");
+    } else {
+        cleanup_handle.abort();
+    }
 
     server_result
 }

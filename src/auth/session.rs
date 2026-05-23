@@ -494,12 +494,43 @@ impl SessionManager {
     }
 
     /// Spawn a background task that periodically removes stale revocation entries.
+    ///
+    /// Each cleanup iteration runs inside its own `tokio::task::spawn` so that a panic
+    /// in `cleanup_expired` is caught as a `JoinError` rather than killing the loop.
+    /// A warning is emitted if the revocation list exceeds 10 000 entries, which would
+    /// indicate that cleanups are not keeping pace with logout volume.
     pub fn start_cleanup_task(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 min
             loop {
                 interval.tick().await;
-                self.cleanup_expired().await;
+
+                let current_size = self.revocation_list.read().await.len();
+                if current_size > 10_000 {
+                    tracing::warn!(
+                        revocation_list_size = current_size,
+                        "Session revocation list is unusually large — cleanup may be falling behind"
+                    );
+                }
+
+                let cleanup_self = self.clone();
+                match tokio::task::spawn(async move { cleanup_self.cleanup_expired().await })
+                    .await
+                {
+                    Ok(removed) => {
+                        tracing::debug!(
+                            removed = removed,
+                            remaining = current_size.saturating_sub(removed),
+                            "Session revocation-list cleanup completed"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            error = ?e,
+                            "Session cleanup subtask panicked — revocation list not cleaned this cycle"
+                        );
+                    }
+                }
             }
         })
     }
