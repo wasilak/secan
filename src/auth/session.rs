@@ -237,10 +237,8 @@ pub fn build_clear_session_cookie_header() -> http::HeaderValue {
 /// (which are now signed JWTs).
 pub fn generate_token() -> String {
     use base64::Engine;
-    use getrandom::getrandom;
 
-    let mut bytes = [0u8; 32];
-    getrandom(&mut bytes).expect("secure RNG failed");
+    let bytes: [u8; 32] = rand::random();
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 

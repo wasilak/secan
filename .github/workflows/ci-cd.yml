@@ -338,7 +338,7 @@ jobs:
             IS_VERSION="false"
           else
             # For other branches/PRs, use sha-<short-sha> format from metadata
-            BASE_TAG="sha-${{ github.sha_short }}"
+            BASE_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-7)"
             IS_VERSION="false"
           fi
           
