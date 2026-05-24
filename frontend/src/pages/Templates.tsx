@@ -42,7 +42,7 @@ import { TemplateDetailsModal } from '../components/TemplateDetailsModal';
  *
  * Requirements: 12.1, 12.2, 12.5, 12.6, 12.7, 12.8
  */
-export function Templates() {
+export function Templates({ embedded = false }: { embedded?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -94,20 +94,16 @@ export function Templates() {
   });
 
   if (!id) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message="Cluster ID is required" />
-      </FullWidthContainer>
-    );
+    const errEl = <ErrorAlert message="Cluster ID is required" />;
+    return embedded ? errEl : <FullWidthContainer>{errEl}</FullWidthContainer>;
   }
 
   const loadError = error
     ? new Error(`Failed to load templates: ${getErrorMessage(error)}`)
     : undefined;
 
-  return (
-    <FullWidthContainer>
-      <PageSkeleton isLoading={isLoading} error={loadError}>
+  const inner = <>
+    <PageSkeleton isLoading={isLoading} error={loadError}>
         <Group justify="space-between" mb="md">
           <div>
             <Title order={2}>Index Templates</Title>
@@ -220,8 +216,8 @@ export function Templates() {
         clusterId={id ?? ''}
         onClose={closeTemplateModal}
       />
-    </FullWidthContainer>
-  );
+    </>;
+  return embedded ? inner : <FullWidthContainer>{inner}</FullWidthContainer>;
 }
 
 /**

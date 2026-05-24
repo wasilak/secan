@@ -40,11 +40,6 @@ const AccessDenied = lazy(() =>
   import('./pages/AccessDenied').then((m) => ({ default: m.AccessDenied }))
 );
 // IndexCreate page is rendered via ClusterView modal routes; avoid importing directly here to prevent unused import linting
-const Aliases = lazy(() => import('./pages/Aliases').then((m) => ({ default: m.Aliases })));
-const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default: m.Templates })));
-const ComponentTemplates = lazy(() =>
-  import('./pages/ComponentTemplates').then((m) => ({ default: m.ComponentTemplates }))
-);
 const ShardManagement = lazy(() =>
   import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
 );
@@ -259,30 +254,9 @@ export const router = createBrowserRouter([
           </LazyRoute>
         ),
       },
-      {
-        path: 'cluster/:id/aliases',
-        element: (
-          <LazyRoute>
-            <Aliases />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/templates',
-        element: (
-          <LazyRoute>
-            <Templates />
-          </LazyRoute>
-        ),
-      },
-      {
-        path: 'cluster/:id/component-templates',
-        element: (
-          <LazyRoute>
-            <ComponentTemplates />
-          </LazyRoute>
-        ),
-      },
+      { path: 'cluster/:id/aliases', element: <Navigate to="../indices?indicesTab=aliases" replace /> },
+      { path: 'cluster/:id/templates', element: <Navigate to="../indices?indicesTab=templates" replace /> },
+      { path: 'cluster/:id/component-templates', element: <Navigate to="../indices?indicesTab=component-templates" replace /> },
       {
         path: 'cluster/:id/shards',
         element: (

@@ -43,7 +43,7 @@ import { PageSkeleton } from '../components/PageSkeleton';
  *
  * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8
  */
-export function Aliases() {
+export function Aliases({ embedded = false }: { embedded?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -86,11 +86,8 @@ export function Aliases() {
   });
 
   if (!id) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message="Cluster ID is required" />
-      </FullWidthContainer>
-    );
+    const errEl = <ErrorAlert message="Cluster ID is required" />;
+    return embedded ? errEl : <FullWidthContainer>{errEl}</FullWidthContainer>;
   }
 
   const loadError = error
@@ -110,9 +107,8 @@ export function Aliases() {
       {} as Record<string, AliasInfo[]>
     ) || {};
 
-  return (
-    <FullWidthContainer>
-      <PageSkeleton isLoading={isLoading} error={loadError}>
+  const inner = <>
+    <PageSkeleton isLoading={isLoading} error={loadError}>
         <Group justify="space-between" mb="md">
           <div>
             <Title order={2}>Index Aliases</Title>
@@ -218,8 +214,8 @@ export function Aliases() {
           availableIndices={indices?.map((i) => i.name) || []}
         />
       </PageSkeleton>
-    </FullWidthContainer>
-  );
+    </>;
+  return embedded ? inner : <FullWidthContainer>{inner}</FullWidthContainer>;
 }
 
 /**

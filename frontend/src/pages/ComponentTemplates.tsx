@@ -28,7 +28,7 @@ import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageSkeleton } from '../components/PageSkeleton';
 
-export function ComponentTemplates() {
+export function ComponentTemplates({ embedded = false }: { embedded?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -63,20 +63,16 @@ export function ComponentTemplates() {
   });
 
   if (!id) {
-    return (
-      <FullWidthContainer>
-        <ErrorAlert message="Cluster ID is required" />
-      </FullWidthContainer>
-    );
+    const errEl = <ErrorAlert message="Cluster ID is required" />;
+    return embedded ? errEl : <FullWidthContainer>{errEl}</FullWidthContainer>;
   }
 
   const loadError = error
     ? new Error(`Failed to load component templates: ${getErrorMessage(error)}`)
     : undefined;
 
-  return (
-    <FullWidthContainer>
-      <PageSkeleton isLoading={isLoading} error={loadError}>
+  const inner = <>
+    <PageSkeleton isLoading={isLoading} error={loadError}>
         <Group justify="space-between" mb="md">
           <div>
             <Title order={2}>Component Templates</Title>
@@ -146,8 +142,8 @@ export function ComponentTemplates() {
           clusterId={id}
         />
       </PageSkeleton>
-    </FullWidthContainer>
-  );
+    </>;
+  return embedded ? inner : <FullWidthContainer>{inner}</FullWidthContainer>;
 }
 
 interface CreateComponentTemplateModalProps {

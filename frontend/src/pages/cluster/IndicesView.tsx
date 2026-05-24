@@ -1,11 +1,11 @@
-import { Grid, Group, Stack } from '@mantine/core';
+import { Grid, Group, Stack, Tabs } from '@mantine/core';
 import { useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../api/client';
 import { queryKeys } from '../../utils/queryKeys';
 import type { ShardInfo, PaginatedResponse } from '../../types/api';
-import { IconPlus, IconEyeOff } from '@tabler/icons-react';
+import { IconPlus, IconEyeOff, IconPackage, IconFileText, IconList, IconArrowsRightLeft } from '@tabler/icons-react';
 
 import { useClusterIndices } from '../../hooks/useClusterIndices';
 import { IndexStatsCards } from '../../components/IndexStatsCards';
@@ -13,6 +13,9 @@ import { TablePagination } from '../../components/TablePagination';
 import { FilterSidebar } from '../../components/FacetedFilter';
 import { IndicesList } from '../ClusterView';
 import { useClusterNavigation } from '../../hooks/useClusterNavigation';
+import { Templates } from '../Templates';
+import { ComponentTemplates } from '../ComponentTemplates';
+import { Aliases } from '../Aliases';
 
 interface IndicesViewProps {
   clusterId: string;
@@ -159,7 +162,28 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
     navigateToIndex(indexName, tab || 'visualization');
   };
 
+  const activeTab = searchParams.get('indicesTab') ?? 'indices';
+
+  const setActiveTab = (tab: string | null) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (!tab || tab === 'indices') {
+      newParams.delete('indicesTab');
+    } else {
+      newParams.set('indicesTab', tab);
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+
   return (
+    <Tabs value={activeTab} onChange={setActiveTab}>
+      <Tabs.List mb="md">
+        <Tabs.Tab value="indices" leftSection={<IconPackage size={14} />}>Indices</Tabs.Tab>
+        <Tabs.Tab value="templates" leftSection={<IconFileText size={14} />}>Templates</Tabs.Tab>
+        <Tabs.Tab value="component-templates" leftSection={<IconList size={14} />}>Component Templates</Tabs.Tab>
+        <Tabs.Tab value="aliases" leftSection={<IconArrowsRightLeft size={14} />}>Aliases</Tabs.Tab>
+      </Tabs.List>
+
+      <Tabs.Panel value="indices">
     <Grid gutter="md" overflow="hidden">
       <Grid.Col span={12}>
         <IndexStatsCards
@@ -244,5 +268,19 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
         </Group>
       </Grid.Col>
     </Grid>
+      </Tabs.Panel>
+
+      <Tabs.Panel value="templates">
+        <Templates embedded />
+      </Tabs.Panel>
+
+      <Tabs.Panel value="component-templates">
+        <ComponentTemplates embedded />
+      </Tabs.Panel>
+
+      <Tabs.Panel value="aliases">
+        <Aliases embedded />
+      </Tabs.Panel>
+    </Tabs>
   );
 }

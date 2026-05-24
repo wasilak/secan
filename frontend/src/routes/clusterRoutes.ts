@@ -11,8 +11,6 @@ import {
   IconCircle,
   IconLayout,
   IconList,
-  IconFileText,
-  IconArrowsRightLeft,
 } from '@tabler/icons-react';
 
 /**
@@ -27,10 +25,7 @@ export type ClusterSection =
   | 'indices'
   | 'shards'
   | 'console'
-  | 'tasks'
-  | 'templates'
-  | 'component-templates'
-  | 'aliases';
+  | 'tasks';
 
 /**
  * Modal types that can be displayed as overlays on cluster sections
@@ -115,9 +110,6 @@ export const sectionLabels: Record<ClusterSection, string> = {
   shards: 'Shards',
   console: 'Console',
   tasks: 'Tasks',
-  templates: 'Templates',
-  'component-templates': 'Component Templates',
-  aliases: 'Aliases',
 };
 
 /**
@@ -202,7 +194,4 @@ export const CLUSTER_NAV: ClusterNavItem[] = [
   { value: 'indices', label: 'Indices', icon: IconPackage, path: '/indices' },
   { value: 'shards', label: 'Shards', icon: IconBox, path: '/shards' },
   { value: 'tasks', label: 'Tasks', icon: IconPlayerPlay, path: '/tasks' },
-  { value: 'templates', label: 'Templates', icon: IconFileText, path: '/templates' },
-  { value: 'component-templates', label: 'Component Templates', icon: IconList, path: '/component-templates' },
-  { value: 'aliases', label: 'Aliases', icon: IconArrowsRightLeft, path: '/aliases' },
 ];
