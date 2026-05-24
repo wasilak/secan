@@ -28,6 +28,7 @@ export const queryKeys = {
     snapshots: (repository?: string) => ['cluster', id, 'snapshots', repository] as const,
     tasks: (filters?: string | object) => ['cluster', id, 'tasks', filters] as const,
     templates: () => ['cluster', id, 'templates'] as const,
+    template: (name: string) => ['cluster', id, 'template', name] as const,
     componentTemplates: () => ['cluster', id, 'component-templates'] as const,
     aliases: () => ['cluster', id, 'aliases'] as const,
     mappings: (index: string) => ['cluster', id, 'mappings', index] as const,

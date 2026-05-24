@@ -41,7 +41,9 @@ import {
   CancelTaskResponse,
   SankeyResponse,
   SankeyQueryParams,
-  
+  TemplateDetail,
+  SimulateTemplateRequest,
+  SimulateTemplateResponse,
 } from '../types/api';
 import { computeHeapPercent } from '../utils/heap';
 import { incrementHeapPercentMissing } from '../utils/metrics';
@@ -1158,6 +1160,7 @@ export class ApiClient {
                   >)
                 : undefined,
               composable: true,
+              composedOf: Array.isArray(template.composed_of) ? (template.composed_of as string[]) : [],
             });
           }
         }
@@ -1186,6 +1189,49 @@ export class ApiClient {
 
         return templates;
       }
+    });
+  }
+
+  /**
+   * Get full detail for a single index template
+   *
+   * Requirements: DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04
+   */
+  async getTemplate(clusterId: string, name: string): Promise<TemplateDetail> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, unknown>>(
+        `/clusters/${clusterId}/index-templates/${encodeURIComponent(name)}`
+      );
+      const d = response.data as Record<string, unknown>;
+      return {
+        name: d.name as string,
+        indexPatterns: (d.index_patterns as string[]) ?? [],
+        priority: d.priority as number | undefined,
+        version: d.version as number | undefined,
+        composedOf: Array.isArray(d.composed_of) ? (d.composed_of as string[]) : [],
+        composable: Boolean(d.composable),
+        template: d.template as TemplateDetail['template'],
+        _meta: d._meta as Record<string, unknown> | undefined,
+        order: d.order as number | undefined,
+      };
+    });
+  }
+
+  /**
+   * Simulate index template — returns merged settings/mappings/aliases
+   *
+   * Requirements: SIM-03
+   */
+  async simulateTemplate(
+    clusterId: string,
+    body: SimulateTemplateRequest
+  ): Promise<SimulateTemplateResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.post<SimulateTemplateResponse>(
+        `/clusters/${clusterId}/index-templates/_simulate`,
+        body
+      );
+      return response.data;
     });
   }
 
