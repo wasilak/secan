@@ -42,6 +42,9 @@ const AccessDenied = lazy(() =>
 // IndexCreate page is rendered via ClusterView modal routes; avoid importing directly here to prevent unused import linting
 const Aliases = lazy(() => import('./pages/Aliases').then((m) => ({ default: m.Aliases })));
 const Templates = lazy(() => import('./pages/Templates').then((m) => ({ default: m.Templates })));
+const ComponentTemplates = lazy(() =>
+  import('./pages/ComponentTemplates').then((m) => ({ default: m.ComponentTemplates }))
+);
 const ShardManagement = lazy(() =>
   import('./pages/ShardManagement').then((m) => ({ default: m.ShardManagement }))
 );
@@ -269,6 +272,14 @@ export const router = createBrowserRouter([
         element: (
           <LazyRoute>
             <Templates />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'cluster/:id/component-templates',
+        element: (
+          <LazyRoute>
+            <ComponentTemplates />
           </LazyRoute>
         ),
       },

@@ -159,6 +159,18 @@ export interface CreateTemplateRequest {
   order?: number;
 }
 
+export interface ComponentTemplateSummary {
+  name: string;
+  version?: number;
+}
+
+export interface CreateComponentTemplateRequest {
+  name: string;
+  version?: number;
+  settings?: Record<string, unknown>;
+  mappings?: Record<string, unknown>;
+}
+
 export interface AnalyzeTextRequest {
   text: string;
   analyzer?: string;

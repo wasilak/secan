@@ -18,6 +18,8 @@ import {
   CreateAliasRequest,
   TemplateInfo,
   CreateTemplateRequest,
+  ComponentTemplateSummary,
+  CreateComponentTemplateRequest,
   AnalyzeTextRequest,
   AnalyzeTextResponse,
   IndexAnalyzersResponse,
@@ -1262,6 +1264,42 @@ export class ApiClient {
       } else {
         await this.client.delete(`/clusters/${clusterId}/_template/${name}`);
       }
+    });
+  }
+
+  async getComponentTemplates(clusterId: string): Promise<ComponentTemplateSummary[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get(`/clusters/${clusterId}/component-templates`);
+      const data = response.data as { component_templates: ComponentTemplateSummary[] };
+      return data.component_templates ?? [];
+    });
+  }
+
+  async putComponentTemplate(
+    clusterId: string,
+    name: string,
+    request: CreateComponentTemplateRequest
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {};
+      const template: Record<string, unknown> = {};
+      if (request.settings && Object.keys(request.settings).length > 0) {
+        template.settings = request.settings;
+      }
+      if (request.mappings && Object.keys(request.mappings).length > 0) {
+        template.mappings = request.mappings;
+      }
+      body.template = template;
+      if (request.version !== undefined) {
+        body.version = request.version;
+      }
+      await this.client.put(`/clusters/${clusterId}/component-templates/${encodeURIComponent(name)}`, body);
+    });
+  }
+
+  async deleteComponentTemplate(clusterId: string, name: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/component-templates/${encodeURIComponent(name)}`);
     });
   }
 
