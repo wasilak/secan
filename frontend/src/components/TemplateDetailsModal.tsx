@@ -1,26 +1,86 @@
-import React from 'react';
-import { Stack, Text, Group, Badge, Loader, Alert, Tabs, Paper } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import React, { useState, useEffect } from 'react';
+import {
+  Stack,
+  Text,
+  Group,
+  Badge,
+  Loader,
+  Alert,
+  Tabs,
+  Paper,
+  Button,
+  Divider,
+  Box,
+  ActionIcon,
+} from '@mantine/core';
+import { IconAlertCircle, IconGripVertical } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { createTwoFilesPatch } from 'diff';
+import { parseDiff, Diff, Hunk } from 'react-diff-view';
+import 'react-diff-view/style/index.css';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { ManagedModal } from './ManagedModal';
 import { CodeEditor } from './CodeEditor';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import { getErrorMessage } from '../lib/errorHandling';
 import { DURATIONS, EASINGS } from '../lib/transitions';
+import type { SimulateTemplateRequest, SimulateTemplateResponse } from '../types/api';
 
 /**
  * TemplateDetailsModal component
  *
  * Displays full details of a single index template across four tabs:
- * - Overview: key metadata fields
+ * - Overview: key metadata fields + simulate diff
  * - Settings: template settings JSON in a read-only Monaco editor
  * - Mappings: template mappings JSON in a read-only Monaco editor
- * - Composed: list of component templates for composable templates
+ * - Composed: dnd-kit sortable list of component templates
  *
- * Requirements: DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04, DETAIL-05, NAV-01
+ * Requirements: DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04, DETAIL-05, NAV-01, SIM-03, SIM-04
  */
+
+interface SortableComponentItemProps {
+  id: string;
+}
+
+function SortableComponentItem({ id }: SortableComponentItemProps): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <Paper ref={setNodeRef} style={style} p="sm" withBorder {...attributes}>
+      <Group gap="sm">
+        <ActionIcon variant="transparent" c="dimmed" style={{ cursor: 'grab' }} {...listeners}>
+          <IconGripVertical size={16} />
+        </ActionIcon>
+        <Text size="sm">{id}</Text>
+      </Group>
+    </Paper>
+  );
+}
+
 interface TemplateDetailsModalProps {
   templateName: string | null;
   clusterId: string;
@@ -37,6 +97,41 @@ export function TemplateDetailsModal({
     queryFn: () => apiClient.getTemplate(clusterId, templateName!),
     enabled: !!templateName,
   });
+
+  const [simulateResult, setSimulateResult] = useState<SimulateTemplateResponse | null>(null);
+
+  const simulateMutation = useMutation({
+    mutationFn: () => {
+      const body: SimulateTemplateRequest = {
+        indexPatterns: detail?.indexPatterns,
+        template: detail?.template,
+      };
+      return apiClient.simulateTemplate(clusterId, body);
+    },
+    onSuccess: (result) => setSimulateResult(result),
+  });
+
+  const [composedOrder, setComposedOrder] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (detail?.composedOf) {
+      setComposedOrder(detail.composedOf);
+    }
+  }, [detail?.composedOf]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setComposedOrder((prev) =>
+        arrayMove(prev, prev.indexOf(String(active.id)), prev.indexOf(String(over.id)))
+      );
+    }
+  };
 
   if (!templateName) {
     return null;
@@ -125,7 +220,43 @@ export function TemplateDetailsModal({
                       ))}
                     </Group>
                   </Group>
-                  {/* Simulate button added in Wave 3 (SIM-03) */}
+
+                  <Divider my="sm" />
+                  <Group justify="flex-end">
+                    <Button
+                      variant="light"
+                      loading={simulateMutation.isPending}
+                      onClick={() => simulateMutation.mutate()}
+                      disabled={!detail}
+                    >
+                      Simulate
+                    </Button>
+                  </Group>
+
+                  {simulateMutation.isError && (
+                    <Alert icon={<IconAlertCircle size={16} />} color="red" mt="sm">
+                      Simulate failed: {getErrorMessage(simulateMutation.error)}
+                    </Alert>
+                  )}
+
+                  {simulateResult && (() => {
+                    const before = JSON.stringify(detail?.template ?? {}, null, 2);
+                    const after = JSON.stringify(simulateResult.template, null, 2);
+                    const patch = createTwoFilesPatch('current', 'simulated', before, after);
+                    const files = parseDiff(patch);
+                    const file = files[0];
+                    if (!file) return <Text c="dimmed" mt="sm">No differences found.</Text>;
+                    return (
+                      <Box mt="sm" style={{ overflow: 'auto', maxHeight: 400 }}>
+                        <Text size="xs" c="dimmed" mb="xs">
+                          Diff: current template body → simulated result
+                        </Text>
+                        <Diff viewType="unified" diffType={file.type} hunks={file.hunks}>
+                          {(hunks) => hunks.map((hunk) => <Hunk key={hunk.content} hunk={hunk} />)}
+                        </Diff>
+                      </Box>
+                    );
+                  })()}
                 </Stack>
               </Tabs.Panel>
 
@@ -159,21 +290,28 @@ export function TemplateDetailsModal({
 
               <Tabs.Panel value="composed" pt="md">
                 {!detail.composable ? (
-                  <Text c="dimmed">
-                    This is a legacy template. Composition is not applicable.
-                  </Text>
-                ) : detail.composedOf.length === 0 ? (
-                  <Text c="dimmed">
-                    No component templates. Drag-and-drop selector coming in the next step.
-                  </Text>
+                  <Text c="dimmed">This is a legacy template. Composition is not applicable.</Text>
+                ) : composedOrder.length === 0 ? (
+                  <Text c="dimmed">No component templates are assigned to this template.</Text>
                 ) : (
                   <Stack gap="xs">
-                    {detail.composedOf.map((name) => (
-                      <Paper key={name} p="sm" withBorder>
-                        <Text size="sm">{name}</Text>
-                      </Paper>
-                    ))}
-                    {/* dnd-kit drag-and-drop added in Wave 3 (SIM-04) */}
+                    <Text size="xs" c="dimmed" mb="xs">
+                      Drag to reorder component template priority (display only).
+                    </Text>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={composedOrder}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {composedOrder.map((name) => (
+                          <SortableComponentItem key={name} id={name} />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
                   </Stack>
                 )}
               </Tabs.Panel>
