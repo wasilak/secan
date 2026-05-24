@@ -376,6 +376,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
               placeholder="100"
               description="Higher priority templates override lower priority ones"
               min={0}
+              hideControls
               {...form.getInputProps('priority')}
             />
           ) : (
@@ -384,6 +385,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
               placeholder="0"
               description="Higher order templates override lower order ones"
               min={0}
+              hideControls
               {...form.getInputProps('order')}
             />
           )}
@@ -393,6 +395,7 @@ function CreateTemplateModal({ opened, onClose, clusterId }: CreateTemplateModal
             placeholder="1"
             description="Optional version number"
             min={1}
+            hideControls
             {...form.getInputProps('version')}
           />
 
