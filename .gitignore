@@ -20,8 +20,6 @@
 !.task/
 # except for .vscode/ (VS Code settings)
 !.vscode/
-# except for .planning/ (GSD planning artifacts)
-!.planning/
 
 # Configuration files (keep example tracked)
 config.yaml
