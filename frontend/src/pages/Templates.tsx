@@ -17,7 +17,7 @@ import {
   ScrollArea,
   Tabs,
 } from '@mantine/core';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
@@ -29,6 +29,7 @@ import type { CreateTemplateRequest } from '../types/api';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { PageSkeleton } from '../components/PageSkeleton';
+import { TemplateDetailsModal } from '../components/TemplateDetailsModal';
 
 /**
  * Templates component displays and manages index templates
@@ -45,6 +46,20 @@ export function Templates() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedTemplateName = searchParams.get('templateModal');
+
+  const openTemplateModal = (name: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('templateModal', name);
+    setSearchParams(newParams, { replace: false });
+  };
+
+  const closeTemplateModal = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('templateModal');
+    setSearchParams(newParams, { replace: true });
+  };
 
   // Fetch templates
   const {
@@ -128,7 +143,11 @@ export function Templates() {
                 </Table.Thead>
                 <Table.Tbody>
                   {templates.map((template) => (
-                    <Table.Tr key={template.name}>
+                    <Table.Tr
+                      key={template.name}
+                      onClick={() => openTemplateModal(template.name)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <Table.Td>
                         <Text size="sm" fw={500}>
                           {template.name}
@@ -168,7 +187,8 @@ export function Templates() {
                           <ActionIcon
                            color="red"
                            variant="subtle"
-                           onClick={() => {
+                           onClick={(e: React.MouseEvent) => {
+                             e.stopPropagation();
                              if (confirm(`Delete template "${template.name}"?`)) {
                                deleteMutation.mutate({
                                  name: template.name,
@@ -195,6 +215,11 @@ export function Templates() {
           clusterId={id}
         />
       </PageSkeleton>
+      <TemplateDetailsModal
+        templateName={selectedTemplateName}
+        clusterId={id ?? ''}
+        onClose={closeTemplateModal}
+      />
     </FullWidthContainer>
   );
 }
