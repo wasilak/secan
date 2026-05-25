@@ -138,10 +138,12 @@ impl Server {
                 let permission_resolver =
                     crate::auth::PermissionResolver::new(self.config.auth.permissions.clone());
                 let session_manager_clone = self.session_manager.clone();
-                // Build provider with rate limiter if configured
-                let provider = crate::auth::LocalAuthProvider::new(
+                let rate_limiter =
+                    crate::auth::RateLimiter::new(crate::auth::RateLimitConfig::default());
+                let provider = crate::auth::LocalAuthProvider::with_rate_limiter(
                     local_users.clone(),
                     (*session_manager_clone).clone(),
+                    rate_limiter,
                     permission_resolver,
                 );
                 // Attach to routes state by saving into the local option so it
