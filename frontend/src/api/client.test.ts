@@ -98,7 +98,13 @@ describe('ApiClient', () => {
 
       server.use(
         http.get('/api/clusters', () => {
-          return HttpResponse.json(mockClusters);
+          return HttpResponse.json({
+            items: mockClusters,
+            total: mockClusters.length,
+            page: 1,
+            page_size: mockClusters.length,
+            total_pages: 1,
+          });
         })
       );
 

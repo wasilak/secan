@@ -1,7 +1,8 @@
-import { useQuery, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
+import { type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import type { NodeInfo, PaginatedResponse } from '../types/api';
+import { useClusterPaginated } from './useClusterPaginated';
 
 interface UseClusterNodesOptions
   extends Pick<
@@ -18,25 +19,11 @@ export function useClusterNodes(
   clusterId: string | undefined,
   options: UseClusterNodesOptions = {}
 ): UseQueryResult<PaginatedResponse<NodeInfo>> {
-  const {
-    enabled = true,
-    page = 1,
-    pageSize = 1000,
-    filters,
-    staleTime,
-    refetchInterval,
-    placeholderData,
-  } = options;
-
-  return useQuery({
-    queryKey: queryKeys.cluster(clusterId ?? '').nodes(page, pageSize, filters),
-    queryFn: async () => {
-      if (!clusterId) throw new Error('Cluster ID is required');
-      return apiClient.getNodes(clusterId, page, pageSize, filters as never);
-    },
-    enabled: !!clusterId && enabled,
-    staleTime,
-    refetchInterval,
-    placeholderData,
-  });
+  const { filters, page = 1, pageSize = 1000, ...rest } = options;
+  return useClusterPaginated(
+    clusterId,
+    queryKeys.cluster(clusterId ?? '').nodes(page, pageSize, filters),
+    (id, p, ps) => apiClient.getNodes(id, p, ps, filters as never),
+    { page, pageSize, ...rest }
+  );
 }

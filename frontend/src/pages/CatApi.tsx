@@ -27,7 +27,7 @@ import {
   IconSortAscending,
   IconSortDescending,
 } from '@tabler/icons-react';
-import { apiClient } from '../api/client';
+import { apiClient, CAT_API_ENDPOINTS } from '../api/client';
 import { FullWidthContainer } from '../components/FullWidthContainer';
 import { queryKeys } from '../utils/queryKeys';
 
@@ -76,12 +76,7 @@ export function CatApiPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showHelp, setShowHelp] = useState(false);
 
-  // Fetch available Cat API endpoints
-  const { data: endpoints } = useQuery({
-    queryKey: queryKeys.cluster(id!).catEndpoints(),
-    queryFn: () => apiClient.getCatEndpoints(id!),
-    enabled: !!id,
-  });
+  const endpoints = CAT_API_ENDPOINTS;
 
   // Execute Cat API request
   const executeMutation = useMutation({

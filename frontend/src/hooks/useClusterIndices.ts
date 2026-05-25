@@ -1,7 +1,8 @@
-import { useQuery, type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
+import { type UseQueryOptions, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { queryKeys } from '../utils/queryKeys';
 import type { IndexInfo, PaginatedResponse } from '../types/api';
+import { useClusterPaginated } from './useClusterPaginated';
 
 interface UseClusterIndicesOptions
   extends Pick<
@@ -18,25 +19,11 @@ export function useClusterIndices(
   clusterId: string | undefined,
   options: UseClusterIndicesOptions = {}
 ): UseQueryResult<PaginatedResponse<IndexInfo>> {
-  const {
-    enabled = true,
-    page = 1,
-    pageSize = 1000,
-     filters,
-    staleTime,
-    refetchInterval,
-    placeholderData,
-  } = options;
-
-  return useQuery({
-    queryKey: queryKeys.cluster(clusterId ?? '').indices(page, filters),
-    queryFn: async () => {
-      if (!clusterId) throw new Error('Cluster ID is required');
-      return apiClient.getIndices(clusterId, page, pageSize, filters);
-    },
-    enabled: !!clusterId && enabled,
-    staleTime,
-    refetchInterval,
-    placeholderData,
-  });
+  const { filters, page = 1, pageSize = 1000, ...rest } = options;
+  return useClusterPaginated(
+    clusterId,
+    queryKeys.cluster(clusterId ?? '').indices(page, filters),
+    (id, p, ps) => apiClient.getIndices(id, p, ps, filters),
+    { page, pageSize, ...rest }
+  );
 }
