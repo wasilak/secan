@@ -414,7 +414,8 @@ export class ApiClient {
       });
 
       // Extract content-type header for response formatting
-      const contentType = response.headers['content-type'] || null;
+      const rawContentType = response.headers['content-type'];
+      const contentType = typeof rawContentType === 'string' ? rawContentType : null;
 
       return {
         data: response.data,
