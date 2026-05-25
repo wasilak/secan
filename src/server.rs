@@ -417,6 +417,7 @@ impl Server {
             .layer(middleware::from_fn_with_state(
                 Arc::new(crate::middleware::permissions::PermissionState::new(
                     self.config.auth.mode.clone(),
+                    crate::auth::RbacManager::new(self.config.auth.roles.clone()),
                 )),
                 crate::middleware::permissions::permission_middleware,
             ))

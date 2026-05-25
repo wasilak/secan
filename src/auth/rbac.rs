@@ -123,34 +123,28 @@ impl RbacManager {
         Self { roles }
     }
 
-    /// Get all accessible clusters for a user based on their roles
+    /// Get all accessible clusters for a user based on their groups
     pub fn get_accessible_clusters(
         &self,
         user: &AuthUser,
         all_cluster_ids: &[String],
     ) -> Vec<String> {
-        let mut accessible = Vec::new();
-
-        for cluster_id in all_cluster_ids {
-            if self.can_access_cluster(user, cluster_id) {
-                accessible.push(cluster_id.clone());
-            }
-        }
-
-        accessible
+        all_cluster_ids
+            .iter()
+            .filter(|id| self.can_access_cluster(user, id))
+            .cloned()
+            .collect()
     }
 
     /// Check if a user can access a specific cluster
     pub fn can_access_cluster(&self, user: &AuthUser, cluster_id: &str) -> bool {
-        // Check each of the user's roles
-        for user_role_name in &user.roles {
-            if let Some(role) = self.roles.get(user_role_name) {
+        for role_name in &user.roles {
+            if let Some(role) = self.roles.get(role_name) {
                 if role.matches_cluster(cluster_id) {
                     return true;
                 }
             }
         }
-
         false
     }
 
