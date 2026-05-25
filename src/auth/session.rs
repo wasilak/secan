@@ -229,6 +229,20 @@ pub fn build_clear_session_cookie_header() -> http::HeaderValue {
     }
 }
 
+/// Extract the `session_token` cookie value from request headers.
+///
+/// Returns `None` when the header is absent or the cookie is not present.
+pub fn extract_session_token(headers: &http::HeaderMap) -> Option<String> {
+    let cookie_str = headers.get(http::header::COOKIE)?.to_str().ok()?;
+    for cookie in cookie_str.split(';') {
+        let cookie = cookie.trim();
+        if let Some(value) = cookie.strip_prefix("session_token=") {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
 // ── Opaque token generator (still used by OIDC state parameter) ───────────────
 
 /// Generate a cryptographically secure random opaque token (256 bits, URL-safe base64).

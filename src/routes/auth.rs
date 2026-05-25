@@ -459,7 +459,7 @@ pub async fn logout(
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ErrorResponse> {
     // Extract session token from cookie
-    if let Some(token) = extract_session_token(&headers) {
+    if let Some(token) = crate::auth::session::extract_session_token(&headers) {
         // Invalidate session
         if let Err(e) = state.session_manager.invalidate_session(&token).await {
             tracing::error!(error = %e, "Failed to invalidate session");
@@ -486,21 +486,6 @@ pub async fn logout(
     *response.status_mut() = StatusCode::FOUND;
 
     Ok(response)
-}
-
-/// Extract session token from request headers
-fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
-    let cookies = headers.get(header::COOKIE)?;
-    let cookies_str = cookies.to_str().ok()?;
-
-    for cookie in cookies_str.split(';') {
-        let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
-        if parts.len() == 2 && parts[0] == "session_token" {
-            return Some(parts[1].to_string());
-        }
-    }
-
-    None
 }
 
 /// Return true if the given redirect target is considered safe.
