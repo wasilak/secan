@@ -46,7 +46,7 @@ pub async fn list_component_templates(
     ClusterClient { client, .. }: ClusterClient,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
     let response = client.get_component_templates().await.map_err(|e| {
-        ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
+        ClusterErrorResponse::simple("es_request_failed", format!("ES request failed: {}", e))
     })?;
 
     let mut templates = Vec::new();
@@ -79,13 +79,13 @@ pub async fn get_component_template(
     Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
     let response = client.get_component_template(&name).await.map_err(|e| {
-        ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
+        ClusterErrorResponse::simple("es_request_failed", format!("ES request failed: {}", e))
     })?;
 
     let detail = serde_json::from_value::<ComponentTemplateDetail>(response).map_err(|e| {
         ClusterErrorResponse::simple(
             "parse_error",
-            &format!("Failed to parse component template response: {}", e),
+            format!("Failed to parse component template response: {}", e),
         )
     })?;
 
@@ -112,11 +112,11 @@ pub async fn put_component_template(
         .put_component_template(&name, serde_json::Value::Object(request_body))
         .await
         .map_err(|e| {
-            ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
+            ClusterErrorResponse::simple("es_request_failed", format!("ES request failed: {}", e))
         })?;
 
     let detail = serde_json::from_value::<ComponentTemplateDetail>(response).map_err(|e| {
-        ClusterErrorResponse::simple("parse_error", &format!("Failed to parse response: {}", e))
+        ClusterErrorResponse::simple("parse_error", format!("Failed to parse response: {}", e))
     })?;
 
     Ok(Json(detail))
@@ -127,7 +127,7 @@ pub async fn delete_component_template(
     Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
     let response = client.delete_component_template(&name).await.map_err(|e| {
-        ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
+        ClusterErrorResponse::simple("es_request_failed", format!("ES request failed: {}", e))
     })?;
 
     Ok(Json(response))

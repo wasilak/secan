@@ -35,7 +35,7 @@ impl FromRequestParts<ClusterState> for ClusterClient {
             .map_err(|e| {
                 ClusterErrorResponse::simple(
                     "cluster_not_found",
-                    &format!("Cluster not found: {}", e),
+                    format!("Cluster not found: {}", e),
                 )
             })?;
 
