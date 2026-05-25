@@ -88,15 +88,6 @@ pub struct TlsServerConfig {
     pub key_file: PathBuf,
 }
 
-/// Group to cluster mapping for permission configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupClusterMapping {
-    /// Group name (or "*" for all groups)
-    pub group: String,
-    /// List of cluster IDs accessible to this group (or "*" for all clusters)
-    pub clusters: Vec<String>,
-}
-
 /// Authentication configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthConfig {
@@ -111,8 +102,6 @@ pub struct AuthConfig {
     pub ldap: Option<LdapConfig>,
     #[serde(default)]
     pub roles: Vec<RoleConfig>,
-    #[serde(default)]
-    pub permissions: Vec<GroupClusterMapping>,
 }
 
 fn default_session_timeout() -> u64 {
@@ -644,10 +633,6 @@ impl AuthConfig {
             role.validate()?;
         }
 
-        for perm in &self.permissions {
-            perm.validate()?;
-        }
-
         Ok(())
     }
 }
@@ -736,21 +721,6 @@ impl LdapConfig {
         // Validate timeout
         if self.connection_timeout_seconds == 0 {
             anyhow::bail!("LDAP connection_timeout_seconds must be positive");
-        }
-
-        Ok(())
-    }
-}
-
-impl GroupClusterMapping {
-    /// Validate group cluster mapping configuration
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.group.is_empty() {
-            anyhow::bail!("Group name cannot be empty");
-        }
-
-        if self.clusters.is_empty() {
-            anyhow::bail!("Group '{}' must have at least one cluster", self.group);
         }
 
         Ok(())
@@ -1112,7 +1082,6 @@ impl Default for AuthConfig {
             oidc: None,
             ldap: None,
             roles: Vec::new(),
-            permissions: Vec::new(),
         }
     }
 }
