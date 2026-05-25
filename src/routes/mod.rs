@@ -1,4 +1,5 @@
 // API routes module
+pub mod aliases;
 pub mod app_metrics;
 pub mod auth;
 pub mod cluster_client;
@@ -11,7 +12,6 @@ pub mod static_assets;
 pub mod telemetry;
 pub mod templates;
 pub mod topology;
-pub mod aliases;
 
 pub use auth::{AuthState, ErrorResponse, LoginRequest, LoginResponse, OidcCallbackQuery};
 pub use clusters::{ClusterErrorResponse, ClusterState};

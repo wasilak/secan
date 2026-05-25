@@ -1039,11 +1039,13 @@ impl Manager {
         // Select client for this user/cluster. If no match, return an error
         // that callers should map to a local access_denied response. Do NOT
         // emit audit for local access_denied.
-        let (client, matched_role_label) =
-            match self.get_client_for_user(&req.cluster_id, &req.user_roles).await {
-                Ok(pair) => pair,
-                Err(_) => return Err(ProxyRequestError::AccessDenied),
-            };
+        let (client, matched_role_label) = match self
+            .get_client_for_user(&req.cluster_id, &req.user_roles)
+            .await
+        {
+            Ok(pair) => pair,
+            Err(_) => return Err(ProxyRequestError::AccessDenied),
+        };
 
         // Perform the request with a 30s timeout and 10s read timeout for
         // response body (matches existing handler behaviour).
@@ -1054,9 +1056,12 @@ impl Manager {
         // errors (reqwest::Error, io::Error) before falling back to Other.
         let inner_res = tokio::time::timeout(
             std::time::Duration::from_secs(30),
-            client
-                .as_ref()
-                .instrumented_request(req.method.clone(), &req.path, req.body, &req.cluster_id),
+            client.as_ref().instrumented_request(
+                req.method.clone(),
+                &req.path,
+                req.body,
+                &req.cluster_id,
+            ),
         )
         .await
         .map_err(Into::<ProxyRequestError>::into)?; // Elapsed -> ProxyTimeout

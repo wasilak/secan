@@ -1,8 +1,4 @@
-use axum::{
-    extract::Path,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::Path, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::client::ElasticsearchClient;

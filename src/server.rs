@@ -566,7 +566,6 @@ mod tests {
                 oidc: None,
                 ldap: None,
                 roles: vec![],
-                permissions: vec![],
             },
             clusters: vec![],
             cache: crate::config::CacheConfig::default(),

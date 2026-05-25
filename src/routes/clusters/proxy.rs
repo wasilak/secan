@@ -1,7 +1,7 @@
+use super::{ClusterErrorResponse, ClusterState};
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::{manager::ProxyAuditRequest, ProxyRequestError};
 use crate::middleware::logging::RequestId;
-use super::{ClusterErrorResponse, ClusterState};
 use axum::{
     extract::{Path, State},
     http::Method,
@@ -9,7 +9,6 @@ use axum::{
     Json,
 };
 use tracing::instrument;
-
 
 /// Proxy request to Elasticsearch cluster
 ///
@@ -97,52 +96,50 @@ pub async fn proxy_request(
         .await
     {
         Ok(r) => r,
-        Err(e) => {
-            match e {
-                ProxyRequestError::AccessDenied => {
-                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
-                    return Err(ClusterErrorResponse::simple(
-                        "access_denied",
-                        format!("Access denied to cluster: {}", cluster_id),
-                    ));
-                }
-                ProxyRequestError::ProxyTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "PROXY: request timed out");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_timeout",
-                        format!(
-                            "Elasticsearch request timed out: {} {} (timeout: 30s)",
-                            method, full_path
-                        ),
-                    ));
-                }
-                ProxyRequestError::ResponseReadTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "PROXY: response read timed out");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_timeout",
-                        "Elasticsearch response read timed out (timeout: 10s)".to_string(),
-                    ));
-                }
-                ProxyRequestError::RequestFailed(reason) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: request failed");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_failed",
-                        format!("Elasticsearch request failed: {}", reason),
-                    ));
-                }
-                ProxyRequestError::ResponseReadFailed(reason) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: response read failed");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_failed",
-                        format!("Elasticsearch response read failed: {}", reason),
-                    ));
-                }
-                ProxyRequestError::Other(msg) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %msg, "PROXY: unexpected error");
-                    return Err(ClusterErrorResponse::simple("proxy_error", msg));
-                }
+        Err(e) => match e {
+            ProxyRequestError::AccessDenied => {
+                tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
+                return Err(ClusterErrorResponse::simple(
+                    "access_denied",
+                    format!("Access denied to cluster: {}", cluster_id),
+                ));
             }
-        }
+            ProxyRequestError::ProxyTimeout => {
+                tracing::error!(cluster_id = %cluster_id, "PROXY: request timed out");
+                return Err(ClusterErrorResponse::simple(
+                    "proxy_timeout",
+                    format!(
+                        "Elasticsearch request timed out: {} {} (timeout: 30s)",
+                        method, full_path
+                    ),
+                ));
+            }
+            ProxyRequestError::ResponseReadTimeout => {
+                tracing::error!(cluster_id = %cluster_id, "PROXY: response read timed out");
+                return Err(ClusterErrorResponse::simple(
+                    "response_read_timeout",
+                    "Elasticsearch response read timed out (timeout: 10s)".to_string(),
+                ));
+            }
+            ProxyRequestError::RequestFailed(reason) => {
+                tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: request failed");
+                return Err(ClusterErrorResponse::simple(
+                    "proxy_failed",
+                    format!("Elasticsearch request failed: {}", reason),
+                ));
+            }
+            ProxyRequestError::ResponseReadFailed(reason) => {
+                tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: response read failed");
+                return Err(ClusterErrorResponse::simple(
+                    "response_read_failed",
+                    format!("Elasticsearch response read failed: {}", reason),
+                ));
+            }
+            ProxyRequestError::Other(msg) => {
+                tracing::error!(cluster_id = %cluster_id, error = %msg, "PROXY: unexpected error");
+                return Err(ClusterErrorResponse::simple("proxy_error", msg));
+            }
+        },
     };
 
     // Build an Axum Response, forwarding the Elasticsearch status + body.

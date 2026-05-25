@@ -23,7 +23,8 @@ pub mod http {
     /// Record an HTTP request with method, path, status code, and duration
     pub fn record_request(method: &str, _path: &str, status: u16, duration_ms: f64) {
         metrics::counter!("http.requests.total", "method" => method.to_string(), "status" => status.to_string()).increment(1);
-        metrics::histogram!("http.request.duration_ms", "method" => method.to_string()).record(duration_ms);
+        metrics::histogram!("http.request.duration_ms", "method" => method.to_string())
+            .record(duration_ms);
     }
 }
 
@@ -59,7 +60,8 @@ pub mod cluster {
 
     /// Record cluster request latency
     pub fn record_request_latency(cluster_id: &str, latency_ms: f64) {
-        metrics::histogram!("cluster.request.latency_ms", "cluster_id" => cluster_id.to_string()).record(latency_ms);
+        metrics::histogram!("cluster.request.latency_ms", "cluster_id" => cluster_id.to_string())
+            .record(latency_ms);
     }
 }
 

@@ -328,7 +328,6 @@ pub async fn get_sankey(
     Path(cluster_id): Path<String>,
     Query(params): Query<SankeyQueryParams>,
 ) -> Result<Json<SankeyDataResponse>, crate::routes::clusters::ClusterErrorResponse> {
-
     tracing::debug!(
         cluster = %cluster_id,
         sort_by = ?params.sort_by,

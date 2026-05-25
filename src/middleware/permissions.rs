@@ -136,7 +136,11 @@ mod tests {
     #[test]
     fn test_rbac_wildcard_access() {
         let rbac = make_rbac(&[("admin", "*")]);
-        let user = crate::auth::AuthUser::new("u1".to_string(), "u1".to_string(), vec!["admin".to_string()]);
+        let user = crate::auth::AuthUser::new(
+            "u1".to_string(),
+            "u1".to_string(),
+            vec!["admin".to_string()],
+        );
         assert!(rbac.can_access_cluster(&user, "any-cluster"));
         assert!(rbac.can_access_cluster(&user, "prod-1"));
     }
@@ -144,7 +148,11 @@ mod tests {
     #[test]
     fn test_rbac_pattern_access() {
         let rbac = make_rbac(&[("prod-viewer", "prod-*")]);
-        let user = crate::auth::AuthUser::new("u1".to_string(), "u1".to_string(), vec!["prod-viewer".to_string()]);
+        let user = crate::auth::AuthUser::new(
+            "u1".to_string(),
+            "u1".to_string(),
+            vec!["prod-viewer".to_string()],
+        );
         assert!(rbac.can_access_cluster(&user, "prod-cluster-1"));
         assert!(!rbac.can_access_cluster(&user, "dev-cluster-1"));
     }

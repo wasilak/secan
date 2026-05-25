@@ -1,6 +1,5 @@
-use axum::extract::{Extension as AxExtension, Path as AxPath, State as AxState};
+use axum::extract::{Path as AxPath, State as AxState};
 use axum::response::IntoResponse;
-use secan::auth::middleware::AuthenticatedUser;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,6 +50,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
         topology_generation_semaphore: topology_generation_semaphore.clone(),
         topology_generation_acquire_timeout_seconds: 1, // short timeout for test
         audit_log: false,
+        rbac: secan::auth::RbacManager::new(vec![]),
     };
 
     // We call the handler in-process; no HTTP router is required for this test.
@@ -76,10 +76,9 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
     // Call the handler directly (in-process). Expect concurrency-limited error.
     let state_ex = AxState(cluster_state.clone());
     let path_ex = AxPath("cluster-a".to_string());
-    let user_ext: Option<AxExtension<AuthenticatedUser>> = None;
     let json_ex = axum::Json(make_tbreq());
 
-    let res = secan::routes::topology::post_tiles(state_ex, path_ex, user_ext, json_ex).await;
+    let res = secan::routes::topology::post_tiles(state_ex, path_ex, json_ex).await;
     match res {
         Err(err) => {
             // When converted to an HTTP response the error should map to 429
@@ -104,7 +103,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
     let state_ex = AxState(cluster_state.clone());
     let path_ex = AxPath("cluster-a".to_string());
     let json_ex = axum::Json(make_tbreq());
-    let gen_res = secan::routes::topology::post_tiles(state_ex, path_ex, None, json_ex).await;
+    let gen_res = secan::routes::topology::post_tiles(state_ex, path_ex, json_ex).await;
     let (status, _headers, body) = gen_res.expect("generation should succeed");
     assert_eq!(status, axum::http::StatusCode::OK);
     assert!(!body.tiles.is_empty());
@@ -146,7 +145,7 @@ async fn concurrent_generation_is_limited_and_cached_paths_bypass() {
     let state_ex = AxState(cluster_state.clone());
     let path_ex = AxPath("cluster-a".to_string());
     let json_ex = axum::Json(make_tbreq());
-    let cached_res = secan::routes::topology::post_tiles(state_ex, path_ex, None, json_ex)
+    let cached_res = secan::routes::topology::post_tiles(state_ex, path_ex, json_ex)
         .await
         .expect("cached request should succeed");
     // cached_res is (StatusCode, HeaderMap, Json(TileBatchResponse))

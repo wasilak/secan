@@ -12,7 +12,6 @@ use serde_json::Value;
 use tracing::instrument;
 use utoipa::ToSchema;
 
-
 /// Request body for shard relocation
 ///
 /// # Requirements
@@ -89,7 +88,6 @@ pub async fn relocate_shard(
         roles = ?user.roles,
         "User authenticated for shard relocation"
     );
-
 
     // Validate request parameters
     validate_relocation_request(&req)?;

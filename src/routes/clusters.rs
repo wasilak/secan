@@ -198,7 +198,7 @@ pub async fn list_clusters(
 
     // Filter clusters based on RbacManager role patterns
     let all_ids: Vec<String> = all_clusters.iter().map(|c| c.id.clone()).collect();
-    let accessible_ids = state.rbac.get_accessible_clusters(&user.0.0, &all_ids);
+    let accessible_ids = state.rbac.get_accessible_clusters(&user.0 .0, &all_ids);
     let user_filtered: Vec<_> = all_clusters
         .iter()
         .filter(|c| accessible_ids.contains(&c.id))
@@ -2947,7 +2947,6 @@ pub async fn get_nodes_shard_summary(
         "Getting per-node shard summary"
     );
 
-
     let cluster = state
         .cluster_manager
         .get_cluster(&cluster_id)
@@ -3113,7 +3112,6 @@ mod tests {
         assert_eq!(error.error, "proxy_failed");
         assert_eq!(error.message, "Connection timeout");
     }
-
 
     #[test]
     fn test_get_shards_includes_nodes_for_page() {

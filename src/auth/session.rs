@@ -526,8 +526,7 @@ impl SessionManager {
                 }
 
                 let cleanup_self = self.clone();
-                match tokio::task::spawn(async move { cleanup_self.cleanup_expired().await })
-                    .await
+                match tokio::task::spawn(async move { cleanup_self.cleanup_expired().await }).await
                 {
                     Ok(removed) => {
                         tracing::debug!(

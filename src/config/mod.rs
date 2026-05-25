@@ -1143,7 +1143,6 @@ mod tests {
             oidc: None,
             ldap: None,
             roles: Vec::new(),
-            permissions: Vec::new(),
         };
 
         // Should fail without users
@@ -1167,7 +1166,6 @@ mod tests {
             oidc: None,
             ldap: None,
             roles: Vec::new(),
-            permissions: Vec::new(),
         };
 
         // Should fail without OIDC config
@@ -1616,7 +1614,6 @@ mod tests {
             oidc: None,
             ldap: None,
             roles: Vec::new(),
-            permissions: Vec::new(),
         };
 
         // Should fail without LDAP config

@@ -33,7 +33,6 @@ fn test_ldap_config_validation_at_startup() {
                 display_name_attribute: "cn".to_string(),
             }),
             roles: Vec::new(),
-            permissions: Vec::new(),
         },
         clusters: vec![secan::config::ClusterConfig::new(
             "test".to_string(),
@@ -81,7 +80,6 @@ fn test_ldap_config_validation_fails_with_invalid_url() {
                 display_name_attribute: "cn".to_string(),
             }),
             roles: Vec::new(),
-            permissions: Vec::new(),
         },
         clusters: vec![secan::config::ClusterConfig::new(
             "test".to_string(),
@@ -115,7 +113,6 @@ fn test_ldap_config_validation_fails_without_config() {
             oidc: None,
             ldap: None, // No LDAP config
             roles: Vec::new(),
-            permissions: Vec::new(),
         },
         clusters: vec![secan::config::ClusterConfig::new(
             "test".to_string(),
@@ -168,7 +165,6 @@ fn test_ldap_config_validation_fails_with_empty_bind_dn() {
                 display_name_attribute: "cn".to_string(),
             }),
             roles: Vec::new(),
-            permissions: Vec::new(),
         },
         clusters: vec![secan::config::ClusterConfig::new(
             "test".to_string(),
@@ -221,7 +217,6 @@ fn test_ldap_config_validation_fails_with_zero_timeout() {
                 display_name_attribute: "cn".to_string(),
             }),
             roles: Vec::new(),
-            permissions: Vec::new(),
         },
         clusters: vec![secan::config::ClusterConfig::new(
             "test".to_string(),

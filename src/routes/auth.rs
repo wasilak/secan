@@ -328,14 +328,11 @@ pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, ErrorResponse> {
-
     // OIDC mode: password credentials are not accepted — redirect to the OIDC flow.
     // The frontend uses GET /auth/oidc/login to initiate the provider redirect;
     // reaching POST /auth/login in OIDC mode means the UI sent the wrong request.
     if state.oidc_provider.is_some() {
-        tracing::debug!(
-            "Password login attempted while OIDC is active — redirecting to OIDC flow"
-        );
+        tracing::debug!("Password login attempted while OIDC is active — redirecting to OIDC flow");
         return Ok(Redirect::to("/auth/oidc/login").into_response());
     }
 
@@ -419,7 +416,9 @@ pub async fn get_current_user(
         .into_iter()
         .map(|c| c.id)
         .collect();
-    let accessible_clusters = state.rbac.get_accessible_clusters(&user.0, &all_cluster_ids);
+    let accessible_clusters = state
+        .rbac
+        .get_accessible_clusters(&user.0, &all_cluster_ids);
 
     Json(UserInfoResponse {
         username: user.0.username.clone(),

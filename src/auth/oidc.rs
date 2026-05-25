@@ -685,8 +685,7 @@ impl OidcAuthProvider {
             "OIDC user groups filtered to RBAC role names"
         );
 
-        let auth_user = AuthUser::new(user_id, username, filtered_groups)
-            .with_auth_type("oidc");
+        let auth_user = AuthUser::new(user_id, username, filtered_groups).with_auth_type("oidc");
 
         let token = self
             .session_manager
