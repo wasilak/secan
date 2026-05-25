@@ -300,9 +300,6 @@ pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, ErrorResponse> {
-    use crate::auth::local::verify_password;
-    use crate::auth::AuthUser;
-    use crate::auth::PermissionResolver;
 
     // OIDC mode: password credentials are not accepted — redirect to the OIDC flow.
     // The frontend uses GET /auth/oidc/login to initiate the provider redirect;
@@ -406,110 +403,10 @@ pub async fn login(
         return Ok(response);
     }
 
-    // Find user in config
-    let users = state
-        .config
-        .auth
-        .local_users
-        .as_ref()
-        .ok_or_else(|| ErrorResponse {
-            error: "not_configured".to_string(),
-            message: "Local users not configured".to_string(),
-        })?;
-
-    let user = users
-        .iter()
-        .find(|u| u.username == payload.username)
-        .ok_or_else(|| ErrorResponse {
-            error: "invalid_credentials".to_string(),
-            message: "Invalid username or password".to_string(),
-        })?;
-
-    // Verify password
-    let password_valid = verify_password(&payload.password, &user.password_hash).map_err(|e| {
-        tracing::error!(error = %e, "Password verification failed");
-        ErrorResponse {
-            error: "internal_error".to_string(),
-            message: "Authentication error".to_string(),
-        }
-    })?;
-
-    if !password_valid {
-        tracing::warn!(username = %payload.username, "Invalid password");
-        return Err(ErrorResponse {
-            error: "invalid_credentials".to_string(),
-            message: "Invalid username or password".to_string(),
-        });
-    }
-
-    // Resolve accessible clusters
-    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
-    tracing::debug!(
-        permissions_count = state.config.auth.permissions.len(),
-        user_groups = ?user.groups,
-        "Resolving cluster access"
-    );
-    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.groups);
-
-    tracing::debug!(
-        accessible_clusters = ?accessible_clusters,
-        "Resolved cluster access"
-    );
-
-    // Create session with accessible clusters
-    let auth_user = AuthUser::new_with_clusters(
-        user.username.clone(),
-        user.username.clone(),
-        user.groups.clone(),
-        accessible_clusters.clone(),
-    );
-
-    let token = state
-        .session_manager
-        .create_session_with_clusters(auth_user, accessible_clusters.clone())
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Session creation failed");
-            ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create session".to_string(),
-            }
-        })?;
-
-    tracing::info!(
-        username = %payload.username,
-        groups = ?user.groups,
-        accessible_clusters = ?accessible_clusters,
-        "User authenticated successfully"
-    );
-
-    // Create response with session cookie
-    let body = match serde_json::to_string(&LoginResponse {
-        success: true,
-        message: "Login successful".to_string(),
-    }) {
-        Ok(json) => axum::body::Body::from(json),
-        Err(e) => {
-            tracing::error!(error = %e, "Failed to serialize login response");
-            return Err(ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create login response".to_string(),
-            });
-        }
-    };
-    let mut response = axum::response::Response::new(body);
-    let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-
-    response.headers_mut().insert(
-        http::header::SET_COOKIE,
-        crate::auth::build_session_cookie_header(&token, max_age_seconds),
-    );
-    response.headers_mut().insert(
-        http::header::CONTENT_TYPE,
-        http::HeaderValue::from_static("application/json"),
-    );
-
-    Ok(response)
+    Err(ErrorResponse {
+        error: "not_configured".to_string(),
+        message: "No authentication provider configured".to_string(),
+    })
 }
 
 /// Get current user info
