@@ -209,7 +209,10 @@ pub fn generate_tiles(
             hasher.update(b"\n");
         }
         let hash = hasher.finalize();
-        let version = format!("v-{}", hash.iter().map(|b| format!("{b:02x}")).collect::<String>());
+        let version = format!(
+            "v-{}",
+            hash.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        );
         // Prefix version with cluster generation to allow cheap invalidation
         let full_version = format!("{}-{}", cluster_generation, version);
 
@@ -303,5 +306,8 @@ pub fn compute_cluster_generation(
         hasher.update(b"\n");
     }
     let hash = hasher.finalize();
-    format!("g-{}", hash.iter().map(|b| format!("{b:02x}")).collect::<String>())
+    format!(
+        "g-{}",
+        hash.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    )
 }
