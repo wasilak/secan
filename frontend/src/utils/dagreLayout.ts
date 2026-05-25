@@ -1,5 +1,5 @@
 // dagreLayout utility for React Flow (vertical tree)
-import dagre from '@dagrejs/dagre';
+import { graphlib, layout as dagreLayout } from '@dagrejs/dagre';
 import type { Node, Edge } from '@xyflow/react';
 import { Position } from '@xyflow/react';
 // Use GROUP_WIDTH from canvasLayout so Dagre spacing matches actual node widths
@@ -18,7 +18,7 @@ export function applyDagreLayout(
 ): { nodes: Node[]; edges: Edge[] } {
   // Create a fresh dagre graph for every layout call to avoid stale state
   // when applyDagreLayout is called multiple times during the app lifecycle.
-  const dagreGraph = new dagre.graphlib.Graph();
+  const dagreGraph = new graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   // Prepare dagre nodes and edges. Use canvas layout gaps so dagre spacing
@@ -48,7 +48,7 @@ export function applyDagreLayout(
     }
   });
 
-  dagre.layout(dagreGraph);
+  dagreLayout(dagreGraph);
 
   // Update node positions with dagre-generated coords
   const layoutedNodes = nodes.map((node) => {
