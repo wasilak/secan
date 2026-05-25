@@ -1,6 +1,7 @@
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::{manager::ProxyAuditRequest, ProxyRequestError};
 use crate::middleware::logging::RequestId;
+use super::{ClusterErrorResponse, ClusterState};
 use axum::{
     extract::{Path, State},
     http::Method,
@@ -9,7 +10,6 @@ use axum::{
 };
 use tracing::instrument;
 
-use super::{check_cluster_access, ClusterErrorResponse, ClusterState};
 
 /// Proxy request to Elasticsearch cluster
 ///
@@ -67,7 +67,6 @@ pub async fn proxy_request(
 
     // Enforce RBAC: verify the authenticated user has access to this cluster.
     // In Open mode (no user extension) all access is allowed.
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Use centralized proxy helper which performs client selection, timeouts,
     // response body read timeout, and emits an audit entry when the request

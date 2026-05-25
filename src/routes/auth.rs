@@ -22,6 +22,10 @@ pub struct AuthState {
     pub config: Arc<crate::config::Config>,
     // Optional local provider for local auth path support
     pub local_provider: Option<Arc<crate::auth::LocalAuthProvider>>,
+    /// Cluster manager — used to compute accessible clusters per user in /auth/me
+    pub cluster_manager: Arc<crate::cluster::Manager>,
+    /// RBAC manager for on-demand cluster access computation
+    pub rbac: crate::auth::RbacManager,
 }
 
 /// Login request for local users
@@ -408,13 +412,14 @@ pub async fn get_current_user(
     State(state): State<AuthState>,
     Extension(user): Extension<AuthenticatedUser>,
 ) -> Json<UserInfoResponse> {
-    use crate::auth::PermissionResolver;
-
-    // Resolve accessible clusters from the user's groups/roles on demand so
-    // the JWT remains small. The PermissionResolver is deterministic and uses
-    // configuration available in state.config.
-    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
-    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.0.roles);
+    let all_cluster_ids: Vec<String> = state
+        .cluster_manager
+        .list_clusters()
+        .await
+        .into_iter()
+        .map(|c| c.id)
+        .collect();
+    let accessible_clusters = state.rbac.get_accessible_clusters(&user.0, &all_cluster_ids);
 
     Json(UserInfoResponse {
         username: user.0.username.clone(),

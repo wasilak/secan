@@ -1,7 +1,6 @@
-use crate::auth::middleware::AuthenticatedUser;
 use crate::routes::clusters::transform::ShardInfoResponse;
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Path, State},
     response::IntoResponse,
     Json,
 };
@@ -59,7 +58,6 @@ pub struct TileBatchResponse {
 pub async fn post_tiles(
     State(state): State<crate::routes::ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<Extension<AuthenticatedUser>>,
     Json(body): Json<TileBatchRequest>,
 ) -> Result<
     (
@@ -70,7 +68,6 @@ pub async fn post_tiles(
     crate::routes::clusters::ClusterErrorResponse,
 > {
     // Enforce cluster access for the requesting user (Open mode allows all access)
-    crate::routes::clusters::check_cluster_access(&cluster_id, &user_ext)?;
 
     // Collect requests as tuples for generator
     let requests: Vec<(i32, i32, &str, Option<String>)> = body

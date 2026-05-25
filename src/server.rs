@@ -54,13 +54,9 @@ impl Server {
         // Initialize OIDC provider if OIDC mode is configured
         let oidc_provider = if config.auth.mode == crate::config::AuthMode::Oidc {
             if let Some(oidc_config) = &config.auth.oidc {
-                let permission_resolver =
-                    crate::auth::PermissionResolver::new(config.auth.permissions.clone());
-
                 let provider = crate::auth::OidcAuthProvider::new(
                     oidc_config.clone(),
                     Arc::new(session_manager.clone()),
-                    permission_resolver,
                     config.auth.roles.iter().map(|r| r.name.clone()).collect(),
                 )
                 .await
@@ -82,9 +78,6 @@ impl Server {
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("LDAP auth mode requires LDAP configuration"))?;
 
-            let permission_resolver =
-                crate::auth::PermissionResolver::new(config.auth.permissions.clone());
-
             // Extract RBAC role names from config if present
             let rbac_role_names: Vec<String> =
                 config.auth.roles.iter().map(|r| r.name.clone()).collect();
@@ -92,7 +85,6 @@ impl Server {
             let provider = crate::auth::LdapAuthProvider::new(
                 ldap_config.clone(),
                 Arc::new(session_manager.clone()),
-                permission_resolver,
                 rbac_role_names,
             )
             .await
@@ -135,8 +127,6 @@ impl Server {
         // If local users mode, construct LocalAuthProvider with optional rate limiter
         if self.config.auth.mode == crate::config::AuthMode::LocalUsers {
             if let Some(local_users) = &self.config.auth.local_users {
-                let permission_resolver =
-                    crate::auth::PermissionResolver::new(self.config.auth.permissions.clone());
                 let session_manager_clone = self.session_manager.clone();
                 let rate_limiter =
                     crate::auth::RateLimiter::new(crate::auth::RateLimitConfig::default());
@@ -144,13 +134,14 @@ impl Server {
                     local_users.clone(),
                     (*session_manager_clone).clone(),
                     rate_limiter,
-                    permission_resolver,
                 );
                 // Attach to routes state by saving into the local option so it
                 // can be used when constructing the AuthState below.
                 local_provider_option = Some(Arc::new(provider));
             }
         }
+
+        let rbac = crate::auth::RbacManager::new(self.config.auth.roles.clone());
 
         // Create auth state for authentication routes (attach local provider if any)
         let auth_routes_state = crate::routes::AuthState {
@@ -159,6 +150,8 @@ impl Server {
             session_manager: self.session_manager.clone(),
             config: self.config.clone(),
             local_provider: local_provider_option,
+            cluster_manager: self.cluster_manager.clone(),
+            rbac: rbac.clone(),
         };
 
         // Create OTLP proxy state if telemetry is enabled
@@ -235,6 +228,7 @@ impl Server {
                 .unwrap_or(8),
             // Audit logging enabled flag propagated from top-level config
             audit_log: self.config.audit_log,
+            rbac: rbac.clone(),
         };
 
         // Create metrics state for metrics routes

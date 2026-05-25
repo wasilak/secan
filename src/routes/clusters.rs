@@ -1,4 +1,5 @@
 use crate::auth::middleware::AuthenticatedUser;
+use crate::auth::RbacManager;
 use crate::cache::MetadataCache;
 use crate::cluster::{manager::ProxyAuditRequest, ClusterInfo, Manager as ClusterManager};
 use axum::{
@@ -53,6 +54,8 @@ pub struct ClusterState {
     pub topology_generation_acquire_timeout_seconds: u64,
     /// Whether to emit structured audit entries for proxied Elasticsearch calls
     pub audit_log: bool,
+    /// RBAC manager for per-request cluster access filtering
+    pub rbac: RbacManager,
 }
 
 /// Error response for cluster operations
@@ -188,12 +191,17 @@ pub async fn list_clusters(
 
     tracing::debug!(
         user = %user.0.0.username,
-        accessible_clusters = ?user.0.0.accessible_clusters,
         "Filtering clusters for user"
     );
 
-    // Filter clusters based on user's accessible clusters
-    let user_filtered = filter_clusters_by_access(&all_clusters, &user.0 .0.accessible_clusters);
+    // Filter clusters based on RbacManager role patterns
+    let all_ids: Vec<String> = all_clusters.iter().map(|c| c.id.clone()).collect();
+    let accessible_ids = state.rbac.get_accessible_clusters(&user.0.0, &all_ids);
+    let user_filtered: Vec<_> = all_clusters
+        .iter()
+        .filter(|c| accessible_ids.contains(&c.id))
+        .cloned()
+        .collect();
 
     // Apply additional filters
     let filtered = filter_clusters(&user_filtered, &params);
@@ -332,65 +340,6 @@ fn filter_clusters(clusters: &[ClusterInfo], params: &ClustersQueryParams) -> Ve
         .collect()
 }
 
-/// Filter clusters based on user's accessible cluster IDs
-///
-/// If user has wildcard ("*") access, return all clusters.
-/// Otherwise, return only clusters whose ID is in the accessible list.
-fn filter_clusters_by_access(
-    all_clusters: &[ClusterInfo],
-    accessible_clusters: &[String],
-) -> Vec<ClusterInfo> {
-    // Check for wildcard access
-    if accessible_clusters.iter().any(|c| c == "*") {
-        return all_clusters.to_vec();
-    }
-
-    // Filter to only accessible clusters
-    all_clusters
-        .iter()
-        .filter(|cluster| accessible_clusters.contains(&cluster.id))
-        .cloned()
-        .collect()
-}
-
-/// Check if a user can access a specific cluster
-///
-/// Returns Ok(()) if the user has access, Err with 403 response otherwise.
-/// If no user is provided (Open mode), access is granted to all clusters.
-pub(crate) fn check_cluster_access(
-    cluster_id: &str,
-    user_ext: &Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<(), ClusterErrorResponse> {
-    // No user extension means Open mode - allow all access
-    let Some(user) = user_ext else {
-        return Ok(());
-    };
-
-    let accessible = &user.0 .0.accessible_clusters;
-
-    // Check for wildcard access
-    if accessible.iter().any(|c| c == "*") {
-        return Ok(());
-    }
-
-    // Check if cluster is in user's accessible clusters
-    if accessible.iter().any(|c| c == cluster_id) {
-        return Ok(());
-    }
-
-    // Access denied
-    tracing::warn!(
-        cluster_id = %cluster_id,
-        user = %user.0.0.username,
-        "User attempted to access forbidden cluster"
-    );
-
-    Err(ClusterErrorResponse::simple(
-        "access_denied",
-        format!("Access denied to cluster: {}", cluster_id),
-    ))
-}
-
 /// Validate cluster id and return a clear client error when empty.
 fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
     if cluster_id.is_empty() {
@@ -422,17 +371,15 @@ fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_stats(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<ClusterStatsResponse>, ClusterErrorResponse> {
     tracing::debug!(cluster_id = %cluster_id, "Getting cluster stats");
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -846,7 +793,6 @@ pub async fn get_cluster_details(
 
     // Validate cluster id (defensive) and RBAC check
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Try cache first
     if let Some(cached) = state.details_cache.get(&cluster_id).await {
@@ -1051,11 +997,10 @@ pub async fn get_cluster_details(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_settings(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<Value>, ClusterErrorResponse> {
     let include_defaults = params.contains_key("include_defaults");
@@ -1068,7 +1013,6 @@ pub async fn get_cluster_settings(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -1143,7 +1087,6 @@ pub async fn update_cluster_settings(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster (verify it exists)
     let _cluster = state
@@ -1335,12 +1278,11 @@ pub struct NodesQueryParams {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<NodesQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedResponse<NodeInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -1354,7 +1296,6 @@ pub async fn get_nodes(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -1759,11 +1700,10 @@ pub async fn get_nodes(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_stats(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<NodeDetailStatsResponse>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -1772,7 +1712,6 @@ pub async fn get_node_stats(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -1988,12 +1927,11 @@ fn default_true() -> bool {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_indices(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<IndicesQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedResponse<IndexInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2008,7 +1946,6 @@ pub async fn get_indices(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2143,7 +2080,6 @@ pub async fn get_indices(
 pub async fn get_shard_stats(
     State(state): State<ClusterState>,
     Path((cluster_id, index_name, shard_num)): Path<(String, String, String)>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Value>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2153,7 +2089,6 @@ pub async fn get_shard_stats(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2286,7 +2221,6 @@ pub async fn get_shards(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<ShardsQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedShardsWithNodes>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2300,7 +2234,6 @@ pub async fn get_shards(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2680,18 +2613,16 @@ pub async fn get_shards(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes_shard_summary(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Vec<NodeShardSummary>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         "Getting per-node shard summary"
     );
 
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     let cluster = state
         .cluster_manager
@@ -2763,11 +2694,10 @@ pub async fn get_nodes_shard_summary(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_shards(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Vec<ShardInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2776,7 +2706,6 @@ pub async fn get_node_shards(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state

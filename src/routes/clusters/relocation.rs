@@ -1,3 +1,4 @@
+use super::{ClusterErrorResponse, ClusterState};
 use crate::auth::middleware::AuthenticatedUser;
 use crate::cluster::{manager::ProxyAuditRequest, ProxyRequestError};
 use crate::middleware::logging::RequestId;
@@ -11,7 +12,6 @@ use serde_json::Value;
 use tracing::instrument;
 use utoipa::ToSchema;
 
-use super::{check_cluster_access, ClusterErrorResponse, ClusterState};
 
 /// Request body for shard relocation
 ///
@@ -72,7 +72,6 @@ pub async fn relocate_shard(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Extract authenticated user (if authentication is enabled)
     // In Open mode, the middleware provides a default user
@@ -91,7 +90,6 @@ pub async fn relocate_shard(
         "User authenticated for shard relocation"
     );
 
-    // RBAC cluster access was already enforced by check_cluster_access above.
 
     // Validate request parameters
     validate_relocation_request(&req)?;

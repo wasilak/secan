@@ -17,7 +17,6 @@ use std::sync::{Arc, RwLock};
 
 use crate::config::OidcConfig;
 
-use super::permissions::PermissionResolver;
 use super::session::{AuthUser, SessionManager};
 
 /// OIDC Provider Metadata from discovery
@@ -80,7 +79,6 @@ pub struct OidcAuthProvider {
     session_manager: Arc<SessionManager>,
     metadata: OidcProviderMetadata,
     http_client: HttpClient,
-    permission_resolver: PermissionResolver,
     // Names of RBAC roles from the global configuration. May be empty.
     rbac_role_names: Vec<String>,
     // Pending CSRF states mapped to creation time
@@ -94,7 +92,6 @@ impl OidcAuthProvider {
     pub async fn new(
         config: OidcConfig,
         session_manager: Arc<SessionManager>,
-        permission_resolver: PermissionResolver,
         rbac_role_names: Vec<String>,
     ) -> Result<Self> {
         tracing::debug!("Initializing OIDC authentication provider");
@@ -179,7 +176,6 @@ impl OidcAuthProvider {
             session_manager: session_manager.clone(),
             metadata: metadata.clone(),
             http_client: http_client.clone(),
-            permission_resolver,
             rbac_role_names,
             pending_states: pending_states.clone(),
             jwks: jwks.clone(),
@@ -676,37 +672,25 @@ impl OidcAuthProvider {
                 .unwrap_or_default();
         }
 
-        // Resolve accessible clusters based on groups
-        let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
+        // Filter groups to only those that match a configured RBAC role name.
+        // Keeps JWTs small by excluding unrelated IdP groups.
+        let filtered_groups: Vec<String> = groups
+            .iter()
+            .filter(|g| self.rbac_role_names.is_empty() || self.rbac_role_names.contains(g))
+            .cloned()
+            .collect();
 
         tracing::debug!(
-            "Resolved cluster access - groups: {:?}, accessible_clusters: {:?}",
-            groups,
-            accessible_clusters
+            groups = ?filtered_groups,
+            "OIDC user groups filtered to RBAC role names"
         );
 
-        // Filter groups to only those referenced in permission mappings or
-        // RBAC role names. We don't have RBAC role names here, so pass an
-        // empty list — this keeps JWTs small while preserving authorization
-        // behaviour driven by `permissions:` mappings.
-        let filtered_groups = self
-            .permission_resolver
-            .filter_relevant_groups(&groups, &self.rbac_role_names);
+        let auth_user = AuthUser::new(user_id, username, filtered_groups)
+            .with_auth_type("oidc");
 
-        // Create authenticated user with filtered groups but explicit
-        // accessible_clusters so downstream checks remain correct.
-        let auth_user = AuthUser::new_with_clusters(
-            user_id,
-            username,
-            filtered_groups.clone(),
-            accessible_clusters.clone(),
-        )
-        .with_auth_type("oidc");
-
-        // Create session embedding only filtered groups + accessible clusters
         let token = self
             .session_manager
-            .create_session_with_clusters(auth_user, accessible_clusters)
+            .create_session(auth_user)
             .await
             .context("Failed to create session")?;
 
