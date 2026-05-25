@@ -98,7 +98,7 @@ where
 
         // Set the OTel context on the tracing span
         let cx = parent_context.with_span(span);
-        tracing_span.set_parent(cx);
+        let _ = tracing_span.set_parent(cx);
 
         let start = Instant::now();
         let method = request.method().to_string();
