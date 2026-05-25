@@ -1,6 +1,7 @@
 // API routes module
 pub mod app_metrics;
 pub mod auth;
+pub mod cluster_client;
 pub mod clusters;
 pub mod component_templates;
 pub mod health;

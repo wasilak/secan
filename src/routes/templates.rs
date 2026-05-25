@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::Path,
     response::IntoResponse,
     routing::{get, post},
     Json,
@@ -7,6 +7,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::client::ElasticsearchClient;
+use crate::routes::cluster_client::ClusterClient;
 use crate::routes::clusters::ClusterErrorResponse;
 use crate::routes::ClusterState;
 
@@ -100,22 +101,8 @@ pub struct OverlappingTemplate {
 }
 
 pub async fn list_templates(
-    State(state): State<ClusterState>,
-    Path(cluster_id): Path<String>,
+    ClusterClient { client, .. }: ClusterClient,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.get_index_templates().await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
@@ -159,22 +146,9 @@ pub async fn list_templates(
 }
 
 pub async fn get_template(
-    State(state): State<ClusterState>,
-    Path((cluster_id, name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.get_index_template(&name).await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
@@ -190,23 +164,10 @@ pub async fn get_template(
 }
 
 pub async fn put_template(
-    State(state): State<ClusterState>,
-    Path((cluster_id, name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
     Json(body): Json<PutIndexTemplateRequest>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let mut request_body = serde_json::Map::new();
     if let Some(patterns) = body.index_patterns {
         request_body.insert("index_patterns".to_string(), serde_json::json!(patterns));
@@ -242,22 +203,9 @@ pub async fn put_template(
 }
 
 pub async fn delete_template(
-    State(state): State<ClusterState>,
-    Path((cluster_id, name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.delete_index_template(&name).await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
@@ -266,23 +214,9 @@ pub async fn delete_template(
 }
 
 pub async fn simulate_template(
-    State(state): State<ClusterState>,
-    Path(cluster_id): Path<String>,
+    ClusterClient { client, .. }: ClusterClient,
     Json(body): Json<SimulateRequest>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let mut request_body = serde_json::Map::new();
     if let Some(patterns) = body.index_patterns {
         request_body.insert("index_patterns".to_string(), serde_json::json!(patterns));

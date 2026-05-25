@@ -1,13 +1,13 @@
 use axum::{
-    extract::{Path, State},
+    extract::Path,
     response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::client::ElasticsearchClient;
+use crate::routes::cluster_client::ClusterClient;
 use crate::routes::clusters::ClusterErrorResponse;
-use crate::routes::ClusterState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AliasInfo {
@@ -22,22 +22,8 @@ pub struct AliasInfo {
 }
 
 pub async fn list_aliases(
-    State(state): State<ClusterState>,
-    Path(cluster_id): Path<String>,
+    ClusterClient { client, .. }: ClusterClient,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.get_aliases().await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
@@ -74,22 +60,9 @@ pub async fn list_aliases(
 }
 
 pub async fn get_alias(
-    State(state): State<ClusterState>,
-    Path((cluster_id, name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.get_alias(&name).await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
@@ -126,24 +99,11 @@ pub async fn get_alias(
 }
 
 pub async fn put_alias(
-    State(state): State<ClusterState>,
-    Path((cluster_id, _name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
-    let response = client.put_alias(&_name, body).await.map_err(|e| {
+    let response = client.put_alias(&name, body).await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
 
@@ -151,22 +111,9 @@ pub async fn put_alias(
 }
 
 pub async fn delete_alias(
-    State(state): State<ClusterState>,
-    Path((cluster_id, name)): Path<(String, String)>,
+    ClusterClient { client, .. }: ClusterClient,
+    Path((_, name)): Path<(String, String)>,
 ) -> Result<impl IntoResponse, ClusterErrorResponse> {
-    let cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            ClusterErrorResponse::simple("cluster_not_found", &format!("Cluster not found: {}", e))
-        })?;
-
-    let client = cluster
-        .client
-        .as_ref()
-        .ok_or_else(|| ClusterErrorResponse::unavailable(&cluster_id, None))?;
-
     let response = client.delete_alias(&name).await.map_err(|e| {
         ClusterErrorResponse::simple("es_request_failed", &format!("ES request failed: {}", e))
     })?;
