@@ -1058,7 +1058,7 @@ export function ShardGrid({
 
                       {/* Index metadata - collapsible on small screens */}
                       {isMobile || isTablet ? (
-                        <Collapse in={!indexMetadataCollapsed[index.name]}>
+                        <Collapse expanded={!indexMetadataCollapsed[index.name]}>
                           <Box
                             style={{
                               fontSize: '11px',
@@ -1162,7 +1162,7 @@ export function ShardGrid({
 
                       {/* Node statistics - collapsible on small screens */}
                       {isMobile || isTablet ? (
-                        <Collapse in={!nodeStatsCollapsed[node.id]}>
+                        <Collapse expanded={!nodeStatsCollapsed[node.id]}>
                           <Group gap="xs" wrap="wrap">
                             {/* Heap usage */}
                             <Text size="xs" c="dimmed">

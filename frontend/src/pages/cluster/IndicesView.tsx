@@ -184,7 +184,7 @@ export function IndicesView({ clusterId }: IndicesViewProps) {
       </Tabs.List>
 
       <Tabs.Panel value="indices">
-    <Grid gutter="md" overflow="hidden">
+    <Grid gap="md" overflow="hidden">
       <Grid.Col span={12}>
         <IndexStatsCards
           stats={indexStats}

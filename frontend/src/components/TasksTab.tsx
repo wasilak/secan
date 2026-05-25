@@ -257,7 +257,7 @@ export function TasksTab({ clusterId, isActive, openNodeModal, nodeNameMap }: Ta
   ];
 
   return (
-    <Grid gutter="md" p="md" overflow="hidden">
+    <Grid gap="md" p="md" overflow="hidden">
       <Grid.Col span={12}>
         <TaskStatsCards stats={stats} />
       </Grid.Col>

@@ -249,7 +249,7 @@ export function ShardsView({ clusterId }: ShardsViewProps) {
   };
 
   return (
-    <Grid gutter="md" overflow="hidden">
+    <Grid gap="md" overflow="hidden">
       <Grid.Col span={12}>
         <ShardStatsCards stats={stats} />
       </Grid.Col>

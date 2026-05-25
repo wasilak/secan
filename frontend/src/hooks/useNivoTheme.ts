@@ -1,7 +1,7 @@
 import { useMantineColorScheme } from '@mantine/core';
-import type { Theme } from '@nivo/core';
+import type { PartialTheme } from '@nivo/theming';
 
-export function useNivoTheme(): Theme {
+export function useNivoTheme(): PartialTheme {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 

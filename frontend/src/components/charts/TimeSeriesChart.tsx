@@ -8,7 +8,7 @@ import {
   type MantineColor,
 } from '@mantine/core';
 import ThemedPre from '../common/ThemedPre';
-import { ResponsiveLine, type Serie, type SliceTooltipProps } from '@nivo/line';
+import { ResponsiveLine, type LineSeries, type SliceTooltipProps } from '@nivo/line';
 import { useNivoTheme } from '../../hooks/useNivoTheme';
 import { formatChartTime } from '../../utils/formatters';
 import type { DataPoint } from '../../hooks/useSparklineData';
@@ -33,7 +33,7 @@ export interface TimeSeriesChartProps {
   isLoading?: boolean;
 }
 
-interface NivoSerieWithColor extends Serie {
+interface NivoSerieWithColor extends LineSeries {
   color: string;
 }
 
@@ -92,7 +92,7 @@ export function TimeSeriesChart({
     (_, i) => i % tickStep === 0 || i === allDates.length - 1
   );
 
-  const SliceTooltip = ({ slice }: SliceTooltipProps) => {
+  const SliceTooltip = ({ slice }: SliceTooltipProps<NivoSerieWithColor>) => {
     const firstPoint = slice.points[0];
     const rawDatum = firstPoint?.data as (typeof firstPoint.data & { timestamp?: number }) | undefined;
     const timestamp = rawDatum?.timestamp;
@@ -121,7 +121,7 @@ export function TimeSeriesChart({
         <div style={{ marginBottom: 6, fontWeight: 600 }}>{timeLabel}</div>
         {slice.points.map((point) => {
           const numValue = typeof point.data.y === 'number' ? point.data.y : 0;
-          const seriesName = String(point.serieId);
+          const seriesName = String(point.seriesId);
           const displayValue = valueFormatter
             ? valueFormatter(numValue, seriesName, timestamp)
             : String(numValue);
@@ -132,7 +132,7 @@ export function TimeSeriesChart({
                   width: 10,
                   height: 10,
                   borderRadius: '50%',
-                  background: point.serieColor,
+                  background: point.seriesColor,
                 }}
               />
               <span>
@@ -163,7 +163,7 @@ export function TimeSeriesChart({
 
         {hasData ? (
           <div style={{ height, overflow: 'hidden' }}>
-            <ResponsiveLine
+            <ResponsiveLine<NivoSerieWithColor>
               data={nivoData}
               theme={nivoTheme}
               margin={{ top: 10, right: 10, left: leftMargin, bottom: 50 }}
@@ -182,7 +182,7 @@ export function TimeSeriesChart({
               }}
               enableArea={series.length === 1}
               areaOpacity={0.1}
-              colors={(serie: NivoSerieWithColor) => serie.color}
+              colors={(serie) => (serie as NivoSerieWithColor).color}
               pointSize={showDots ? 6 : 0}
               pointBorderWidth={2}
               pointBorderColor={{ from: 'serieColor' }}

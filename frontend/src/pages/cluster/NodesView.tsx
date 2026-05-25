@@ -95,7 +95,7 @@ export function NodesView({ clusterId }: NodesViewProps) {
   };
 
   return (
-    <Grid gutter="md" overflow="hidden">
+    <Grid gap="md" overflow="hidden">
       <Grid.Col span={12}>
         <NodeStatsCards nodes={nodesArray || []} />
       </Grid.Col>

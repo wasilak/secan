@@ -542,7 +542,7 @@ export function RestConsole() {
         Keyboard shortcuts: Ctrl+Enter (Execute) • Ctrl+L (Clear) • Ctrl+H (Toggle History)
       </Text>
 
-      <Grid gutter="md" overflow="hidden">
+      <Grid gap="md" overflow="hidden">
         {/* Main editor area */}
         <Grid.Col span={{ base: 12, md: showHistory ? 8 : 12 }}>
           <Stack gap="md">

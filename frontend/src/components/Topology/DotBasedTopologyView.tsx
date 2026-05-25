@@ -381,7 +381,7 @@ export function DotBasedTopologyView({
     <div>
       {/* Initial Loading Skeleton */}
       {isLoading && (
-        <Grid gutter="md" overflow="hidden">
+        <Grid gap="md" overflow="hidden">
           {[1, 2, 3, 4].map((i) => (
             <Grid.Col key={i} span={{ base: 12, sm: 6, lg: 4, xl: 3 }}>
               <Box p="md" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 'var(--mantine-radius-sm)' }}>
@@ -404,7 +404,7 @@ export function DotBasedTopologyView({
           {masterNodes.length > 0 && (
             <>
               <Text size="xs" c="dimmed" mb="xs" fw={500}>Master Nodes</Text>
-              <Grid gutter="md" mb="md" overflow="hidden">
+              <Grid gap="md" mb="md" overflow="hidden">
                {masterNodes.map((node) => {
                    const nodeShards = resolveNodeShards(node);
                    return renderNodeCard(node, nodeShards);
@@ -417,7 +417,7 @@ export function DotBasedTopologyView({
           {dataNodes.length > 0 && (
             <>
               <Text size="xs" c="dimmed" mb="xs" fw={500}>Data Nodes</Text>
-              <Grid gutter="md" overflow="hidden">
+              <Grid gap="md" overflow="hidden">
                {dataNodes.map((node) => {
                    const nodeShards = resolveNodeShards(node);
                    return renderNodeCard(node, nodeShards);
@@ -431,7 +431,7 @@ export function DotBasedTopologyView({
         // Filter out empty groups before rendering
         <GroupingErrorBoundary
           fallback={
-            <Grid gutter="md" overflow="hidden">
+            <Grid gap="md" overflow="hidden">
               {Object.entries(filteredShardsByNode).map(([nodeName, nodeShards]) => {
                 const node = filteredNodes.find((n) => n.name === nodeName || n.id === nodeName);
                 if (!node) return null;
@@ -463,7 +463,7 @@ export function DotBasedTopologyView({
                   groupLabel={getGroupLabel(groupKey, groupingConfig.attribute)}
                   nodes={sortedVisibleNodes}
                 >
-                  <Grid gutter="md" overflow="hidden">
+                  <Grid gap="md" overflow="hidden">
                     {sortedVisibleNodes.map(node => {
                       const nodeShards = resolveNodeShards(node);
                       return renderNodeCard(node, nodeShards);

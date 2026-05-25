@@ -167,7 +167,7 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
     });
 
   return (
-    <Grid gutter="md" overflow="hidden" style={{ flex: 1, minHeight: 0, height: '100%' }}>
+    <Grid gap="md" overflow="hidden" style={{ flex: 1, minHeight: 0, height: '100%' }}>
       {/* Stats Row */}
       <Grid.Col span={12}>
         <TopologyStatsCards
