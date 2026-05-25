@@ -277,6 +277,30 @@ pub async fn oidc_callback(
     Ok(response)
 }
 
+fn build_login_response(token: &str, max_age_seconds: u64) -> Result<Response, ErrorResponse> {
+    let body = serde_json::to_string(&LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+    })
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to serialize login response");
+        ErrorResponse {
+            error: "internal_error".to_string(),
+            message: "Failed to create login response".to_string(),
+        }
+    })?;
+    let mut response = axum::response::Response::new(axum::body::Body::from(body));
+    response.headers_mut().insert(
+        http::header::SET_COOKIE,
+        crate::auth::build_session_cookie_header(token, max_age_seconds),
+    );
+    response.headers_mut().insert(
+        http::header::CONTENT_TYPE,
+        http::HeaderValue::from_static("application/json"),
+    );
+    Ok(response)
+}
+
 /// Login endpoint for local users
 ///
 /// Authenticates a user with username and password
@@ -326,28 +350,7 @@ pub async fn login(
             Some(token) => {
                 tracing::info!(username = %payload.username, "User authenticated successfully (local)");
                 let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-                let body = serde_json::to_string(&LoginResponse {
-                    success: true,
-                    message: "Login successful".to_string(),
-                })
-                .map_err(|e| {
-                    tracing::error!(error = %e, "Failed to serialize login response");
-                    ErrorResponse {
-                        error: "internal_error".to_string(),
-                        message: "Failed to create login response".to_string(),
-                    }
-                })?;
-
-                let mut response = axum::response::Response::new(axum::body::Body::from(body));
-                response.headers_mut().insert(
-                    http::header::SET_COOKIE,
-                    crate::auth::build_session_cookie_header(&token, max_age_seconds),
-                );
-                response.headers_mut().insert(
-                    http::header::CONTENT_TYPE,
-                    http::HeaderValue::from_static("application/json"),
-                );
-                return Ok(response);
+                return build_login_response(&token, max_age_seconds);
             }
             None => {
                 tracing::warn!(username = %payload.username, "Invalid credentials (local)");
@@ -378,29 +381,8 @@ pub async fn login(
 
         tracing::info!(username = %payload.username, "LDAP user authenticated successfully");
 
-        let body = serde_json::to_string(&LoginResponse {
-            success: true,
-            message: "Login successful".to_string(),
-        })
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to serialize login response");
-            ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create login response".to_string(),
-            }
-        })?;
-
         let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-        let mut response = axum::response::Response::new(axum::body::Body::from(body));
-        response.headers_mut().insert(
-            http::header::SET_COOKIE,
-            crate::auth::build_session_cookie_header(&session_token, max_age_seconds),
-        );
-        response.headers_mut().insert(
-            http::header::CONTENT_TYPE,
-            http::HeaderValue::from_static("application/json"),
-        );
-        return Ok(response);
+        return build_login_response(&session_token, max_age_seconds);
     }
 
     Err(ErrorResponse {
