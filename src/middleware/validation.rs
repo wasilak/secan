@@ -1,30 +1,9 @@
 use axum::{
-    body::Body,
-    extract::Request,
     http::StatusCode,
-    middleware::Next,
     response::{IntoResponse, Response},
     Json,
 };
 use serde_json::{json, Value};
-
-/// Input validation middleware
-///
-/// Validates and sanitizes user inputs to prevent injection attacks
-///
-/// # Requirements
-///
-/// Validates: Requirements 30.3
-pub async fn input_validation_middleware(
-    request: Request<Body>,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    // For now, we'll let the request through
-    // Individual route handlers should validate their specific inputs
-    // This middleware can be extended to add global validation rules
-
-    Ok(next.run(request).await)
-}
 
 /// Validate index name format
 ///

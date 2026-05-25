@@ -89,6 +89,7 @@ pub fn classify_anyhow(err: &anyhow::Error) -> ProxyRequestError {
     ProxyRequestError::Other(err.to_string())
 }
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

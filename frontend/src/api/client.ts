@@ -18,6 +18,8 @@ import {
   CreateAliasRequest,
   TemplateInfo,
   CreateTemplateRequest,
+  ComponentTemplateSummary,
+  CreateComponentTemplateRequest,
   AnalyzeTextRequest,
   AnalyzeTextResponse,
   IndexAnalyzersResponse,
@@ -39,7 +41,9 @@ import {
   CancelTaskResponse,
   SankeyResponse,
   SankeyQueryParams,
-  
+  TemplateDetail,
+  SimulateTemplateRequest,
+  SimulateTemplateResponse,
 } from '../types/api';
 import { computeHeapPercent } from '../utils/heap';
 import { incrementHeapPercentMissing } from '../utils/metrics';
@@ -64,6 +68,45 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxDelayMs: 10000,
   backoffMultiplier: 2,
 };
+
+export const CAT_API_ENDPOINTS: readonly string[] = [
+  'aliases',
+  'allocation',
+  'count',
+  'fielddata',
+  'health',
+  'indices',
+  'master',
+  'nodeattrs',
+  'nodes',
+  'pending_tasks',
+  'plugins',
+  'recovery',
+  'repositories',
+  'segments',
+  'shards',
+  'snapshots',
+  'tasks',
+  'templates',
+  'thread_pool',
+];
+
+function normalizeMetricsPoint(p: unknown) {
+  const rec = asRecord(p);
+  const timestampIso = parseTimestamp(rec);
+  return {
+    ...rec,
+    date: timestampIso,
+    node_count: numOrUndefined(rec.node_count ?? rec.nodeCount ?? rec.nodes),
+    index_count: numOrUndefined(rec.index_count ?? rec.indexCount ?? rec.indices),
+    document_count: numOrUndefined(rec.document_count ?? rec.documentCount ?? rec.documents),
+    shard_count: numOrUndefined(rec.shard_count ?? rec.shardCount ?? rec.shards),
+    unassigned_shards: numOrUndefined(rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned),
+    cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu),
+    memory_used_bytes: numOrUndefined(rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory),
+    disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk),
+  };
+}
 
 /**
  * API client for communicating with the Secan backend
@@ -316,33 +359,7 @@ export class ApiClient {
         },
       });
 
-      // Normalize cluster items for frontend consumers:
-      // - Convert null `name` to undefined
-      // - Ensure `nodes` is always an array
-      const raw = response.data;
-
-      // Backend may return either a paginated object or a plain array of clusters
-      // in different contexts (tests/mocks or older endpoints). Always return a
-      // PaginatedResponse envelope so consumers can rely on a single shape.
-      if (Array.isArray(raw)) {
-         const normalized = raw.map((c: unknown) => {
-           const rec = c as Record<string, unknown>;
-           return {
-             ...rec,
-             name: (rec.name as string | undefined) ?? undefined,
-             nodes: Array.isArray(rec.nodes) ? (rec.nodes as unknown[]) : [],
-           };
-         });
-        return {
-          items: normalized as ClusterInfo[],
-          total: normalized.length,
-          page: 1,
-          page_size: normalized.length,
-          total_pages: 1,
-        } as PaginatedResponse<ClusterInfo>;
-      }
-
-      const data = raw as PaginatedResponse<ClusterInfo> & { items?: unknown[] };
+      const data = response.data as PaginatedResponse<ClusterInfo> & { items?: unknown[] };
       const normalizedItems = (data.items || []).map((c: unknown) => {
         const rec = c as Record<string, unknown>;
         return {
@@ -1164,6 +1181,7 @@ export class ApiClient {
                   >)
                 : undefined,
               composable: true,
+              composedOf: Array.isArray(template.composed_of) ? (template.composed_of as string[]) : [],
             });
           }
         }
@@ -1192,6 +1210,49 @@ export class ApiClient {
 
         return templates;
       }
+    });
+  }
+
+  /**
+   * Get full detail for a single index template
+   *
+   * Requirements: DETAIL-01, DETAIL-02, DETAIL-03, DETAIL-04
+   */
+  async getTemplate(clusterId: string, name: string): Promise<TemplateDetail> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get<Record<string, unknown>>(
+        `/clusters/${clusterId}/index-templates/${encodeURIComponent(name)}`
+      );
+      const d = response.data as Record<string, unknown>;
+      return {
+        name: d.name as string,
+        indexPatterns: (d.index_patterns as string[]) ?? [],
+        priority: d.priority as number | undefined,
+        version: d.version as number | undefined,
+        composedOf: Array.isArray(d.composed_of) ? (d.composed_of as string[]) : [],
+        composable: Boolean(d.composable),
+        template: d.template as TemplateDetail['template'],
+        _meta: d._meta as Record<string, unknown> | undefined,
+        order: d.order as number | undefined,
+      };
+    });
+  }
+
+  /**
+   * Simulate index template — returns merged settings/mappings/aliases
+   *
+   * Requirements: SIM-03
+   */
+  async simulateTemplate(
+    clusterId: string,
+    body: SimulateTemplateRequest
+  ): Promise<SimulateTemplateResponse> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.post<SimulateTemplateResponse>(
+        `/clusters/${clusterId}/index-templates/_simulate`,
+        body
+      );
+      return response.data;
     });
   }
 
@@ -1270,6 +1331,42 @@ export class ApiClient {
       } else {
         await this.client.delete(`/clusters/${clusterId}/_template/${name}`);
       }
+    });
+  }
+
+  async getComponentTemplates(clusterId: string): Promise<ComponentTemplateSummary[]> {
+    return this.executeWithRetry(async () => {
+      const response = await this.client.get(`/clusters/${clusterId}/component-templates`);
+      const data = response.data as { component_templates: ComponentTemplateSummary[] };
+      return data.component_templates ?? [];
+    });
+  }
+
+  async putComponentTemplate(
+    clusterId: string,
+    name: string,
+    request: CreateComponentTemplateRequest
+  ): Promise<void> {
+    return this.executeWithRetry(async () => {
+      const body: Record<string, unknown> = {};
+      const template: Record<string, unknown> = {};
+      if (request.settings && Object.keys(request.settings).length > 0) {
+        template.settings = request.settings;
+      }
+      if (request.mappings && Object.keys(request.mappings).length > 0) {
+        template.mappings = request.mappings;
+      }
+      body.template = template;
+      if (request.version !== undefined) {
+        body.version = request.version;
+      }
+      await this.client.put(`/clusters/${clusterId}/component-templates/${encodeURIComponent(name)}`, body);
+    });
+  }
+
+  async deleteComponentTemplate(clusterId: string, name: string): Promise<void> {
+    return this.executeWithRetry(async () => {
+      await this.client.delete(`/clusters/${clusterId}/component-templates/${encodeURIComponent(name)}`);
     });
   }
 
@@ -1647,39 +1744,6 @@ export class ApiClient {
   }
 
   /**
-   * Get available Cat API endpoints
-   *
-   * Requirements: 20.1
-   */
-  async getCatEndpoints(_clusterId: string): Promise<string[]> {
-    return this.executeWithRetry(async () => {
-      // Return a predefined list of common Cat API endpoints
-      // These are standard Elasticsearch Cat APIs
-      return [
-        'aliases',
-        'allocation',
-        'count',
-        'fielddata',
-        'health',
-        'indices',
-        'master',
-        'nodeattrs',
-        'nodes',
-        'pending_tasks',
-        'plugins',
-        'recovery',
-        'repositories',
-        'segments',
-        'shards',
-        'snapshots',
-        'tasks',
-        'templates',
-        'thread_pool',
-      ];
-    });
-  }
-
-  /**
    * Execute a Cat API request
    *
    * Requirements: 20.2, 20.3
@@ -1882,33 +1946,7 @@ export class ApiClient {
 
       const raw = (await response.json()) as unknown;
 
-      // Normalize into a consistent frontend-friendly shape:
-      // { data: Array<Point>, prometheus_queries?: Record, raw_metrics?: Record }
-      const normalizePoint = (p: unknown) => {
-        const rec = asRecord(p);
-        const timestampIso = parseTimestamp(rec);
-
-        return {
-          ...rec,
-          date: timestampIso,
-          node_count: numOrUndefined(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
-          index_count: numOrUndefined(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
-          document_count: numOrUndefined(
-            rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count
-          ),
-          shard_count: numOrUndefined(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
-          unassigned_shards: numOrUndefined(
-            rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
-          ),
-          cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
-          memory_used_bytes: numOrUndefined(
-            rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
-          ),
-          disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
-        };
-      };
-
-       const dataArr: unknown[] = getDataArray(raw).map(normalizePoint);
+       const dataArr: unknown[] = getDataArray(raw).map(normalizeMetricsPoint);
 
        const rawRec = asRecord(raw);
        const normalized = {
@@ -1947,31 +1985,7 @@ export class ApiClient {
 
       const raw = (await response.json()) as unknown;
 
-      // Reuse the same normalization helpers as getClusterMetrics
-      const normalizePoint = (p: unknown) => {
-        const rec = asRecord(p);
-        const timestampIso = parseTimestamp(rec);
-        return {
-          ...rec,
-          date: timestampIso,
-          node_count: numOrUndefined(rec.node_count ?? rec.nodeCount ?? rec.nodes ?? rec.node_count),
-          index_count: numOrUndefined(rec.index_count ?? rec.indexCount ?? rec.indices ?? rec.index_count),
-          document_count: numOrUndefined(
-            rec.document_count ?? rec.documentCount ?? rec.documents ?? rec.document_count
-          ),
-          shard_count: numOrUndefined(rec.shard_count ?? rec.shardCount ?? rec.shards ?? rec.shard_count),
-          unassigned_shards: numOrUndefined(
-            rec.unassigned_shards ?? rec.unassignedShards ?? rec.unassigned ?? rec.unassigned_shards
-          ),
-          cpu_percent: numOrUndefined(rec.cpu_percent ?? rec.cpuPercent ?? rec.cpu ?? rec.cpu_percent),
-          memory_used_bytes: numOrUndefined(
-            rec.memory_used_bytes ?? rec.memoryUsedBytes ?? rec.memory ?? rec.memory_used_bytes
-          ),
-          disk_used_bytes: numOrUndefined(rec.disk_used_bytes ?? rec.diskUsedBytes ?? rec.disk ?? rec.disk_used_bytes),
-        };
-      };
-
-      const dataArr: unknown[] = getDataArray(raw).map(normalizePoint);
+      const dataArr: unknown[] = getDataArray(raw).map(normalizeMetricsPoint);
       const rawRec = asRecord(raw);
       const normalized = {
         cluster_id: pickFirstString(rawRec, ['cluster_id', 'clusterId'], clusterId),

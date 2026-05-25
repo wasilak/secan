@@ -38,7 +38,7 @@ auth:
   # local_users:
   #   - username: "admin"
   #     password_hash: "$2b$12$..." # bcrypt hash
-  #     roles:
+  #     groups:                     # group memberships used for RBAC (see roles: below)
   #       - "admin"
 
   # Optional: OIDC mode configuration
@@ -93,13 +93,22 @@ auth:
   #   # See config/examples/README.md for complete parameter reference
 
   # Optional: role-based access control
+  # Maps group names (from local_users.groups, LDAP groups, or OIDC groups claim)
+  # to cluster glob patterns. Users whose groups match a role name gain access to
+  # the listed clusters.
+  #
+  # Migration note: the old `permissions:` block (group → explicit cluster list)
+  # has been replaced by `roles:` (group → glob pattern). Update your config:
+  #   Old:  permissions: [{group: "admins", clusters: ["prod", "staging"]}]
+  #   New:  roles: [{name: "admins", cluster_patterns: ["prod*", "staging*"]}]
+  #
   # roles:
   #   - name: "admin"
   #     cluster_patterns:
-  #       - "*"  # Access to all clusters
+  #       - "*"           # glob: access to all clusters
   #   - name: "viewer"
   #     cluster_patterns:
-  #       - "production"
+  #       - "prod-*"      # glob: only clusters whose ID starts with "prod-"
 
 
 # ============================================================================

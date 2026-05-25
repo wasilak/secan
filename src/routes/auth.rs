@@ -22,6 +22,10 @@ pub struct AuthState {
     pub config: Arc<crate::config::Config>,
     // Optional local provider for local auth path support
     pub local_provider: Option<Arc<crate::auth::LocalAuthProvider>>,
+    /// Cluster manager — used to compute accessible clusters per user in /auth/me
+    pub cluster_manager: Arc<crate::cluster::Manager>,
+    /// RBAC manager for on-demand cluster access computation
+    pub rbac: crate::auth::RbacManager,
 }
 
 /// Login request for local users
@@ -277,6 +281,30 @@ pub async fn oidc_callback(
     Ok(response)
 }
 
+fn build_login_response(token: &str, max_age_seconds: u64) -> Result<Response, ErrorResponse> {
+    let body = serde_json::to_string(&LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+    })
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to serialize login response");
+        ErrorResponse {
+            error: "internal_error".to_string(),
+            message: "Failed to create login response".to_string(),
+        }
+    })?;
+    let mut response = axum::response::Response::new(axum::body::Body::from(body));
+    response.headers_mut().insert(
+        http::header::SET_COOKIE,
+        crate::auth::build_session_cookie_header(token, max_age_seconds),
+    );
+    response.headers_mut().insert(
+        http::header::CONTENT_TYPE,
+        http::HeaderValue::from_static("application/json"),
+    );
+    Ok(response)
+}
+
 /// Login endpoint for local users
 ///
 /// Authenticates a user with username and password
@@ -300,16 +328,15 @@ pub async fn login(
     State(state): State<AuthState>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Response, ErrorResponse> {
-    use crate::auth::local::verify_password;
-    use crate::auth::AuthUser;
-    use crate::auth::PermissionResolver;
 
-    // Only support local users mode for now
+    // OIDC mode: password credentials are not accepted — redirect to the OIDC flow.
+    // The frontend uses GET /auth/oidc/login to initiate the provider redirect;
+    // reaching POST /auth/login in OIDC mode means the UI sent the wrong request.
     if state.oidc_provider.is_some() {
-        return Err(ErrorResponse {
-            error: "not_supported".to_string(),
-            message: "OIDC login not implemented yet".to_string(),
-        });
+        tracing::debug!(
+            "Password login attempted while OIDC is active — redirecting to OIDC flow"
+        );
+        return Ok(Redirect::to("/auth/oidc/login").into_response());
     }
 
     // If a local auth provider is configured (covers local users with rate limiting and proper bcrypt handling)
@@ -327,28 +354,7 @@ pub async fn login(
             Some(token) => {
                 tracing::info!(username = %payload.username, "User authenticated successfully (local)");
                 let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-                let body = serde_json::to_string(&LoginResponse {
-                    success: true,
-                    message: "Login successful".to_string(),
-                })
-                .map_err(|e| {
-                    tracing::error!(error = %e, "Failed to serialize login response");
-                    ErrorResponse {
-                        error: "internal_error".to_string(),
-                        message: "Failed to create login response".to_string(),
-                    }
-                })?;
-
-                let mut response = axum::response::Response::new(axum::body::Body::from(body));
-                response.headers_mut().insert(
-                    http::header::SET_COOKIE,
-                    crate::auth::build_session_cookie_header(&token, max_age_seconds),
-                );
-                response.headers_mut().insert(
-                    http::header::CONTENT_TYPE,
-                    http::HeaderValue::from_static("application/json"),
-                );
-                return Ok(response);
+                return build_login_response(&token, max_age_seconds);
             }
             None => {
                 tracing::warn!(username = %payload.username, "Invalid credentials (local)");
@@ -379,135 +385,14 @@ pub async fn login(
 
         tracing::info!(username = %payload.username, "LDAP user authenticated successfully");
 
-        let body = serde_json::to_string(&LoginResponse {
-            success: true,
-            message: "Login successful".to_string(),
-        })
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to serialize login response");
-            ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create login response".to_string(),
-            }
-        })?;
-
         let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-        let mut response = axum::response::Response::new(axum::body::Body::from(body));
-        response.headers_mut().insert(
-            http::header::SET_COOKIE,
-            crate::auth::build_session_cookie_header(&session_token, max_age_seconds),
-        );
-        response.headers_mut().insert(
-            http::header::CONTENT_TYPE,
-            http::HeaderValue::from_static("application/json"),
-        );
-        return Ok(response);
+        return build_login_response(&session_token, max_age_seconds);
     }
 
-    // Find user in config
-    let users = state
-        .config
-        .auth
-        .local_users
-        .as_ref()
-        .ok_or_else(|| ErrorResponse {
-            error: "not_configured".to_string(),
-            message: "Local users not configured".to_string(),
-        })?;
-
-    let user = users
-        .iter()
-        .find(|u| u.username == payload.username)
-        .ok_or_else(|| ErrorResponse {
-            error: "invalid_credentials".to_string(),
-            message: "Invalid username or password".to_string(),
-        })?;
-
-    // Verify password
-    let password_valid = verify_password(&payload.password, &user.password_hash).map_err(|e| {
-        tracing::error!(error = %e, "Password verification failed");
-        ErrorResponse {
-            error: "internal_error".to_string(),
-            message: "Authentication error".to_string(),
-        }
-    })?;
-
-    if !password_valid {
-        tracing::warn!(username = %payload.username, "Invalid password");
-        return Err(ErrorResponse {
-            error: "invalid_credentials".to_string(),
-            message: "Invalid username or password".to_string(),
-        });
-    }
-
-    // Resolve accessible clusters
-    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
-    tracing::debug!(
-        permissions_count = state.config.auth.permissions.len(),
-        user_groups = ?user.groups,
-        "Resolving cluster access"
-    );
-    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.groups);
-
-    tracing::debug!(
-        accessible_clusters = ?accessible_clusters,
-        "Resolved cluster access"
-    );
-
-    // Create session with accessible clusters
-    let auth_user = AuthUser::new_with_clusters(
-        user.username.clone(),
-        user.username.clone(),
-        user.groups.clone(),
-        accessible_clusters.clone(),
-    );
-
-    let token = state
-        .session_manager
-        .create_session_with_clusters(auth_user, accessible_clusters.clone())
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Session creation failed");
-            ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create session".to_string(),
-            }
-        })?;
-
-    tracing::info!(
-        username = %payload.username,
-        groups = ?user.groups,
-        accessible_clusters = ?accessible_clusters,
-        "User authenticated successfully"
-    );
-
-    // Create response with session cookie
-    let body = match serde_json::to_string(&LoginResponse {
-        success: true,
-        message: "Login successful".to_string(),
-    }) {
-        Ok(json) => axum::body::Body::from(json),
-        Err(e) => {
-            tracing::error!(error = %e, "Failed to serialize login response");
-            return Err(ErrorResponse {
-                error: "internal_error".to_string(),
-                message: "Failed to create login response".to_string(),
-            });
-        }
-    };
-    let mut response = axum::response::Response::new(body);
-    let max_age_seconds = state.config.auth.session_timeout_minutes * 60;
-
-    response.headers_mut().insert(
-        http::header::SET_COOKIE,
-        crate::auth::build_session_cookie_header(&token, max_age_seconds),
-    );
-    response.headers_mut().insert(
-        http::header::CONTENT_TYPE,
-        http::HeaderValue::from_static("application/json"),
-    );
-
-    Ok(response)
+    Err(ErrorResponse {
+        error: "not_configured".to_string(),
+        message: "No authentication provider configured".to_string(),
+    })
 }
 
 /// Get current user info
@@ -527,13 +412,14 @@ pub async fn get_current_user(
     State(state): State<AuthState>,
     Extension(user): Extension<AuthenticatedUser>,
 ) -> Json<UserInfoResponse> {
-    use crate::auth::PermissionResolver;
-
-    // Resolve accessible clusters from the user's groups/roles on demand so
-    // the JWT remains small. The PermissionResolver is deterministic and uses
-    // configuration available in state.config.
-    let permission_resolver = PermissionResolver::new(state.config.auth.permissions.clone());
-    let accessible_clusters = permission_resolver.resolve_cluster_access(&user.0.roles);
+    let all_cluster_ids: Vec<String> = state
+        .cluster_manager
+        .list_clusters()
+        .await
+        .into_iter()
+        .map(|c| c.id)
+        .collect();
+    let accessible_clusters = state.rbac.get_accessible_clusters(&user.0, &all_cluster_ids);
 
     Json(UserInfoResponse {
         username: user.0.username.clone(),
@@ -560,7 +446,7 @@ pub async fn logout(
     headers: axum::http::HeaderMap,
 ) -> Result<Response, ErrorResponse> {
     // Extract session token from cookie
-    if let Some(token) = extract_session_token(&headers) {
+    if let Some(token) = crate::auth::session::extract_session_token(&headers) {
         // Invalidate session
         if let Err(e) = state.session_manager.invalidate_session(&token).await {
             tracing::error!(error = %e, "Failed to invalidate session");
@@ -587,21 +473,6 @@ pub async fn logout(
     *response.status_mut() = StatusCode::FOUND;
 
     Ok(response)
-}
-
-/// Extract session token from request headers
-fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
-    let cookies = headers.get(header::COOKIE)?;
-    let cookies_str = cookies.to_str().ok()?;
-
-    for cookie in cookies_str.split(';') {
-        let parts: Vec<&str> = cookie.trim().splitn(2, '=').collect();
-        if parts.len() == 2 && parts[0] == "session_token" {
-            return Some(parts[1].to_string());
-        }
-    }
-
-    None
 }
 
 /// Return true if the given redirect target is considered safe.

@@ -14,7 +14,6 @@ pub struct LdapAuthProvider {
     session_manager: Arc<SessionManager>,
     conn_settings: LdapConnSettings,
     rate_limiter: Option<crate::auth::RateLimiter>,
-    permission_resolver: crate::auth::PermissionResolver,
     // Names of RBAC roles from the global configuration. May be empty.
     rbac_role_names: Vec<String>,
 }
@@ -42,7 +41,6 @@ impl LdapAuthProvider {
     /// ```no_run
     /// use secan::auth::ldap::LdapAuthProvider;
     /// use secan::auth::session::{SessionManager, SessionConfig};
-    /// use secan::auth::PermissionResolver;
     /// use secan::config::LdapConfig;
     /// use std::sync::Arc;
     ///
@@ -73,15 +71,13 @@ impl LdapAuthProvider {
     ///     60,
     ///     "your-session-secret-at-least-32-chars".to_string(),
     /// )));
-    /// let permission_resolver = PermissionResolver::empty();
-    /// let provider = LdapAuthProvider::new(config, session_manager, permission_resolver, Vec::new()).await?;
+    /// let provider = LdapAuthProvider::new(config, session_manager, Vec::new()).await?;
     /// # Ok(())
     /// # }
     /// ```
     pub async fn new(
         config: LdapConfig,
         session_manager: Arc<SessionManager>,
-        permission_resolver: crate::auth::PermissionResolver,
         rbac_role_names: Vec<String>,
     ) -> Result<Self> {
         // Validate configuration
@@ -144,7 +140,6 @@ impl LdapAuthProvider {
             session_manager,
             conn_settings,
             rate_limiter: None,
-            permission_resolver,
             rbac_role_names,
         })
     }
@@ -154,16 +149,9 @@ impl LdapAuthProvider {
         config: LdapConfig,
         session_manager: Arc<SessionManager>,
         rate_limiter: crate::auth::RateLimiter,
-        permission_resolver: crate::auth::PermissionResolver,
         rbac_role_names: Vec<String>,
     ) -> Result<Self> {
-        let mut provider = Self::new(
-            config,
-            session_manager,
-            permission_resolver,
-            rbac_role_names,
-        )
-        .await?;
+        let mut provider = Self::new(config, session_manager, rbac_role_names).await?;
         provider.rate_limiter = Some(rate_limiter);
         Ok(provider)
     }
@@ -1138,53 +1126,24 @@ impl LdapAuthProvider {
             rate_limiter.record_success(username).await;
         }
 
-        // Resolve accessible clusters based on user's groups
-        debug!(
-            username = %username,
-            groups = ?groups,
-            "Resolving cluster access for user"
-        );
+        // Filter groups to only those relevant for RBAC roles; keeps JWT small
+        // by excluding unrelated AD groups not mapped to any configured role.
+        let filtered_groups: Vec<String> = groups
+            .iter()
+            .filter(|g| self.rbac_role_names.is_empty() || self.rbac_role_names.contains(g))
+            .cloned()
+            .collect();
 
-        let accessible_clusters = self.permission_resolver.resolve_cluster_access(&groups);
-
-        // If no clusters were resolved for this user, warn so admins can investigate
-        // (common cause: missing group mapping in permissions configuration).
-        if accessible_clusters.is_empty() {
-            tracing::warn!(
-                username = %auth_user.username,
-                user_dn = %user_dn,
-                groups = ?groups,
-                "User has no accessible clusters after permission resolution"
-            );
-        }
-
-        // Filter the user's group list down to only groups that are relevant for
-        // authorization decisions (either referenced in `permissions` mappings
-        // or present as RBAC role names). This keeps the JWT small by avoiding
-        // embedding hundreds of unrelated AD groups.
-        // We don't have RBAC role names available here; pass an empty list.
-        // This means we filter only against the `permissions` mappings which
-        // is sufficient to remove unrelated AD groups from the JWT.
-        let filtered_groups = self
-            .permission_resolver
-            .filter_relevant_groups(&groups, &self.rbac_role_names);
-
-        // Create AuthUser with filtered groups and explicit accessible_clusters
-        // stored separately. This keeps JWT payload small while restoring
-        // cluster access behaviour for downstream checks.
-        let auth_user_for_jwt = crate::auth::session::AuthUser::new_with_clusters(
+        let auth_user_for_jwt = crate::auth::session::AuthUser::new(
             auth_user.id,
             auth_user.username.clone(),
             filtered_groups.clone(),
-            accessible_clusters.clone(),
         )
         .with_auth_type("ldap");
 
-        // Create session using session_manager, embedding only filtered groups
-        // and the resolved accessible_clusters into the JWT.
         let session_token = self
             .session_manager
-            .create_session_with_clusters(auth_user_for_jwt, accessible_clusters.clone())
+            .create_session(auth_user_for_jwt)
             .await
             .context("Failed to create session after successful LDAP authentication")?;
 
@@ -1192,8 +1151,7 @@ impl LdapAuthProvider {
         debug!(
             username = %username,
             user_dn = %user_dn,
-            groups = ?groups,
-            accessible_clusters = ?accessible_clusters,
+            groups = ?filtered_groups,
             "LDAP authentication successful"
         );
 

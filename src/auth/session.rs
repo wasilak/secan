@@ -229,6 +229,20 @@ pub fn build_clear_session_cookie_header() -> http::HeaderValue {
     }
 }
 
+/// Extract the `session_token` cookie value from request headers.
+///
+/// Returns `None` when the header is absent or the cookie is not present.
+pub fn extract_session_token(headers: &http::HeaderMap) -> Option<String> {
+    let cookie_str = headers.get(http::header::COOKIE)?.to_str().ok()?;
+    for cookie in cookie_str.split(';') {
+        let cookie = cookie.trim();
+        if let Some(value) = cookie.strip_prefix("session_token=") {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
 // ── Opaque token generator (still used by OIDC state parameter) ───────────────
 
 /// Generate a cryptographically secure random opaque token (256 bits, URL-safe base64).
@@ -237,10 +251,8 @@ pub fn build_clear_session_cookie_header() -> http::HeaderValue {
 /// (which are now signed JWTs).
 pub fn generate_token() -> String {
     use base64::Engine;
-    use getrandom::getrandom;
 
-    let mut bytes = [0u8; 32];
-    getrandom(&mut bytes).expect("secure RNG failed");
+    let bytes: [u8; 32] = rand::random();
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
@@ -494,12 +506,43 @@ impl SessionManager {
     }
 
     /// Spawn a background task that periodically removes stale revocation entries.
+    ///
+    /// Each cleanup iteration runs inside its own `tokio::task::spawn` so that a panic
+    /// in `cleanup_expired` is caught as a `JoinError` rather than killing the loop.
+    /// A warning is emitted if the revocation list exceeds 10 000 entries, which would
+    /// indicate that cleanups are not keeping pace with logout volume.
     pub fn start_cleanup_task(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // 5 min
             loop {
                 interval.tick().await;
-                self.cleanup_expired().await;
+
+                let current_size = self.revocation_list.read().await.len();
+                if current_size > 10_000 {
+                    tracing::warn!(
+                        revocation_list_size = current_size,
+                        "Session revocation list is unusually large — cleanup may be falling behind"
+                    );
+                }
+
+                let cleanup_self = self.clone();
+                match tokio::task::spawn(async move { cleanup_self.cleanup_expired().await })
+                    .await
+                {
+                    Ok(removed) => {
+                        tracing::debug!(
+                            removed = removed,
+                            remaining = current_size.saturating_sub(removed),
+                            "Session revocation-list cleanup completed"
+                        );
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            error = ?e,
+                            "Session cleanup subtask panicked — revocation list not cleaned this cycle"
+                        );
+                    }
+                }
             }
         })
     }
@@ -531,6 +574,7 @@ impl SessionManager {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

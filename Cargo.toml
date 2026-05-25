@@ -16,7 +16,6 @@ tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip", "t
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_yaml = "0.9"
 
 # OpenAPI documentation
 utoipa = "5"
@@ -100,8 +99,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Explicitly enable std feature for rand so thread_rng() is available
 rand = { version = "0.10", features = ["std", "thread_rng"] }
 
-# Cryptographically secure randomness for session tokens
-getrandom = "0.2"
 
 # URL encoding for OIDC
 urlencoding = "2"
@@ -134,7 +131,7 @@ strip = true
 
 [lints.rust]
 # Safety-critical: Deny unsafe code unless explicitly allowed
-# unsafe_code = "forbid"
+unsafe_code = "forbid"
 
 [lints.clippy]
 # Deny unwrap() usage in production code

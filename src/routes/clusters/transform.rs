@@ -101,11 +101,7 @@ pub fn transform_cluster_stats(
                         node_count += 1;
                     }
                 }
-                if node_count > 0 {
-                    Some((total_cpu / node_count) as u32)
-                } else {
-                    None
-                }
+                total_cpu.checked_div(node_count).map(|v| v as u32)
             } else {
                 None
             }

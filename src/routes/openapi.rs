@@ -34,8 +34,8 @@ use utoipa::OpenApi;
         crate::routes::clusters::get_shard_stats,
         crate::routes::clusters::get_shards,
         crate::routes::clusters::get_node_shards,
-        crate::routes::clusters::proxy_request,
-        crate::routes::clusters::relocate_shard,
+        crate::routes::clusters::proxy::proxy_request,
+        crate::routes::clusters::relocation::relocate_shard,
         // Task routes
         crate::routes::clusters::tasks::fetch_cluster_tasks,
         crate::routes::clusters::tasks::get_task_details,

@@ -1,7 +1,6 @@
-use crate::auth::middleware::AuthenticatedUser;
 use crate::routes::clusters::transform::ShardInfoResponse;
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -327,10 +326,8 @@ pub fn aggregate_sankey_data(
 pub async fn get_sankey(
     State(state): State<crate::routes::ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<Extension<AuthenticatedUser>>,
     Query(params): Query<SankeyQueryParams>,
 ) -> Result<Json<SankeyDataResponse>, crate::routes::clusters::ClusterErrorResponse> {
-    crate::routes::clusters::check_cluster_access(&cluster_id, &user_ext)?;
 
     tracing::debug!(
         cluster = %cluster_id,

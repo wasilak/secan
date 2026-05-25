@@ -1,11 +1,9 @@
 use crate::auth::middleware::AuthenticatedUser;
+use crate::auth::RbacManager;
 use crate::cache::MetadataCache;
-use crate::cluster::{ClusterInfo, Manager as ClusterManager};
+use crate::cluster::{manager::ProxyAuditRequest, ClusterInfo, Manager as ClusterManager};
 use crate::middleware::logging::RequestId;
 use anyhow::Context;
-// InstrumentedElasticsearchClient is used by ClusterConnection/Client but
-// after migrating handlers to Manager::proxy_request_with_audit it's no
-// longer directly referenced in this file. Keep import commented for now.
 use axum::{
     extract::{Extension, Path, Query, State},
     http::{Method, StatusCode},
@@ -21,8 +19,13 @@ use tracing::instrument;
 use utoipa::{IntoParams, ToSchema};
 
 mod pagination;
+pub mod proxy;
+pub mod relocation;
 pub mod tasks;
 pub mod transform;
+
+pub use proxy::proxy_request;
+pub use relocation::{relocate_shard, RelocateShardRequest};
 
 use pagination::{paginate_vec, PaginatedResponse};
 use transform::{
@@ -53,6 +56,8 @@ pub struct ClusterState {
     pub topology_generation_acquire_timeout_seconds: u64,
     /// Whether to emit structured audit entries for proxied Elasticsearch calls
     pub audit_log: bool,
+    /// RBAC manager for per-request cluster access filtering
+    pub rbac: RbacManager,
 }
 
 /// Error response for cluster operations
@@ -122,27 +127,6 @@ impl IntoResponse for ClusterErrorResponse {
     }
 }
 
-/// Request body for shard relocation
-///
-/// # Requirements
-///
-/// Validates: Requirements 6.1, 6.2
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct RelocateShardRequest {
-    /// Index name
-    #[schema(example = "my-index")]
-    pub index: String,
-    /// Shard number
-    #[schema(example = 0)]
-    pub shard: u32,
-    /// Source node ID
-    #[schema(example = "node-1")]
-    pub from_node: String,
-    /// Destination node ID
-    #[schema(example = "node-2")]
-    pub to_node: String,
-}
-
 /// List all configured clusters
 ///
 /// Returns a list of all clusters with filtering and pagination
@@ -209,12 +193,17 @@ pub async fn list_clusters(
 
     tracing::debug!(
         user = %user.0.0.username,
-        accessible_clusters = ?user.0.0.accessible_clusters,
         "Filtering clusters for user"
     );
 
-    // Filter clusters based on user's accessible clusters
-    let user_filtered = filter_clusters_by_access(&all_clusters, &user.0 .0.accessible_clusters);
+    // Filter clusters based on RbacManager role patterns
+    let all_ids: Vec<String> = all_clusters.iter().map(|c| c.id.clone()).collect();
+    let accessible_ids = state.rbac.get_accessible_clusters(&user.0.0, &all_ids);
+    let user_filtered: Vec<_> = all_clusters
+        .iter()
+        .filter(|c| accessible_ids.contains(&c.id))
+        .cloned()
+        .collect();
 
     // Apply additional filters
     let filtered = filter_clusters(&user_filtered, &params);
@@ -353,65 +342,6 @@ fn filter_clusters(clusters: &[ClusterInfo], params: &ClustersQueryParams) -> Ve
         .collect()
 }
 
-/// Filter clusters based on user's accessible cluster IDs
-///
-/// If user has wildcard ("*") access, return all clusters.
-/// Otherwise, return only clusters whose ID is in the accessible list.
-fn filter_clusters_by_access(
-    all_clusters: &[ClusterInfo],
-    accessible_clusters: &[String],
-) -> Vec<ClusterInfo> {
-    // Check for wildcard access
-    if accessible_clusters.iter().any(|c| c == "*") {
-        return all_clusters.to_vec();
-    }
-
-    // Filter to only accessible clusters
-    all_clusters
-        .iter()
-        .filter(|cluster| accessible_clusters.contains(&cluster.id))
-        .cloned()
-        .collect()
-}
-
-/// Check if a user can access a specific cluster
-///
-/// Returns Ok(()) if the user has access, Err with 403 response otherwise.
-/// If no user is provided (Open mode), access is granted to all clusters.
-pub(crate) fn check_cluster_access(
-    cluster_id: &str,
-    user_ext: &Option<axum::Extension<AuthenticatedUser>>,
-) -> Result<(), ClusterErrorResponse> {
-    // No user extension means Open mode - allow all access
-    let Some(user) = user_ext else {
-        return Ok(());
-    };
-
-    let accessible = &user.0 .0.accessible_clusters;
-
-    // Check for wildcard access
-    if accessible.iter().any(|c| c == "*") {
-        return Ok(());
-    }
-
-    // Check if cluster is in user's accessible clusters
-    if accessible.iter().any(|c| c == cluster_id) {
-        return Ok(());
-    }
-
-    // Access denied
-    tracing::warn!(
-        cluster_id = %cluster_id,
-        user = %user.0.0.username,
-        "User attempted to access forbidden cluster"
-    );
-
-    Err(ClusterErrorResponse::simple(
-        "access_denied",
-        format!("Access denied to cluster: {}", cluster_id),
-    ))
-}
-
 /// Validate cluster id and return a clear client error when empty.
 fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
     if cluster_id.is_empty() {
@@ -443,17 +373,15 @@ fn validate_cluster_id(cluster_id: &str) -> Result<(), ClusterErrorResponse> {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_stats(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<ClusterStatsResponse>, ClusterErrorResponse> {
     tracing::debug!(cluster_id = %cluster_id, "Getting cluster stats");
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -867,7 +795,6 @@ pub async fn get_cluster_details(
 
     // Validate cluster id (defensive) and RBAC check
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Try cache first
     if let Some(cached) = state.details_cache.get(&cluster_id).await {
@@ -1072,11 +999,10 @@ pub async fn get_cluster_details(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_cluster_settings(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<Value>, ClusterErrorResponse> {
     let include_defaults = params.contains_key("include_defaults");
@@ -1089,7 +1015,6 @@ pub async fn get_cluster_settings(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -1164,7 +1089,6 @@ pub async fn update_cluster_settings(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster (verify it exists)
     let _cluster = state
@@ -1225,16 +1149,16 @@ pub async fn update_cluster_settings(
     // actually forwarded to Elasticsearch.
     let (_status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::PUT,
-            "/_cluster/settings",
-            Some(body_value.clone()),
-            Some(user.id.clone()),
-            &user.roles,
-            &request_id,
-            state.audit_log,
-        )
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.clone(),
+            method: Method::PUT,
+            path: "/_cluster/settings".to_string(),
+            body: Some(body_value.clone()),
+            user_id: Some(user.id.clone()),
+            user_roles: user.roles.clone(),
+            request_id: request_id.clone(),
+            audit_enabled: state.audit_log,
+        })
         .await
     {
         Ok(r) => r,
@@ -1356,12 +1280,11 @@ pub struct NodesQueryParams {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<NodesQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedResponse<NodeInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -1375,7 +1298,6 @@ pub async fn get_nodes(
 
     // Validate cluster id (defensive) and check cluster access
     validate_cluster_id(&cluster_id)?;
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -1780,11 +1702,10 @@ pub async fn get_nodes(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_stats(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<NodeDetailStatsResponse>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -1793,7 +1714,6 @@ pub async fn get_node_stats(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2009,12 +1929,11 @@ fn default_true() -> bool {
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext, params), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state, params), fields(cluster_id = %cluster_id))]
 pub async fn get_indices(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<IndicesQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedResponse<IndexInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2029,7 +1948,6 @@ pub async fn get_indices(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2174,7 +2092,6 @@ pub async fn get_shard_stats(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -2392,16 +2309,16 @@ async fn fetch_shard_from_cluster_state(
     let path = "_cluster/state/routing_nodes";
 
     let (status, _headers, body_bytes, _matched_role) = cluster_manager
-        .proxy_request_with_audit(
-            cluster_id,
-            reqwest::Method::GET,
-            path,
-            None::<Value>,
-            user_id.clone(),
-            &user_roles,
-            &request_id.0,
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.to_string(),
+            method: reqwest::Method::GET,
+            path: path.to_string(),
+            body: None,
+            user_id: user_id.clone(),
+            user_roles: user_roles.clone(),
+            request_id: request_id.0.clone(),
             audit_enabled,
-        )
+        })
         .await
         .map_err(|e| match e {
             ProxyRequestError::AccessDenied => anyhow::anyhow!("Access denied"),
@@ -2535,16 +2452,16 @@ async fn fetch_allocation_explain(
     let path = "_cluster/allocation/explain";
 
     let (status, _headers, body_bytes, _matched_role) = cluster_manager
-        .proxy_request_with_audit(
-            cluster_id,
-            reqwest::Method::POST,
-            path,
-            Some(request_body),
+        .proxy_request_with_audit(ProxyAuditRequest {
+            cluster_id: cluster_id.to_string(),
+            method: reqwest::Method::POST,
+            path: path.to_string(),
+            body: Some(request_body),
             user_id,
-            &user_roles,
-            &request_id.0,
+            user_roles,
+            request_id: request_id.0.clone(),
             audit_enabled,
-        )
+        })
         .await
         .map_err(|e| match e {
             ProxyRequestError::AccessDenied => anyhow::anyhow!("Access denied"),
@@ -2628,7 +2545,6 @@ pub async fn get_shards(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
     Query(params): Query<ShardsQueryParams>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<PaginatedShardsWithNodes>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -2642,7 +2558,6 @@ pub async fn get_shards(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -3022,18 +2937,16 @@ pub async fn get_shards(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id))]
 pub async fn get_nodes_shard_summary(
     State(state): State<ClusterState>,
     Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Vec<NodeShardSummary>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
         "Getting per-node shard summary"
     );
 
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     let cluster = state
         .cluster_manager
@@ -3105,11 +3018,10 @@ pub async fn get_nodes_shard_summary(
     ),
     tag = "Clusters"
 )]
-#[instrument(skip(state, user_ext), fields(cluster_id = %cluster_id, node_id = %node_id))]
+#[instrument(skip(state), fields(cluster_id = %cluster_id, node_id = %node_id))]
 pub async fn get_node_shards(
     State(state): State<ClusterState>,
     Path((cluster_id, node_id)): Path<(String, String)>,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
 ) -> Result<Json<Vec<ShardInfoResponse>>, ClusterErrorResponse> {
     tracing::debug!(
         cluster_id = %cluster_id,
@@ -3118,7 +3030,6 @@ pub async fn get_node_shards(
     );
 
     // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
 
     // Get the cluster
     let cluster = state
@@ -3180,553 +3091,6 @@ pub async fn get_node_shards(
     Ok(Json(shards))
 }
 
-/// Proxy request to Elasticsearch cluster
-///
-/// Forwards the request to the specified cluster and returns the response
-///
-/// # Requirements
-///
-/// Validates: Requirements 2.16, 29.3
-#[utoipa::path(
-    get,
-    path = "/clusters/{cluster_id}/proxy/{path}",
-    params(
-        ("cluster_id" = String, Path, description = "Cluster ID"),
-        ("path" = String, Path, description = "Elasticsearch API path")
-    ),
-    responses(
-        (status = 200, description = "Elasticsearch response"),
-        (status = 400, body = ClusterErrorResponse),
-        (status = 401, body = ClusterErrorResponse),
-        (status = 404, body = ClusterErrorResponse)
-    ),
-    tag = "Clusters"
-)]
-#[axum::debug_handler]
-#[instrument(skip(state, query, body), fields(cluster_id = %cluster_id, http_method = %method))]
-pub async fn proxy_request(
-    State(state): State<ClusterState>,
-    Path((cluster_id, path)): Path<(String, String)>,
-    method: Method,
-    axum::extract::RawQuery(query): axum::extract::RawQuery,
-    user_ext: Option<axum::Extension<AuthenticatedUser>>,
-    request_id_ext: Option<axum::Extension<RequestId>>,
-    body: Option<Json<serde_json::Value>>,
-) -> Result<Response, ClusterErrorResponse> {
-    // Construct full path with query string if present
-    // Ensure path starts with / for Elasticsearch API
-    let normalized_path = if path.starts_with('/') {
-        path.clone()
-    } else {
-        format!("/{}", path)
-    };
-
-    let full_path = if let Some(q) = query {
-        format!("{}?{}", normalized_path, q)
-    } else {
-        normalized_path
-    };
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        method = %method,
-        path = %full_path,
-        "PROXY: Starting Elasticsearch request"
-    );
-
-    // TODO: Extract authenticated user from request
-    // TODO: Check RBAC authorization
-
-    // Use centralized proxy helper which performs client selection, timeouts,
-    // response body read timeout, and emits an audit entry when the request
-    // is actually forwarded to Elasticsearch. The helper returns status,
-    // headers and body so we can construct the Axum response here.
-    let user_roles: Vec<String> = user_ext
-        .as_ref()
-        .map(|u| u.0 .0.roles.clone())
-        .unwrap_or_default();
-
-    let request_id = request_id_ext
-        .as_ref()
-        .map(|r| r.0.as_str().to_string())
-        .unwrap_or_default();
-
-    let (status, headers, body_bytes, _matched_role_label) = match state
-        .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            method.clone(),
-            &full_path,
-            body.map(|j| j.0),
-            user_ext.as_ref().map(|u| u.0 .0.id.clone()),
-            &user_roles,
-            &request_id,
-            state.audit_log,
-        )
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            use crate::cluster::ProxyRequestError;
-
-            match e {
-                ProxyRequestError::AccessDenied => {
-                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
-                    return Err(ClusterErrorResponse::simple(
-                        "access_denied",
-                        format!("Access denied to cluster: {}", cluster_id),
-                    ));
-                }
-                ProxyRequestError::ProxyTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "PROXY: request timed out");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_timeout",
-                        format!(
-                            "Elasticsearch request timed out: {} {} (timeout: 30s)",
-                            method, full_path
-                        ),
-                    ));
-                }
-                ProxyRequestError::RequestFailed(reason) => {
-                    tracing::warn!(error = %reason, "PROXY: request failed");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_failed",
-                        format!(
-                            "Elasticsearch request failed: {} {} - {}",
-                            method, full_path, reason
-                        ),
-                    ));
-                }
-                ProxyRequestError::ResponseReadTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "PROXY: Timeout reading response body");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_timeout",
-                        "Timeout reading Elasticsearch response body",
-                    ));
-                }
-                ProxyRequestError::ResponseReadFailed(reason) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %reason, "PROXY: Failed to read response body");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_failed",
-                        format!("Failed to read response body: {}", reason),
-                    ));
-                }
-                ProxyRequestError::Other(reason) => {
-                    tracing::warn!(error = %reason, "PROXY: Unexpected error");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_failed",
-                        format!("Failed to proxy request: {}", reason),
-                    ));
-                }
-            }
-        }
-    };
-
-    // If upstream returned an error status, map it to a structured error
-    if status.is_client_error() || status.is_server_error() {
-        let error_body = String::from_utf8_lossy(&body_bytes).to_string();
-        tracing::warn!(
-            cluster_id = %cluster_id,
-            method = %method,
-            path = %full_path,
-            status = status.as_u16(),
-            response_body = %error_body,
-            "Elasticsearch API returned error status"
-        );
-        return Err(ClusterErrorResponse::simple(
-            "elasticsearch_error",
-            error_body,
-        ));
-    }
-
-    // Build Axum response using headers returned by helper
-    let mut axum_response = Response::builder().status(status);
-    let mut has_content_type = false;
-    for (key, value) in headers.iter() {
-        let key_lower = key.as_str().to_lowercase();
-
-        if key_lower.starts_with(':')
-            || key_lower == "connection"
-            || key_lower == "transfer-encoding"
-            || key_lower == "keep-alive"
-        {
-            continue;
-        }
-
-        if key_lower == "content-type" {
-            has_content_type = true;
-        }
-
-        axum_response = axum_response.header(key, value);
-    }
-
-    if !has_content_type {
-        axum_response = axum_response.header("content-type", "application/json");
-    }
-
-    let axum_response = axum_response
-        .body(axum::body::Body::from(body_bytes))
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to build response");
-            ClusterErrorResponse::simple(
-                "response_build_failed",
-                format!("Failed to build response: {}", e),
-            )
-        })?;
-
-    Ok(axum_response)
-}
-
-/// Relocate a shard from one node to another
-///
-/// Executes the Elasticsearch cluster reroute API to move a shard
-///
-/// # Requirements
-///
-/// Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 6.11, 8.1, 8.2, 8.3, 8.4
-#[utoipa::path(
-    post,
-    path = "/clusters/{cluster_id}/relocate",
-    params(("cluster_id" = String, Path, description = "Cluster ID")),
-    request_body = RelocateShardRequest,
-    responses(
-        (status = 200, description = "Shard relocation initiated"),
-        (status = 400, body = ClusterErrorResponse),
-        (status = 401, body = ClusterErrorResponse),
-        (status = 404, body = ClusterErrorResponse)
-    ),
-    tag = "Clusters"
-)]
-#[instrument(skip(state, user_ext, req), fields(cluster_id = %cluster_id, index = %req.index, shard = req.shard))]
-pub async fn relocate_shard(
-    State(state): State<ClusterState>,
-    Path(cluster_id): Path<String>,
-    user_ext: Option<axum::Extension<crate::auth::middleware::AuthenticatedUser>>,
-    request_id_ext: Option<axum::Extension<crate::middleware::logging::RequestId>>,
-    Json(req): Json<RelocateShardRequest>,
-) -> Result<Json<Value>, ClusterErrorResponse> {
-    tracing::info!(
-        cluster_id = %cluster_id,
-        index = %req.index,
-        shard = req.shard,
-        from_node = %req.from_node,
-        to_node = %req.to_node,
-        "Shard relocation requested"
-    );
-
-    // Check cluster access
-    check_cluster_access(&cluster_id, &user_ext)?;
-
-    // Extract authenticated user (if authentication is enabled)
-    // In Open mode, the middleware provides a default user
-    let user = user_ext.map(|ext| ext.0 .0).ok_or_else(|| {
-        tracing::error!("Authentication required but user not found in request");
-        ClusterErrorResponse::simple(
-            "authentication_required",
-            "Authentication is required for this operation",
-        )
-    })?;
-
-    tracing::debug!(
-        user_id = %user.id,
-        username = %user.username,
-        roles = ?user.roles,
-        "User authenticated for shard relocation"
-    );
-
-    // TODO: Check RBAC - verify user has access to this cluster
-    // For now, we log the user info and proceed
-    // Full RBAC implementation will be added when RbacManager is integrated into ClusterState
-
-    // Validate request parameters
-    validate_relocation_request(&req)?;
-
-    // Get the cluster (ensure it exists)
-    let _cluster = state
-        .cluster_manager
-        .get_cluster(&cluster_id)
-        .await
-        .map_err(|e| {
-            tracing::error!(
-                cluster_id = %cluster_id,
-                error = %e,
-                "Cluster not found"
-            );
-            ClusterErrorResponse::simple(
-                "cluster_not_found",
-                format!("Cluster '{}' not found. Please verify the cluster ID and ensure the cluster is configured.", cluster_id),
-            )
-        })?;
-
-    // Build the reroute command
-    let reroute_command = serde_json::json!({
-        "commands": [{
-            "move": {
-                "index": req.index,
-                "shard": req.shard,
-                "from_node": req.from_node,
-                "to_node": req.to_node
-            }
-        }]
-    });
-
-    tracing::debug!(
-        cluster_id = %cluster_id,
-        command = ?reroute_command,
-        "Executing cluster reroute"
-    );
-
-    // Select per-request client based on user roles (first-match-wins). If no match,
-    // return local 403 and do NOT forward or audit that denial. `user` was extracted earlier.
-
-    // Determine RequestId string for audit (use empty string if missing)
-    let request_id = request_id_ext
-        .as_ref()
-        .map(|r| r.0.as_str().to_string())
-        .unwrap_or_default();
-
-    // Use centralized proxy helper which performs client selection, timeouts,
-    // response read timeout, and emits an audit entry when the request
-    // actually reaches Elasticsearch.
-    let (status, _headers, body_vec, _matched_role) = match state
-        .cluster_manager
-        .proxy_request_with_audit(
-            &cluster_id,
-            Method::POST,
-            "/_cluster/reroute",
-            Some(reroute_command.clone()),
-            Some(user.id.clone()),
-            &user.roles,
-            &request_id,
-            state.audit_log,
-        )
-        .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            use crate::cluster::ProxyRequestError;
-
-            match e {
-                ProxyRequestError::AccessDenied => {
-                    tracing::warn!(error = %"access_denied", cluster_id = %cluster_id, "Access denied: no matching role client");
-                    return Err(ClusterErrorResponse::simple(
-                        "access_denied",
-                        "You do not have permissions to perform this operation on the requested cluster",
-                    ));
-                }
-                ProxyRequestError::ProxyTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "RELOCATE: request timed out");
-                    return Err(ClusterErrorResponse::simple(
-                        "proxy_timeout",
-                        "Elasticsearch request timed out: POST /_cluster/reroute (timeout: 30s)"
-                            .to_string(),
-                    ));
-                }
-                ProxyRequestError::RequestFailed(reason) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %reason, "RELOCATE: request failed");
-                    // Map to user-friendly relocation_failed message
-                    let message = if reason.contains("timeout") || reason.contains("timed out") {
-                        "Shard relocation request timed out. The cluster may be slow or unreachable. Please check cluster health and try again.".to_string()
-                    } else if reason.contains("connection") || reason.contains("connect") {
-                        "Cannot connect to cluster. Please verify the cluster is running and accessible.".to_string()
-                    } else if reason.contains("unauthorized") || reason.contains("401") {
-                        "Authentication failed. Please check your cluster credentials.".to_string()
-                    } else if reason.contains("forbidden") || reason.contains("403") {
-                        "Permission denied. You may not have the required permissions to relocate shards.".to_string()
-                    } else {
-                        format!("Failed to relocate shard: {}. Please check cluster logs for more details.", reason)
-                    };
-
-                    return Err(ClusterErrorResponse::simple("relocation_failed", message));
-                }
-                ProxyRequestError::ResponseReadTimeout => {
-                    tracing::error!(cluster_id = %cluster_id, "Timeout reading reroute response body");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_timeout",
-                        "Timeout reading Elasticsearch response body",
-                    ));
-                }
-                ProxyRequestError::ResponseReadFailed(reason) => {
-                    tracing::error!(cluster_id = %cluster_id, error = %reason, "Failed to read reroute response body");
-                    return Err(ClusterErrorResponse::simple(
-                        "response_read_failed",
-                        format!("Failed to read response: {}", reason),
-                    ));
-                }
-                ProxyRequestError::Other(reason) => {
-                    tracing::warn!(error = %reason, "RELOCATE: Unexpected error");
-                    return Err(ClusterErrorResponse::simple(
-                        "relocation_failed",
-                        format!("Failed to relocate shard: {}", reason),
-                    ));
-                }
-            }
-        }
-    };
-
-    // Parse response body
-    let body: Value = serde_json::from_slice(&body_vec).map_err(|e| {
-        tracing::error!(
-            cluster_id = %cluster_id,
-            error = %e,
-            "Failed to parse reroute response"
-        );
-        ClusterErrorResponse::simple(
-            "response_parse_failed",
-            format!("Failed to parse response: {}", e),
-        )
-    })?;
-
-    // Check if the request was successful
-    if !status.is_success() {
-        let error_msg = body
-            .get("error")
-            .and_then(|e| e.get("reason"))
-            .and_then(|r| r.as_str())
-            .unwrap_or("Unknown error");
-
-        tracing::error!(
-            cluster_id = %cluster_id,
-            index = %req.index,
-            shard = req.shard,
-            status = status.as_u16(),
-            error = %error_msg,
-            "Elasticsearch rejected shard relocation"
-        );
-
-        // Provide actionable error messages - Requirements: 8.10
-        let user_message = if error_msg.contains("no such shard")
-            || error_msg.contains("shard not found")
-        {
-            format!("Shard {} of index '{}' not found. The shard may have been deleted or the index may not exist.", req.shard, req.index)
-        } else if error_msg.contains("node not found") || error_msg.contains("unknown node") {
-            format!(
-                "Node '{}' or '{}' not found. One of the nodes may have left the cluster.",
-                req.from_node, req.to_node
-            )
-        } else if error_msg.contains("already relocating") {
-            format!("Shard {} of index '{}' is already being relocated. Please wait for the current relocation to complete.", req.shard, req.index)
-        } else if error_msg.contains("same node") {
-            "Cannot relocate shard to the same node. Please select a different destination node."
-                .to_string()
-        } else if error_msg.contains("allocation") {
-            format!(
-                "Shard allocation failed: {}. Check cluster allocation settings and node capacity.",
-                error_msg
-            )
-        } else {
-            format!(
-                "Elasticsearch rejected the relocation: {}. Check cluster logs for more details.",
-                error_msg
-            )
-        };
-
-        return Err(ClusterErrorResponse::simple(
-            "elasticsearch_error",
-            user_message,
-        ));
-    }
-
-    tracing::info!(
-        cluster_id = %cluster_id,
-        index = %req.index,
-        shard = req.shard,
-        from_node = %req.from_node,
-        to_node = %req.to_node,
-        user_id = %user.id,
-        username = %user.username,
-        "Shard relocation initiated successfully"
-    );
-
-    Ok(Json(body))
-}
-
-/// Validate shard relocation request parameters
-///
-/// # Requirements
-///
-/// Validates: Requirements 6.3, 6.4, 8.1, 8.2, 8.3, 8.4
-fn validate_relocation_request(req: &RelocateShardRequest) -> Result<(), ClusterErrorResponse> {
-    // Validate index name is not empty
-    if req.index.is_empty() {
-        tracing::warn!("Validation failed: index name is empty");
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            "Index name is required. Please provide a valid index name.",
-        ));
-    }
-
-    // Validate index name format (basic validation)
-    // Elasticsearch index names must be lowercase and cannot contain certain characters
-    if req.index.chars().any(|c| c.is_uppercase()) {
-        tracing::warn!(index = %req.index, "Validation failed: index name contains uppercase characters");
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            format!(
-                "Index name '{}' contains uppercase characters. Elasticsearch index names must be lowercase.",
-                req.index
-            ),
-        ));
-    }
-
-    // Check for invalid characters in index name
-    let invalid_chars = ['\\', '/', '*', '?', '"', '<', '>', '|', ' ', ',', '#'];
-    if let Some(invalid_char) = req.index.chars().find(|c| invalid_chars.contains(c)) {
-        tracing::warn!(index = %req.index, "Validation failed: index name contains invalid characters");
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            format!(
-                "Index name '{}' contains invalid character '{}'. Index names cannot contain: \\ / * ? \" < > | space , #",
-                req.index, invalid_char
-            ),
-        ));
-    }
-
-    // Validate from_node is not empty
-    if req.from_node.is_empty() {
-        tracing::warn!("Validation failed: from_node is empty");
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            "Source node ID is required. Please select a source node.",
-        ));
-    }
-
-    // Validate to_node is not empty
-    if req.to_node.is_empty() {
-        tracing::warn!("Validation failed: to_node is empty");
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            "Destination node ID is required. Please select a destination node.",
-        ));
-    }
-
-    // Validate source and destination are different
-    if req.from_node == req.to_node {
-        tracing::warn!(
-            from_node = %req.from_node,
-            to_node = %req.to_node,
-            "Validation failed: source and destination nodes are the same"
-        );
-        return Err(ClusterErrorResponse::simple(
-            "validation_failed",
-            format!(
-                "Source and destination nodes must be different (both are {}). Please select a different destination node.",
-                req.from_node
-            ),
-        ));
-    }
-
-    tracing::debug!(
-        index = %req.index,
-        shard = req.shard,
-        from_node = %req.from_node,
-        to_node = %req.to_node,
-        "Request validation passed"
-    );
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3750,191 +3114,6 @@ mod tests {
         assert_eq!(error.message, "Connection timeout");
     }
 
-    #[test]
-    fn test_relocate_shard_request_serialization() {
-        let req = RelocateShardRequest {
-            index: "test-index".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "node-2".to_string(),
-        };
-
-        let json = serde_json::to_string(&req).expect("serialize RelocateShardRequest to JSON");
-        assert!(json.contains("\"index\":\"test-index\""));
-        assert!(json.contains("\"shard\":0"));
-        assert!(json.contains("\"from_node\":\"node-1\""));
-        assert!(json.contains("\"to_node\":\"node-2\""));
-    }
-
-    #[test]
-    fn test_relocate_shard_request_deserialization() {
-        let json = r#"{"index":"logs-2024","shard":1,"from_node":"node-a","to_node":"node-b"}"#;
-        let req: RelocateShardRequest =
-            serde_json::from_str(json).expect("deserialize RelocateShardRequest from JSON");
-
-        assert_eq!(req.index, "logs-2024");
-        assert_eq!(req.shard, 1);
-        assert_eq!(req.from_node, "node-a");
-        assert_eq!(req.to_node, "node-b");
-    }
-
-    #[test]
-    fn test_validate_relocation_request_valid() {
-        let req = RelocateShardRequest {
-            index: "test-index".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "node-2".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_validate_relocation_request_empty_index() {
-        let req = RelocateShardRequest {
-            index: "".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "node-2".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_err());
-        let err = result.expect_err("relocation request validation should fail for empty index");
-        assert_eq!(err.error, "validation_failed");
-        assert!(err.message.contains("Index name is required"));
-    }
-
-    #[test]
-    fn test_validate_relocation_request_uppercase_index() {
-        let req = RelocateShardRequest {
-            index: "Test-Index".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "node-2".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_err());
-        let err =
-            result.expect_err("relocation request validation should fail for uppercase index");
-        assert_eq!(err.error, "validation_failed");
-        assert!(err.message.contains("lowercase"));
-    }
-
-    #[test]
-    fn test_validate_relocation_request_invalid_chars() {
-        let invalid_indices = vec![
-            "test index",  // space
-            "test/index",  // slash
-            "test\\index", // backslash
-            "test*index",  // asterisk
-            "test?index",  // question mark
-            "test\"index", // quote
-            "test<index",  // less than
-            "test>index",  // greater than
-            "test|index",  // pipe
-            "test,index",  // comma
-            "test#index",  // hash
-        ];
-
-        for index in invalid_indices {
-            let req = RelocateShardRequest {
-                index: index.to_string(),
-                shard: 0,
-                from_node: "node-1".to_string(),
-                to_node: "node-2".to_string(),
-            };
-
-            let result = validate_relocation_request(&req);
-            assert!(
-                result.is_err(),
-                "Expected validation to fail for index: {}",
-                index
-            );
-        }
-    }
-
-    #[test]
-    fn test_validate_relocation_request_empty_from_node() {
-        let req = RelocateShardRequest {
-            index: "test-index".to_string(),
-            shard: 0,
-            from_node: "".to_string(),
-            to_node: "node-2".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_err());
-        let err =
-            result.expect_err("relocation request validation should fail for empty from_node");
-        assert_eq!(err.error, "validation_failed");
-        assert!(err.message.contains("Source node ID is required"));
-    }
-
-    #[test]
-    fn test_validate_relocation_request_empty_to_node() {
-        let req = RelocateShardRequest {
-            index: "test-index".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_err());
-        let err = result.expect_err("relocation request validation should fail for empty to_node");
-        assert_eq!(err.error, "validation_failed");
-        assert!(err.message.contains("Destination node ID is required"));
-    }
-
-    #[test]
-    fn test_validate_relocation_request_same_nodes() {
-        let req = RelocateShardRequest {
-            index: "test-index".to_string(),
-            shard: 0,
-            from_node: "node-1".to_string(),
-            to_node: "node-1".to_string(),
-        };
-
-        let result = validate_relocation_request(&req);
-        assert!(result.is_err());
-        let err = result.expect_err(
-            "relocation request validation should fail when from/to nodes are the same",
-        );
-        assert_eq!(err.error, "validation_failed");
-        assert!(err.message.contains("must be different"));
-    }
-
-    #[test]
-    fn test_validate_relocation_request_valid_index_names() {
-        let valid_indices = vec![
-            "test-index",
-            "logs-2024.01.01",
-            "my_index",
-            "index123",
-            "a",
-            "test.index.name",
-        ];
-
-        for index in valid_indices {
-            let req = RelocateShardRequest {
-                index: index.to_string(),
-                shard: 0,
-                from_node: "node-1".to_string(),
-                to_node: "node-2".to_string(),
-            };
-
-            let result = validate_relocation_request(&req);
-            assert!(
-                result.is_ok(),
-                "Expected validation to pass for index: {}",
-                index
-            );
-        }
-    }
 
     #[test]
     fn test_get_shards_includes_nodes_for_page() {

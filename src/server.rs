@@ -1,5 +1,4 @@
 use crate::auth::SessionManager;
-use crate::cache::MetadataCache;
 use crate::cluster::Manager as ClusterManager;
 use crate::config::Config;
 use crate::telemetry::axum_middleware::OtelTraceLayer;
@@ -11,7 +10,6 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
-use serde_json::Value;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{RwLock, Semaphore};
@@ -56,13 +54,9 @@ impl Server {
         // Initialize OIDC provider if OIDC mode is configured
         let oidc_provider = if config.auth.mode == crate::config::AuthMode::Oidc {
             if let Some(oidc_config) = &config.auth.oidc {
-                let permission_resolver =
-                    crate::auth::PermissionResolver::new(config.auth.permissions.clone());
-
                 let provider = crate::auth::OidcAuthProvider::new(
                     oidc_config.clone(),
                     Arc::new(session_manager.clone()),
-                    permission_resolver,
                     config.auth.roles.iter().map(|r| r.name.clone()).collect(),
                 )
                 .await
@@ -84,9 +78,6 @@ impl Server {
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("LDAP auth mode requires LDAP configuration"))?;
 
-            let permission_resolver =
-                crate::auth::PermissionResolver::new(config.auth.permissions.clone());
-
             // Extract RBAC role names from config if present
             let rbac_role_names: Vec<String> =
                 config.auth.roles.iter().map(|r| r.name.clone()).collect();
@@ -94,7 +85,6 @@ impl Server {
             let provider = crate::auth::LdapAuthProvider::new(
                 ldap_config.clone(),
                 Arc::new(session_manager.clone()),
-                permission_resolver,
                 rbac_role_names,
             )
             .await
@@ -137,20 +127,21 @@ impl Server {
         // If local users mode, construct LocalAuthProvider with optional rate limiter
         if self.config.auth.mode == crate::config::AuthMode::LocalUsers {
             if let Some(local_users) = &self.config.auth.local_users {
-                let permission_resolver =
-                    crate::auth::PermissionResolver::new(self.config.auth.permissions.clone());
                 let session_manager_clone = self.session_manager.clone();
-                // Build provider with rate limiter if configured
-                let provider = crate::auth::LocalAuthProvider::new(
+                let rate_limiter =
+                    crate::auth::RateLimiter::new(crate::auth::RateLimitConfig::default());
+                let provider = crate::auth::LocalAuthProvider::with_rate_limiter(
                     local_users.clone(),
                     (*session_manager_clone).clone(),
-                    permission_resolver,
+                    rate_limiter,
                 );
                 // Attach to routes state by saving into the local option so it
                 // can be used when constructing the AuthState below.
                 local_provider_option = Some(Arc::new(provider));
             }
         }
+
+        let rbac = crate::auth::RbacManager::new(self.config.auth.roles.clone());
 
         // Create auth state for authentication routes (attach local provider if any)
         let auth_routes_state = crate::routes::AuthState {
@@ -159,6 +150,8 @@ impl Server {
             session_manager: self.session_manager.clone(),
             config: self.config.clone(),
             local_provider: local_provider_option,
+            cluster_manager: self.cluster_manager.clone(),
+            rbac: rbac.clone(),
         };
 
         // Create OTLP proxy state if telemetry is enabled
@@ -198,7 +191,11 @@ impl Server {
         // Create cluster state for cluster routes
         // Initialize details cache and concurrency semaphore used by per-cluster details endpoint
         let cache_ttl = Duration::from_secs(self.config.cache.get_duration_secs());
-        let details_cache = Arc::new(MetadataCache::<Value>::new(cache_ttl));
+        let details_cache = Arc::new(
+            moka::future::Cache::builder()
+                .time_to_live(cache_ttl)
+                .build(),
+        );
 
         // Create a moka-based cache for tiles with TTL and max capacity.
         let tile_max = self.config.cache.tile_max_entries.unwrap_or(10_000);
@@ -231,6 +228,7 @@ impl Server {
                 .unwrap_or(8),
             // Audit logging enabled flag propagated from top-level config
             audit_log: self.config.audit_log,
+            rbac: rbac.clone(),
         };
 
         // Create metrics state for metrics routes
@@ -357,6 +355,43 @@ impl Server {
                 "/api/clusters/{id}/tasks/{task_id}/_cancel",
                 post(crate::routes::clusters::tasks::cancel_cluster_task),
             )
+            // Index templates endpoints
+            .route(
+                "/api/clusters/{id}/index-templates",
+                get(crate::routes::templates::list_templates),
+            )
+            .route(
+                "/api/clusters/{id}/index-templates/{name}",
+                get(crate::routes::templates::get_template)
+                    .put(crate::routes::templates::put_template)
+                    .delete(crate::routes::templates::delete_template),
+            )
+            .route(
+                "/api/clusters/{id}/index-templates/_simulate",
+                post(crate::routes::templates::simulate_template),
+            )
+            // Component templates endpoints
+            .route(
+                "/api/clusters/{id}/component-templates",
+                get(crate::routes::component_templates::list_component_templates),
+            )
+            .route(
+                "/api/clusters/{id}/component-templates/{name}",
+                get(crate::routes::component_templates::get_component_template)
+                    .put(crate::routes::component_templates::put_component_template)
+                    .delete(crate::routes::component_templates::delete_component_template),
+            )
+            // Aliases endpoints - TODO: implement
+            .route(
+                "/api/clusters/{id}/aliases",
+                get(crate::routes::aliases::list_aliases),
+            )
+            .route(
+                "/api/clusters/{id}/aliases/{name}",
+                get(crate::routes::aliases::get_alias)
+                    .put(crate::routes::aliases::put_alias)
+                    .delete(crate::routes::aliases::delete_alias),
+            )
             // Metrics endpoints (must be before catch-all proxy route)
             .nest(
                 "/api/clusters/{id}/metrics",
@@ -376,6 +411,7 @@ impl Server {
             .layer(middleware::from_fn_with_state(
                 Arc::new(crate::middleware::permissions::PermissionState::new(
                     self.config.auth.mode.clone(),
+                    crate::auth::RbacManager::new(self.config.auth.roles.clone()),
                 )),
                 crate::middleware::permissions::permission_middleware,
             ))
@@ -414,14 +450,15 @@ impl Server {
                     ]);
 
                 if self.config.server.allowed_origins.is_empty() {
-                    tracing::debug!(
-                        "No allowed_origins configured - CORS allows any origin (development mode)"
+                    tracing::warn!(
+                        "CORS: no allowed_origins configured — accepting any origin. \
+                        Set server.allowed_origins in config for production deployments."
                     );
                     cors = cors.allow_origin(tower_http::cors::Any);
                 } else {
-                    tracing::debug!(
+                    tracing::info!(
                         origins = ?self.config.server.allowed_origins,
-                        "CORS restricted to configured origins (production mode)"
+                        "CORS restricted to configured origins"
                     );
                     // Convert string origins to HeaderValue
                     let origins: Vec<axum::http::HeaderValue> = self

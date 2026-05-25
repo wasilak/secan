@@ -69,9 +69,9 @@ pub async fn auth_middleware(
     }
 
     // Extract session token from cookies
-    let token = match extract_session_token(&request) {
-        Ok(token) => token,
-        Err(_) => {
+    let token = match crate::auth::session::extract_session_token(request.headers()) {
+        Some(token) => token,
+        None => {
             // No session token
             // For API requests, return 401; for browser requests, redirect to login
             if is_api_request(path) {
@@ -217,32 +217,6 @@ fn build_login_redirect_url(request: &Request) -> String {
 
     // Redirect to frontend login page (not API endpoint)
     format!("/login?redirect_to={}", redirect_to)
-}
-
-/// Extract session token from cookies
-///
-/// Looks for a cookie named "session_token" and returns its value
-fn extract_session_token(request: &Request) -> Result<String, AuthError> {
-    // Get Cookie header
-    let cookie_header = request
-        .headers()
-        .get(header::COOKIE)
-        .ok_or(AuthError::MissingSessionToken)?;
-
-    // Parse cookie header
-    let cookie_str = cookie_header
-        .to_str()
-        .map_err(|_| AuthError::InvalidCookie)?;
-
-    // Find session_token cookie
-    for cookie in cookie_str.split(';') {
-        let cookie = cookie.trim();
-        if let Some(value) = cookie.strip_prefix("session_token=") {
-            return Ok(value.to_string());
-        }
-    }
-
-    Err(AuthError::MissingSessionToken)
 }
 
 /// Authentication errors
@@ -409,38 +383,6 @@ mod tests {
         let response = app.oneshot(request).await.expect("send request to app");
 
         assert_eq!(response.status(), StatusCode::OK);
-    }
-
-    #[tokio::test]
-    async fn test_extract_session_token_success() {
-        let request = Request::builder()
-            .header(header::COOKIE, "session_token=abc123; other=value")
-            .body(Body::empty())
-            .expect("build request with cookie header");
-
-        let token = extract_session_token(&request).expect("extract session token");
-        assert_eq!(token, "abc123");
-    }
-
-    #[tokio::test]
-    async fn test_extract_session_token_missing() {
-        let request = Request::builder()
-            .header(header::COOKIE, "other=value")
-            .body(Body::empty())
-            .expect("build request with cookie header");
-
-        let result = extract_session_token(&request);
-        assert!(matches!(result, Err(AuthError::MissingSessionToken)));
-    }
-
-    #[tokio::test]
-    async fn test_extract_session_token_no_cookie_header() {
-        let request = Request::builder()
-            .body(Body::empty())
-            .expect("build request body");
-
-        let result = extract_session_token(&request);
-        assert!(matches!(result, Err(AuthError::MissingSessionToken)));
     }
 
     #[tokio::test]
