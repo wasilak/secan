@@ -676,7 +676,7 @@ impl OidcAuthProvider {
         // Keeps JWTs small by excluding unrelated IdP groups.
         let filtered_groups: Vec<String> = groups
             .iter()
-            .filter(|g| self.rbac_role_names.is_empty() || self.rbac_role_names.contains(g))
+            .filter(|g| self.rbac_role_names.contains(g))
             .cloned()
             .collect();
 

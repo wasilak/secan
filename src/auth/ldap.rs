@@ -1130,7 +1130,7 @@ impl LdapAuthProvider {
         // by excluding unrelated AD groups not mapped to any configured role.
         let filtered_groups: Vec<String> = groups
             .iter()
-            .filter(|g| self.rbac_role_names.is_empty() || self.rbac_role_names.contains(g))
+            .filter(|g| self.rbac_role_names.contains(g))
             .cloned()
             .collect();
 
