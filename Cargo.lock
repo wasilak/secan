@@ -3288,7 +3288,7 @@ dependencies = [
 
 [[package]]
 name = "secan"
-version = "0.1.8"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "argon2",
