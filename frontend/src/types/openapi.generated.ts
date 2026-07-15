@@ -1041,6 +1041,7 @@ export interface components {
             roles: string[];
             search?: null | components["schemas"]["SearchStats"];
             shards?: null | components["schemas"]["ShardStats"];
+            tags?: string[] | null;
             threadPools?: {
                 [key: string]: components["schemas"]["ThreadPoolStats"];
             } | null;

@@ -1583,6 +1583,8 @@ pub struct NodeDetailStatsResponse {
     pub cpu_percent: u32,
     pub ip: Option<String>,
     pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
     #[serde(rename = "jvmVersion", skip_serializing_if = "Option::is_none")]
     pub jvm_version: Option<String>,
     #[serde(rename = "threadPools", skip_serializing_if = "Option::is_none")]
@@ -2063,6 +2065,14 @@ pub fn transform_node_detail_stats(
     // Extract JVM stats
     let jvm = extract_jvm_stats(node_stat);
 
+    // Extract tags/attributes from node info (same format as the nodes list)
+    let tags = node_info["attributes"].as_object().map(|attrs| {
+        attrs
+            .iter()
+            .map(|(k, v)| format!("{}:{}", k, v.as_str().unwrap_or("")))
+            .collect()
+    });
+
     Ok(NodeDetailStatsResponse {
         id: node_id.to_string(),
         name: node_info["name"].as_str().unwrap_or("").to_string(),
@@ -2081,6 +2091,7 @@ pub fn transform_node_detail_stats(
         cpu_percent,
         ip: node_info["ip"].as_str().map(|s| s.to_string()),
         version: node_info["version"].as_str().map(|s| s.to_string()),
+        tags,
         jvm_version: node_info["jvm"]["version"].as_str().map(|s| s.to_string()),
         thread_pools,
         shards: shard_stats,

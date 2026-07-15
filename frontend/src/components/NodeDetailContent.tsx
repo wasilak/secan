@@ -8,6 +8,7 @@ import {
   Table,
   Progress,
   ScrollArea,
+  Tabs,
   ThemeIcon,
   Title,
 } from '@mantine/core';
@@ -25,8 +26,10 @@ import {
 import { TimeRangePicker, TIME_RANGE_PRESETS, type TimeRangePreset } from './TimeRangePicker';
 import { useWatermarks } from '../hooks/useWatermarks';
 import { NodeCharts } from './NodeCharts';
+import { TimeSeriesChart } from './charts/TimeSeriesChart';
 import { getRoleIcon } from './RoleIcons';
 import { useSparklineData } from '../hooks/useSparklineData';
+import { useCounterRate } from '../hooks/useCounterRate';
 import { formatRate, formatBytesOptional, formatPercent, formatNumber } from '../utils/formatters';
 import type { NodeDetailStats, ThreadPoolStats } from '../types/api';
 import type { DataPoint } from '../hooks/useSparklineData';
@@ -89,11 +92,11 @@ export function NodeDetailContent({
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { navigateToSection, currentSection } = useClusterNavigation();
-  
+
   // Use external state if provided (when used inside NodeModal), otherwise use internal state
   const [internalDropdownOpened, setInternalDropdownOpened] = useState(false);
   const [internalTimeRange, setInternalTimeRange] = useState(TIME_RANGE_PRESETS[2]); // Default 24h
-  
+
   const timeRangeDropdownOpened = externalDropdownOpened ?? internalDropdownOpened;
   const setTimeRangeDropdownOpened = onTimeRangeDropdownChange ?? setInternalDropdownOpened;
   const selectedTimeRange = externalTimeRange ?? internalTimeRange;
@@ -111,6 +114,16 @@ export function NodeDetailContent({
   const sparklineDisk = useSparklineData(nodeStats?.diskPercent, 50, resetKey, true);
   const sparklineCpu = useSparklineData(nodeStats?.cpuPercent, 50, resetKey, true);
   const sparklineLoad = useSparklineData(nodeStats?.loadAverage?.[0], 50, resetKey, true);
+
+  // Indexing/search rates derived from cumulative node stats counters (internal source)
+  const indexRate = useCounterRate(nodeStats.indexing?.indexTotal);
+  const deleteRate = useCounterRate(nodeStats.indexing?.deleteTotal);
+  const queryRate = useCounterRate(nodeStats.search?.queryTotal);
+  const fetchRate = useCounterRate(nodeStats.search?.fetchTotal);
+  const indexRateHistory = useSparklineData(indexRate, 50, resetKey, true);
+  const deleteRateHistory = useSparklineData(deleteRate, 50, resetKey, true);
+  const queryRateHistory = useSparklineData(queryRate, 50, resetKey, true);
+  const fetchRateHistory = useSparklineData(fetchRate, 50, resetKey, true);
 
   // Use Prometheus time-series data when available, otherwise fallback to sparkline (fake) data
   // Prometheus data has real timestamps and values from the time range selector
@@ -179,9 +192,25 @@ export function NodeDetailContent({
 
   return (
     <Stack gap="md">
+      {/* Static page title */}
+      <Title order={2}>
+        Node details:{' '}
+        <Text component="span" fw={500} style={{ textTransform: 'none' }}>
+          {nodeStats.name}
+        </Text>
+      </Title>
+
       {/* Node Header Information */}
       <Card shadow="sm" padding="lg">
         <Stack gap="xs">
+          <Group gap="xs" align="center">
+            <Text size="sm" c="dimmed">
+              Name:
+            </Text>
+            <Text size="sm" fw={500} style={{ textTransform: 'none' }}>
+              {nodeStats.name}
+            </Text>
+          </Group>
           <Group gap="xs" align="center">
             <Text size="sm" c="dimmed">
               Node ID:
@@ -215,289 +244,291 @@ export function NodeDetailContent({
               </Group>
             </div>
           )}
+          {nodeStats.tags && nodeStats.tags.length > 0 && (
+            <div>
+              <Text size="sm" c="dimmed" mb="xs">
+                Tags
+              </Text>
+              <Group gap="xs">
+                {nodeStats.tags.map((tag) => (
+                  <Badge key={tag} size="sm" variant="outline" color="gray">
+                    {tag}
+                  </Badge>
+                ))}
+              </Group>
+            </div>
+          )}
         </Stack>
       </Card>
 
-      {/* Node Information Cards */}
-      <Grid>
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="blue">
-                  <IconBrandElastic size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  ES Version
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.version || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
-        </Grid.Col>
+      <Tabs defaultValue="details">
+        <Tabs.List>
+          <Tabs.Tab value="details">Details</Tabs.Tab>
+          <Tabs.Tab value="graphs">Graphs</Tabs.Tab>
+          <Tabs.Tab value="thread-pools">Thread Pools</Tabs.Tab>
+        </Tabs.List>
 
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="grape">
-                  <IconCoffee size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  JVM Version
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.jvmVersion || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="teal">
-                  <IconClock size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  Uptime
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.uptime || 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="green">
-                  <IconCpu size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  CPU Usage
-                </Text>
-              </Group>
-              <Text size="lg" fw={700}>
-                {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent)
-                  ? `${formatNumber(nodeStats.cpuPercent, 1)}%`
-                  : 'N/A'}
-              </Text>
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
-          <Card shadow="sm" padding="lg" h="100%">
-            <Stack gap="xs">
-              <Group gap="xs">
-                <ThemeIcon size="sm" variant="light" color="orange">
-                  <IconActivity size={16} />
-                </ThemeIcon>
-                <Text size="sm" c="dimmed">
-                  Load Average
-                </Text>
-              </Group>
-              {nodeStats.loadAverage &&
-              Array.isArray(nodeStats.loadAverage) &&
-              nodeStats.loadAverage.length >= 3 ? (
-                <Group gap="xs">
-                  <div>
-                    <Text size="xs" c="dimmed">
-                      1m
-                    </Text>
-                    <Text size="sm" fw={700}>
-                      {formatNumber(nodeStats.loadAverage[0], 2)}
-                    </Text>
-                  </div>
-                  <div>
-                    <Text size="xs" c="dimmed">
-                      5m
-                    </Text>
-                    <Text size="sm" fw={700}>
-                      {formatNumber(nodeStats.loadAverage[1], 2)}
-                    </Text>
-                  </div>
-                  <div>
-                    <Text size="xs" c="dimmed">
-                      15m
-                    </Text>
-                    <Text size="sm" fw={700}>
-                      {formatNumber(nodeStats.loadAverage[2], 2)}
-                    </Text>
-                  </div>
-                </Group>
-              ) : (
-                <Text size="lg" fw={700}>
-                  N/A
-                </Text>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-      </Grid>
-
-      {/* Memory and Disk Usage */}
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Heap Memory Usage
-              </Text>
-              {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
-                <>
-                  <Progress
-                    value={nodeStats.heapPercent}
-                    color={getColor(nodeStats.heapPercent)}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytesOptional(nodeStats.heapUsed)} / {formatBytesOptional(nodeStats.heapMax)} (
-                    {formatPercent(nodeStats.heapPercent)}%)
-                  </Text>
-                </>
-              ) : (
-                <Text size="xs" c="dimmed">
-                  N/A
-                </Text>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <Card shadow="sm" padding="lg">
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>
-                Disk Usage
-              </Text>
-              {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
-                <>
-                  <Progress
-                    value={nodeStats.diskPercent}
-                    color={getColor(nodeStats.diskPercent)}
-                    size="sm"
-                    radius="xs"
-                  />
-                  <Text size="xs" c="dimmed">
-                    {formatBytesOptional(nodeStats.diskUsed)} / {formatBytesOptional(nodeStats.diskTotal)} (
-                    {formatPercent(nodeStats.diskPercent)}%)
-                  </Text>
-                </>
-              ) : (
-                <Text size="xs" c="dimmed">
-                  N/A
-                </Text>
-              )}
-            </Stack>
-          </Card>
-        </Grid.Col>
-      </Grid>
-
-      {/* Data Node Section - Only show for data nodes */}
-      {nodeStats.roles?.includes('data') && nodeStats.shards && (
-        <Card shadow="sm" padding="lg">
+        <Tabs.Panel value="details" pt="md">
           <Stack gap="md">
-            <Group justify="space-between" align="center">
-              <Title order={3}>Data Node Statistics</Title>
-              <Badge size="lg" variant="light" color="blue">
-                Data Node
-              </Badge>
-            </Group>
-
-            {/* Shard Statistics Summary */}
+            {/* Node Information Cards */}
             <Grid>
-              <Grid.Col span={{ base: 12, sm: 4 }}>
-                <Card withBorder>
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card shadow="sm" padding="lg" h="100%">
                   <Stack gap="xs">
-                    <Text size="sm" c="dimmed">
-                      Total Shards
-                    </Text>
-                    <Text size="xl" fw={700}>
-                      {nodeStats.shards.total}
+                    <Group gap="xs">
+                      <ThemeIcon size="sm" variant="light" color="blue">
+                        <IconBrandElastic size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed">
+                        ES Version
+                      </Text>
+                    </Group>
+                    <Text size="lg" fw={700}>
+                      {nodeStats.version || 'N/A'}
                     </Text>
                   </Stack>
                 </Card>
               </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 4 }}>
-                <Card withBorder>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card shadow="sm" padding="lg" h="100%">
                   <Stack gap="xs">
-                    <Text size="sm" c="dimmed">
-                      Primary Shards
-                    </Text>
-                    <Text size="xl" fw={700} c="blue">
-                      {nodeStats.shards.primary}
+                    <Group gap="xs">
+                      <ThemeIcon size="sm" variant="light" color="grape">
+                        <IconCoffee size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed">
+                        JVM Version
+                      </Text>
+                    </Group>
+                    <Text size="lg" fw={700}>
+                      {nodeStats.jvmVersion || 'N/A'}
                     </Text>
                   </Stack>
                 </Card>
               </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 4 }}>
-                <Card withBorder>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card shadow="sm" padding="lg" h="100%">
                   <Stack gap="xs">
-                    <Text size="sm" c="dimmed">
-                      Replica Shards
+                    <Group gap="xs">
+                      <ThemeIcon size="sm" variant="light" color="teal">
+                        <IconClock size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed">
+                        Uptime
+                      </Text>
+                    </Group>
+                    <Text size="lg" fw={700}>
+                      {nodeStats.uptime || 'N/A'}
                     </Text>
-                    <Text size="xl" fw={700} c="gray">
-                      {nodeStats.shards.replica}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card shadow="sm" padding="lg" h="100%">
+                  <Stack gap="xs">
+                    <Group gap="xs">
+                      <ThemeIcon size="sm" variant="light" color="green">
+                        <IconCpu size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed">
+                        CPU Usage
+                      </Text>
+                    </Group>
+                    <Text size="lg" fw={700}>
+                      {nodeStats.cpuPercent !== undefined && !isNaN(nodeStats.cpuPercent)
+                        ? `${formatNumber(nodeStats.cpuPercent, 1)}%`
+                        : 'N/A'}
                     </Text>
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, sm: 6, md: 2.4 }}>
+                <Card shadow="sm" padding="lg" h="100%">
+                  <Stack gap="xs">
+                    <Group gap="xs">
+                      <ThemeIcon size="sm" variant="light" color="orange">
+                        <IconActivity size={16} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed">
+                        Load Average
+                      </Text>
+                    </Group>
+                    {nodeStats.loadAverage &&
+                    Array.isArray(nodeStats.loadAverage) &&
+                    nodeStats.loadAverage.length >= 3 ? (
+                      <Group gap="xs">
+                        <div>
+                          <Text size="xs" c="dimmed">
+                            1m
+                          </Text>
+                          <Text size="sm" fw={700}>
+                            {formatNumber(nodeStats.loadAverage[0], 2)}
+                          </Text>
+                        </div>
+                        <div>
+                          <Text size="xs" c="dimmed">
+                            5m
+                          </Text>
+                          <Text size="sm" fw={700}>
+                            {formatNumber(nodeStats.loadAverage[1], 2)}
+                          </Text>
+                        </div>
+                        <div>
+                          <Text size="xs" c="dimmed">
+                            15m
+                          </Text>
+                          <Text size="sm" fw={700}>
+                            {formatNumber(nodeStats.loadAverage[2], 2)}
+                          </Text>
+                        </div>
+                      </Group>
+                    ) : (
+                      <Text size="lg" fw={700}>
+                        N/A
+                      </Text>
+                    )}
                   </Stack>
                 </Card>
               </Grid.Col>
             </Grid>
 
-            {/* Clickable Card linking to Shards Tab (uses node id as filter) */}
-              {
-                // Move navigation logic into a single function so we can attach it
-                // to multiple clickable elements and ensure the handler is present
-                // even if some wrapper intercepts events.
-              }
-              <Card
-                withBorder
-                style={{ cursor: 'pointer' }}
-                role="link"
-                tabIndex={0}
-                onClick={() => {
-                  const params = new URLSearchParams(searchParams);
-                  params.set('nodeFilter', nodeStats.id);
-                  params.delete('nodeModal');
-                  params.delete('indexModal');
-                  params.delete('indexTab');
-                  params.delete('shardModal');
-                  setSearchParams(params, { replace: false });
-                  navigateToSection('shards');
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    const params = new URLSearchParams(searchParams);
-                    params.set('nodeFilter', nodeStats.id);
-                    params.delete('nodeModal');
-                    params.delete('indexModal');
-                    params.delete('indexTab');
-                    params.delete('shardModal');
-                    setSearchParams(params, { replace: false });
-                    navigateToSection('shards');
+            {/* Memory and Disk Usage */}
+            <Grid>
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <Card shadow="sm" padding="lg">
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500}>
+                      Heap Memory Usage
+                    </Text>
+                    {nodeStats.heapPercent !== undefined && !isNaN(nodeStats.heapPercent) ? (
+                      <>
+                        <Progress
+                          value={nodeStats.heapPercent}
+                          color={getColor(nodeStats.heapPercent)}
+                          size="sm"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed">
+                          {formatBytesOptional(nodeStats.heapUsed)} / {formatBytesOptional(nodeStats.heapMax)} (
+                          {formatPercent(nodeStats.heapPercent)}%)
+                        </Text>
+                      </>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        N/A
+                      </Text>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <Card shadow="sm" padding="lg">
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500}>
+                      Disk Usage
+                    </Text>
+                    {nodeStats.diskPercent !== undefined && !isNaN(nodeStats.diskPercent) ? (
+                      <>
+                        <Progress
+                          value={nodeStats.diskPercent}
+                          color={getColor(nodeStats.diskPercent)}
+                          size="sm"
+                          radius="xs"
+                        />
+                        <Text size="xs" c="dimmed">
+                          {formatBytesOptional(nodeStats.diskUsed)} / {formatBytesOptional(nodeStats.diskTotal)} (
+                          {formatPercent(nodeStats.diskPercent)}%)
+                        </Text>
+                      </>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        N/A
+                      </Text>
+                    )}
+                  </Stack>
+                </Card>
+              </Grid.Col>
+            </Grid>
+
+            {/* Data Node Section - Only show for data nodes */}
+            {nodeStats.roles?.includes('data') && nodeStats.shards && (
+              <Card shadow="sm" padding="lg">
+                <Stack gap="md">
+                  <Group justify="space-between" align="center">
+                    <Title order={3}>Data Node Statistics</Title>
+                    <Badge size="lg" variant="light" color="blue">
+                      Data Node
+                    </Badge>
+                  </Group>
+
+                  {/* Shard Statistics Summary */}
+                  <Grid>
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <Card withBorder>
+                        <Stack gap="xs">
+                          <Text size="sm" c="dimmed">
+                            Total Shards
+                          </Text>
+                          <Text size="xl" fw={700}>
+                            {nodeStats.shards.total}
+                          </Text>
+                        </Stack>
+                      </Card>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <Card withBorder>
+                        <Stack gap="xs">
+                          <Text size="sm" c="dimmed">
+                            Primary Shards
+                          </Text>
+                          <Text size="xl" fw={700} c="blue">
+                            {nodeStats.shards.primary}
+                          </Text>
+                        </Stack>
+                      </Card>
+                    </Grid.Col>
+                    <Grid.Col span={{ base: 12, sm: 4 }}>
+                      <Card withBorder>
+                        <Stack gap="xs">
+                          <Text size="sm" c="dimmed">
+                            Replica Shards
+                          </Text>
+                          <Text size="xl" fw={700} c="gray">
+                            {nodeStats.shards.replica}
+                          </Text>
+                        </Stack>
+                      </Card>
+                    </Grid.Col>
+                  </Grid>
+
+                  {/* Clickable Card linking to Shards Tab (uses node id as filter) */}
+                  {
+                    // Move navigation logic into a single function so we can attach it
+                    // to multiple clickable elements and ensure the handler is present
+                    // even if some wrapper intercepts events.
                   }
-                }}
-              >
-                <Group
-                  justify="space-between"
-                  align="center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // If we're already on the shards section, update search params to
-                    // set nodeFilter and remove modal params so the modal closes.
-                    try {
-                      const section = currentSection ? currentSection() : undefined;
-                      if (section === 'shards') {
+                  <Card
+                    withBorder
+                    style={{ cursor: 'pointer' }}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => {
+                      const params = new URLSearchParams(searchParams);
+                      params.set('nodeFilter', nodeStats.id);
+                      params.delete('nodeModal');
+                      params.delete('indexModal');
+                      params.delete('indexTab');
+                      params.delete('shardModal');
+                      setSearchParams(params, { replace: false });
+                      navigateToSection('shards');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         const params = new URLSearchParams(searchParams);
                         params.set('nodeFilter', nodeStats.id);
                         params.delete('nodeModal');
@@ -505,313 +536,388 @@ export function NodeDetailContent({
                         params.delete('indexTab');
                         params.delete('shardModal');
                         setSearchParams(params, { replace: false });
-                        return;
+                        navigateToSection('shards');
                       }
-                    } catch {
-                      // Fallback to absolute navigation below
-                    }
-
-                    navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.stopPropagation();
-                      try {
-                        const section = currentSection ? currentSection() : undefined;
-                        if (section === 'shards') {
-                          const params = new URLSearchParams(searchParams);
-                          params.set('nodeFilter', nodeStats.id);
-                          params.delete('nodeModal');
-                          params.delete('indexModal');
-                          params.delete('indexTab');
-                          params.delete('shardModal');
-                          setSearchParams(params, { replace: false });
-                          return;
+                    }}
+                  >
+                    <Group
+                      justify="space-between"
+                      align="center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // If we're already on the shards section, update search params to
+                        // set nodeFilter and remove modal params so the modal closes.
+                        try {
+                          const section = currentSection ? currentSection() : undefined;
+                          if (section === 'shards') {
+                            const params = new URLSearchParams(searchParams);
+                            params.set('nodeFilter', nodeStats.id);
+                            params.delete('nodeModal');
+                            params.delete('indexModal');
+                            params.delete('indexTab');
+                            params.delete('shardModal');
+                            setSearchParams(params, { replace: false });
+                            return;
+                          }
+                        } catch {
+                          // Fallback to absolute navigation below
                         }
-                      } catch {
-                        // Fallback
-                      }
 
-                      navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
-                    }
-                  }}
-                >
-                  <div>
-                    <Text size="sm" fw={500} mb={4}>
-                      View Allocated Shards
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      See all {nodeStats.shards.total} shards allocated to this node in the
-                      cluster shards view
-                    </Text>
-                  </div>
-                  <IconExternalLink size={16} />
-                </Group>
+                        navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          try {
+                            const section = currentSection ? currentSection() : undefined;
+                            if (section === 'shards') {
+                              const params = new URLSearchParams(searchParams);
+                              params.set('nodeFilter', nodeStats.id);
+                              params.delete('nodeModal');
+                              params.delete('indexModal');
+                              params.delete('indexTab');
+                              params.delete('shardModal');
+                              setSearchParams(params, { replace: false });
+                              return;
+                            }
+                          } catch {
+                            // Fallback
+                          }
+
+                          navigate(`/cluster/${clusterId}/shards?nodeFilter=${encodeURIComponent(nodeStats.id)}`);
+                        }
+                      }}
+                    >
+                      <div>
+                        <Text size="sm" fw={500} mb={4}>
+                          View Allocated Shards
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          See all {nodeStats.shards.total} shards allocated to this node in the
+                          cluster shards view
+                        </Text>
+                      </div>
+                      <IconExternalLink size={16} />
+                    </Group>
+                  </Card>
+
+                  {/* Indexing Metrics */}
+                  {nodeStats.indexing && (
+                    <div>
+                      <Title order={4} mb="sm">
+                        Indexing Statistics
+                      </Title>
+                      <Grid>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Documents Indexed
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {nodeStats.indexing.indexTotal.toLocaleString()}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Rate:{' '}
+                                {formatRate(
+                                  nodeStats.indexing.indexTotal,
+                                  nodeStats.indexing.indexTimeInMillis
+                                )}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Indexing Time
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Current: {nodeStats.indexing.indexCurrent}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Index Failures
+                              </Text>
+                              <Text
+                                size="lg"
+                                fw={700}
+                                c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}
+                              >
+                                {nodeStats.indexing.indexFailed.toLocaleString()}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Documents Deleted
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {nodeStats.indexing.deleteTotal.toLocaleString()}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Time: {(nodeStats.indexing.deleteTimeInMillis / 1000).toFixed(2)}s
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                      </Grid>
+                    </div>
+                  )}
+
+                  {/* Search Metrics */}
+                  {nodeStats.search && (
+                    <div>
+                      <Title order={4} mb="sm">
+                        Search Statistics
+                      </Title>
+                      <Grid>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Query Count
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {nodeStats.search.queryTotal.toLocaleString()}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Rate:{' '}
+                                {formatRate(
+                                  nodeStats.search.queryTotal,
+                                  nodeStats.search.queryTimeInMillis
+                                )}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Query Time
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Current: {nodeStats.search.queryCurrent}
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+                          <Card withBorder>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Fetch Count
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {nodeStats.search.fetchTotal.toLocaleString()}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Time: {(nodeStats.search.fetchTimeInMillis / 1000).toFixed(2)}s
+                              </Text>
+                            </Stack>
+                          </Card>
+                        </Grid.Col>
+                      </Grid>
+                    </div>
+                  )}
+
+                  {/* File System Information */}
+                  {nodeStats.fs && (
+                    <div>
+                      <Title order={4} mb="sm">
+                        File System
+                      </Title>
+                      <Card withBorder>
+                        <Grid>
+                          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Total
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {formatBytesOptional(nodeStats.fs.total)}
+                              </Text>
+                            </Stack>
+                          </Grid.Col>
+                          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Available
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {formatBytesOptional(nodeStats.fs.available)}
+                              </Text>
+                            </Stack>
+                          </Grid.Col>
+                          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Used
+                              </Text>
+                              <Text size="lg" fw={700}>
+                                {formatBytesOptional(nodeStats.fs.used)}
+                              </Text>
+                            </Stack>
+                          </Grid.Col>
+                          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+                            <Stack gap="xs">
+                              <Text size="sm" c="dimmed">
+                                Path
+                              </Text>
+                              <Text size="sm" style={{ wordBreak: 'break-all' }}>
+                                {nodeStats.fs.path}
+                              </Text>
+                              <Text size="xs" c="dimmed">
+                                Type: {nodeStats.fs.type}
+                              </Text>
+                            </Stack>
+                          </Grid.Col>
+                        </Grid>
+                      </Card>
+                    </div>
+                  )}
+                </Stack>
               </Card>
-
-            {/* Indexing Metrics */}
-            {nodeStats.indexing && (
-              <div>
-                <Title order={4} mb="sm">
-                  Indexing Statistics
-                </Title>
-                <Grid>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Documents Indexed
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.indexing.indexTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Rate:{' '}
-                          {formatRate(
-                            nodeStats.indexing.indexTotal,
-                            nodeStats.indexing.indexTimeInMillis
-                          )}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Indexing Time
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {(nodeStats.indexing.indexTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Current: {nodeStats.indexing.indexCurrent}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Index Failures
-                        </Text>
-                        <Text
-                          size="lg"
-                          fw={700}
-                          c={nodeStats.indexing.indexFailed > 0 ? 'red' : undefined}
-                        >
-                          {nodeStats.indexing.indexFailed.toLocaleString()}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Documents Deleted
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.indexing.deleteTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Time: {(nodeStats.indexing.deleteTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                </Grid>
-              </div>
-            )}
-
-            {/* Search Metrics */}
-            {nodeStats.search && (
-              <div>
-                <Title order={4} mb="sm">
-                  Search Statistics
-                </Title>
-                <Grid>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Query Count
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.search.queryTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Rate:{' '}
-                          {formatRate(
-                            nodeStats.search.queryTotal,
-                            nodeStats.search.queryTimeInMillis
-                          )}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Query Time
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {(nodeStats.search.queryTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Current: {nodeStats.search.queryCurrent}
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                  <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                    <Card withBorder>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Fetch Count
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {nodeStats.search.fetchTotal.toLocaleString()}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Time: {(nodeStats.search.fetchTimeInMillis / 1000).toFixed(2)}s
-                        </Text>
-                      </Stack>
-                    </Card>
-                  </Grid.Col>
-                </Grid>
-              </div>
-            )}
-
-            {/* File System Information */}
-            {nodeStats.fs && (
-              <div>
-                <Title order={4} mb="sm">
-                  File System
-                </Title>
-                <Card withBorder>
-                  <Grid>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Total
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.total)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Available
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.available)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Used
-                        </Text>
-                        <Text size="lg" fw={700}>
-                          {formatBytesOptional(nodeStats.fs.used)}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-                      <Stack gap="xs">
-                        <Text size="sm" c="dimmed">
-                          Path
-                        </Text>
-                        <Text size="sm" style={{ wordBreak: 'break-all' }}>
-                          {nodeStats.fs.path}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          Type: {nodeStats.fs.type}
-                        </Text>
-                      </Stack>
-                    </Grid.Col>
-                  </Grid>
-                </Card>
-              </div>
             )}
           </Stack>
-        </Card>
-      )}
+        </Tabs.Panel>
 
-      {/* Performance Metrics - Time Series Charts */}
-      <Card shadow="sm" padding="lg">
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Title order={3}>Performance Metrics</Title>
-              <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
-                {isPrometheus ? 'Prometheus' : 'Internal'}
-              </Badge>
-            </Group>
-            {isPrometheus && (
-              <TimeRangePicker
-                selectedTimeRange={selectedTimeRange}
-                onChange={setSelectedTimeRange}
-                opened={timeRangeDropdownOpened}
-                onOpenedChange={setTimeRangeDropdownOpened}
-              />
-            )}
-          </Group>
-          <NodeCharts
-            heapHistory={heapHistory}
-            diskHistory={diskHistory}
-            cpuHistory={cpuHistory}
-            loadHistory={loadHistory}
-            load5History={load5History}
-            load15History={load15History}
-            prometheusQueries={prometheusQueries}
-          />
-        </Stack>
-      </Card>
+        <Tabs.Panel value="graphs" pt="md">
+          <Stack gap="md">
+            <Card shadow="sm" padding="lg">
+              <Stack gap="md">
+                <Group justify="space-between">
+                  <Group gap="xs">
+                    <Title order={3}>Performance Metrics</Title>
+                    <Badge size="sm" variant="light" color={isPrometheus ? 'blue' : 'green'}>
+                      {isPrometheus ? 'Prometheus' : 'Internal'}
+                    </Badge>
+                  </Group>
+                  {isPrometheus && (
+                    <TimeRangePicker
+                      selectedTimeRange={selectedTimeRange}
+                      onChange={setSelectedTimeRange}
+                      opened={timeRangeDropdownOpened}
+                      onOpenedChange={setTimeRangeDropdownOpened}
+                    />
+                  )}
+                </Group>
+                <NodeCharts
+                  heapHistory={heapHistory}
+                  diskHistory={diskHistory}
+                  cpuHistory={cpuHistory}
+                  loadHistory={loadHistory}
+                  load5History={load5History}
+                  load15History={load15History}
+                  prometheusQueries={prometheusQueries}
+                />
+              </Stack>
+            </Card>
 
-      {/* Thread Pool Statistics */}
-      <Card shadow="sm" padding="lg">
-        <Stack gap="md">
-          <Title order={3}>Thread Pool Statistics</Title>
-          <Text size="sm" c="dimmed">
-            Thread pool statistics show the current state of various thread pools in the node. Queue
-            sizes indicate pending work, and rejected counts show when pools are overloaded.
-          </Text>
+            {/* Indexing / Search rate charts */}
+            <Card shadow="sm" padding="lg">
+              <Stack gap="md">
+                <Title order={3}>Indexing &amp; Search Rates</Title>
+                <Grid>
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <TimeSeriesChart
+                      title="Index Rate"
+                      series={[
+                        {
+                          name: 'Index',
+                          color: 'blue',
+                          data: indexRateHistory,
+                        },
+                        {
+                          name: 'Delete',
+                          color: 'red',
+                          data: deleteRateHistory,
+                        },
+                      ]}
+                      valueFormatter={(value: number) => `${value.toFixed(1)}/s`}
+                      tickFormatter={(value: number) => `${value.toFixed(0)}`}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, md: 6 }}>
+                    <TimeSeriesChart
+                      title="Search Rate"
+                      series={[
+                        {
+                          name: 'Query',
+                          color: 'teal',
+                          data: queryRateHistory,
+                        },
+                        {
+                          name: 'Fetch',
+                          color: 'grape',
+                          data: fetchRateHistory,
+                        },
+                      ]}
+                      valueFormatter={(value: number) => `${value.toFixed(1)}/s`}
+                      tickFormatter={(value: number) => `${value.toFixed(0)}`}
+                    />
+                  </Grid.Col>
+                </Grid>
+              </Stack>
+            </Card>
+          </Stack>
+        </Tabs.Panel>
 
-          {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
-            <ScrollArea w="100%">
-              <Table striped highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Pool Name</Table.Th>
-                    <Table.Th>Threads</Table.Th>
-                    <Table.Th>Active</Table.Th>
-                    <Table.Th>Queue</Table.Th>
-                    <Table.Th>Largest</Table.Th>
-                    <Table.Th>Completed</Table.Th>
-                    <Table.Th>Rejected</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {sortedThreadPools.map(([poolName, stats]) => (
-                    <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea>
-          ) : (
-            <Text c="dimmed" ta="center" py="xl">
-              No thread pool statistics available
-            </Text>
-          )}
-        </Stack>
-      </Card>
+        <Tabs.Panel value="thread-pools" pt="md">
+          <Card shadow="sm" padding="lg">
+            <Stack gap="md">
+              <Title order={3}>Thread Pool Statistics</Title>
+              <Text size="sm" c="dimmed">
+                Thread pool statistics show the current state of various thread pools in the node.
+                Queue sizes indicate pending work, and rejected counts show when pools are overloaded.
+              </Text>
+
+              {nodeStats.threadPools && Object.keys(nodeStats.threadPools).length > 0 ? (
+                <ScrollArea w="100%">
+                  <Table striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Pool Name</Table.Th>
+                        <Table.Th>Threads</Table.Th>
+                        <Table.Th>Active</Table.Th>
+                        <Table.Th>Queue</Table.Th>
+                        <Table.Th>Largest</Table.Th>
+                        <Table.Th>Completed</Table.Th>
+                        <Table.Th>Rejected</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {sortedThreadPools.map(([poolName, stats]) => (
+                        <ThreadPoolRow key={poolName} poolName={poolName} stats={stats} />
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </ScrollArea>
+              ) : (
+                <Text c="dimmed" ta="center" py="xl">
+                  No thread pool statistics available
+                </Text>
+              )}
+            </Stack>
+          </Card>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }

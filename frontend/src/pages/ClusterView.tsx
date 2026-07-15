@@ -186,23 +186,19 @@ export function ClusterView() {
   const activeView = activeSection;
 
   // Topology view type state
-  // Query-param-first: prefer ?topologyView=<...> when present so tab switching
-  // is driven purely by search params and does not require pathname routes.
-  const [topologyViewType, setTopologyViewTypeState] = useState<'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage'>(() => {
-    const urlParam = searchParams.get('topologyView') as 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage' | null;
-    if (
-      urlParam === 'node-overview' ||
-      urlParam === 'shard-grid' ||
-      urlParam === 'cluster-map' ||
-      urlParam === 'shard-flow' ||
-      urlParam === 'disk-usage'
-    ) return urlParam;
-    // Strict query-param-only: default to 'node-overview' when not provided.
-    return 'node-overview';
-  });
+  // Derived directly from ?topologyView=<...> so every URL change — tabs,
+  // sidebar links, Back/Forward — switches the view consistently.
+  const topologyViewParam = searchParams.get('topologyView');
+  const topologyViewType: 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage' =
+    topologyViewParam === 'node-overview' ||
+    topologyViewParam === 'shard-grid' ||
+    topologyViewParam === 'cluster-map' ||
+    topologyViewParam === 'shard-flow' ||
+    topologyViewParam === 'disk-usage'
+      ? topologyViewParam
+      : 'node-overview';
 
   const setTopologyViewType = (value: 'node-overview' | 'shard-grid' | 'cluster-map' | 'shard-flow' | 'disk-usage') => {
-    setTopologyViewTypeState(value);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('topologyView', value);
     // Update only the search params so the pathname does not change. Use
@@ -1793,7 +1789,7 @@ export const NodesList = memo(function NodesList({
                   </Table.Th>
                   <Table.Th>Version</Table.Th>
                   {expandedView && <Table.Th>IP Address</Table.Th>}
-                  {expandedView && <Table.Th>Tags</Table.Th>}
+                  <Table.Th>Tags</Table.Th>
                   <Table.Th>Load</Table.Th>
                   <Table.Th>
                     <NodesSortableHeader
@@ -1833,7 +1829,7 @@ export const NodesList = memo(function NodesList({
                   </Table.Th>
                 </Table.Tr>
               </Table.Thead>
-              <TableSkeleton columnCount={expandedView ? 12 : 9} rowCount={6} />
+              <TableSkeleton columnCount={expandedView ? 12 : 10} rowCount={6} />
             </Table>
           </ScrollArea>
         </Card>
@@ -1892,7 +1888,7 @@ export const NodesList = memo(function NodesList({
                 </Table.Th>
                 <Table.Th>Version</Table.Th>
                 {expandedView && <Table.Th>IP Address</Table.Th>}
-                {expandedView && <Table.Th>Tags</Table.Th>}
+                <Table.Th>Tags</Table.Th>
                 <Table.Th>Load</Table.Th>
                 <Table.Th>
                   <NodesSortableHeader
@@ -2005,23 +2001,21 @@ export const NodesList = memo(function NodesList({
                       </Text>
                     </Table.Td>
                   )}
-                  {expandedView && (
-                    <Table.Td>
-                      {node.tags && node.tags.length > 0 ? (
-                        <Group gap="xs">
-                          {node.tags.map((tag) => (
-                            <Badge key={tag} size="sm" variant="outline" color="gray">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </Group>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          -
-                        </Text>
-                      )}
-                    </Table.Td>
-                  )}
+                  <Table.Td>
+                    {node.tags && node.tags.length > 0 ? (
+                      <Group gap="xs">
+                        {node.tags.map((tag) => (
+                          <Badge key={tag} size="sm" variant="outline" color="gray">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </Group>
+                    ) : (
+                      <Text size="xs" c="dimmed">
+                        -
+                      </Text>
+                    )}
+                  </Table.Td>
                   <Table.Td>
                     {node.loadAverage !== undefined && node.loadAverage.length > 0 ? (
                       <Text
