@@ -183,16 +183,22 @@ export function calculateNodeGroups(
     case 'label':
       // Group by label value (extracted from tags)
       if (config.value) {
-        // Specific label value filtering - config.value is the full tag
-        const { value } = extractLabelFromTag(config.value);
-        
+        // config.value is a representative tag for the selected attribute
+        // (e.g. "az_group:eu-west-1a" for attribute "az_group"). Group nodes
+        // by the value each node has for that attribute: one group per value,
+        // "other" only for nodes that lack the attribute entirely.
+        const { name: attributeName } = extractLabelFromTag(config.value);
+
         for (const node of nodes) {
           let groupKey = 'other';
-          
-          if (node.tags && node.tags.includes(config.value)) {
-            groupKey = value; // Use extracted value as group key
+
+          const matchingTag = node.tags?.find(
+            (tag) => extractLabelFromTag(tag).name === attributeName
+          );
+          if (matchingTag) {
+            groupKey = extractLabelFromTag(matchingTag).value;
           }
-          
+
           let group = groups.get(groupKey);
           if (!group) {
             group = [];

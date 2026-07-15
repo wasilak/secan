@@ -47,6 +47,8 @@ export function NodesView({ clusterId }: NodesViewProps) {
     () => ({
       search: searchParams.get('nodesSearch') || '',
       roles: searchParams.get('nodeRoles') || '',
+      attributes: searchParams.get('nodeAttributes') ?? undefined,
+      versions: searchParams.get('nodeVersions') ?? undefined,
     }),
     [searchParams]
   );
@@ -76,6 +78,17 @@ export function NodesView({ clusterId }: NodesViewProps) {
     return Array.from(new Set(roles));
   }, [allNodesUnfiltered]);
 
+  const availableAttributes = useMemo(() => {
+    const tags = allNodesUnfiltered?.items?.flatMap((n) => n.tags ?? []) || [];
+    return Array.from(new Set(tags)).sort();
+  }, [allNodesUnfiltered]);
+
+  const availableVersions = useMemo(() => {
+    const versions =
+      allNodesUnfiltered?.items?.map((n) => n.version).filter((v): v is string => !!v) || [];
+    return Array.from(new Set(versions)).sort();
+  }, [allNodesUnfiltered]);
+
   const nodeRolesParam = searchParams.get('nodeRoles') || '';
   const selectedNodeRoles = nodeRolesParam.split(',').filter(Boolean);
 
@@ -85,6 +98,23 @@ export function NodesView({ clusterId }: NodesViewProps) {
       params.set('nodeRoles', newRoles.join(','));
     } else {
       params.set('nodeRoles', '');
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const selectedNodeAttributes = (searchParams.get('nodeAttributes') || '')
+    .split(',')
+    .filter(Boolean);
+  const selectedNodeVersions = (searchParams.get('nodeVersions') || '').split(',').filter(Boolean);
+
+  // Unlike roles, an empty selection means "no filter" (delete the param);
+  // there is no explicit-empty state for attributes/versions.
+  const updateListParam = (key: string) => (values: string[]) => {
+    const params = new URLSearchParams(searchParams);
+    if (values.length > 0) {
+      params.set(key, values.join(','));
+    } else {
+      params.delete(key);
     }
     setSearchParams(params, { replace: true });
   };
@@ -124,6 +154,32 @@ export function NodesView({ clusterId }: NodesViewProps) {
                 selected: selectedNodeRoles,
                 onChange: updateNodeRoles,
               },
+              ...(availableAttributes.length > 0
+                ? [
+                    {
+                      title: 'Attributes',
+                      options: availableAttributes.map((tag) => ({
+                        label: tag,
+                        value: tag,
+                      })),
+                      selected: selectedNodeAttributes,
+                      onChange: updateListParam('nodeAttributes'),
+                    },
+                  ]
+                : []),
+              ...(availableVersions.length > 0
+                ? [
+                    {
+                      title: 'Version',
+                      options: availableVersions.map((version) => ({
+                        label: version,
+                        value: version,
+                      })),
+                      selected: selectedNodeVersions,
+                      onChange: updateListParam('nodeVersions'),
+                    },
+                  ]
+                : []),
             ]}
           />
           <Stack gap="md" style={{ flex: 1 }}>

@@ -82,6 +82,7 @@ export function TaskDetailsModal({
       try {
         setIsLoading(true);
         setError(null);
+        setTaskDetails(null);
         // Capture current task to avoid TS complaining about potential null
         const currentTask = task;
         const taskId = `${currentTask.node}:${currentTask.id}`;
@@ -110,7 +111,11 @@ export function TaskDetailsModal({
     return null;
   }
 
-  const runningTime = Date.now() - task.start_time_in_millis;
+  // Prefer freshly fetched details over the (possibly stale) list row so fields like
+  // "cancellable" always match the JSON shown below.
+  const displayTask: TaskInfo = taskDetails ?? task;
+
+  const runningTime = Date.now() - displayTask.start_time_in_millis;
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -181,7 +186,7 @@ export function TaskDetailsModal({
                       <tbody>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Task ID:</td>
-                          <td><Text size="sm" fw={500}>{task.id}</Text></td>
+                          <td><Text size="sm" fw={500}>{displayTask.id}</Text></td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Node:</td>
@@ -190,24 +195,24 @@ export function TaskDetailsModal({
                             size="sm"
                             fw={500}
                             className="clickable-name"
-                            onClick={() => openNodeModal?.(task.node)}
+                            onClick={() => openNodeModal?.(displayTask.node)}
                             style={{ textTransform: 'none', padding: 0, margin: 0 }}
                           >
-                            {task.node}
+                            {displayTask.node}
                           </Text>
                         </td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Type:</td>
-                          <td><Badge style={{ textTransform: 'none' }}>{task.type}</Badge></td>
+                          <td><Badge style={{ textTransform: 'none' }}>{displayTask.type}</Badge></td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Action:</td>
-                          <td><Text size="sm" fw={500}>{task.action}</Text></td>
+                          <td><Text size="sm" fw={500}>{displayTask.action}</Text></td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Start Time:</td>
-                          <td><Text size="sm" fw={500}>{formatTimestamp(task.start_time_in_millis)}</Text></td>
+                          <td><Text size="sm" fw={500}>{formatTimestamp(displayTask.start_time_in_millis)}</Text></td>
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Running Time:</td>
@@ -215,15 +220,15 @@ export function TaskDetailsModal({
                         </tr>
                         <tr>
                           <td style={{ color: 'var(--mantine-color-dimmed)' }}>Cancellable:</td>
-                          <td><Badge color={task.cancellable ? 'green' : 'gray'}>{task.cancellable ? 'Yes' : 'No'}</Badge></td>
+                          <td><Badge color={displayTask.cancellable ? 'green' : 'gray'}>{displayTask.cancellable ? 'Yes' : 'No'}</Badge></td>
                         </tr>
-                        {task.parent_task_id && (
+                        {displayTask.parent_task_id && (
                           <tr>
                             <td style={{ color: 'var(--mantine-color-dimmed)' }}>Parent Task:</td>
                             <td>
                               {/* Render parent task as two clickable parts: node and task id */}
                               {(() => {
-                                const p = task.parent_task_id || '';
+                                const p = displayTask.parent_task_id || '';
                                 const idx = p.lastIndexOf(':');
                                 const nodePart = idx === -1 ? p : p.substring(0, idx);
                                 const idPart = idx === -1 ? '' : p.substring(idx + 1);
@@ -265,7 +270,7 @@ export function TaskDetailsModal({
                       </tbody>
                     </Table>
                     {/* Cancel action */}
-                    {task.cancellable && !task.cancelled && (
+                    {displayTask.cancellable && !displayTask.cancelled && (
                       <div style={{ marginTop: '0.5rem' }}>
                         {cancelError && <Alert icon={<IconAlertCircle size={16} />} color="red">{cancelError}</Alert>}
                         <Button color="red" size="sm" onClick={async () => {

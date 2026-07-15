@@ -18,6 +18,7 @@ import { extractLabelFromTag } from '../../utils/topologyGrouping';
 import { SHARD_STATE_COLORS, getShardTypeColor } from '../../utils/colors';
 import type { NodeInfo, ShardInfo, IndexInfo, NodeShardSummary } from '../../types/api';
 import { GroupingControl } from '../../components/Topology/GroupingControl';
+import { getRoleIcon } from '../../components/RoleIcons';
 
 interface TopologyViewProps {
   clusterId: string;
@@ -166,6 +167,10 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
       return nameCompare !== 0 ? nameCompare : a.tag.localeCompare(b.tag);
     });
 
+  // Node role filter — same options as the nodes list view
+  const availableRoles = Array.from(new Set(allNodesArray.flatMap((n) => n.roles ?? [])));
+  const selectedNodeRoles = (searchParams.get('nodeRoles') || '').split(',').filter(Boolean);
+
   return (
     <Grid gap="md" overflow="hidden" style={{ flex: 1, minHeight: 0, height: '100%' }}>
       {/* Stats Row */}
@@ -215,6 +220,37 @@ export function TopologyView(props: TopologyViewProps): ReactElement {
                         setSearchParams(params, { replace: true });
                       },
                     },
+                    ...(topologyViewType === 'node-overview'
+                      ? [
+                          {
+                            title: 'Roles',
+                            options: availableRoles.map((role) => {
+                              const roleInfo = getRoleIcon(role);
+                              const Icon = roleInfo.icon;
+                              return {
+                                label: roleInfo.label,
+                                value: role,
+                                icon: (
+                                  <Icon
+                                    size={14}
+                                    color={`var(--mantine-color-${roleInfo.color}-6)`}
+                                  />
+                                ),
+                              };
+                            }),
+                            selected: selectedNodeRoles,
+                            onChange: (newRoles: string[]) => {
+                              const params = new URLSearchParams(searchParams);
+                              if (newRoles.length > 0) {
+                                params.set('nodeRoles', newRoles.join(','));
+                              } else {
+                                params.delete('nodeRoles');
+                              }
+                              setSearchParams(params, { replace: true });
+                            },
+                          },
+                        ]
+                      : []),
                   ]
             }
             conditionalSections={[

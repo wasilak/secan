@@ -99,7 +99,7 @@ impl IntoResponse for ClusterErrorResponse {
             "access_denied" => StatusCode::FORBIDDEN,
             "unauthorized" | "authentication_required" => StatusCode::UNAUTHORIZED,
             // Not found
-            "cluster_not_found" => StatusCode::NOT_FOUND,
+            "cluster_not_found" | "task_not_found" => StatusCode::NOT_FOUND,
 
             // Rate / concurrency
             "generation_concurrency_limited" => StatusCode::TOO_MANY_REQUESTS,
@@ -1263,6 +1263,12 @@ pub struct NodesQueryParams {
     #[schema(example = "node-1,node-2")]
     #[serde(default)]
     pub nodes: Option<String>, // comma-separated node ids or names
+    #[schema(example = "az_group:eu-west-1a,rack:r1")]
+    #[serde(default)]
+    pub attributes: Option<String>, // comma-separated node attribute tags ("key:value")
+    #[schema(example = "8.11.0,8.12.0")]
+    #[serde(default)]
+    pub versions: Option<String>, // comma-separated node versions
 }
 
 #[utoipa::path(
@@ -1590,6 +1596,18 @@ pub async fn get_nodes(
         filtered
     });
 
+    // Attributes filter: same semantics as roles; values are full tags ("key:value")
+    let attributes_filter: Option<Vec<&str>> = params.attributes.as_ref().map(|a| {
+        let filtered: Vec<&str> = a.split(',').filter(|s| !s.is_empty()).collect();
+        filtered
+    });
+
+    // Versions filter: same semantics as roles
+    let versions_filter: Option<Vec<&str>> = params.versions.as_ref().map(|v| {
+        let filtered: Vec<&str> = v.split(',').filter(|s| !s.is_empty()).collect();
+        filtered
+    });
+
     let filtered_nodes: Vec<NodeInfoResponse> = all_nodes
         .into_iter()
         .filter(|node| {
@@ -1645,6 +1663,42 @@ pub async fn get_nodes(
                     let has_matching_role =
                         node.roles.iter().any(|role| roles.contains(&role.as_str()));
                     if !has_matching_role {
+                        return false;
+                    }
+                }
+            }
+
+            // Attributes filter (node matches if it has ANY of the selected tags)
+            match &attributes_filter {
+                None => {}
+                Some(attrs) if attrs.is_empty() => {
+                    return false;
+                }
+                Some(attrs) => {
+                    let has_matching_attr = node
+                        .tags
+                        .as_ref()
+                        .map(|tags| tags.iter().any(|tag| attrs.contains(&tag.as_str())))
+                        .unwrap_or(false);
+                    if !has_matching_attr {
+                        return false;
+                    }
+                }
+            }
+
+            // Versions filter
+            match &versions_filter {
+                None => {}
+                Some(versions) if versions.is_empty() => {
+                    return false;
+                }
+                Some(versions) => {
+                    let has_matching_version = node
+                        .version
+                        .as_ref()
+                        .map(|v| versions.contains(&v.as_str()))
+                        .unwrap_or(false);
+                    if !has_matching_version {
                         return false;
                     }
                 }

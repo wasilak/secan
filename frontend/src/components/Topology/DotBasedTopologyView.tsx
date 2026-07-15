@@ -154,11 +154,19 @@ export function DotBasedTopologyView({
     progressiveRender();
   }, [clusterId, nodes, initialShards.length, topologyBatchSize]);
 
-  // Apply wildcard filters
+  // Apply wildcard and role filters
+  const selectedNodeRolesParam = searchParams.get('nodeRoles') || '';
   const filteredNodes = useMemo(() => {
-    if (!nodeNameFilter || !matchesWildcard) return nodes;
-    return nodes.filter(node => matchesWildcard(node.name, nodeNameFilter));
-  }, [nodes, nodeNameFilter, matchesWildcard]);
+    let result = nodes;
+    if (nodeNameFilter && matchesWildcard) {
+      result = result.filter(node => matchesWildcard(node.name, nodeNameFilter));
+    }
+    const selectedRoles = selectedNodeRolesParam.split(',').filter(Boolean);
+    if (selectedRoles.length > 0) {
+      result = result.filter(node => node.roles?.some(role => selectedRoles.includes(role)));
+    }
+    return result;
+  }, [nodes, nodeNameFilter, matchesWildcard, selectedNodeRolesParam]);
 
   // Apply all index filters: wildcard, closed, and special
   // Requirements: 4.5 - Filter state persistence
@@ -289,7 +297,14 @@ export function DotBasedTopologyView({
     if (replicaCount > 0) badges.push({ label: `${replicaCount} replica`, color: 'gray' });
 
     const dots = sortedShards.map(shard => ({
-      color: shard.state === 'UNASSIGNED' ? SHARD_STATE_COLORS.UNASSIGNED : getIndexHealthColor(shard.index),
+      // Transitional states keep their dedicated colors; only settled shards
+      // are colored by index health (RELOCATING would otherwise look STARTED).
+      color:
+        shard.state === 'UNASSIGNED'
+          ? SHARD_STATE_COLORS.UNASSIGNED
+          : shard.state === 'RELOCATING'
+            ? SHARD_STATE_COLORS.RELOCATING
+            : getIndexHealthColor(shard.index),
       tooltip: (
         <div>
           <div>Index: <span style={{ textTransform: 'none' }}>{shard.index}</span></div>

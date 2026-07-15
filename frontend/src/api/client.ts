@@ -487,6 +487,8 @@ export class ApiClient {
       search?: string;
       roles?: string; // comma-separated: 'master,data,ingest'
       nodes?: string; // comma-separated node ids or names to filter
+      attributes?: string; // comma-separated node attribute tags ('key:value')
+      versions?: string; // comma-separated node versions
     }
   ): Promise<PaginatedResponse<NodeInfo>> {
     return this.executeWithRetry(async () => {
@@ -503,6 +505,12 @@ export class ApiClient {
       if (filters?.nodes !== undefined) {
         // pass through a comma-separated list of node ids or names
         params.nodes = filters.nodes;
+      }
+      if (filters?.attributes !== undefined) {
+        params.attributes = filters.attributes;
+      }
+      if (filters?.versions !== undefined) {
+        params.versions = filters.versions;
       }
 
       const response = await this.client.get<PaginatedResponse<NodeInfo>>(

@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { LazyRoute } from './components/LazyRoute';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary';
 import { useAuth } from './contexts/AuthContext';
 
 // Protected route component - redirects to login if not authenticated
@@ -131,6 +132,7 @@ export const router = createBrowserRouter([
         <AppShell />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         index: true,

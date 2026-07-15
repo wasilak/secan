@@ -1129,6 +1129,8 @@ export interface components {
          *     Validates: Requirements 4.6, 14.1, 14.2
          */
         NodesQueryParams: {
+            /** @example az_group:eu-west-1a,rack:r1 */
+            attributes?: string | null;
             /** @example node-1,node-2 */
             nodes?: string | null;
             /**
@@ -1147,6 +1149,8 @@ export interface components {
             roles?: string | null;
             /** @example node-1 */
             search?: string;
+            /** @example 8.11.0,8.12.0 */
+            versions?: string | null;
         };
         /** @description OIDC callback query parameters */
         OidcCallbackQuery: {
@@ -1990,6 +1994,8 @@ export interface operations {
                 search: string;
                 roles: string | null;
                 nodes: string | null;
+                attributes: string | null;
+                versions: string | null;
             };
             cookie?: never;
         };

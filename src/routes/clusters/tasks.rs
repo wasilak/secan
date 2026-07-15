@@ -467,7 +467,7 @@ pub async fn get_task_details(
         .map(|r| r.0.as_str().to_string())
         .unwrap_or_default();
 
-    let (_status, _headers, body_vec, _matched_role_label) = match state
+    let (status, _headers, body_vec, _matched_role_label) = match state
         .cluster_manager
         .proxy_request_with_audit(ProxyAuditRequest {
             cluster_id: cluster_id.clone(),
@@ -548,6 +548,27 @@ pub async fn get_task_details(
             format!("Failed to parse JSON: {}", e),
         )
     })?;
+
+    // Elasticsearch returns an error body (e.g. 404 resource_not_found_exception when a
+    // task has completed and its result was not stored). Propagate it as an error instead
+    // of fabricating a task from the error payload.
+    if !status.is_success() {
+        let reason = task_json
+            .get("error")
+            .and_then(|e| e.get("reason"))
+            .and_then(|r| r.as_str())
+            .unwrap_or("Elasticsearch returned an error")
+            .to_string();
+        let code = if status == axum::http::StatusCode::NOT_FOUND {
+            "task_not_found"
+        } else {
+            "elasticsearch_error"
+        };
+        tracing::debug!(cluster_id = %cluster_id, task_id = %task_id, status = %status, "Task details request failed upstream");
+        return Err(crate::routes::clusters::ClusterErrorResponse::simple(
+            code, reason,
+        ));
+    }
 
     // Extract task info and create TaskDetails
     let mut task_value = task_json.get("task").cloned().unwrap_or(task_json.clone());
