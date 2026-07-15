@@ -36,6 +36,7 @@ project/target
 tmp
 test-result
 server.pid
+secan.pid
 *.iml
 *.eml
 activator-*.sbt
