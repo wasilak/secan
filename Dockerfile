@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for Secan
 # Stage 1: Build frontend assets
-FROM node:24-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -45,7 +45,7 @@ RUN cargo build --release --locked \
     --config profile.release.codegen-units=16
 
 # Stage 3: Runtime image
-FROM alpine:3.23
+FROM alpine:3.24
 
 # Image metadata
 LABEL maintainer="Secan Contributors"

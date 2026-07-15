@@ -11,7 +11,7 @@ license = "AGPL-3.0"
 axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip", "trace"] }
+tower-http = { version = "0.7", features = ["fs", "cors", "compression-gzip", "trace"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -26,7 +26,7 @@ metrics-exporter-prometheus = "0.18"
 
 # Configuration
 config = { version = "0.15", features = ["yaml", "toml"] }
-toml = { version = "1.0" }
+toml = { version = "1.1" }
 
 # HTTP client for Elasticsearch communication
 reqwest = { version = "0.13", default-features = false, features = [
