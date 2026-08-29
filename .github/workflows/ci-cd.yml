@@ -251,7 +251,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v6.0.0
+        uses: docker/metadata-action@v6.1.0
         with:
           images: ghcr.io/${{ github.repository }}
           flavor: |
@@ -264,7 +264,7 @@ jobs:
 
       # Build and push platform-specific image (always)
       - name: Build and push ${{ matrix.platform_name }}
-        uses: docker/build-push-action@v7.0.0
+        uses: docker/build-push-action@v7.2.0
         with:
           context: .
           platforms: ${{ matrix.platform }}
@@ -303,7 +303,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v6.0.0
+        uses: docker/metadata-action@v6.1.0
         with:
           images: ghcr.io/${{ github.repository }}
           flavor: |
